@@ -11,41 +11,32 @@ function detectSetup(ind: LatestIndicators): SetupType {
   return "volatile";
 }
 
-// Find local troughs (values lower than both neighbors) in an array
-function findTroughs(arr: number[]): { idx: number; val: number }[] {
-  const troughs: { idx: number; val: number }[] = [];
-  for (let i = 1; i < arr.length - 1; i++) {
-    if (arr[i] < arr[i - 1] && arr[i] < arr[i + 1]) {
-      troughs.push({ idx: i, val: arr[i] });
-    }
-  }
-  return troughs;
+// Split array into two halves and compare minimums — robust with limited weekly data
+function splitHalfMin(arr: number[]): { prevMin: number; prevIdx: number; recentMin: number; recentIdx: number } {
+  const mid = Math.floor(arr.length / 2);
+  const first = arr.slice(0, mid);
+  const second = arr.slice(mid);
+  const prevIdx = first.indexOf(Math.min(...first));
+  const recentIdx = mid + second.indexOf(Math.min(...second));
+  return { prevMin: first[prevIdx], prevIdx, recentMin: second[second.indexOf(Math.min(...second))], recentIdx };
 }
 
 function detectObvHigherLow(obv: number[]): "pass" | "fail" | "unconfirmed" {
-  const troughs = findTroughs(obv);
-  if (troughs.length < 2) return "unconfirmed";
-  const prev = troughs[troughs.length - 2];
-  const recent = troughs[troughs.length - 1];
-  if (recent.val > prev.val) return "pass";
-  if (recent.val < prev.val) return "fail";
+  if (obv.length < 6) return "unconfirmed";
+  const { prevMin, recentMin } = splitHalfMin(obv);
+  if (recentMin > prevMin * 1.001) return "pass";   // recent trough above prior trough
+  if (recentMin < prevMin * 0.999) return "fail";   // recent trough below prior trough
   return "unconfirmed";
 }
 
-function detectRsiDivergence(
-  price: number[],
-  rsi: number[]
-): "pass" | "fail" | "unconfirmed" {
-  const priceTroughs = findTroughs(price);
-  if (priceTroughs.length < 2) return "unconfirmed";
-  const prevP = priceTroughs[priceTroughs.length - 2];
-  const recentP = priceTroughs[priceTroughs.length - 1];
-  // Price must be making a lower low
-  if (recentP.val >= prevP.val) return "unconfirmed"; // no lower low → not applicable
-  const rsiAtPrev = rsi[prevP.idx];
-  const rsiAtRecent = rsi[recentP.idx];
+function detectRsiDivergence(price: number[], rsi: number[]): "pass" | "fail" | "unconfirmed" {
+  if (price.length < 6 || rsi.length < 6) return "unconfirmed";
+  const { prevMin: prevPrice, prevIdx, recentMin: recentPrice, recentIdx } = splitHalfMin(price);
+  // Price must be making a lower low for divergence to apply
+  if (recentPrice >= prevPrice * 0.999) return "unconfirmed"; // no lower low → not applicable
+  const rsiAtPrev = rsi[prevIdx];
+  const rsiAtRecent = rsi[recentIdx];
   if (isNaN(rsiAtPrev) || isNaN(rsiAtRecent)) return "unconfirmed";
-  // Bullish divergence: price lower low but RSI higher low
   return rsiAtRecent > rsiAtPrev ? "pass" : "fail";
 }
 
