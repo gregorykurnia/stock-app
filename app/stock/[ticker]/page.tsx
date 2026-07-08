@@ -30,7 +30,7 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
   async function runClaudeAnalysis(lat: LatestIndicators, ind: Indicators, b: OHLCVBar[], mode: "auto" | "reanalyze") {
     setAnalyzing(true);
     try {
-      const historicalArrays: HistoricalArrays = getHistoricalArrays(b, ind, 10);
+      const historicalArrays: HistoricalArrays = getHistoricalArrays(b, ind, 20);
       const res = await fetch("/api/claude", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -59,7 +59,7 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
         const fetchedBars: OHLCVBar[] = json.bars;
         const ind = calcIndicators(fetchedBars);
         const lat = getLatest(fetchedBars, ind);
-        const hist = getHistoricalArrays(fetchedBars, ind, 10);
+        const hist = getHistoricalArrays(fetchedBars, ind, 20);
 
         setBars(fetchedBars);
         setIndicators(ind);

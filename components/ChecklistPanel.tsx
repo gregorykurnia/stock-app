@@ -11,33 +11,58 @@ function detectSetup(ind: LatestIndicators): SetupType {
   return "volatile";
 }
 
-// Split array into two halves and compare minimums — robust with limited weekly data
-function splitHalfMin(arr: number[]): { prevMin: number; prevIdx: number; recentMin: number; recentIdx: number } {
-  const mid = Math.floor(arr.length / 2);
-  const first = arr.slice(0, mid);
-  const second = arr.slice(mid);
-  const prevIdx = first.indexOf(Math.min(...first));
-  const recentIdx = mid + second.indexOf(Math.min(...second));
-  return { prevMin: first[prevIdx], prevIdx, recentMin: second[second.indexOf(Math.min(...second))], recentIdx };
+// Find the index of the global minimum in an array
+function idxOfMin(arr: number[]): number {
+  return arr.reduce((minI, v, i, a) => (v < a[minI] ? i : minI), 0);
 }
 
 function detectObvHigherLow(obv: number[]): "pass" | "fail" | "unconfirmed" {
-  if (obv.length < 6) return "unconfirmed";
-  const { prevMin, recentMin } = splitHalfMin(obv);
-  if (recentMin > prevMin * 1.001) return "pass";   // recent trough above prior trough
-  if (recentMin < prevMin * 0.999) return "fail";   // recent trough below prior trough
+  if (obv.length < 8) return "unconfirmed";
+
+  const last = obv[obv.length - 1];
+
+  // Check if OBV is in freefall: last 4 bars all making lower lows
+  const tail4 = obv.slice(-4);
+  const freefalling = tail4.every((v, i) => i === 0 || v < tail4[i - 1]);
+  if (freefalling) return "fail";
+
+  // Find the global trough in the full history
+  const troughIdx = idxOfMin(obv);
+  const troughVal = obv[troughIdx];
+  const barsAfterTrough = obv.length - 1 - troughIdx;
+
+  // Trough must have happened at least 2 bars ago (otherwise still bottoming)
+  if (barsAfterTrough < 2) return "unconfirmed";
+
+  // OBV has recovered meaningfully from its trough
+  if (last > troughVal * 1.02) return "pass";
+
   return "unconfirmed";
 }
 
 function detectRsiDivergence(price: number[], rsi: number[]): "pass" | "fail" | "unconfirmed" {
-  if (price.length < 6 || rsi.length < 6) return "unconfirmed";
-  const { prevMin: prevPrice, prevIdx, recentMin: recentPrice, recentIdx } = splitHalfMin(price);
+  if (price.length < 8 || rsi.length < 8) return "unconfirmed";
+
+  // Find price trough in the first 2/3 of history (the "earlier" low)
+  const splitAt = Math.floor(price.length * 2 / 3);
+  const earlyPriceIdx = idxOfMin(price.slice(0, splitAt));
+  const earlyPrice = price[earlyPriceIdx];
+  const earlyRsi = rsi[earlyPriceIdx];
+
+  // Find price trough in the last 1/3 of history (the "recent" low)
+  const recentSlice = price.slice(splitAt);
+  const recentPriceIdxLocal = idxOfMin(recentSlice);
+  const recentPriceIdx = splitAt + recentPriceIdxLocal;
+  const recentPrice = price[recentPriceIdx];
+  const recentRsi = rsi[recentPriceIdx];
+
+  if (isNaN(earlyRsi) || isNaN(recentRsi)) return "unconfirmed";
+
   // Price must be making a lower low for divergence to apply
-  if (recentPrice >= prevPrice * 0.999) return "unconfirmed"; // no lower low → not applicable
-  const rsiAtPrev = rsi[prevIdx];
-  const rsiAtRecent = rsi[recentIdx];
-  if (isNaN(rsiAtPrev) || isNaN(rsiAtRecent)) return "unconfirmed";
-  return rsiAtRecent > rsiAtPrev ? "pass" : "fail";
+  if (recentPrice >= earlyPrice * 0.995) return "unconfirmed"; // no lower low → not applicable
+
+  // Bullish divergence: price lower low but RSI higher low
+  return recentRsi > earlyRsi ? "pass" : "fail";
 }
 
 function buildChecklist(
