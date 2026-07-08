@@ -40,27 +40,33 @@ function detectObvHigherLow(obv: number[]): "pass" | "fail" | "unconfirmed" {
   return "unconfirmed";
 }
 
+// Find actual swing lows: bars lower than `wing` neighbors on each side
+function findSwingLows(arr: number[], wing = 2): { idx: number; val: number }[] {
+  const lows: { idx: number; val: number }[] = [];
+  for (let i = wing; i < arr.length - wing; i++) {
+    let isLow = true;
+    for (let j = 1; j <= wing; j++) {
+      if (arr[i] >= arr[i - j] || arr[i] >= arr[i + j]) { isLow = false; break; }
+    }
+    if (isLow) lows.push({ idx: i, val: arr[i] });
+  }
+  return lows;
+}
+
 function detectRsiDivergence(price: number[], rsi: number[]): "pass" | "fail" | "unconfirmed" {
   if (price.length < 8 || rsi.length < 8) return "unconfirmed";
 
-  // Find the two lowest price points in the history (separated by at least 3 bars)
-  const globalLowIdx = idxOfMin(price);
+  // Try wing=2 first, fall back to wing=1 if not enough swing lows found
+  let swingLows = findSwingLows(price, 2);
+  if (swingLows.length < 2) swingLows = findSwingLows(price, 1);
+  if (swingLows.length < 2) return "unconfirmed";
 
-  // Find the second lowest point, must be at least 3 bars away from the global low
-  let secondLowIdx = -1;
-  let secondLowVal = Infinity;
-  for (let i = 0; i < price.length; i++) {
-    if (Math.abs(i - globalLowIdx) >= 3 && price[i] < secondLowVal) {
-      secondLowVal = price[i];
-      secondLowIdx = i;
-    }
-  }
+  // Take the two lowest swing lows (most significant troughs)
+  const sorted = [...swingLows].sort((a, b) => a.val - b.val);
+  const deepest = sorted.slice(0, 2).sort((a, b) => a.idx - b.idx); // reorder by time
 
-  if (secondLowIdx === -1) return "unconfirmed";
-
-  // Order them: earlyIdx is the one that happened first
-  const earlyIdx = Math.min(globalLowIdx, secondLowIdx);
-  const recentIdx = Math.max(globalLowIdx, secondLowIdx);
+  const earlyIdx = deepest[0].idx;
+  const recentIdx = deepest[1].idx;
   const earlyPrice = price[earlyIdx];
   const recentPrice = price[recentIdx];
   const earlyRsi = rsi[earlyIdx];
@@ -68,10 +74,10 @@ function detectRsiDivergence(price: number[], rsi: number[]): "pass" | "fail" | 
 
   if (isNaN(earlyRsi) || isNaN(recentRsi)) return "unconfirmed";
 
-  // Price must be making a lower low at the recent point
+  // Price must be making a lower low at the recent trough
   if (recentPrice >= earlyPrice * 0.995) return "unconfirmed"; // no lower low → not applicable
 
-  // Bullish divergence: price lower low but RSI higher low
+  // Bullish divergence: price lower low but RSI higher low at the same troughs
   return recentRsi > earlyRsi ? "pass" : "fail";
 }
 
