@@ -3,12 +3,20 @@
 import type { LatestIndicators, SetupType, ChecklistItem } from "@/lib/types";
 
 function detectSetup(ind: LatestIndicators): SetupType {
-  const pricePct = (ind.price - ind.ema20) / ind.ema20;
-  // Rough heuristic — Claude call will refine in Phase 2
-  if (pricePct < -0.35) return "beaten_down";
-  if (pricePct > 0.20) return "parabolic";
-  if (ind.rsi > 65) return "volatile";
-  return "pullback";
+  const ema20VsEma50 = (ind.ema20 - ind.ema50) / ind.ema50;
+  const priceVsEma20 = (ind.price - ind.ema20) / ind.ema20;
+
+  // Rule 1: EMA20 more than 10% below EMA50 → beaten down
+  if (ema20VsEma50 < -0.10) return "beaten_down";
+
+  // Rule 2: Price extended more than 20% above EMA20 and EMA20 above EMA50 → parabolic
+  if (ind.ema20 > ind.ema50 && priceVsEma20 > 0.20) return "parabolic";
+
+  // Rule 3: EMA20 above EMA50 and price pulled back → pullback
+  if (ind.ema20 > ind.ema50) return "pullback";
+
+  // Rule 4: EMAs tangled or no clear trend
+  return "volatile";
 }
 
 function buildChecklist(setup: SetupType, ind: LatestIndicators): ChecklistItem[] {
