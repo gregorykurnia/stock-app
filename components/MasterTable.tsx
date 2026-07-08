@@ -179,10 +179,10 @@ export default function MasterTable({ prices, verdicts, loading, customStocks, p
     else { setSortKey(key); setSortDir("desc"); }
   }
 
-  const Th = ({ label, k, title }: { label: string; k: SortKey; title?: string }) => (
+  const Th = ({ label, k, title, sticky }: { label: string; k: SortKey; title?: string; sticky?: boolean }) => (
     <th
       title={title}
-      className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide cursor-pointer hover:text-gray-900 whitespace-nowrap select-none"
+      className={`px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide cursor-pointer hover:text-gray-900 whitespace-nowrap select-none${sticky ? " sticky left-0 z-20 bg-gray-100 after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-gray-300 after:content-['']" : ""}`}
       onClick={() => toggleSort(k)}
     >
       {label}{sortKey === k ? (sortDir === "desc" ? " ↓" : " ↑") : ""}
@@ -229,7 +229,7 @@ export default function MasterTable({ prices, verdicts, loading, customStocks, p
         <table className="w-full text-sm">
           <thead className="bg-gray-100 border-b border-gray-200">
             <tr>
-              <Th label="Ticker"    k="ticker" />
+              <Th label="Ticker"    k="ticker" sticky />
               <Th label="Industry"  k="industry" />
               <Th label="Score"     k="combined" title="Combined score (seed stocks only)" />
               <Th label="Val"       k="val"      title="Valuation score (seed stocks only)" />
@@ -250,8 +250,8 @@ export default function MasterTable({ prices, verdicts, loading, customStocks, p
           </thead>
           <tbody className="divide-y divide-gray-100">
             {rows.map((r) => (
-              <tr key={r.ticker} className={`hover:bg-gray-50 transition-colors ${r.isCustom ? "bg-blue-50/30" : ""}`}>
-                <td className="px-3 py-2 font-semibold whitespace-nowrap">
+              <tr key={r.ticker} className={`group hover:bg-gray-50 transition-colors ${r.isCustom ? "bg-blue-50/30" : ""}`}>
+                <td className={`px-3 py-2 font-semibold whitespace-nowrap sticky left-0 z-10 after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-gray-200 after:content-[''] group-hover:bg-gray-50 ${r.isCustom ? "bg-blue-50/30 group-hover:bg-blue-100/40" : "bg-white"}`}>
                   <Link href={`/stock/${r.ticker}`} className="text-blue-600 hover:text-blue-800">
                     {r.ticker}
                   </Link>
