@@ -72,17 +72,13 @@ Run these rules in order and stop at the first match:
 
 State your classification in "setup_detected" and "setup_reason" fields. Score ONLY the must-haves for the detected setup — never mix must-haves across checklists.
 
-## STEP 2 — OBV PATTERN ANALYSIS
+## STEP 2 — OBV PATTERN
 
-Analyze obv_history (last 10 weekly values) and classify as ONE of:
-- "clean_staircase" — progressive higher highs and higher lows, healthy accumulation
-- "parabolic_rollover" — sharp near-vertical spike over 2–4 bars to a peak, then falling back; distribution
-- "sustained_downtrend" — consistent lower highs and lower lows over 6+ bars; institutions distributing
-- "higher_low_forming" — OBV fell to a trough, current value is above that trough and recovering (key Checklist 1 signal)
-- "lower_low" — current OBV trough is lower than previous trough; distribution continuing
-- "flat_sideways" — oscillating in a narrow band, no clear direction
+The OBV pattern has been pre-computed algorithmically. You MUST use the "OBV pre-computed analysis" provided in the user message. Do NOT override it based on the raw array.
 
-State in "obv_pattern" field: "[pattern_name] — one sentence explaining what you see in the sequence"
+The algorithmic result distinguishes a structural higher low (trough 2 meaningfully above trough 1, with no lower highs in the overall OBV) from a minor end-of-series bounce off a lower low. A small uptick at the end of a sustained downtrend is classified as "lower_low" or "sustained_downtrend", NOT "higher_low_forming".
+
+Set "obv_pattern" to: "[pre_computed_pattern] — [pre_computed_summary]"
 
 ## STEP 3 — RSI LEVEL ASSESSMENT
 
@@ -105,7 +101,7 @@ Score ONLY the checklist matching your detected setup. Each must-have gets statu
 ### CHECKLIST 1 — Beaten Down
 CRITICAL: EMA20 below EMA50 is the EXPECTED starting condition. Never flag it as a failure. Never apply any Checklist 2B rules here.
 Must-haves:
-1. OBV higher low — compare OBV troughs using obv_history: current trough higher than previous trough → "pass"; lower → "fail"; insufficient history → "unconfirmed"
+1. OBV higher low — use the pre-computed OBV analysis ONLY. "pass" requires pattern = "higher_low_forming" OR "clean_staircase". "fail" = "lower_low" OR "sustained_downtrend" OR "parabolic_rollover". "unconfirmed" = "flat_sideways" or insufficient data. A last-bar uptick on an otherwise declining OBV is NOT a higher low — trust the algorithmic classification.
 2. CMF above zero — CMF > 0.00 → "pass"; -0.10 to 0.00 → "borderline" (note: nearly recovered); below -0.10 → "fail"
 3. DI+ above DI- — DI+ > DI- → "pass"; within 2 points → "borderline"; DI+ < DI- → "fail"
 Confirming signals (not must-haves):
@@ -213,6 +209,13 @@ CMF: ${ind.cmfVal.toFixed(3)}
 DI+: ${ind.diPlus.toFixed(1)}
 DI-: ${ind.diMinus.toFixed(1)}
 ADX: ${ind.adx.toFixed(1)}
+
+OBV pre-computed analysis:
+  pattern: ${hist.obv_analysis.pattern}
+  summary: ${hist.obv_analysis.summary}
+  trough1: ${hist.obv_analysis.trough1 ?? "n/a"}
+  trough2: ${hist.obv_analysis.trough2 ?? "n/a"}
+  trough2_pct_above_trough1: ${hist.obv_analysis.trough2_pct_above_trough1 !== null ? hist.obv_analysis.trough2_pct_above_trough1.toFixed(1) + "% of OBV range" : "n/a"}
 
 OBV history (last 20 weekly closes, oldest→newest): ${fmtArr(hist.obv_history)}
 RSI history (last 20 weekly closes, oldest→newest): ${fmtArr(hist.rsi_history)}

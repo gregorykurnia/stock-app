@@ -45,11 +45,20 @@ export interface ChecklistScoreItem {
   note: string;
 }
 
+export interface OBVAnalysis {
+  pattern: "clean_staircase" | "higher_low_forming" | "lower_low" | "sustained_downtrend" | "parabolic_rollover" | "flat_sideways";
+  trough1: number | null;
+  trough2: number | null;
+  trough2_pct_above_trough1: number | null;
+  summary: string;
+}
+
 export interface HistoricalArrays {
   obv_history: number[];
   rsi_history: number[];
   price_history: number[];
   ema20_history: number[];
+  obv_analysis: OBVAnalysis;
 }
 
 export interface Verdict {
