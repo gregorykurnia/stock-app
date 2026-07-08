@@ -49,6 +49,7 @@ export interface HistoricalArrays {
   obv_history: number[];
   rsi_history: number[];
   price_history: number[];
+  ema20_history: number[];
 }
 
 export interface Verdict {

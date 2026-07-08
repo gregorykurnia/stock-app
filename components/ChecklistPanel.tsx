@@ -43,26 +43,50 @@ function detectObvHigherLow(obv: number[]): "pass" | "fail" | "unconfirmed" {
 function detectRsiDivergence(price: number[], rsi: number[]): "pass" | "fail" | "unconfirmed" {
   if (price.length < 8 || rsi.length < 8) return "unconfirmed";
 
-  // Find price trough in the first 2/3 of history (the "earlier" low)
-  const splitAt = Math.floor(price.length * 2 / 3);
-  const earlyPriceIdx = idxOfMin(price.slice(0, splitAt));
-  const earlyPrice = price[earlyPriceIdx];
-  const earlyRsi = rsi[earlyPriceIdx];
+  // Find the two lowest price points in the history (separated by at least 3 bars)
+  const globalLowIdx = idxOfMin(price);
 
-  // Find price trough in the last 1/3 of history (the "recent" low)
-  const recentSlice = price.slice(splitAt);
-  const recentPriceIdxLocal = idxOfMin(recentSlice);
-  const recentPriceIdx = splitAt + recentPriceIdxLocal;
-  const recentPrice = price[recentPriceIdx];
-  const recentRsi = rsi[recentPriceIdx];
+  // Find the second lowest point, must be at least 3 bars away from the global low
+  let secondLowIdx = -1;
+  let secondLowVal = Infinity;
+  for (let i = 0; i < price.length; i++) {
+    if (Math.abs(i - globalLowIdx) >= 3 && price[i] < secondLowVal) {
+      secondLowVal = price[i];
+      secondLowIdx = i;
+    }
+  }
+
+  if (secondLowIdx === -1) return "unconfirmed";
+
+  // Order them: earlyIdx is the one that happened first
+  const earlyIdx = Math.min(globalLowIdx, secondLowIdx);
+  const recentIdx = Math.max(globalLowIdx, secondLowIdx);
+  const earlyPrice = price[earlyIdx];
+  const recentPrice = price[recentIdx];
+  const earlyRsi = rsi[earlyIdx];
+  const recentRsi = rsi[recentIdx];
 
   if (isNaN(earlyRsi) || isNaN(recentRsi)) return "unconfirmed";
 
-  // Price must be making a lower low for divergence to apply
+  // Price must be making a lower low at the recent point
   if (recentPrice >= earlyPrice * 0.995) return "unconfirmed"; // no lower low → not applicable
 
   // Bullish divergence: price lower low but RSI higher low
   return recentRsi > earlyRsi ? "pass" : "fail";
+}
+
+function detectEma20Turning(ema20: number[]): "pass" | "fail" | "unconfirmed" {
+  if (ema20.length < 4) return "unconfirmed";
+  // Compare slope of last 3 bars vs 3 bars before that
+  const recent = ema20.slice(-3);
+  const prior = ema20.slice(-6, -3);
+  if (prior.length < 3) return "unconfirmed";
+  const recentSlope = recent[2] - recent[0];
+  const priorSlope = prior[2] - prior[0];
+  // EMA20 is turning up if recent slope is positive and/or improving vs prior slope
+  if (recentSlope > 0) return "pass";
+  if (recentSlope > priorSlope * 0.5) return "pass"; // flattening out after steep decline
+  return "fail";
 }
 
 function buildChecklist(
@@ -74,13 +98,13 @@ function buildChecklist(
     const obvStatus = detectObvHigherLow(hist.obv_history);
     const cmfStatus = ind.cmfVal > 0 ? "pass" : ind.cmfVal >= -0.10 ? "borderline" : "fail";
     const rsiStatus = detectRsiDivergence(hist.price_history, hist.rsi_history);
+    const ema20Status = detectEma20Turning(hist.ema20_history);
     return [
       { label: "OBV higher low", mustHave: true, status: obvStatus },
       { label: "CMF above zero", mustHave: true, status: cmfStatus },
       { label: "RSI bullish divergence", mustHave: true, status: rsiStatus },
       { label: "DI+ above DI-", mustHave: false, status: ind.diPlus > ind.diMinus ? "pass" : "fail" },
-      // EMA20 below EMA50 is the expected starting condition — never a failure
-      { label: "EMA20 turning toward EMA50", mustHave: false, status: "unconfirmed" },
+      { label: "EMA20 turning upward", mustHave: false, status: ema20Status },
     ];
   }
   if (setup === "parabolic") {

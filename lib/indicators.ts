@@ -68,6 +68,7 @@ export function getHistoricalArrays(bars: OHLCVBar[], ind: Indicators, n = 10): 
     obv_history: validTail(ind.obv),
     rsi_history: validTail(ind.rsi),
     price_history: bars.slice(-n).map((b) => b.close),
+    ema20_history: validTail(ind.ema20),
   };
 }
 

@@ -211,9 +211,10 @@ DI+: ${ind.diPlus.toFixed(1)}
 DI-: ${ind.diMinus.toFixed(1)}
 ADX: ${ind.adx.toFixed(1)}
 
-OBV history (last 10 weekly closes, oldest→newest): ${fmtArr(hist.obv_history)}
-RSI history (last 10 weekly closes, oldest→newest): ${fmtArr(hist.rsi_history)}
-Price history (last 10 weekly closes, oldest→newest): ${fmtArr(hist.price_history)}`;
+OBV history (last 20 weekly closes, oldest→newest): ${fmtArr(hist.obv_history)}
+RSI history (last 20 weekly closes, oldest→newest): ${fmtArr(hist.rsi_history)}
+Price history (last 20 weekly closes, oldest→newest): ${fmtArr(hist.price_history)}
+EMA20 history (last 20 weekly closes, oldest→newest): ${fmtArr(hist.ema20_history)}`;
 
   const raw = await callClaude(system, user);
   return JSON.parse(raw);
