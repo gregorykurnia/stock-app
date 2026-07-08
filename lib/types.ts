@@ -61,6 +61,29 @@ export interface HistoricalArrays {
   obv_analysis: OBVAnalysis;
 }
 
+export interface CustomStock {
+  ticker: string;
+  name: string;
+  sector: string | null;
+  industry: string | null;
+  // Fundamentals (live from Yahoo)
+  rev_growth: number | null;
+  gross_margin: number | null;
+  op_margin: number | null;
+  net_margin: number | null;
+  fcf_margin: number | null;
+  ebitda_margin: number | null;
+  // Valuation (live from Yahoo)
+  fwd_pe: number | null;
+  peg: number | null;
+  ev_ebitda: number | null;
+  ev_fcf: number | null;
+  price_to_book: number | null;
+  // Meta
+  added_at: string;
+  last_fetched: string;
+}
+
 export interface PortfolioEntry {
   ticker: string;
   entry_price: number;

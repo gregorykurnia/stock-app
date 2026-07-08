@@ -3,13 +3,19 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { SEED_STOCKS, FUNDAMENTALS_RAW, VALUATION_RAW } from "@/lib/seedData";
+import type { CustomStock } from "@/lib/types";
 
-type SortKey = "ticker" | "combined" | "val" | "fund" | "price" | "industry" | "urgency" | "rev_growth" | "gross_margin" | "op_margin" | "fcf_margin" | "fwd_pe" | "peg" | "ev_ebitda";
+type SortKey =
+  | "ticker" | "combined" | "val" | "fund" | "price" | "industry" | "urgency"
+  | "rev_growth" | "gross_margin" | "op_margin" | "net_margin" | "fcf_margin"
+  | "fwd_pe" | "peg" | "ev_ebitda" | "ev_fcf";
 type SortDir = "asc" | "desc";
 
-const pct = (v: number) => `${(v * 100).toFixed(1)}%`;
-const fmt = (v: number | null | undefined, decimals = 1) =>
-  v == null ? <span className="text-gray-400">—</span> : v.toFixed(decimals);
+const pct = (v: number | null | undefined) =>
+  v == null ? <span className="text-gray-400">—</span> : `${(v * 100).toFixed(1)}%`;
+
+const num = (v: number | null | undefined, dec = 1) =>
+  v == null ? <span className="text-gray-400">—</span> : v.toFixed(dec);
 
 const urgencyStyles: Record<string, string> = {
   urgent: "bg-green-100 text-green-700 border border-green-300",
@@ -18,68 +24,143 @@ const urgencyStyles: Record<string, string> = {
   avoid:  "bg-red-100 text-red-700 border border-red-300",
 };
 
-const scoreColor = (s: number) =>
-  s >= 7.5 ? "text-green-600" : s >= 6 ? "text-yellow-600" : "text-red-500";
+const scoreColor = (s: number | null) =>
+  s == null ? "text-gray-400" : s >= 7.5 ? "text-green-600" : s >= 6 ? "text-yellow-600" : "text-red-500";
+
+interface TableRow {
+  ticker: string;
+  name: string | null;
+  industry: string;
+  // Scores (seed only)
+  combined: number | null;
+  val: number | null;
+  fund: number | null;
+  // Raw fundamentals
+  rev_growth: number | null;
+  gross_margin: number | null;
+  op_margin: number | null;
+  net_margin: number | null;
+  fcf_margin: number | null;
+  // Raw valuation
+  fwd_pe: number | null;
+  peg: number | null;
+  ev_ebitda: number | null;
+  ev_fcf: number | null;
+  // Live
+  price: number | null;
+  verdict: { urgency: string; setup: string } | null;
+  isCustom: boolean;
+}
 
 interface Props {
   prices: Record<string, number | null>;
   verdicts: Record<string, { urgency: string; setup: string } | null>;
   loading: boolean;
+  customStocks: CustomStock[];
+  onRemoveCustom: (ticker: string) => void;
 }
 
-export default function MasterTable({ prices, verdicts, loading }: Props) {
+export default function MasterTable({ prices, verdicts, loading, customStocks, onRemoveCustom }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>("combined");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [industryFilter, setIndustryFilter] = useState("all");
   const [urgencyFilter, setUrgencyFilter] = useState("all");
   const [search, setSearch] = useState("");
 
+  const allRows = useMemo((): TableRow[] => {
+    const seedRows: TableRow[] = SEED_STOCKS.map((s) => {
+      const fr = FUNDAMENTALS_RAW[s.ticker];
+      const vr = VALUATION_RAW[s.ticker];
+      return {
+        ticker: s.ticker,
+        name: null,
+        industry: s.industry,
+        combined: s.combined,
+        val: s.val,
+        fund: s.fund,
+        rev_growth: fr?.rev_growth ?? null,
+        gross_margin: fr?.gross_margin ?? null,
+        op_margin: fr?.op_margin ?? null,
+        net_margin: null,
+        fcf_margin: fr?.fcf_margin ?? null,
+        fwd_pe: vr?.fwd_pe ?? null,
+        peg: vr?.peg ?? null,
+        ev_ebitda: vr?.ev_ebitda ?? null,
+        ev_fcf: vr?.ev_fcf ?? null,
+        price: prices[s.ticker] ?? null,
+        verdict: verdicts[s.ticker] ?? null,
+        isCustom: false,
+      };
+    });
+
+    const customRows: TableRow[] = customStocks.map((c) => ({
+      ticker: c.ticker,
+      name: c.name,
+      industry: c.industry ?? c.sector ?? "—",
+      combined: null,
+      val: null,
+      fund: null,
+      rev_growth: c.rev_growth,
+      gross_margin: c.gross_margin,
+      op_margin: c.op_margin,
+      net_margin: c.net_margin,
+      fcf_margin: c.fcf_margin,
+      fwd_pe: c.fwd_pe,
+      peg: c.peg,
+      ev_ebitda: c.ev_ebitda,
+      ev_fcf: c.ev_fcf,
+      price: prices[c.ticker] ?? null,
+      verdict: verdicts[c.ticker] ?? null,
+      isCustom: true,
+    }));
+
+    return [...seedRows, ...customRows];
+  }, [prices, verdicts, customStocks]);
+
   const industries = useMemo(() => {
-    const set = new Set(SEED_STOCKS.map((s) => s.industry));
+    const set = new Set(allRows.map((r) => r.industry));
     return ["all", ...Array.from(set).sort()];
-  }, []);
+  }, [allRows]);
 
   const rows = useMemo(() => {
-    let data = SEED_STOCKS.map((s) => ({
-      ...s,
-      price: prices[s.ticker] ?? null,
-      fund_raw: FUNDAMENTALS_RAW[s.ticker],
-      val_raw: VALUATION_RAW[s.ticker],
-      verdict: verdicts[s.ticker] ?? null,
-    }));
+    let data = [...allRows];
 
     if (industryFilter !== "all") data = data.filter((r) => r.industry === industryFilter);
     if (urgencyFilter !== "all") data = data.filter((r) => r.verdict?.urgency === urgencyFilter);
-    if (search) data = data.filter((r) => r.ticker.includes(search.toUpperCase()));
+    if (search) data = data.filter((r) => r.ticker.includes(search.toUpperCase()) || r.name?.toUpperCase().includes(search.toUpperCase()));
 
     data.sort((a, b) => {
-      let av: number | null = null;
-      let bv: number | null = null;
-
       if (sortKey === "ticker") {
-        return sortDir === "asc"
-          ? a.ticker.localeCompare(b.ticker)
-          : b.ticker.localeCompare(a.ticker);
-      } else if (sortKey === "industry") {
-        return sortDir === "asc"
-          ? a.industry.localeCompare(b.industry)
-          : b.industry.localeCompare(a.industry);
-      } else if (sortKey === "urgency") {
+        return sortDir === "asc" ? a.ticker.localeCompare(b.ticker) : b.ticker.localeCompare(a.ticker);
+      }
+      if (sortKey === "industry") {
+        return sortDir === "asc" ? a.industry.localeCompare(b.industry) : b.industry.localeCompare(a.industry);
+      }
+      if (sortKey === "urgency") {
         const order = ["urgent", "watch", "hold", "avoid", ""];
         const ai = order.indexOf(a.verdict?.urgency ?? "");
         const bi = order.indexOf(b.verdict?.urgency ?? "");
         return sortDir === "asc" ? ai - bi : bi - ai;
-      } else if (sortKey === "combined") { av = a.combined; bv = b.combined; }
-      else if (sortKey === "val")        { av = a.val;      bv = b.val; }
-      else if (sortKey === "fund")       { av = a.fund;     bv = b.fund; }
-      else if (sortKey === "price")      { av = a.price;    bv = b.price; }
-      else if (sortKey === "rev_growth") { av = a.fund_raw?.rev_growth ?? null; bv = b.fund_raw?.rev_growth ?? null; }
-      else if (sortKey === "gross_margin") { av = a.fund_raw?.gross_margin ?? null; bv = b.fund_raw?.gross_margin ?? null; }
-      else if (sortKey === "op_margin")  { av = a.fund_raw?.op_margin ?? null;    bv = b.fund_raw?.op_margin ?? null; }
-      else if (sortKey === "fcf_margin") { av = a.fund_raw?.fcf_margin ?? null;   bv = b.fund_raw?.fcf_margin ?? null; }
-      else if (sortKey === "fwd_pe")     { av = a.val_raw?.fwd_pe ?? null;        bv = b.val_raw?.fwd_pe ?? null; }
-      else if (sortKey === "peg")        { av = a.val_raw?.peg ?? null;           bv = b.val_raw?.peg ?? null; }
-      else if (sortKey === "ev_ebitda")  { av = a.val_raw?.ev_ebitda ?? null;     bv = b.val_raw?.ev_ebitda ?? null; }
+      }
+
+      const keyMap: Record<string, (r: TableRow) => number | null> = {
+        combined: (r) => r.combined,
+        val:      (r) => r.val,
+        fund:     (r) => r.fund,
+        price:    (r) => r.price,
+        rev_growth:   (r) => r.rev_growth,
+        gross_margin: (r) => r.gross_margin,
+        op_margin:    (r) => r.op_margin,
+        net_margin:   (r) => r.net_margin,
+        fcf_margin:   (r) => r.fcf_margin,
+        fwd_pe:   (r) => r.fwd_pe,
+        peg:      (r) => r.peg,
+        ev_ebitda:(r) => r.ev_ebitda,
+        ev_fcf:   (r) => r.ev_fcf,
+      };
+
+      const av = keyMap[sortKey]?.(a) ?? null;
+      const bv = keyMap[sortKey]?.(b) ?? null;
 
       if (av == null && bv == null) return 0;
       if (av == null) return 1;
@@ -88,32 +169,33 @@ export default function MasterTable({ prices, verdicts, loading }: Props) {
     });
 
     return data;
-  }, [prices, verdicts, sortKey, sortDir, industryFilter, urgencyFilter, search]);
+  }, [allRows, sortKey, sortDir, industryFilter, urgencyFilter, search]);
 
   function toggleSort(key: SortKey) {
-    if (sortKey === key) setSortDir(d => d === "asc" ? "desc" : "asc");
+    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     else { setSortKey(key); setSortDir("desc"); }
   }
 
-  const Th = ({ label, k }: { label: string; k: SortKey }) => (
+  const Th = ({ label, k, title }: { label: string; k: SortKey; title?: string }) => (
     <th
-      className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide cursor-pointer hover:text-gray-900 whitespace-nowrap"
+      title={title}
+      className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide cursor-pointer hover:text-gray-900 whitespace-nowrap select-none"
       onClick={() => toggleSort(k)}
     >
-      {label} {sortKey === k ? (sortDir === "desc" ? "↓" : "↑") : ""}
+      {label}{sortKey === k ? (sortDir === "desc" ? " ↓" : " ↑") : ""}
     </th>
   );
 
   return (
     <div className="space-y-3">
       {/* Filters */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2 items-center">
         <input
           type="text"
-          placeholder="Search ticker…"
+          placeholder="Search…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="bg-white border border-gray-300 rounded px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 w-32"
+          className="bg-white border border-gray-300 rounded px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 w-36"
         />
         <select
           value={industryFilter}
@@ -135,8 +217,8 @@ export default function MasterTable({ prices, verdicts, loading }: Props) {
           <option value="hold">Hold</option>
           <option value="avoid">Avoid</option>
         </select>
-        {loading && <span className="text-xs text-gray-400 self-center animate-pulse">Loading prices…</span>}
-        <span className="text-xs text-gray-400 self-center">{rows.length} stocks</span>
+        {loading && <span className="text-xs text-gray-400 animate-pulse">Loading prices…</span>}
+        <span className="text-xs text-gray-400">{rows.length} stocks</span>
       </div>
 
       {/* Table */}
@@ -144,35 +226,45 @@ export default function MasterTable({ prices, verdicts, loading }: Props) {
         <table className="w-full text-sm">
           <thead className="bg-gray-100 border-b border-gray-200">
             <tr>
-              <Th label="Ticker" k="ticker" />
-              <Th label="Industry" k="industry" />
-              <Th label="Score" k="combined" />
-              <Th label="Val" k="val" />
-              <Th label="Fund" k="fund" />
-              <Th label="Price" k="price" />
-              <Th label="Urgency" k="urgency" />
-              <Th label="Rev Gr" k="rev_growth" />
-              <Th label="Gross%" k="gross_margin" />
-              <Th label="Op%" k="op_margin" />
-              <Th label="FCF%" k="fcf_margin" />
-              <Th label="Fwd PE" k="fwd_pe" />
-              <Th label="PEG" k="peg" />
+              <Th label="Ticker"    k="ticker" />
+              <Th label="Industry"  k="industry" />
+              <Th label="Score"     k="combined" title="Combined score (seed stocks only)" />
+              <Th label="Val"       k="val"      title="Valuation score (seed stocks only)" />
+              <Th label="Fund"      k="fund"     title="Fundamentals score (seed stocks only)" />
+              <Th label="Price"     k="price" />
+              <Th label="Urgency"   k="urgency" />
+              <Th label="Rev Gr"    k="rev_growth"   title="Revenue Growth YoY" />
+              <Th label="Gross%"    k="gross_margin" title="Gross Margin" />
+              <Th label="Op%"       k="op_margin"    title="Operating Margin" />
+              <Th label="Net%"      k="net_margin"   title="Net/Profit Margin" />
+              <Th label="FCF%"      k="fcf_margin"   title="Free Cash Flow Margin" />
+              <Th label="Fwd PE"    k="fwd_pe" />
+              <Th label="PEG"       k="peg" />
               <Th label="EV/EBITDA" k="ev_ebitda" />
+              <Th label="EV/FCF"    k="ev_fcf" />
+              <th className="px-3 py-2" />
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {rows.map((r) => (
-              <tr key={r.ticker} className="hover:bg-gray-50 transition-colors">
-                <td className="px-3 py-2 font-semibold">
+              <tr key={r.ticker} className={`hover:bg-gray-50 transition-colors ${r.isCustom ? "bg-blue-50/30" : ""}`}>
+                <td className="px-3 py-2 font-semibold whitespace-nowrap">
                   <Link href={`/stock/${r.ticker}`} className="text-blue-600 hover:text-blue-800">
                     {r.ticker}
                   </Link>
+                  {r.name && <span className="block text-xs text-gray-400 font-normal leading-tight">{r.name}</span>}
                 </td>
-                <td className="px-3 py-2 text-gray-500 text-xs">{r.industry}</td>
-                <td className={`px-3 py-2 font-bold ${scoreColor(r.combined)}`}>{r.combined.toFixed(1)}</td>
-                <td className={`px-3 py-2 ${scoreColor(r.val)}`}>{r.val.toFixed(1)}</td>
-                <td className={`px-3 py-2 ${scoreColor(r.fund)}`}>{r.fund.toFixed(1)}</td>
-                <td className="px-3 py-2 text-gray-900">
+                <td className="px-3 py-2 text-gray-500 text-xs whitespace-nowrap">{r.industry}</td>
+                <td className={`px-3 py-2 font-bold ${scoreColor(r.combined)}`}>
+                  {r.combined != null ? r.combined.toFixed(1) : <span className="text-gray-300">—</span>}
+                </td>
+                <td className={`px-3 py-2 ${scoreColor(r.val)}`}>
+                  {r.val != null ? r.val.toFixed(1) : <span className="text-gray-300">—</span>}
+                </td>
+                <td className={`px-3 py-2 ${scoreColor(r.fund)}`}>
+                  {r.fund != null ? r.fund.toFixed(1) : <span className="text-gray-300">—</span>}
+                </td>
+                <td className="px-3 py-2 text-gray-900 whitespace-nowrap">
                   {r.price != null ? `$${r.price.toFixed(2)}` : <span className="text-gray-400">—</span>}
                 </td>
                 <td className="px-3 py-2">
@@ -182,13 +274,25 @@ export default function MasterTable({ prices, verdicts, loading }: Props) {
                     </span>
                   ) : <span className="text-gray-400 text-xs">—</span>}
                 </td>
-                <td className="px-3 py-2 text-gray-700">{r.fund_raw ? pct(r.fund_raw.rev_growth) : "—"}</td>
-                <td className="px-3 py-2 text-gray-700">{r.fund_raw ? pct(r.fund_raw.gross_margin) : "—"}</td>
-                <td className="px-3 py-2 text-gray-700">{r.fund_raw ? pct(r.fund_raw.op_margin) : "—"}</td>
-                <td className="px-3 py-2 text-gray-700">{r.fund_raw ? pct(r.fund_raw.fcf_margin) : "—"}</td>
-                <td className="px-3 py-2 text-gray-700">{fmt(r.val_raw?.fwd_pe)}</td>
-                <td className="px-3 py-2 text-gray-700">{fmt(r.val_raw?.peg, 2)}</td>
-                <td className="px-3 py-2 text-gray-700">{fmt(r.val_raw?.ev_ebitda)}</td>
+                <td className="px-3 py-2 text-gray-700">{pct(r.rev_growth)}</td>
+                <td className="px-3 py-2 text-gray-700">{pct(r.gross_margin)}</td>
+                <td className="px-3 py-2 text-gray-700">{pct(r.op_margin)}</td>
+                <td className="px-3 py-2 text-gray-700">{pct(r.net_margin)}</td>
+                <td className="px-3 py-2 text-gray-700">{pct(r.fcf_margin)}</td>
+                <td className="px-3 py-2 text-gray-700">{num(r.fwd_pe)}</td>
+                <td className="px-3 py-2 text-gray-700">{num(r.peg, 2)}</td>
+                <td className="px-3 py-2 text-gray-700">{num(r.ev_ebitda)}</td>
+                <td className="px-3 py-2 text-gray-700">{num(r.ev_fcf)}</td>
+                <td className="px-3 py-2">
+                  {r.isCustom && (
+                    <button
+                      onClick={() => onRemoveCustom(r.ticker)}
+                      className="text-red-400 hover:text-red-600 text-xs"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>

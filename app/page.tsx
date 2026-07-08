@@ -4,7 +4,10 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import MasterTable from "@/components/MasterTable";
 import { SEED_STOCKS } from "@/lib/seedData";
-import { loadStockData } from "@/lib/firestore";
+import { loadStockData, getCustomStocks, saveCustomStock, removeCustomStock } from "@/lib/firestore";
+import type { CustomStock } from "@/lib/types";
+
+const SEED_TICKERS = new Set(SEED_STOCKS.map((s) => s.ticker));
 
 export default function Home() {
   const router = useRouter();
@@ -12,14 +15,29 @@ export default function Home() {
   const [prices, setPrices] = useState<Record<string, number | null>>({});
   const [verdicts, setVerdicts] = useState<Record<string, { urgency: string; setup: string } | null>>({});
   const [pricesLoading, setPricesLoading] = useState(true);
+  const [customStocks, setCustomStocks] = useState<CustomStock[]>([]);
+
+  // Add stock modal
+  const [showAdd, setShowAdd] = useState(false);
+  const [addTicker, setAddTicker] = useState("");
+  const [addLoading, setAddLoading] = useState(false);
+  const [addError, setAddError] = useState("");
+
+  async function loadCustomStocks() {
+    const data = await getCustomStocks().catch(() => ({}));
+    const list = Object.entries(data).map(([ticker, d]) => ({ ticker, ...(d as object) } as CustomStock));
+    list.sort((a, b) => a.ticker.localeCompare(b.ticker));
+    setCustomStocks(list);
+    return list;
+  }
 
   useEffect(() => {
-    const tickers = SEED_STOCKS.map((s) => s.ticker).join(",");
+    const seedTickers = SEED_STOCKS.map((s) => s.ticker).join(",");
 
-    // Fetch live prices
-    fetch(`/api/prices?tickers=${tickers}`)
+    // Fetch prices for seed stocks
+    fetch(`/api/prices?tickers=${seedTickers}`)
       .then((r) => r.json())
-      .then((d) => setPrices(d.prices ?? {}))
+      .then((d) => setPrices((p) => ({ ...p, ...(d.prices ?? {}) })))
       .catch(() => {})
       .finally(() => setPricesLoading(false));
 
@@ -36,7 +54,62 @@ export default function Home() {
       });
       setVerdicts(map);
     });
+
+    // Load custom stocks + their prices
+    loadCustomStocks().then((list) => {
+      if (list.length > 0) {
+        const tickers = list.map((s) => s.ticker).join(",");
+        fetch(`/api/prices?tickers=${tickers}`)
+          .then((r) => r.json())
+          .then((d) => setPrices((p) => ({ ...p, ...(d.prices ?? {}) })))
+          .catch(() => {});
+      }
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function handleAddStock(e: React.FormEvent) {
+    e.preventDefault();
+    const sym = addTicker.trim().toUpperCase();
+    if (!sym) return;
+    if (SEED_TICKERS.has(sym)) {
+      setAddError(`${sym} is already in the master table.`);
+      return;
+    }
+    setAddLoading(true);
+    setAddError("");
+    try {
+      const res = await fetch(`/api/fundamentals?ticker=${sym}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to fetch data");
+
+      const entry: CustomStock = {
+        ...data,
+        added_at: new Date().toISOString(),
+        last_fetched: new Date().toISOString(),
+      };
+      await saveCustomStock(sym, entry);
+
+      // Update price map immediately
+      if (data.price != null) {
+        setPrices((p) => ({ ...p, [sym]: data.price }));
+      }
+
+      setAddTicker("");
+      setShowAdd(false);
+      await loadCustomStocks();
+    } catch (err) {
+      setAddError(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setAddLoading(false);
+    }
+  }
+
+  async function handleRemoveCustom(ticker: string) {
+    if (!confirm(`Remove ${ticker} from the master table?`)) return;
+    await removeCustomStock(ticker);
+    await loadCustomStocks();
+  }
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -50,26 +123,88 @@ export default function Home() {
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Stock Analysis</h1>
-            <p className="text-gray-500 text-sm mt-0.5">54 stocks · Weekly framework · AI verdicts</p>
+            <p className="text-gray-500 text-sm mt-0.5">
+              {54 + customStocks.length} stocks · Weekly framework · AI verdicts
+            </p>
           </div>
-          <form onSubmit={handleSearch} className="flex gap-2">
-            <input
-              type="text"
-              value={inputTicker}
-              onChange={(e) => setInputTicker(e.target.value.toUpperCase())}
-              placeholder="Any ticker…"
-              className="bg-white border border-gray-300 rounded-lg px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 w-36 text-sm"
-            />
+          <div className="flex gap-2 flex-wrap">
             <button
-              type="submit"
-              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-colors"
+              onClick={() => { setShowAdd(true); setAddError(""); }}
+              className="bg-gray-800 hover:bg-gray-900 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-colors"
             >
-              Analyze →
+              + Add Stock
             </button>
-          </form>
+            <form onSubmit={handleSearch} className="flex gap-2">
+              <input
+                type="text"
+                value={inputTicker}
+                onChange={(e) => setInputTicker(e.target.value.toUpperCase())}
+                placeholder="Analyze ticker…"
+                className="bg-white border border-gray-300 rounded-lg px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 w-40 text-sm"
+              />
+              <button
+                type="submit"
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-colors"
+              >
+                Analyze →
+              </button>
+            </form>
+          </div>
         </div>
 
-        <MasterTable prices={prices} verdicts={verdicts} loading={pricesLoading} />
+        {/* Add Stock Modal */}
+        {showAdd && (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+            <form
+              onSubmit={handleAddStock}
+              className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm space-y-4"
+            >
+              <div>
+                <h2 className="font-bold text-lg text-gray-900">Add Stock to Master Table</h2>
+                <p className="text-xs text-gray-500 mt-1">Fetches fundamentals + valuation live from Yahoo Finance</p>
+              </div>
+              <div>
+                <label className="text-xs text-gray-500 block mb-1">Ticker Symbol</label>
+                <input
+                  required
+                  autoFocus
+                  value={addTicker}
+                  onChange={(e) => { setAddTicker(e.target.value.toUpperCase()); setAddError(""); }}
+                  placeholder="e.g. TSLA"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono tracking-wider"
+                />
+              </div>
+              {addError && <p className="text-red-500 text-xs">{addError}</p>}
+              {addLoading && (
+                <p className="text-blue-500 text-xs animate-pulse">Fetching data from Yahoo Finance…</p>
+              )}
+              <div className="flex gap-2">
+                <button
+                  type="submit"
+                  disabled={addLoading}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white py-2 rounded-lg text-sm font-semibold"
+                >
+                  {addLoading ? "Fetching…" : "Add"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowAdd(false); setAddError(""); setAddTicker(""); }}
+                  className="flex-1 border border-gray-300 text-gray-600 hover:text-gray-800 py-2 rounded-lg text-sm"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        <MasterTable
+          prices={prices}
+          verdicts={verdicts}
+          loading={pricesLoading}
+          customStocks={customStocks}
+          onRemoveCustom={handleRemoveCustom}
+        />
       </div>
     </main>
   );

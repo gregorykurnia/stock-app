@@ -24,6 +24,22 @@ export async function saveVerdict(ticker: string, verdict: object) {
   await addDoc(histRef, dated);
 }
 
+// Custom stocks (added beyond the 54 seed stocks)
+export async function getCustomStocks(): Promise<Record<string, object>> {
+  const snap = await getDocs(collection(db, "custom_stocks"));
+  const result: Record<string, object> = {};
+  snap.forEach((d) => { result[d.id] = d.data(); });
+  return result;
+}
+
+export async function saveCustomStock(ticker: string, data: object) {
+  await setDoc(doc(db, "custom_stocks", ticker), data);
+}
+
+export async function removeCustomStock(ticker: string) {
+  await deleteDoc(doc(db, "custom_stocks", ticker));
+}
+
 // Portfolio
 export async function getPortfolio(): Promise<Record<string, object>> {
   const snap = await getDocs(collection(db, "portfolio"));
