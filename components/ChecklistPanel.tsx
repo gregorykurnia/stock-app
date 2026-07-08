@@ -90,17 +90,17 @@ const statusIcon: Record<string, string> = {
 };
 
 const statusColor: Record<string, string> = {
-  pass: "text-green-400",
-  fail: "text-red-400",
-  borderline: "text-yellow-400",
-  unconfirmed: "text-slate-500",
+  pass: "text-green-600",
+  fail: "text-red-500",
+  borderline: "text-yellow-600",
+  unconfirmed: "text-gray-400",
 };
 
 const labelColor = (item: ChecklistItem) => {
-  if (item.status === "fail" && item.mustHave) return "text-red-300 font-semibold";
-  if (item.status === "borderline") return "text-yellow-300";
-  if (item.status === "unconfirmed") return "text-slate-400 italic";
-  return "text-slate-300";
+  if (item.status === "fail" && item.mustHave) return "text-red-600 font-semibold";
+  if (item.status === "borderline") return "text-yellow-600";
+  if (item.status === "unconfirmed") return "text-gray-400 italic";
+  return "text-gray-700";
 };
 
 interface Props {
@@ -124,26 +124,26 @@ export default function ChecklistPanel({ indicators, history }: Props) {
   };
 
   return (
-    <div className="bg-slate-800 rounded-lg p-4 space-y-3">
+    <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-wide">Setup Checklist</h2>
-        <span className="text-xs bg-slate-700 px-2 py-1 rounded text-slate-300">
+        <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Setup Checklist</h2>
+        <span className="text-xs bg-gray-100 border border-gray-200 px-2 py-1 rounded text-gray-600">
           {setupLabels[setup]}
         </span>
       </div>
 
-      <div className="text-2xl font-bold text-white">
+      <div className="text-2xl font-bold text-gray-900">
         {passes}/{checklist.length}
-        <span className="text-sm text-slate-400 ml-1">criteria met</span>
+        <span className="text-sm text-gray-400 ml-1">criteria met</span>
       </div>
 
       {mustFails.length > 0 && (
-        <div className="bg-red-900/40 border border-red-700 rounded p-2 text-xs text-red-300">
+        <div className="bg-red-50 border border-red-200 rounded p-2 text-xs text-red-600">
           ❌ Must-have failures: {mustFails.map((c) => c.label).join("; ")}
         </div>
       )}
       {mustUnconfirmed.length > 0 && mustFails.length === 0 && (
-        <div className="bg-slate-700/60 border border-slate-600 rounded p-2 text-xs text-slate-400">
+        <div className="bg-gray-50 border border-gray-200 rounded p-2 text-xs text-gray-500">
           ⚠️ Needs chart verification: {mustUnconfirmed.map((c) => c.label).join("; ")}
         </div>
       )}
@@ -170,15 +170,15 @@ export default function ChecklistPanel({ indicators, history }: Props) {
         ))}
       </ul>
 
-      <div className="border-t border-slate-700 pt-3 grid grid-cols-2 gap-2 text-xs text-slate-400">
-        <div>EMA20: <span className="text-white">{indicators.ema20.toFixed(2)}</span></div>
-        <div>EMA50: <span className="text-white">{indicators.ema50.toFixed(2)}</span></div>
-        <div>RSI: <span className="text-white">{indicators.rsi.toFixed(1)}</span></div>
-        <div>CMF: <span className={indicators.cmfVal > 0 ? "text-green-400" : indicators.cmfVal >= -0.10 ? "text-yellow-400" : "text-red-400"}>{indicators.cmfVal.toFixed(3)}</span></div>
-        <div>DI+: <span className="text-white">{indicators.diPlus.toFixed(1)}</span></div>
-        <div>DI-: <span className="text-white">{indicators.diMinus.toFixed(1)}</span></div>
-        <div>ADX: <span className="text-white">{indicators.adx.toFixed(1)}</span></div>
-        <div>Price: <span className="text-white">${indicators.price.toFixed(2)}</span></div>
+      <div className="border-t border-gray-200 pt-3 grid grid-cols-2 gap-2 text-xs text-gray-500">
+        <div>EMA20: <span className="text-gray-900">{indicators.ema20.toFixed(2)}</span></div>
+        <div>EMA50: <span className="text-gray-900">{indicators.ema50.toFixed(2)}</span></div>
+        <div>RSI: <span className="text-gray-900">{indicators.rsi.toFixed(1)}</span></div>
+        <div>CMF: <span className={indicators.cmfVal > 0 ? "text-green-600" : indicators.cmfVal >= -0.10 ? "text-yellow-600" : "text-red-500"}>{indicators.cmfVal.toFixed(3)}</span></div>
+        <div>DI+: <span className="text-gray-900">{indicators.diPlus.toFixed(1)}</span></div>
+        <div>DI-: <span className="text-gray-900">{indicators.diMinus.toFixed(1)}</span></div>
+        <div>ADX: <span className="text-gray-900">{indicators.adx.toFixed(1)}</span></div>
+        <div>Price: <span className="text-gray-900">${indicators.price.toFixed(2)}</span></div>
       </div>
     </div>
   );

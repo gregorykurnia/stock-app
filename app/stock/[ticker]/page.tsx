@@ -78,17 +78,17 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
   }, [sym]);
 
   return (
-    <main className="min-h-screen bg-slate-900 text-white p-6">
+    <main className="min-h-screen bg-gray-50 text-gray-900 p-6">
       <div className="max-w-5xl mx-auto space-y-6">
         <div className="flex items-center gap-3">
-          <Link href="/" className="text-slate-400 hover:text-white text-sm">← Back</Link>
+          <Link href="/" className="text-gray-500 hover:text-gray-900 text-sm">← Back</Link>
           <h1 className="text-2xl font-bold">{sym}</h1>
-          {loading && <span className="text-slate-500 text-sm animate-pulse">Loading…</span>}
-          {analyzing && !loading && <span className="text-slate-500 text-sm animate-pulse">Analyzing…</span>}
+          {loading && <span className="text-gray-400 text-sm animate-pulse">Loading…</span>}
+          {analyzing && !loading && <span className="text-gray-400 text-sm animate-pulse">Analyzing…</span>}
         </div>
 
         {error && (
-          <div className="bg-red-900/40 border border-red-700 rounded-lg p-3 text-red-300 text-sm">{error}</div>
+          <div className="bg-red-50 border border-red-300 rounded-lg p-3 text-red-700 text-sm">{error}</div>
         )}
 
         {bars.length > 0 && indicators && latest && histArrays && (
@@ -99,7 +99,7 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
             </div>
             <div className="space-y-4">
               {analyzing && !verdict && (
-                <div className="bg-slate-800 rounded-lg p-6 flex items-center justify-center text-slate-400 text-sm">
+                <div className="bg-white border border-gray-200 rounded-lg p-6 flex items-center justify-center text-gray-400 text-sm">
                   <span className="animate-pulse">Running AI analysis…</span>
                 </div>
               )}
