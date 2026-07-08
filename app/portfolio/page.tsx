@@ -112,7 +112,9 @@ function EditTextCell({ value, onSave }: { value: string; onSave: (v: string) =>
 export default function PortfolioPage() {
   const [rows, setRows] = useState<PortfolioRow[]>([]);
   const [prices, setPrices] = useState<Record<string, number | null>>({});
+  const [ema20s, setEma20s] = useState<Record<string, number | null>>({});
   const [loading, setLoading] = useState(true);
+  const [emaLoading, setEmaLoading] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -159,9 +161,34 @@ export default function PortfolioPage() {
 
       if (built.length > 0) {
         const tickers = built.map((r) => r.ticker).join(",");
-        const res = await fetch(`/api/prices?tickers=${tickers}`);
-        const json = await res.json();
-        setPrices(json.prices ?? {});
+
+        // Prices + EMA20s in parallel
+        const [priceRes] = await Promise.all([
+          fetch(`/api/prices?tickers=${tickers}`).then((r) => r.json()),
+        ]);
+        setPrices(priceRes.prices ?? {});
+
+        // EMA20 fetch separately (slower — weekly chart data)
+        setEmaLoading(true);
+        fetch(`/api/ema?tickers=${tickers}`)
+          .then((r) => r.json())
+          .then((d) => {
+            setEma20s(d.ema20 ?? {});
+            // Auto-save EMA20 as stop for any position where stop is still 0
+            built.forEach((row) => {
+              const ema = d.ema20?.[row.ticker];
+              if (ema && row.stop_level === 0) {
+                const rounded = parseFloat(ema.toFixed(2));
+                savePortfolioEntry(row.ticker, {
+                  shares: row.shares, entry_price: row.entry_price,
+                  stop_level: rounded, date_entered: row.date_entered, notes: row.notes,
+                });
+                setRows((prev) => prev.map((r) => r.ticker === row.ticker ? { ...r, stop_level: rounded } : r));
+              }
+            });
+          })
+          .catch(() => {})
+          .finally(() => setEmaLoading(false));
       }
     } finally {
       setLoading(false);
@@ -202,7 +229,7 @@ export default function PortfolioPage() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Portfolio</h1>
             <p className="text-gray-500 text-sm mt-0.5">
-              Added from master table · Click any value to edit inline
+              Added from master table · Click any value to edit inline · Stop defaults to EMA20 weekly{emaLoading && <span className="ml-2 text-blue-400 animate-pulse">Fetching EMA20s…</span>}
             </p>
           </div>
           <Link href="/" className="text-sm text-blue-600 hover:text-blue-800">
@@ -243,7 +270,7 @@ export default function PortfolioPage() {
                 <tr>
                   {[
                     "Ticker", "Price", "Shares ✎", "Entry ✎", "Cost Basis",
-                    "Mkt Value", "P&L $", "P&L %", "Stop ✎", "Stop Dist",
+                    "Mkt Value", "P&L $", "P&L %", "Stop ✎ (EMA20w)", "Stop Dist",
                     "Rev Gr", "Gross%", "Op%", "Net%", "FCF%",
                     "Fwd PE", "PEG", "EV/EBITDA",
                     "Notes ✎", "Date", "",
@@ -289,6 +316,11 @@ export default function PortfolioPage() {
                       </td>
                       <td className="px-3 py-2">
                         <EditCell value={r.stop_level} prefix="$" onSave={(v) => updateField(r.ticker, "stop_level", v)} />
+                        {ema20s[r.ticker] != null && Math.abs((ema20s[r.ticker] ?? 0) - r.stop_level) > 0.01 && (
+                          <span className="block text-xs text-gray-400 leading-tight">
+                            EMA20w: ${(ema20s[r.ticker] ?? 0).toFixed(2)}
+                          </span>
+                        )}
                       </td>
                       <td className={`px-3 py-2 font-medium whitespace-nowrap ${stopDist != null ? (stopDist < 0.05 ? "text-red-500" : stopDist < 0.10 ? "text-yellow-600" : "text-green-600") : "text-gray-400"}`}>
                         {stopDist != null ? `${(stopDist * 100).toFixed(1)}%` : "—"}
