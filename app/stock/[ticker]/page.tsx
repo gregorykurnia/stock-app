@@ -23,6 +23,7 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
   const [bars, setBars] = useState<OHLCVBar[]>([]);
   const [indicators, setIndicators] = useState<Indicators | null>(null);
   const [latest, setLatest] = useState<LatestIndicators | null>(null);
+  const [histArrays, setHistArrays] = useState<HistoricalArrays | null>(null);
   const [verdict, setVerdict] = useState<Verdict | null>(null);
   const [businessQuality, setBusinessQuality] = useState<BusinessQuality>(null);
 
@@ -58,10 +59,12 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
         const fetchedBars: OHLCVBar[] = json.bars;
         const ind = calcIndicators(fetchedBars);
         const lat = getLatest(fetchedBars, ind);
+        const hist = getHistoricalArrays(fetchedBars, ind, 10);
 
         setBars(fetchedBars);
         setIndicators(ind);
         setLatest(lat);
+        setHistArrays(hist);
         setLoading(false);
 
         await runClaudeAnalysis(lat, ind, fetchedBars, "auto");
@@ -88,11 +91,11 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
           <div className="bg-red-900/40 border border-red-700 rounded-lg p-3 text-red-300 text-sm">{error}</div>
         )}
 
-        {bars.length > 0 && indicators && latest && (
+        {bars.length > 0 && indicators && latest && histArrays && (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <div className="lg:col-span-2 space-y-4">
               <StockChart bars={bars} indicators={indicators} />
-              <ChecklistPanel indicators={latest} />
+              <ChecklistPanel indicators={latest} history={histArrays} />
             </div>
             <div className="space-y-4">
               {analyzing && !verdict && (

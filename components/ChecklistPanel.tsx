@@ -1,46 +1,91 @@
 "use client";
 
-import type { LatestIndicators, SetupType, ChecklistItem } from "@/lib/types";
+import type { LatestIndicators, HistoricalArrays, SetupType, ChecklistItem } from "@/lib/types";
 
 function detectSetup(ind: LatestIndicators): SetupType {
   const ema20VsEma50 = (ind.ema20 - ind.ema50) / ind.ema50;
   const priceVsEma20 = (ind.price - ind.ema20) / ind.ema20;
-
   if (ema20VsEma50 < -0.10) return "beaten_down";
   if (ind.ema20 > ind.ema50 && priceVsEma20 > 0.20) return "parabolic";
   if (ind.ema20 > ind.ema50) return "pullback";
   return "volatile";
 }
 
-function buildChecklist(setup: SetupType, ind: LatestIndicators): ChecklistItem[] {
+// Find local troughs (values lower than both neighbors) in an array
+function findTroughs(arr: number[]): { idx: number; val: number }[] {
+  const troughs: { idx: number; val: number }[] = [];
+  for (let i = 1; i < arr.length - 1; i++) {
+    if (arr[i] < arr[i - 1] && arr[i] < arr[i + 1]) {
+      troughs.push({ idx: i, val: arr[i] });
+    }
+  }
+  return troughs;
+}
+
+function detectObvHigherLow(obv: number[]): "pass" | "fail" | "unconfirmed" {
+  const troughs = findTroughs(obv);
+  if (troughs.length < 2) return "unconfirmed";
+  const prev = troughs[troughs.length - 2];
+  const recent = troughs[troughs.length - 1];
+  if (recent.val > prev.val) return "pass";
+  if (recent.val < prev.val) return "fail";
+  return "unconfirmed";
+}
+
+function detectRsiDivergence(
+  price: number[],
+  rsi: number[]
+): "pass" | "fail" | "unconfirmed" {
+  const priceTroughs = findTroughs(price);
+  if (priceTroughs.length < 2) return "unconfirmed";
+  const prevP = priceTroughs[priceTroughs.length - 2];
+  const recentP = priceTroughs[priceTroughs.length - 1];
+  // Price must be making a lower low
+  if (recentP.val >= prevP.val) return "unconfirmed"; // no lower low → not applicable
+  const rsiAtPrev = rsi[prevP.idx];
+  const rsiAtRecent = rsi[recentP.idx];
+  if (isNaN(rsiAtPrev) || isNaN(rsiAtRecent)) return "unconfirmed";
+  // Bullish divergence: price lower low but RSI higher low
+  return rsiAtRecent > rsiAtPrev ? "pass" : "fail";
+}
+
+function buildChecklist(
+  setup: SetupType,
+  ind: LatestIndicators,
+  hist: HistoricalArrays
+): ChecklistItem[] {
   if (setup === "beaten_down") {
-    // CMF: pass >0, borderline -0.10 to 0, fail <-0.10
+    const obvStatus = detectObvHigherLow(hist.obv_history);
     const cmfStatus = ind.cmfVal > 0 ? "pass" : ind.cmfVal >= -0.10 ? "borderline" : "fail";
+    const rsiStatus = detectRsiDivergence(hist.price_history, hist.rsi_history);
     return [
-      // OBV higher low and RSI divergence require chart visual — always unconfirmed here
-      { label: "OBV higher low", mustHave: true, status: "unconfirmed" },
+      { label: "OBV higher low", mustHave: true, status: obvStatus },
       { label: "CMF above zero", mustHave: true, status: cmfStatus },
-      { label: "RSI bullish divergence", mustHave: true, status: "unconfirmed" },
+      { label: "RSI bullish divergence", mustHave: true, status: rsiStatus },
       { label: "DI+ above DI-", mustHave: false, status: ind.diPlus > ind.diMinus ? "pass" : "fail" },
-      // EMA20 below EMA50 is expected — never a failure on beaten-down
+      // EMA20 below EMA50 is the expected starting condition — never a failure
       { label: "EMA20 turning toward EMA50", mustHave: false, status: "unconfirmed" },
     ];
   }
   if (setup === "parabolic") {
     const priceVsEma20 = Math.abs((ind.price - ind.ema20) / ind.ema20);
+    const obvTrend = hist.obv_history;
+    const obvRising = obvTrend[obvTrend.length - 1] >= obvTrend[0];
     return [
       { label: "Price within 20% of EMA20 weekly", mustHave: true, status: priceVsEma20 < 0.20 ? "pass" : "fail" },
       { label: "RSI below 65", mustHave: true, status: ind.rsi < 65 ? "pass" : "fail" },
-      { label: "OBV confirming (visual check)", mustHave: true, status: "unconfirmed" },
+      { label: "OBV confirming (no divergence)", mustHave: true, status: obvRising ? "pass" : "fail" },
       { label: "ADX 25–45", mustHave: false, status: ind.adx >= 25 && ind.adx <= 45 ? "pass" : "fail" },
       { label: "EMA20 vs EMA50 gap under 25%", mustHave: false, status: Math.abs((ind.ema20 - ind.ema50) / ind.ema50) < 0.25 ? "pass" : "fail" },
     ];
   }
   if (setup === "pullback") {
+    const obvTrend = hist.obv_history;
+    const obvFlatOrRising = obvTrend[obvTrend.length - 1] >= obvTrend[0] * 0.97;
     const cmfStatus = ind.cmfVal > -0.15 ? "pass" : ind.cmfVal >= -0.20 ? "borderline" : "fail";
     return [
       { label: "EMA20 above EMA50", mustHave: true, status: ind.ema20 > ind.ema50 ? "pass" : "fail" },
-      { label: "OBV flat or rising (visual check)", mustHave: true, status: "unconfirmed" },
+      { label: "OBV flat or rising", mustHave: true, status: obvFlatOrRising ? "pass" : "fail" },
       { label: "DI+ above DI-", mustHave: true, status: ind.diPlus > ind.diMinus ? "pass" : "fail" },
       { label: "Price at or above EMA50", mustHave: false, status: ind.price >= ind.ema50 ? "pass" : "fail" },
       { label: "RSI 40–55", mustHave: false, status: ind.rsi >= 40 && ind.rsi <= 55 ? "pass" : "fail" },
@@ -76,11 +121,12 @@ const labelColor = (item: ChecklistItem) => {
 
 interface Props {
   indicators: LatestIndicators;
+  history: HistoricalArrays;
 }
 
-export default function ChecklistPanel({ indicators }: Props) {
+export default function ChecklistPanel({ indicators, history }: Props) {
   const setup = detectSetup(indicators);
-  const checklist = buildChecklist(setup, indicators);
+  const checklist = buildChecklist(setup, indicators, history);
 
   const passes = checklist.filter((c) => c.status === "pass").length;
   const mustFails = checklist.filter((c) => c.mustHave && c.status === "fail");
@@ -114,7 +160,7 @@ export default function ChecklistPanel({ indicators }: Props) {
       )}
       {mustUnconfirmed.length > 0 && mustFails.length === 0 && (
         <div className="bg-slate-700/60 border border-slate-600 rounded p-2 text-xs text-slate-400">
-          ⚠️ Must-haves need chart verification: {mustUnconfirmed.map((c) => c.label).join("; ")}
+          ⚠️ Needs chart verification: {mustUnconfirmed.map((c) => c.label).join("; ")}
         </div>
       )}
 
