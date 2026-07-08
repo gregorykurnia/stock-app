@@ -4,7 +4,7 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { SEED_STOCKS, FUNDAMENTALS_RAW, VALUATION_RAW } from "@/lib/seedData";
 
-type SortKey = "ticker" | "combined" | "val" | "fund" | "price" | "rev_growth" | "gross_margin" | "op_margin" | "fcf_margin" | "fwd_pe" | "peg" | "ev_ebitda";
+type SortKey = "ticker" | "combined" | "val" | "fund" | "price" | "industry" | "urgency" | "rev_growth" | "gross_margin" | "op_margin" | "fcf_margin" | "fwd_pe" | "peg" | "ev_ebitda";
 type SortDir = "asc" | "desc";
 
 const pct = (v: number) => `${(v * 100).toFixed(1)}%`;
@@ -60,6 +60,15 @@ export default function MasterTable({ prices, verdicts, loading }: Props) {
         return sortDir === "asc"
           ? a.ticker.localeCompare(b.ticker)
           : b.ticker.localeCompare(a.ticker);
+      } else if (sortKey === "industry") {
+        return sortDir === "asc"
+          ? a.industry.localeCompare(b.industry)
+          : b.industry.localeCompare(a.industry);
+      } else if (sortKey === "urgency") {
+        const order = ["urgent", "watch", "hold", "avoid", ""];
+        const ai = order.indexOf(a.verdict?.urgency ?? "");
+        const bi = order.indexOf(b.verdict?.urgency ?? "");
+        return sortDir === "asc" ? ai - bi : bi - ai;
       } else if (sortKey === "combined") { av = a.combined; bv = b.combined; }
       else if (sortKey === "val")        { av = a.val;      bv = b.val; }
       else if (sortKey === "fund")       { av = a.fund;     bv = b.fund; }
@@ -136,12 +145,12 @@ export default function MasterTable({ prices, verdicts, loading }: Props) {
           <thead className="bg-gray-100 border-b border-gray-200">
             <tr>
               <Th label="Ticker" k="ticker" />
-              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Industry</th>
+              <Th label="Industry" k="industry" />
               <Th label="Score" k="combined" />
               <Th label="Val" k="val" />
               <Th label="Fund" k="fund" />
               <Th label="Price" k="price" />
-              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Urgency</th>
+              <Th label="Urgency" k="urgency" />
               <Th label="Rev Gr" k="rev_growth" />
               <Th label="Gross%" k="gross_margin" />
               <Th label="Op%" k="op_margin" />

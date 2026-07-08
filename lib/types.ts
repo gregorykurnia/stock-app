@@ -61,6 +61,24 @@ export interface HistoricalArrays {
   obv_analysis: OBVAnalysis;
 }
 
+export interface PortfolioEntry {
+  ticker: string;
+  entry_price: number;
+  position_size_pct: number;
+  stop_level: number;
+  date_entered: string;
+  notes?: string;
+}
+
+export interface WatchlistEntry {
+  ticker: string;
+  alert_price: number;
+  entry_zone: string;
+  verdict: string;
+  date_added: string;
+  notes?: string;
+}
+
 export interface Verdict {
   // Core fields (always present)
   setup: SetupType;
