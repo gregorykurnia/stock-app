@@ -45,12 +45,12 @@ export default function Home() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-900 text-white p-6">
+    <main className="min-h-screen bg-gray-50 text-gray-900 p-6">
       <div className="max-w-screen-xl mx-auto space-y-6">
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-white">Stock Analysis</h1>
-            <p className="text-slate-400 text-sm mt-0.5">54 stocks · Weekly framework · AI verdicts</p>
+            <h1 className="text-2xl font-bold text-gray-900">Stock Analysis</h1>
+            <p className="text-gray-500 text-sm mt-0.5">54 stocks · Weekly framework · AI verdicts</p>
           </div>
           <form onSubmit={handleSearch} className="flex gap-2">
             <input
@@ -58,11 +58,11 @@ export default function Home() {
               value={inputTicker}
               onChange={(e) => setInputTicker(e.target.value.toUpperCase())}
               placeholder="Any ticker…"
-              className="bg-slate-800 border border-slate-700 rounded-lg px-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-blue-500 w-36 text-sm"
+              className="bg-white border border-gray-300 rounded-lg px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 w-36 text-sm"
             />
             <button
               type="submit"
-              className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg font-semibold text-sm transition-colors"
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-colors"
             >
               Analyze →
             </button>

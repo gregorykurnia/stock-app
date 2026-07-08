@@ -9,17 +9,17 @@ type SortDir = "asc" | "desc";
 
 const pct = (v: number) => `${(v * 100).toFixed(1)}%`;
 const fmt = (v: number | null | undefined, decimals = 1) =>
-  v == null ? <span className="text-slate-600">—</span> : v.toFixed(decimals);
+  v == null ? <span className="text-gray-400">—</span> : v.toFixed(decimals);
 
 const urgencyStyles: Record<string, string> = {
-  urgent: "bg-green-600/20 text-green-400 border border-green-700",
-  watch:  "bg-yellow-600/20 text-yellow-400 border border-yellow-700",
-  hold:   "bg-blue-600/20 text-blue-400 border border-blue-700",
-  avoid:  "bg-red-600/20 text-red-400 border border-red-700",
+  urgent: "bg-green-100 text-green-700 border border-green-300",
+  watch:  "bg-yellow-100 text-yellow-700 border border-yellow-300",
+  hold:   "bg-blue-100 text-blue-700 border border-blue-300",
+  avoid:  "bg-red-100 text-red-700 border border-red-300",
 };
 
 const scoreColor = (s: number) =>
-  s >= 7.5 ? "text-green-400" : s >= 6 ? "text-yellow-400" : "text-red-400";
+  s >= 7.5 ? "text-green-600" : s >= 6 ? "text-yellow-600" : "text-red-500";
 
 interface Props {
   prices: Record<string, number | null>;
@@ -88,7 +88,7 @@ export default function MasterTable({ prices, verdicts, loading }: Props) {
 
   const Th = ({ label, k }: { label: string; k: SortKey }) => (
     <th
-      className="px-3 py-2 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide cursor-pointer hover:text-white whitespace-nowrap"
+      className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide cursor-pointer hover:text-gray-900 whitespace-nowrap"
       onClick={() => toggleSort(k)}
     >
       {label} {sortKey === k ? (sortDir === "desc" ? "↓" : "↑") : ""}
@@ -104,12 +104,12 @@ export default function MasterTable({ prices, verdicts, loading }: Props) {
           placeholder="Search ticker…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-white placeholder-slate-500 w-32"
+          className="bg-white border border-gray-300 rounded px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 w-32"
         />
         <select
           value={industryFilter}
           onChange={(e) => setIndustryFilter(e.target.value)}
-          className="bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-white"
+          className="bg-white border border-gray-300 rounded px-3 py-1.5 text-sm text-gray-900"
         >
           {industries.map((i) => (
             <option key={i} value={i}>{i === "all" ? "All Industries" : i}</option>
@@ -118,7 +118,7 @@ export default function MasterTable({ prices, verdicts, loading }: Props) {
         <select
           value={urgencyFilter}
           onChange={(e) => setUrgencyFilter(e.target.value)}
-          className="bg-slate-800 border border-slate-700 rounded px-3 py-1.5 text-sm text-white"
+          className="bg-white border border-gray-300 rounded px-3 py-1.5 text-sm text-gray-900"
         >
           <option value="all">All Urgency</option>
           <option value="urgent">Urgent</option>
@@ -126,22 +126,22 @@ export default function MasterTable({ prices, verdicts, loading }: Props) {
           <option value="hold">Hold</option>
           <option value="avoid">Avoid</option>
         </select>
-        {loading && <span className="text-xs text-slate-500 self-center animate-pulse">Loading prices…</span>}
-        <span className="text-xs text-slate-500 self-center">{rows.length} stocks</span>
+        {loading && <span className="text-xs text-gray-400 self-center animate-pulse">Loading prices…</span>}
+        <span className="text-xs text-gray-400 self-center">{rows.length} stocks</span>
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-lg border border-slate-700">
+      <div className="overflow-x-auto rounded-lg border border-gray-200">
         <table className="w-full text-sm">
-          <thead className="bg-slate-800 border-b border-slate-700">
+          <thead className="bg-gray-100 border-b border-gray-200">
             <tr>
               <Th label="Ticker" k="ticker" />
-              <th className="px-3 py-2 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">Industry</th>
+              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Industry</th>
               <Th label="Score" k="combined" />
               <Th label="Val" k="val" />
               <Th label="Fund" k="fund" />
               <Th label="Price" k="price" />
-              <th className="px-3 py-2 text-left text-xs font-semibold text-slate-400 uppercase tracking-wide">Urgency</th>
+              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Urgency</th>
               <Th label="Rev Gr" k="rev_growth" />
               <Th label="Gross%" k="gross_margin" />
               <Th label="Op%" k="op_margin" />
@@ -151,35 +151,35 @@ export default function MasterTable({ prices, verdicts, loading }: Props) {
               <Th label="EV/EBITDA" k="ev_ebitda" />
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-800">
+          <tbody className="divide-y divide-gray-100">
             {rows.map((r) => (
-              <tr key={r.ticker} className="hover:bg-slate-800/50 transition-colors">
+              <tr key={r.ticker} className="hover:bg-gray-50 transition-colors">
                 <td className="px-3 py-2 font-semibold">
-                  <Link href={`/stock/${r.ticker}`} className="text-blue-400 hover:text-blue-300">
+                  <Link href={`/stock/${r.ticker}`} className="text-blue-600 hover:text-blue-800">
                     {r.ticker}
                   </Link>
                 </td>
-                <td className="px-3 py-2 text-slate-400 text-xs">{r.industry}</td>
+                <td className="px-3 py-2 text-gray-500 text-xs">{r.industry}</td>
                 <td className={`px-3 py-2 font-bold ${scoreColor(r.combined)}`}>{r.combined.toFixed(1)}</td>
                 <td className={`px-3 py-2 ${scoreColor(r.val)}`}>{r.val.toFixed(1)}</td>
                 <td className={`px-3 py-2 ${scoreColor(r.fund)}`}>{r.fund.toFixed(1)}</td>
-                <td className="px-3 py-2 text-white">
-                  {r.price != null ? `$${r.price.toFixed(2)}` : <span className="text-slate-600">—</span>}
+                <td className="px-3 py-2 text-gray-900">
+                  {r.price != null ? `$${r.price.toFixed(2)}` : <span className="text-gray-400">—</span>}
                 </td>
                 <td className="px-3 py-2">
                   {r.verdict?.urgency ? (
                     <span className={`text-xs px-2 py-0.5 rounded-full font-semibold uppercase ${urgencyStyles[r.verdict.urgency] ?? ""}`}>
                       {r.verdict.urgency}
                     </span>
-                  ) : <span className="text-slate-600 text-xs">—</span>}
+                  ) : <span className="text-gray-400 text-xs">—</span>}
                 </td>
-                <td className="px-3 py-2 text-slate-300">{r.fund_raw ? pct(r.fund_raw.rev_growth) : "—"}</td>
-                <td className="px-3 py-2 text-slate-300">{r.fund_raw ? pct(r.fund_raw.gross_margin) : "—"}</td>
-                <td className="px-3 py-2 text-slate-300">{r.fund_raw ? pct(r.fund_raw.op_margin) : "—"}</td>
-                <td className="px-3 py-2 text-slate-300">{r.fund_raw ? pct(r.fund_raw.fcf_margin) : "—"}</td>
-                <td className="px-3 py-2 text-slate-300">{fmt(r.val_raw?.fwd_pe)}</td>
-                <td className="px-3 py-2 text-slate-300">{fmt(r.val_raw?.peg, 2)}</td>
-                <td className="px-3 py-2 text-slate-300">{fmt(r.val_raw?.ev_ebitda)}</td>
+                <td className="px-3 py-2 text-gray-700">{r.fund_raw ? pct(r.fund_raw.rev_growth) : "—"}</td>
+                <td className="px-3 py-2 text-gray-700">{r.fund_raw ? pct(r.fund_raw.gross_margin) : "—"}</td>
+                <td className="px-3 py-2 text-gray-700">{r.fund_raw ? pct(r.fund_raw.op_margin) : "—"}</td>
+                <td className="px-3 py-2 text-gray-700">{r.fund_raw ? pct(r.fund_raw.fcf_margin) : "—"}</td>
+                <td className="px-3 py-2 text-gray-700">{fmt(r.val_raw?.fwd_pe)}</td>
+                <td className="px-3 py-2 text-gray-700">{fmt(r.val_raw?.peg, 2)}</td>
+                <td className="px-3 py-2 text-gray-700">{fmt(r.val_raw?.ev_ebitda)}</td>
               </tr>
             ))}
           </tbody>
