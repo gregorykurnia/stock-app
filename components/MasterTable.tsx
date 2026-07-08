@@ -57,10 +57,13 @@ interface Props {
   verdicts: Record<string, { urgency: string; setup: string } | null>;
   loading: boolean;
   customStocks: CustomStock[];
+  portfolioSet: Set<string>;
+  watchlistSet: Set<string>;
+  onSetStatus: (ticker: string, status: "portfolio" | "watchlist") => void;
   onRemoveCustom: (ticker: string) => void;
 }
 
-export default function MasterTable({ prices, verdicts, loading, customStocks, onRemoveCustom }: Props) {
+export default function MasterTable({ prices, verdicts, loading, customStocks, portfolioSet, watchlistSet, onSetStatus, onRemoveCustom }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>("combined");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [industryFilter, setIndustryFilter] = useState("all");
@@ -242,7 +245,7 @@ export default function MasterTable({ prices, verdicts, loading, customStocks, o
               <Th label="PEG"       k="peg" />
               <Th label="EV/EBITDA" k="ev_ebitda" />
               <Th label="EV/FCF"    k="ev_fcf" />
-              <th className="px-3 py-2" />
+              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Status</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -283,15 +286,50 @@ export default function MasterTable({ prices, verdicts, loading, customStocks, o
                 <td className="px-3 py-2 text-gray-700">{num(r.peg, 2)}</td>
                 <td className="px-3 py-2 text-gray-700">{num(r.ev_ebitda)}</td>
                 <td className="px-3 py-2 text-gray-700">{num(r.ev_fcf)}</td>
-                <td className="px-3 py-2">
-                  {r.isCustom && (
-                    <button
-                      onClick={() => onRemoveCustom(r.ticker)}
-                      className="text-red-400 hover:text-red-600 text-xs"
-                    >
-                      Remove
-                    </button>
-                  )}
+                <td className="px-3 py-2 whitespace-nowrap">
+                  <div className="flex items-center gap-1">
+                    {portfolioSet.has(r.ticker) ? (
+                      <button
+                        onClick={() => onSetStatus(r.ticker, "portfolio")}
+                        className="text-xs px-2 py-0.5 rounded-full font-semibold bg-green-100 text-green-700 border border-green-300 hover:bg-green-200"
+                        title="In Portfolio — click to remove"
+                      >
+                        ✓ Portfolio
+                      </button>
+                    ) : watchlistSet.has(r.ticker) ? (
+                      <button
+                        onClick={() => onSetStatus(r.ticker, "watchlist")}
+                        className="text-xs px-2 py-0.5 rounded-full font-semibold bg-yellow-100 text-yellow-700 border border-yellow-300 hover:bg-yellow-200"
+                        title="In Watchlist — click to remove"
+                      >
+                        ✓ Watchlist
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => onSetStatus(r.ticker, "portfolio")}
+                          className="text-xs px-2 py-0.5 rounded border border-gray-300 text-gray-500 hover:border-green-400 hover:text-green-600"
+                        >
+                          + Portfolio
+                        </button>
+                        <button
+                          onClick={() => onSetStatus(r.ticker, "watchlist")}
+                          className="text-xs px-2 py-0.5 rounded border border-gray-300 text-gray-500 hover:border-yellow-400 hover:text-yellow-600"
+                        >
+                          + Watchlist
+                        </button>
+                      </>
+                    )}
+                    {r.isCustom && (
+                      <button
+                        onClick={() => onRemoveCustom(r.ticker)}
+                        className="text-red-300 hover:text-red-500 text-xs ml-1"
+                        title="Remove from master table"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}

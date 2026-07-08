@@ -24,6 +24,17 @@ export async function saveVerdict(ticker: string, verdict: object) {
   await addDoc(histRef, dated);
 }
 
+// Stock status helpers (portfolio / watchlist membership)
+export async function getPortfolioTickers(): Promise<Set<string>> {
+  const snap = await getDocs(collection(db, "portfolio"));
+  return new Set(snap.docs.map((d) => d.id));
+}
+
+export async function getWatchlistTickers(): Promise<Set<string>> {
+  const snap = await getDocs(collection(db, "watchlist"));
+  return new Set(snap.docs.map((d) => d.id));
+}
+
 // Custom stocks (added beyond the 54 seed stocks)
 export async function getCustomStocks(): Promise<Record<string, object>> {
   const snap = await getDocs(collection(db, "custom_stocks"));

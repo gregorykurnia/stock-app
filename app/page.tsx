@@ -4,7 +4,12 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import MasterTable from "@/components/MasterTable";
 import { SEED_STOCKS } from "@/lib/seedData";
-import { loadStockData, getCustomStocks, saveCustomStock, removeCustomStock } from "@/lib/firestore";
+import {
+  loadStockData, getCustomStocks, saveCustomStock, removeCustomStock,
+  getPortfolioTickers, getWatchlistTickers,
+  savePortfolioEntry, removePortfolioEntry,
+  saveWatchlistEntry, removeWatchlistEntry,
+} from "@/lib/firestore";
 import type { CustomStock } from "@/lib/types";
 
 const SEED_TICKERS = new Set(SEED_STOCKS.map((s) => s.ticker));
@@ -16,12 +21,20 @@ export default function Home() {
   const [verdicts, setVerdicts] = useState<Record<string, { urgency: string; setup: string } | null>>({});
   const [pricesLoading, setPricesLoading] = useState(true);
   const [customStocks, setCustomStocks] = useState<CustomStock[]>([]);
+  const [portfolioSet, setPortfolioSet] = useState<Set<string>>(new Set());
+  const [watchlistSet, setWatchlistSet] = useState<Set<string>>(new Set());
 
   // Add stock modal
   const [showAdd, setShowAdd] = useState(false);
   const [addTicker, setAddTicker] = useState("");
   const [addLoading, setAddLoading] = useState(false);
   const [addError, setAddError] = useState("");
+
+  async function loadSets() {
+    const [p, w] = await Promise.all([getPortfolioTickers(), getWatchlistTickers()]);
+    setPortfolioSet(p);
+    setWatchlistSet(w);
+  }
 
   async function loadCustomStocks() {
     const data = await getCustomStocks().catch(() => ({}));
@@ -34,14 +47,12 @@ export default function Home() {
   useEffect(() => {
     const seedTickers = SEED_STOCKS.map((s) => s.ticker).join(",");
 
-    // Fetch prices for seed stocks
     fetch(`/api/prices?tickers=${seedTickers}`)
       .then((r) => r.json())
       .then((d) => setPrices((p) => ({ ...p, ...(d.prices ?? {}) })))
       .catch(() => {})
       .finally(() => setPricesLoading(false));
 
-    // Load saved verdicts from Firestore
     Promise.all(
       SEED_STOCKS.map(async (s) => {
         const data = await loadStockData(s.ticker).catch(() => null);
@@ -55,7 +66,6 @@ export default function Home() {
       setVerdicts(map);
     });
 
-    // Load custom stocks + their prices
     loadCustomStocks().then((list) => {
       if (list.length > 0) {
         const tickers = list.map((s) => s.ticker).join(",");
@@ -65,8 +75,40 @@ export default function Home() {
           .catch(() => {});
       }
     });
+
+    loadSets();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function handleSetStatus(ticker: string, status: "portfolio" | "watchlist" | null) {
+    const inPortfolio = portfolioSet.has(ticker);
+    const inWatchlist = watchlistSet.has(ticker);
+
+    if (status === "portfolio") {
+      if (inPortfolio) {
+        // Toggle off
+        await removePortfolioEntry(ticker);
+      } else {
+        if (inWatchlist) await removeWatchlistEntry(ticker);
+        await savePortfolioEntry(ticker, {
+          shares: 0, entry_price: 0, stop_level: 0,
+          date_entered: new Date().toISOString().split("T")[0], notes: "",
+        });
+      }
+    } else if (status === "watchlist") {
+      if (inWatchlist) {
+        // Toggle off
+        await removeWatchlistEntry(ticker);
+      } else {
+        if (inPortfolio) await removePortfolioEntry(ticker);
+        await saveWatchlistEntry(ticker, {
+          alert_price: 0, entry_zone: "", verdict: "watch",
+          date_added: new Date().toISOString().split("T")[0], notes: "",
+        });
+      }
+    }
+    await loadSets();
+  }
 
   async function handleAddStock(e: React.FormEvent) {
     e.preventDefault();
@@ -89,12 +131,7 @@ export default function Home() {
         last_fetched: new Date().toISOString(),
       };
       await saveCustomStock(sym, entry);
-
-      // Update price map immediately
-      if (data.price != null) {
-        setPrices((p) => ({ ...p, [sym]: data.price }));
-      }
-
+      if (data.price != null) setPrices((p) => ({ ...p, [sym]: data.price }));
       setAddTicker("");
       setShowAdd(false);
       await loadCustomStocks();
@@ -108,7 +145,9 @@ export default function Home() {
   async function handleRemoveCustom(ticker: string) {
     if (!confirm(`Remove ${ticker} from the master table?`)) return;
     await removeCustomStock(ticker);
-    await loadCustomStocks();
+    await removePortfolioEntry(ticker).catch(() => {});
+    await removeWatchlistEntry(ticker).catch(() => {});
+    await Promise.all([loadCustomStocks(), loadSets()]);
   }
 
   function handleSearch(e: React.FormEvent) {
@@ -152,7 +191,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Add Stock Modal */}
         {showAdd && (
           <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
             <form
@@ -175,9 +213,7 @@ export default function Home() {
                 />
               </div>
               {addError && <p className="text-red-500 text-xs">{addError}</p>}
-              {addLoading && (
-                <p className="text-blue-500 text-xs animate-pulse">Fetching data from Yahoo Finance…</p>
-              )}
+              {addLoading && <p className="text-blue-500 text-xs animate-pulse">Fetching data from Yahoo Finance…</p>}
               <div className="flex gap-2">
                 <button
                   type="submit"
@@ -203,6 +239,9 @@ export default function Home() {
           verdicts={verdicts}
           loading={pricesLoading}
           customStocks={customStocks}
+          portfolioSet={portfolioSet}
+          watchlistSet={watchlistSet}
+          onSetStatus={handleSetStatus}
           onRemoveCustom={handleRemoveCustom}
         />
       </div>
