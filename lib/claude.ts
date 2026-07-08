@@ -25,7 +25,9 @@ async function callClaude(system: string, user: string): Promise<string> {
   }
 
   const data = await res.json();
-  return data.content[0].text;
+  const text: string = data.content[0].text;
+  // Strip markdown code fences if Claude wrapped the JSON
+  return text.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();
 }
 
 export async function getBusinessQuality(ticker: string, companyName: string) {
