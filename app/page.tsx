@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import ChecklistPanel from "@/components/ChecklistPanel";
 import VerdictCard from "@/components/VerdictCard";
 import { calcIndicators, getLatest } from "@/lib/indicators";
+import { fetchWeeklyBars } from "@/lib/yahoo";
 import type { OHLCVBar, Indicators, LatestIndicators, Verdict } from "@/lib/types";
 
 const StockChart = dynamic(() => import("@/components/StockChart"), { ssr: false });
@@ -71,11 +72,7 @@ export default function Home() {
     setTicker(sym);
 
     try {
-      const res = await fetch(`/api/yahoo?ticker=${sym}`);
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Failed to fetch");
-
-      const fetchedBars: OHLCVBar[] = json.bars;
+      const fetchedBars: OHLCVBar[] = await fetchWeeklyBars(sym);
       const ind = calcIndicators(fetchedBars);
       const lat = getLatest(fetchedBars, ind);
 
