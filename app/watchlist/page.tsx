@@ -29,7 +29,7 @@ export default function WatchlistPage() {
 
   // Move-to-portfolio modal state
   const [promoteTicker, setPromoteTicker] = useState<string | null>(null);
-  const [promoteForm, setPromoteForm] = useState({ entry_price: "", position_size_pct: "", stop_level: "" });
+  const [promoteForm, setPromoteForm] = useState({ entry_price: "", shares: "", stop_level: "" });
 
   async function load() {
     setLoading(true);
@@ -86,14 +86,14 @@ export default function WatchlistPage() {
     try {
       await savePortfolioEntry(promoteTicker, {
         entry_price: parseFloat(promoteForm.entry_price),
-        position_size_pct: parseFloat(promoteForm.position_size_pct),
+        shares: parseFloat(promoteForm.shares),
         stop_level: parseFloat(promoteForm.stop_level),
         date_entered: new Date().toISOString().split("T")[0],
       });
       await removePortfolioEntry(promoteTicker); // no-op if not in portfolio yet; remove from watchlist
       await removeWatchlistEntry(promoteTicker);
       setPromoteTicker(null);
-      setPromoteForm({ entry_price: "", position_size_pct: "", stop_level: "" });
+      setPromoteForm({ entry_price: "", shares: "", stop_level: "" });
       await load();
     } finally {
       setSaving(false);
@@ -220,14 +220,14 @@ export default function WatchlistPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500 block mb-1">Position Size %</label>
+                  <label className="text-xs text-gray-500 block mb-1">Shares</label>
                   <input
                     required
                     type="number"
-                    step="0.1"
-                    value={promoteForm.position_size_pct}
-                    onChange={(e) => setPromoteForm({ ...promoteForm, position_size_pct: e.target.value })}
-                    placeholder="5"
+                    step="0.001"
+                    value={promoteForm.shares}
+                    onChange={(e) => setPromoteForm({ ...promoteForm, shares: e.target.value })}
+                    placeholder="10"
                     className="w-full border border-gray-300 rounded px-3 py-2 text-sm"
                   />
                 </div>
@@ -308,7 +308,7 @@ export default function WatchlistPage() {
                       <td className="px-3 py-2">
                         <div className="flex gap-2">
                           <button
-                            onClick={() => { setPromoteTicker(e.ticker); setPromoteForm({ entry_price: cur ? cur.toFixed(2) : "", position_size_pct: "", stop_level: "" }); }}
+                            onClick={() => { setPromoteTicker(e.ticker); setPromoteForm({ entry_price: cur ? cur.toFixed(2) : "", shares: "", stop_level: "" }); }}
                             className="text-blue-500 hover:text-blue-700 text-xs font-medium"
                           >
                             → Portfolio

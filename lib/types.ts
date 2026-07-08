@@ -64,7 +64,7 @@ export interface HistoricalArrays {
 export interface PortfolioEntry {
   ticker: string;
   entry_price: number;
-  position_size_pct: number;
+  shares: number;
   stop_level: number;
   date_entered: string;
   notes?: string;

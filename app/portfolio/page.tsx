@@ -8,17 +8,19 @@ import type { PortfolioEntry } from "@/lib/types";
 const pctColor = (v: number) =>
   v > 0 ? "text-green-600" : v < 0 ? "text-red-500" : "text-gray-500";
 
+const dollarColor = (v: number) =>
+  v > 0 ? "text-green-600 font-semibold" : v < 0 ? "text-red-500 font-semibold" : "text-gray-500";
+
 export default function PortfolioPage() {
   const [entries, setEntries] = useState<PortfolioEntry[]>([]);
   const [prices, setPrices] = useState<Record<string, number | null>>({});
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
 
-  // Form state
   const [form, setForm] = useState({
     ticker: "",
     entry_price: "",
-    position_size_pct: "",
+    shares: "",
     stop_level: "",
     notes: "",
   });
@@ -51,15 +53,14 @@ export default function PortfolioPage() {
     if (!ticker) return;
     setSaving(true);
     try {
-      const entry = {
+      await savePortfolioEntry(ticker, {
         entry_price: parseFloat(form.entry_price),
-        position_size_pct: parseFloat(form.position_size_pct),
+        shares: parseFloat(form.shares),
         stop_level: parseFloat(form.stop_level),
         date_entered: new Date().toISOString().split("T")[0],
         notes: form.notes,
-      };
-      await savePortfolioEntry(ticker, entry);
-      setForm({ ticker: "", entry_price: "", position_size_pct: "", stop_level: "", notes: "" });
+      });
+      setForm({ ticker: "", entry_price: "", shares: "", stop_level: "", notes: "" });
       setShowForm(false);
       await load();
     } finally {
@@ -73,16 +74,24 @@ export default function PortfolioPage() {
     await load();
   }
 
+  // Totals
+  const totalCost = entries.reduce((sum, e) => sum + e.entry_price * e.shares, 0);
+  const totalValue = entries.reduce((sum, e) => {
+    const cur = prices[e.ticker];
+    return cur != null ? sum + cur * e.shares : sum;
+  }, 0);
+  const totalPL = entries.reduce((sum, e) => {
+    const cur = prices[e.ticker];
+    return cur != null ? sum + (cur - e.entry_price) * e.shares : sum;
+  }, 0);
+
   return (
     <main className="min-h-screen bg-gray-50 text-gray-900 p-6">
       <div className="max-w-screen-xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <div className="flex items-center gap-3">
-              <Link href="/" className="text-gray-400 hover:text-gray-600 text-sm">← Home</Link>
-              <h1 className="text-2xl font-bold text-gray-900">Portfolio</h1>
-            </div>
+            <h1 className="text-2xl font-bold text-gray-900">Portfolio</h1>
             <p className="text-gray-500 text-sm mt-0.5">Track your positions · P&L · Stop distances</p>
           </div>
           <button
@@ -92,6 +101,26 @@ export default function PortfolioPage() {
             + Add Position
           </button>
         </div>
+
+        {/* Summary bar */}
+        {entries.length > 0 && (
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-white border border-gray-200 rounded-lg px-4 py-3">
+              <p className="text-xs text-gray-500 uppercase tracking-wide">Cost Basis</p>
+              <p className="text-lg font-bold text-gray-900">${totalCost.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+            </div>
+            <div className="bg-white border border-gray-200 rounded-lg px-4 py-3">
+              <p className="text-xs text-gray-500 uppercase tracking-wide">Market Value</p>
+              <p className="text-lg font-bold text-gray-900">${totalValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+            </div>
+            <div className="bg-white border border-gray-200 rounded-lg px-4 py-3">
+              <p className="text-xs text-gray-500 uppercase tracking-wide">Total P&L</p>
+              <p className={`text-lg font-bold ${totalPL >= 0 ? "text-green-600" : "text-red-500"}`}>
+                {totalPL >= 0 ? "+" : ""}${totalPL.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Add Form */}
         {showForm && (
@@ -121,14 +150,14 @@ export default function PortfolioPage() {
                 />
               </div>
               <div>
-                <label className="text-xs text-gray-500 block mb-1">Position Size %</label>
+                <label className="text-xs text-gray-500 block mb-1">Shares</label>
                 <input
                   required
                   type="number"
-                  step="0.1"
-                  value={form.position_size_pct}
-                  onChange={(e) => setForm({ ...form, position_size_pct: e.target.value })}
-                  placeholder="5"
+                  step="0.001"
+                  value={form.shares}
+                  onChange={(e) => setForm({ ...form, shares: e.target.value })}
+                  placeholder="10"
                   className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm"
                 />
               </div>
@@ -154,6 +183,12 @@ export default function PortfolioPage() {
                 />
               </div>
             </div>
+            {/* Live cost preview */}
+            {form.entry_price && form.shares && (
+              <p className="text-xs text-gray-500">
+                Cost basis: <span className="font-semibold text-gray-700">${(parseFloat(form.entry_price) * parseFloat(form.shares)).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              </p>
+            )}
             <div className="flex gap-2">
               <button
                 type="submit"
@@ -168,7 +203,7 @@ export default function PortfolioPage() {
                 className="text-gray-500 hover:text-gray-700 px-4 py-1.5 rounded text-sm border border-gray-300"
               >
                 Cancel
-              </button>
+          </button>
             </div>
           </form>
         )}
@@ -185,7 +220,7 @@ export default function PortfolioPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-100 border-b border-gray-200">
                 <tr>
-                  {["Ticker", "Entry", "Current", "P&L %", "P&L $", "Size %", "Stop", "Stop Dist %", "Date", "Notes", ""].map((h) => (
+                  {["Ticker", "Entry", "Shares", "Cost Basis", "Current", "Mkt Value", "P&L $", "P&L %", "Stop", "Stop Dist", "Date", "Notes", ""].map((h) => (
                     <th key={h} className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
@@ -193,8 +228,10 @@ export default function PortfolioPage() {
               <tbody className="divide-y divide-gray-100">
                 {entries.map((e) => {
                   const cur = prices[e.ticker] ?? null;
-                  const plPct = cur != null ? (cur - e.entry_price) / e.entry_price : null;
-                  const plDollar = plPct != null ? plPct * e.entry_price : null;
+                  const costBasis = e.entry_price * e.shares;
+                  const mktValue = cur != null ? cur * e.shares : null;
+                  const plDollar = mktValue != null ? mktValue - costBasis : null;
+                  const plPct = plDollar != null ? plDollar / costBasis : null;
                   const stopDist = cur != null ? (cur - e.stop_level) / cur : null;
                   return (
                     <tr key={e.ticker} className="hover:bg-gray-50 transition-colors">
@@ -204,22 +241,26 @@ export default function PortfolioPage() {
                         </Link>
                       </td>
                       <td className="px-3 py-2 text-gray-700">${e.entry_price.toFixed(2)}</td>
+                      <td className="px-3 py-2 text-gray-700">{e.shares % 1 === 0 ? e.shares : e.shares.toFixed(3)}</td>
+                      <td className="px-3 py-2 text-gray-700">${costBasis.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                       <td className="px-3 py-2 text-gray-900 font-medium">
                         {cur != null ? `$${cur.toFixed(2)}` : <span className="text-gray-400">—</span>}
                       </td>
-                      <td className={`px-3 py-2 font-semibold ${plPct != null ? pctColor(plPct) : "text-gray-400"}`}>
+                      <td className="px-3 py-2 text-gray-700">
+                        {mktValue != null ? `$${mktValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : <span className="text-gray-400">—</span>}
+                      </td>
+                      <td className={`px-3 py-2 ${plDollar != null ? dollarColor(plDollar) : "text-gray-400"}`}>
+                        {plDollar != null ? `${plDollar >= 0 ? "+" : ""}$${Math.abs(plDollar).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "—"}
+                      </td>
+                      <td className={`px-3 py-2 ${plPct != null ? pctColor(plPct) : "text-gray-400"}`}>
                         {plPct != null ? `${plPct >= 0 ? "+" : ""}${(plPct * 100).toFixed(1)}%` : "—"}
                       </td>
-                      <td className={`px-3 py-2 ${plDollar != null ? pctColor(plDollar) : "text-gray-400"}`}>
-                        {plDollar != null ? `${plDollar >= 0 ? "+" : ""}$${plDollar.toFixed(2)}` : "—"}
-                      </td>
-                      <td className="px-3 py-2 text-gray-700">{e.position_size_pct}%</td>
                       <td className="px-3 py-2 text-gray-700">${e.stop_level.toFixed(2)}</td>
                       <td className={`px-3 py-2 font-medium ${stopDist != null ? (stopDist < 0.05 ? "text-red-500" : stopDist < 0.10 ? "text-yellow-600" : "text-green-600") : "text-gray-400"}`}>
                         {stopDist != null ? `${(stopDist * 100).toFixed(1)}%` : "—"}
                       </td>
                       <td className="px-3 py-2 text-gray-500 text-xs">{e.date_entered}</td>
-                      <td className="px-3 py-2 text-gray-500 text-xs max-w-[140px] truncate">{e.notes || "—"}</td>
+                      <td className="px-3 py-2 text-gray-500 text-xs max-w-[120px] truncate">{e.notes || "—"}</td>
                       <td className="px-3 py-2">
                         <button
                           onClick={() => handleRemove(e.ticker)}
