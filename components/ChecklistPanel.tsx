@@ -40,33 +40,6 @@ function detectObvHigherLow(obv: number[]): "pass" | "fail" | "unconfirmed" {
   return "unconfirmed";
 }
 
-function detectRsiDivergence(price: number[], rsi: number[]): "pass" | "fail" | "unconfirmed" {
-  if (price.length < 8 || rsi.length < 8) return "unconfirmed";
-
-  // Split into first half (earlier period) and second half (recent period)
-  const mid = Math.floor(price.length / 2);
-  const firstHalf = price.slice(0, mid);
-  const secondHalf = price.slice(mid);
-
-  // Find the low of each half
-  const earlyLocalIdx = idxOfMin(firstHalf);
-  const recentLocalIdx = idxOfMin(secondHalf);
-  const earlyIdx = earlyLocalIdx;
-  const recentIdx = mid + recentLocalIdx;
-
-  const earlyPrice = price[earlyIdx];
-  const recentPrice = price[recentIdx];
-  const earlyRsi = rsi[earlyIdx];
-  const recentRsi = rsi[recentIdx];
-
-  if (isNaN(earlyRsi) || isNaN(recentRsi)) return "unconfirmed";
-
-  // Price must be making a lower low in the recent half vs earlier half
-  if (recentPrice >= earlyPrice * 0.995) return "unconfirmed"; // no lower low → not applicable
-
-  // Bullish divergence: price lower low but RSI higher low
-  return recentRsi > earlyRsi ? "pass" : "fail";
-}
 
 function detectEma20Turning(ema20: number[]): "pass" | "fail" | "unconfirmed" {
   if (ema20.length < 4) return "unconfirmed";
@@ -90,13 +63,14 @@ function buildChecklist(
   if (setup === "beaten_down") {
     const obvStatus = detectObvHigherLow(hist.obv_history);
     const cmfStatus = ind.cmfVal > 0 ? "pass" : ind.cmfVal >= -0.10 ? "borderline" : "fail";
-    const rsiStatus = detectRsiDivergence(hist.price_history, hist.rsi_history);
+    const diStatus = ind.diPlus > ind.diMinus + 2 ? "pass" : ind.diPlus >= ind.diMinus - 2 ? "borderline" : "fail";
+    const rsiStatus = ind.rsi >= 40 && ind.rsi <= 55 ? "pass" : ind.rsi < 40 ? "fail" : "borderline";
     const ema20Status = detectEma20Turning(hist.ema20_history);
     return [
       { label: "OBV higher low", mustHave: true, status: obvStatus },
       { label: "CMF above zero", mustHave: true, status: cmfStatus },
-      { label: "RSI bullish divergence", mustHave: true, status: rsiStatus },
-      { label: "DI+ above DI-", mustHave: false, status: ind.diPlus > ind.diMinus ? "pass" : "fail" },
+      { label: "DI+ above DI-", mustHave: true, status: diStatus },
+      { label: "RSI 40–55 (recovery range)", mustHave: false, status: rsiStatus },
       { label: "EMA20 turning upward", mustHave: false, status: ema20Status },
     ];
   }

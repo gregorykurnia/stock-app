@@ -84,39 +84,41 @@ Analyze obv_history (last 10 weekly values) and classify as ONE of:
 
 State in "obv_pattern" field: "[pattern_name] — one sentence explaining what you see in the sequence"
 
-## STEP 3 — RSI DIVERGENCE DETECTION
+## STEP 3 — RSI LEVEL ASSESSMENT
 
-Using rsi_history and price_history (both last 10 weekly values):
+Using rsi_history (last 20 weekly values) and current RSI:
 
-Bullish divergence = price making lower lows while RSI makes higher lows.
+For Checklist 1 (beaten down): RSI is a CONFIRMING signal only, not a must-have.
+- RSI 40–55 → healthy recovery range ✅
+- RSI below 40 → still weak, caution
+- RSI above 55 → getting extended for a beaten-down name
 
-How to detect:
-1. Find the most recent trough in price_history (local low)
-2. Find the previous trough before it
-3. If recent price trough < previous price trough (price lower low): check RSI at those same indices
-4. If RSI at recent trough > RSI at previous trough → BULLISH DIVERGENCE CONFIRMED
-5. If RSI also lower → NO DIVERGENCE
-6. If price is not making lower lows → NOT APPLICABLE (use RSI absolute level instead: 40–55 = healthy)
-
-State in "rsi_signal" field: "Confirmed / Not confirmed / Not applicable — one sentence explanation"
+State in "rsi_signal" field: "RSI at X — [healthy recovery / still weak / getting extended] — one sentence"
 
 ## STEP 4 — CHECKLIST SCORING
 
 Score ONLY the checklist matching your detected setup. Each must-have gets status: "pass", "fail", "borderline", or "unconfirmed".
-- "borderline" = signal nearly meets threshold (e.g. CMF at -0.05 for a zero threshold)
-- "unconfirmed" = cannot be auto-calculated from arrays, requires chart visual (e.g. OBV higher low pattern)
+- "borderline" = signal nearly meets threshold
+- "unconfirmed" = cannot be calculated from available data
 - NEVER count unconfirmed as fail. Unconfirmed = "watch for confirmation" not "failure".
 
 ### CHECKLIST 1 — Beaten Down
-CRITICAL: EMA20 below EMA50 is the EXPECTED starting condition. Never flag it as a failure.
+CRITICAL: EMA20 below EMA50 is the EXPECTED starting condition. Never flag it as a failure. Never apply any Checklist 2B rules here.
 Must-haves:
-- OBV higher low (use obv_history to determine: "pass" if higher_low_forming, "fail" if lower_low, "unconfirmed" if mixed)
-- CMF above zero (borderline if -0.10 to 0.00; fail if below -0.10)
-- RSI bullish divergence (use rsi_signal from Step 3)
-Confirming signals:
-- DI+ above DI-
-- EMA20 turning upward (compare recent ema20 trend — estimate from price action)
+1. OBV higher low — compare OBV troughs using obv_history: current trough higher than previous trough → "pass"; lower → "fail"; insufficient history → "unconfirmed"
+2. CMF above zero — CMF > 0.00 → "pass"; -0.10 to 0.00 → "borderline" (note: nearly recovered); below -0.10 → "fail"
+3. DI+ above DI- — DI+ > DI- → "pass"; within 2 points → "borderline"; DI+ < DI- → "fail"
+Confirming signals (not must-haves):
+- RSI 40–55 → healthy recovery range
+- EMA20 slope turning upward (use ema20_history)
 - Price reclaiming EMA20 weekly
+
+Verdict mapping:
+- All 3 pass → BUY half position
+- 2/3 pass + 1 borderline → WATCH, half position valid with conditions
+- 2/3 pass + 1 unconfirmed → WATCH, entry valid if unconfirmed verified manually
+- 1/3 or fewer passing → WAIT, not yet confirmed
+- All failing + OBV downtrend → AVOID
 
 ### CHECKLIST 2B — Pullback Within Uptrend
 Must-haves:
@@ -152,10 +154,11 @@ WAIT: Good stock, wrong timing — give specific level to re-evaluate
 
 CRITICAL RULES:
 - Never AVOID a Checklist 1 stock solely because EMA20 is below EMA50
-- Never AVOID when OBV/RSI signals are UNCONFIRMED (not failed) — give WATCH instead
+- Never AVOID when signals are UNCONFIRMED (not failed) — give WATCH instead
 - Checklist 1 + DI+ above DI- + any OBV recovery = minimum WATCH
 - Borderline CMF (-0.10 to 0.00) on Checklist 1 = WATCH not AVOID
-- AVOID requires: confirmed distributing OBV + all must-haves failed + zero recovery signals
+- AVOID requires: confirmed distributing OBV + all 3 must-haves failed + zero recovery signals
+- RSI bullish divergence is NOT part of Checklist 1 — never check for it or display it as a must-have
 
 ## STOP LEVELS
 - stop_ema20: current EMA20 weekly value
