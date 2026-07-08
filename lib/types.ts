@@ -36,7 +36,7 @@ export type Urgency = "urgent" | "watch" | "hold" | "avoid";
 export interface ChecklistItem {
   label: string;
   mustHave: boolean;
-  pass: boolean;
+  status: "pass" | "fail" | "borderline" | "unconfirmed";
 }
 
 export interface ChecklistScoreItem {
