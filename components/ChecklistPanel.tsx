@@ -11,33 +11,10 @@ function detectSetup(ind: LatestIndicators): SetupType {
   return "volatile";
 }
 
-// Find the index of the global minimum in an array
-function idxOfMin(arr: number[]): number {
-  return arr.reduce((minI, v, i, a) => (v < a[minI] ? i : minI), 0);
-}
-
-function detectObvHigherLow(obv: number[]): "pass" | "fail" | "unconfirmed" {
-  if (obv.length < 8) return "unconfirmed";
-
-  const last = obv[obv.length - 1];
-
-  // Check if OBV is in freefall: last 4 bars all making lower lows
-  const tail4 = obv.slice(-4);
-  const freefalling = tail4.every((v, i) => i === 0 || v < tail4[i - 1]);
-  if (freefalling) return "fail";
-
-  // Find the global trough in the full history
-  const troughIdx = idxOfMin(obv);
-  const troughVal = obv[troughIdx];
-  const barsAfterTrough = obv.length - 1 - troughIdx;
-
-  // Trough must have happened at least 2 bars ago (otherwise still bottoming)
-  if (barsAfterTrough < 2) return "unconfirmed";
-
-  // OBV has recovered meaningfully from its trough
-  if (last > troughVal * 1.02) return "pass";
-
-  return "unconfirmed";
+function obvPatternToStatus(pattern: HistoricalArrays["obv_analysis"]["pattern"]): "pass" | "fail" | "unconfirmed" {
+  if (pattern === "higher_low_forming" || pattern === "clean_staircase") return "pass";
+  if (pattern === "flat_sideways") return "unconfirmed";
+  return "fail"; // lower_low, sustained_downtrend, parabolic_rollover
 }
 
 
@@ -61,7 +38,7 @@ function buildChecklist(
   hist: HistoricalArrays
 ): ChecklistItem[] {
   if (setup === "beaten_down") {
-    const obvStatus = detectObvHigherLow(hist.obv_history);
+    const obvStatus = obvPatternToStatus(hist.obv_analysis.pattern);
     const cmfStatus = ind.cmfVal > 0 ? "pass" : ind.cmfVal >= -0.10 ? "borderline" : "fail";
     const diStatus = ind.diPlus > ind.diMinus + 2 ? "pass" : ind.diPlus >= ind.diMinus - 2 ? "borderline" : "fail";
     const rsiStatus = ind.rsi >= 40 && ind.rsi <= 55 ? "pass" : ind.rsi < 40 ? "fail" : "borderline";
