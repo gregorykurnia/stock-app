@@ -8,13 +8,17 @@ export async function GET(req: NextRequest) {
   const twoYearsAgo = now - 2 * 365 * 24 * 3600;
 
   const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1wk&period1=${twoYearsAgo}&period2=${now}`;
-  const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(yahooUrl)}`;
 
-  const res = await fetch(proxyUrl, { next: { revalidate: 3600 } });
-  if (!res.ok) return NextResponse.json({ error: "fetch failed" }, { status: 502 });
+  const res = await fetch(yahooUrl, {
+    headers: {
+      "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      "Accept": "application/json",
+    },
+    next: { revalidate: 3600 },
+  });
+  if (!res.ok) return NextResponse.json({ error: `Yahoo returned ${res.status}` }, { status: 502 });
 
-  const wrapper = await res.json();
-  const data = JSON.parse(wrapper.contents);
+  const data = await res.json();
 
   const result = data?.chart?.result?.[0];
   if (!result) return NextResponse.json({ error: "no data" }, { status: 404 });
