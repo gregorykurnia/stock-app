@@ -19,7 +19,7 @@ async function fetchEMA20(ticker: string): Promise<number | null> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const result: any = await yf.chart(ticker, { period1: twoYearsAgo, period2: now, interval: "1wk" });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const closes = (result?.quotes ?? []).filter((q: any) => q.close != null).map((q: any) => q.close as number);
+  const closes = (result?.quotes ?? []).filter((q: any) => q.open != null && q.high != null && q.low != null && q.close != null && q.volume != null).map((q: any) => q.close as number);
   return calcEMA(closes, 20);
 }
 
