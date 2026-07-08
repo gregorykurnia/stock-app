@@ -5,21 +5,10 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import ChecklistPanel from "@/components/ChecklistPanel";
 import VerdictCard from "@/components/VerdictCard";
-import { calcIndicators, getLatest } from "@/lib/indicators";
-import type { OHLCVBar, Indicators, LatestIndicators, Verdict } from "@/lib/types";
+import { calcIndicators, getLatest, getHistoricalArrays } from "@/lib/indicators";
+import type { OHLCVBar, Indicators, LatestIndicators, HistoricalArrays, Verdict } from "@/lib/types";
 
 const StockChart = dynamic(() => import("@/components/StockChart"), { ssr: false });
-
-function detectObvPattern(obv: number[]): string {
-  const valid = obv.filter((v) => !isNaN(v));
-  if (valid.length < 10) return "insufficient_data";
-  const recent = valid.slice(-10);
-  const first = recent[0], mid = recent[4], last = recent[9];
-  if (last > mid && mid > first) return "clean_staircase";
-  if (mid > first && last < mid * 0.85) return "parabolic_rollover";
-  if (last < mid && mid < first) return "sustained_downtrend";
-  return "mixed";
-}
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type BusinessQuality = any;
@@ -37,14 +26,14 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
   const [verdict, setVerdict] = useState<Verdict | null>(null);
   const [businessQuality, setBusinessQuality] = useState<BusinessQuality>(null);
 
-  async function runClaudeAnalysis(lat: LatestIndicators, ind: Indicators, mode: "auto" | "reanalyze") {
+  async function runClaudeAnalysis(lat: LatestIndicators, ind: Indicators, b: OHLCVBar[], mode: "auto" | "reanalyze") {
     setAnalyzing(true);
     try {
-      const obvPattern = detectObvPattern(ind.obv);
+      const historicalArrays: HistoricalArrays = getHistoricalArrays(b, ind, 10);
       const res = await fetch("/api/claude", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ticker: sym, name: sym, indicators: lat, obvPattern, mode }),
+        body: JSON.stringify({ ticker: sym, name: sym, indicators: lat, historicalArrays, mode }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Claude analysis failed");
@@ -75,7 +64,7 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
         setLatest(lat);
         setLoading(false);
 
-        await runClaudeAnalysis(lat, ind, "auto");
+        await runClaudeAnalysis(lat, ind, fetchedBars, "auto");
       } catch (err) {
         setError(err instanceof Error ? err.message : "Unknown error");
         setLoading(false);
@@ -116,7 +105,7 @@ export default function StockPage({ params }: { params: Promise<{ ticker: string
                   ticker={sym}
                   verdict={verdict}
                   businessQuality={businessQuality}
-                  onReanalyze={() => runClaudeAnalysis(latest, indicators, "reanalyze")}
+                  onReanalyze={() => runClaudeAnalysis(latest, indicators, bars, "reanalyze")}
                   reanalyzing={analyzing}
                 />
               )}

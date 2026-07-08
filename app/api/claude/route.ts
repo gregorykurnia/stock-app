@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getBusinessQuality, getVerdict } from "@/lib/claude";
 import { saveBusinessQuality, saveVerdict, loadStockData } from "@/lib/firestore";
-import type { LatestIndicators } from "@/lib/types";
+import type { LatestIndicators, HistoricalArrays } from "@/lib/types";
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { ticker, name, indicators, obvPattern, mode } = body as {
+  const { ticker, name, indicators, historicalArrays, mode } = body as {
     ticker: string;
     name: string;
     indicators: LatestIndicators;
-    obvPattern: string;
+    historicalArrays: HistoricalArrays;
     mode: "auto" | "reanalyze";
   };
 
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
   let verdict = existing?.latest_verdict ?? null;
   if (!verdict || mode === "reanalyze") {
     try {
-      verdict = await getVerdict(ticker, indicators, obvPattern);
+      verdict = await getVerdict(ticker, indicators, historicalArrays);
       await saveVerdict(ticker, verdict);
     } catch (e) {
       return NextResponse.json({ error: `Verdict failed: ${e instanceof Error ? e.message : e}` }, { status: 500 });

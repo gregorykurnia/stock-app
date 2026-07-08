@@ -39,7 +39,20 @@ export interface ChecklistItem {
   pass: boolean;
 }
 
+export interface ChecklistScoreItem {
+  name: string;
+  status: "pass" | "fail" | "borderline" | "unconfirmed";
+  note: string;
+}
+
+export interface HistoricalArrays {
+  obv_history: number[];
+  rsi_history: number[];
+  price_history: number[];
+}
+
 export interface Verdict {
+  // Core fields (always present)
   setup: SetupType;
   checklist_score: string;
   must_have_failures: string[];
@@ -51,4 +64,14 @@ export interface Verdict {
   stop_custom?: number;
   position_sizing: string;
   date: string;
+  // Enriched fields from history-aware analysis
+  setup_detected?: string;
+  setup_reason?: string;
+  obv_pattern?: string;
+  rsi_signal?: string;
+  checklist_scores?: {
+    must_haves: ChecklistScoreItem[];
+    confirming: ChecklistScoreItem[];
+    score: string;
+  };
 }

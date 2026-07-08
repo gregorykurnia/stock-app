@@ -5,7 +5,7 @@ import {
   MFI,
   ADX,
 } from "technicalindicators";
-import type { OHLCVBar, Indicators, LatestIndicators } from "./types";
+import type { OHLCVBar, Indicators, LatestIndicators, HistoricalArrays } from "./types";
 
 function calcCMF(bars: OHLCVBar[], period = 20): number[] {
   const result: number[] = [];
@@ -55,6 +55,19 @@ export function calcIndicators(bars: OHLCVBar[]): Indicators {
     diPlus: padLeft(diPlusRaw, bars.length),
     diMinus: padLeft(diMinusRaw, bars.length),
     adx: padLeft(adxValRaw, bars.length),
+  };
+}
+
+export function getHistoricalArrays(bars: OHLCVBar[], ind: Indicators, n = 10): HistoricalArrays {
+  const lastN = <T>(arr: T[]) => arr.slice(-n);
+  const validTail = (arr: number[]) => {
+    const tail = lastN(arr);
+    return tail.map((v) => (isNaN(v) ? 0 : v));
+  };
+  return {
+    obv_history: validTail(ind.obv),
+    rsi_history: validTail(ind.rsi),
+    price_history: bars.slice(-n).map((b) => b.close),
   };
 }
 

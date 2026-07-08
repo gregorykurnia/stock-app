@@ -1,13 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import type { Verdict } from "@/lib/types";
+import type { Verdict, ChecklistScoreItem } from "@/lib/types";
 
 const urgencyStyles: Record<string, string> = {
   urgent: "bg-green-600 text-white",
   watch: "bg-yellow-500 text-black",
   hold: "bg-blue-600 text-white",
   avoid: "bg-red-600 text-white",
+};
+
+const statusIcon: Record<string, string> = {
+  pass: "✅",
+  fail: "❌",
+  borderline: "🟡",
+  unconfirmed: "⚠️",
 };
 
 interface BusinessQuality {
@@ -41,8 +48,21 @@ function ScoreBar({ score }: { score: number }) {
   );
 }
 
+function ChecklistRow({ item }: { item: ChecklistScoreItem }) {
+  return (
+    <div className="flex items-start gap-2 text-xs py-0.5">
+      <span className="shrink-0">{statusIcon[item.status] ?? "?"}</span>
+      <span className={item.status === "fail" ? "text-red-300" : item.status === "borderline" ? "text-yellow-300" : item.status === "unconfirmed" ? "text-slate-400" : "text-slate-300"}>
+        {item.name}
+        {item.note && <span className="text-slate-500 ml-1">— {item.note}</span>}
+      </span>
+    </div>
+  );
+}
+
 export default function VerdictCard({ ticker, verdict, businessQuality, onReanalyze, reanalyzing }: Props) {
   const [expanded, setExpanded] = useState(false);
+  const [checklistOpen, setChecklistOpen] = useState(false);
 
   return (
     <div className="space-y-4">
@@ -64,6 +84,33 @@ export default function VerdictCard({ ticker, verdict, businessQuality, onReanal
           </div>
         </div>
 
+        {/* Setup detection */}
+        {verdict.setup_detected && (
+          <div className="bg-slate-700/50 rounded px-3 py-2 text-xs">
+            <span className="text-slate-400">Setup: </span>
+            <span className="text-white font-medium">{verdict.setup_detected}</span>
+            {verdict.setup_reason && <span className="text-slate-400"> — {verdict.setup_reason}</span>}
+          </div>
+        )}
+
+        {/* OBV + RSI signals */}
+        {(verdict.obv_pattern || verdict.rsi_signal) && (
+          <div className="space-y-1">
+            {verdict.obv_pattern && (
+              <div className="text-xs">
+                <span className="text-slate-400 font-medium">OBV: </span>
+                <span className="text-slate-300">{verdict.obv_pattern}</span>
+              </div>
+            )}
+            {verdict.rsi_signal && (
+              <div className="text-xs">
+                <span className="text-slate-400 font-medium">RSI: </span>
+                <span className="text-slate-300">{verdict.rsi_signal}</span>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="text-slate-200 text-sm leading-relaxed">{verdict.verdict_text}</div>
 
         <div className="grid grid-cols-2 gap-3 text-sm">
@@ -73,7 +120,9 @@ export default function VerdictCard({ ticker, verdict, businessQuality, onReanal
           </div>
           <div className="bg-slate-700/50 rounded p-2.5">
             <div className="text-slate-400 text-xs mb-1">Checklist Score</div>
-            <div className="text-white font-semibold">{verdict.checklist_score}</div>
+            <div className="text-white font-semibold">
+              {verdict.checklist_scores?.score ?? verdict.checklist_score}
+            </div>
           </div>
           <div className="bg-slate-700/50 rounded p-2.5">
             <div className="text-slate-400 text-xs mb-1">Stop EMA20</div>
@@ -90,9 +139,42 @@ export default function VerdictCard({ ticker, verdict, businessQuality, onReanal
           <div className="text-white">{verdict.position_sizing}</div>
         </div>
 
-        {verdict.must_have_failures?.length > 0 && (
+        {/* Enriched checklist breakdown */}
+        {verdict.checklist_scores && (
+          <div>
+            <button
+              onClick={() => setChecklistOpen(!checklistOpen)}
+              className="text-xs text-slate-400 hover:text-white"
+            >
+              {checklistOpen ? "▲ hide checklist" : "▼ show checklist detail"}
+            </button>
+            {checklistOpen && (
+              <div className="mt-2 space-y-2">
+                {verdict.checklist_scores.must_haves.length > 0 && (
+                  <div>
+                    <div className="text-xs text-slate-500 uppercase tracking-wide mb-1">Must-haves</div>
+                    {verdict.checklist_scores.must_haves.map((item, i) => (
+                      <ChecklistRow key={i} item={item} />
+                    ))}
+                  </div>
+                )}
+                {verdict.checklist_scores.confirming.length > 0 && (
+                  <div>
+                    <div className="text-xs text-slate-500 uppercase tracking-wide mb-1 mt-2">Confirming signals</div>
+                    {verdict.checklist_scores.confirming.map((item, i) => (
+                      <ChecklistRow key={i} item={item} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Legacy must-have failures (shown when no enriched checklist) */}
+        {!verdict.checklist_scores && verdict.must_have_failures?.length > 0 && (
           <div className="bg-red-900/40 border border-red-700 rounded p-2 text-xs text-red-300">
-            ⚠ Must-have failures: {verdict.must_have_failures.join(", ")}
+            ❌ Must-have failures: {verdict.must_have_failures.join(", ")}
           </div>
         )}
 
