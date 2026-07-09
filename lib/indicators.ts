@@ -142,13 +142,15 @@ export function analyzeOBVTroughs(obvFull: number[]): {
   }
 
   if (pctAbove > 3 && lowerHighs) {
-    // Higher trough but lower highs — still distributing
+    // Trough is genuinely higher — classify as higher_low_forming even with lower highs.
+    // For beaten-down stocks, lower highs are expected during the bottoming process;
+    // the higher low is the key accumulation signal. Claude will contextualize the lower highs.
     return {
-      pattern: "lower_low",
+      pattern: "higher_low_forming",
       trough1: t1.val,
       trough2: t2.val,
       trough2_pct_above_trough1: pctAbove,
-      summary: `Trough slightly higher but OBV highs are declining (${firstMax.toFixed(0)} → ${secondMax.toFixed(0)}) — overall downtrend continues`,
+      summary: `Trough 2 (${t2.val.toFixed(0)}) is ${pctAbove.toFixed(1)}% of OBV range above trough 1 (${t1.val.toFixed(0)}) — higher low forming; OBV highs still declining (${firstMax.toFixed(0)} → ${secondMax.toFixed(0)}), watch for confirmation`,
     };
   }
 
