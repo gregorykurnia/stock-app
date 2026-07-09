@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { getWatchlist, saveWatchlistEntry, removeWatchlistEntry, getCustomStocks } from "@/lib/firestore";
+import { getWatchlist, saveWatchlistEntry, removeWatchlistEntry, getCustomStocks, loadStockData } from "@/lib/firestore";
 import { SEED_STOCKS, FUNDAMENTALS_RAW, VALUATION_RAW } from "@/lib/seedData";
 import type { CustomStock } from "@/lib/types";
 
@@ -18,17 +18,22 @@ const urgencyStyles: Record<string, string> = {
   avoid:  "bg-red-100 text-red-700 border border-red-300",
 };
 
+const setupCfg: Record<string, { label: string; cls: string }> = {
+  beaten_down: { label: "Beaten Down", cls: "bg-orange-100 text-orange-700" },
+  pullback:    { label: "Pullback",    cls: "bg-blue-100 text-blue-700"     },
+  parabolic:   { label: "Parabolic",   cls: "bg-purple-100 text-purple-700" },
+  volatile:    { label: "Volatile",    cls: "bg-gray-100 text-gray-600"     },
+};
+
 interface WatchlistRow {
   ticker: string;
   name: string | null;
   industry: string | null;
-  // Editable watchlist fields
   alert_price: number;
   entry_zone: string;
   verdict: string;
   notes: string;
   date_added: string;
-  // Fundamentals
   gross_margin: number | null;
   op_margin: number | null;
   net_margin: number | null;
@@ -37,9 +42,16 @@ interface WatchlistRow {
   fwd_pe: number | null;
   peg: number | null;
   ev_ebitda: number | null;
-  // Live
   price: number | null;
 }
+
+type SortKey =
+  | "ticker" | "setup" | "price"
+  | "ema20" | "dist20" | "ema50" | "dist50"
+  | "alert_price" | "verdict"
+  | "rev_growth" | "gross_margin" | "op_margin" | "net_margin" | "fcf_margin"
+  | "fwd_pe" | "peg" | "ev_ebitda"
+  | "date_added";
 
 function EditCell({ value, onSave, prefix = "" }: { value: number; onSave: (v: number) => void; prefix?: string }) {
   const [editing, setEditing] = useState(false);
@@ -133,8 +145,45 @@ export default function WatchlistPage() {
   const [prices, setPrices] = useState<Record<string, number | null>>({});
   const [ema20s, setEma20s] = useState<Record<string, number | null>>({});
   const [ema50s, setEma50s] = useState<Record<string, number | null>>({});
+  const [setups, setSetups] = useState<Record<string, string>>({});
   const [emaLoading, setEmaLoading] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [sortKey, setSortKey] = useState<SortKey>("ticker");
+  const [sortDir, setSortDir] = useState<1 | -1>(1);
+
+  function handleSort(key: SortKey) {
+    setSortKey((prev) => {
+      if (prev === key) { setSortDir((d) => d === 1 ? -1 : 1); return key; }
+      setSortDir(1); return key;
+    });
+  }
+
+  function getSortValue(r: WatchlistRow, key: SortKey): number | string {
+    const cur = prices[r.ticker] ?? null;
+    const ema20 = ema20s[r.ticker] ?? null;
+    const ema50 = ema50s[r.ticker] ?? null;
+    const NULL_HIGH = 1e15, NULL_LOW = -1e15;
+    switch (key) {
+      case "ticker":      return r.ticker;
+      case "setup":       return setups[r.ticker] ?? "";
+      case "price":       return cur ?? NULL_LOW;
+      case "ema20":       return ema20 ?? NULL_LOW;
+      case "dist20":      return cur != null && ema20 != null ? (cur - ema20) / ema20 : NULL_LOW;
+      case "ema50":       return ema50 ?? NULL_LOW;
+      case "dist50":      return cur != null && ema50 != null ? (cur - ema50) / ema50 : NULL_LOW;
+      case "alert_price": return r.alert_price;
+      case "verdict":     return r.verdict;
+      case "rev_growth":  return r.rev_growth ?? NULL_LOW;
+      case "gross_margin":return r.gross_margin ?? NULL_LOW;
+      case "op_margin":   return r.op_margin ?? NULL_LOW;
+      case "net_margin":  return r.net_margin ?? NULL_LOW;
+      case "fcf_margin":  return r.fcf_margin ?? NULL_LOW;
+      case "fwd_pe":      return r.fwd_pe ?? NULL_HIGH;
+      case "peg":         return r.peg ?? NULL_HIGH;
+      case "ev_ebitda":   return r.ev_ebitda ?? NULL_HIGH;
+      case "date_added":  return r.date_added;
+    }
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -185,6 +234,15 @@ export default function WatchlistPage() {
         const json = await res.json();
         setPrices(json.prices ?? {});
 
+        // Fetch setups from Firestore latest_verdict
+        const setupResults = await Promise.all(
+          built.map(async (row) => {
+            const data = await loadStockData(row.ticker).catch(() => null);
+            return [row.ticker, (data as Record<string, Record<string, string>> | null)?.latest_verdict?.setup ?? ""] as [string, string];
+          })
+        );
+        setSetups(Object.fromEntries(setupResults));
+
         setEmaLoading(true);
         fetch(`/api/ema?tickers=${tickers}`)
           .then((r) => r.json())
@@ -220,6 +278,22 @@ export default function WatchlistPage() {
     await load();
   }
 
+  const headers: [SortKey, string][] = [
+    ["ticker", "Ticker"], ["setup", "Setup"], ["price", "Price"],
+    ["ema20", "EMA20w"], ["dist20", "Dist 20w"], ["ema50", "EMA50w"], ["dist50", "Dist 50w"],
+    ["alert_price", "Alert ✎"], ["verdict", "Verdict ✎"],
+    ["rev_growth", "Rev Gr"], ["gross_margin", "Gross%"], ["op_margin", "Op%"], ["net_margin", "Net%"], ["fcf_margin", "FCF%"],
+    ["fwd_pe", "Fwd PE"], ["peg", "PEG"], ["ev_ebitda", "EV/EBITDA"],
+    ["date_added", "Date Added"],
+  ];
+
+  const sorted = [...rows].sort((a, b) => {
+    const av = getSortValue(a, sortKey);
+    const bv = getSortValue(b, sortKey);
+    if (typeof av === "string" && typeof bv === "string") return av.localeCompare(bv) * sortDir;
+    return ((av as number) - (bv as number)) * sortDir;
+  });
+
   return (
     <main className="min-h-screen bg-gray-50 text-gray-900 p-6">
       <div className="max-w-screen-2xl mx-auto space-y-6">
@@ -246,21 +320,30 @@ export default function WatchlistPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-100 border-b border-gray-200">
                 <tr>
-                  {[
-                    "Ticker", "Price", "EMA20w", "Dist 20w", "EMA50w", "Dist 50w",
-                    "Alert ✎", "Entry Zone ✎", "Verdict ✎",
-                    "Rev Gr", "Gross%", "Op%", "Net%", "FCF%",
-                    "Fwd PE", "PEG", "EV/EBITDA",
-                    "Notes ✎", "Date Added", "",
-                  ].map((h) => (
-                    <th key={h} className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                  {headers.map(([key, label]) => (
+                    <th
+                      key={key}
+                      onClick={() => handleSort(key)}
+                      className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap cursor-pointer select-none hover:text-gray-800 hover:bg-gray-200 transition-colors"
+                    >
+                      {label}
+                      {sortKey === key && <span className="ml-1">{sortDir === 1 ? "↑" : "↓"}</span>}
+                    </th>
                   ))}
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Notes ✎</th>
+                  <th className="px-3 py-2" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {rows.map((r) => {
+                {sorted.map((r) => {
                   const cur = prices[r.ticker] ?? null;
+                  const ema20 = ema20s[r.ticker] ?? null;
+                  const ema50 = ema50s[r.ticker] ?? null;
+                  const dist20 = cur != null && ema20 != null ? (cur - ema20) / ema20 : null;
+                  const dist50 = cur != null && ema50 != null ? (cur - ema50) / ema50 : null;
                   const nearAlert = cur != null && r.alert_price > 0 && Math.abs(cur - r.alert_price) / r.alert_price < 0.03;
+                  const setup = setups[r.ticker];
+                  const setupStyle = setupCfg[setup];
                   return (
                     <tr key={r.ticker} className={`hover:bg-gray-50 transition-colors ${nearAlert ? "bg-yellow-50" : ""}`}>
                       <td className="px-3 py-2 font-semibold whitespace-nowrap">
@@ -268,40 +351,28 @@ export default function WatchlistPage() {
                         {nearAlert && <span className="ml-1 text-xs text-yellow-600 font-medium">Near!</span>}
                         {r.name && <span className="block text-xs text-gray-400 font-normal">{r.name}</span>}
                       </td>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        {setupStyle
+                          ? <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${setupStyle.cls}`}>{setupStyle.label}</span>
+                          : <span className="text-gray-300 text-xs">—</span>}
+                      </td>
                       <td className="px-3 py-2 text-gray-900 font-medium whitespace-nowrap">
                         {cur != null ? `$${cur.toFixed(2)}` : <span className="text-gray-400">—</span>}
                       </td>
-                      {/* EMA20w */}
                       <td className="px-3 py-2 text-gray-600 whitespace-nowrap">
-                        {ema20s[r.ticker] != null ? `$${(ema20s[r.ticker] ?? 0).toFixed(2)}` : <span className="text-gray-300">—</span>}
+                        {ema20 != null ? `$${ema20.toFixed(2)}` : <span className="text-gray-300">—</span>}
                       </td>
-                      <td className={`px-3 py-2 font-medium whitespace-nowrap ${
-                        cur != null && ema20s[r.ticker] != null
-                          ? ((cur - (ema20s[r.ticker] ?? 0)) / (ema20s[r.ticker] ?? 1)) > 0 ? "text-green-600" : "text-red-500"
-                          : "text-gray-300"
-                      }`}>
-                        {cur != null && ema20s[r.ticker] != null
-                          ? `${(((cur - (ema20s[r.ticker] ?? 0)) / (ema20s[r.ticker] ?? 1)) * 100).toFixed(1)}%`
-                          : "—"}
+                      <td className={`px-3 py-2 font-medium whitespace-nowrap ${dist20 != null ? (dist20 > 0 ? "text-green-600" : "text-red-500") : "text-gray-300"}`}>
+                        {dist20 != null ? `${(dist20 * 100).toFixed(1)}%` : "—"}
                       </td>
-                      {/* EMA50w */}
                       <td className="px-3 py-2 text-gray-600 whitespace-nowrap">
-                        {ema50s[r.ticker] != null ? `$${(ema50s[r.ticker] ?? 0).toFixed(2)}` : <span className="text-gray-300">—</span>}
+                        {ema50 != null ? `$${ema50.toFixed(2)}` : <span className="text-gray-300">—</span>}
                       </td>
-                      <td className={`px-3 py-2 font-medium whitespace-nowrap ${
-                        cur != null && ema50s[r.ticker] != null
-                          ? ((cur - (ema50s[r.ticker] ?? 0)) / (ema50s[r.ticker] ?? 1)) > 0 ? "text-green-600" : "text-red-500"
-                          : "text-gray-300"
-                      }`}>
-                        {cur != null && ema50s[r.ticker] != null
-                          ? `${(((cur - (ema50s[r.ticker] ?? 0)) / (ema50s[r.ticker] ?? 1)) * 100).toFixed(1)}%`
-                          : "—"}
+                      <td className={`px-3 py-2 font-medium whitespace-nowrap ${dist50 != null ? (dist50 > 0 ? "text-green-600" : "text-red-500") : "text-gray-300"}`}>
+                        {dist50 != null ? `${(dist50 * 100).toFixed(1)}%` : "—"}
                       </td>
                       <td className="px-3 py-2">
                         <EditCell value={r.alert_price} prefix="$" onSave={(v) => updateField(r.ticker, "alert_price", v)} />
-                      </td>
-                      <td className="px-3 py-2">
-                        <EditTextCell value={r.entry_zone} placeholder="e.g. 195–205" onSave={(v) => updateField(r.ticker, "entry_zone", v)} />
                       </td>
                       <td className="px-3 py-2">
                         <VerdictCell value={r.verdict} onSave={(v) => updateField(r.ticker, "verdict", v)} />
@@ -314,10 +385,10 @@ export default function WatchlistPage() {
                       <td className="px-3 py-2 text-gray-600">{num(r.fwd_pe)}</td>
                       <td className="px-3 py-2 text-gray-600">{num(r.peg, 2)}</td>
                       <td className="px-3 py-2 text-gray-600">{num(r.ev_ebitda)}</td>
+                      <td className="px-3 py-2 text-gray-400 text-xs whitespace-nowrap">{r.date_added}</td>
                       <td className="px-3 py-2">
                         <EditTextCell value={r.notes} placeholder="add notes" onSave={(v) => updateField(r.ticker, "notes", v)} />
                       </td>
-                      <td className="px-3 py-2 text-gray-400 text-xs whitespace-nowrap">{r.date_added}</td>
                       <td className="px-3 py-2">
                         <button onClick={() => handleRemove(r.ticker)} className="text-red-300 hover:text-red-500 text-xs">Remove</button>
                       </td>
