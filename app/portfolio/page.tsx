@@ -109,6 +109,12 @@ function EditTextCell({ value, onSave }: { value: string; onSave: (v: string) =>
   );
 }
 
+type SortKey =
+  | "ticker" | "price" | "shares" | "entry_price" | "cost" | "mktVal"
+  | "plDollar" | "plPct" | "stop_level" | "trimDist" | "ema50" | "hardStopDist"
+  | "rev_growth" | "gross_margin" | "op_margin" | "net_margin" | "fcf_margin"
+  | "fwd_pe" | "peg" | "ev_ebitda" | "notes" | "date_entered";
+
 export default function PortfolioPage() {
   const [rows, setRows] = useState<PortfolioRow[]>([]);
   const [prices, setPrices] = useState<Record<string, number | null>>({});
@@ -116,6 +122,51 @@ export default function PortfolioPage() {
   const [ema50s, setEma50s] = useState<Record<string, number | null>>({});
   const [loading, setLoading] = useState(true);
   const [emaLoading, setEmaLoading] = useState(false);
+  const [sortKey, setSortKey] = useState<SortKey>("ticker");
+  const [sortDir, setSortDir] = useState<1 | -1>(1);
+
+  function handleSort(key: SortKey) {
+    setSortKey((prev) => {
+      if (prev === key) { setSortDir((d) => d === 1 ? -1 : 1); return key; }
+      setSortDir(1); return key;
+    });
+  }
+
+  function getSortValue(r: PortfolioRow, key: SortKey): number | string {
+    const cur = prices[r.ticker] ?? null;
+    const cost = r.entry_price * r.shares;
+    const mktVal = cur != null ? cur * r.shares : null;
+    const plDollar = mktVal != null ? mktVal - cost : null;
+    const plPct = plDollar != null && cost > 0 ? plDollar / cost : null;
+    const stopDist = cur != null && r.stop_level > 0 ? (cur - r.stop_level) / cur : null;
+    const ema50 = ema50s[r.ticker] ?? null;
+    const hardStopDist = cur != null && ema50 != null ? (cur - ema50) / cur : null;
+    const NULL_HIGH = 1e15, NULL_LOW = -1e15;
+    switch (key) {
+      case "ticker": return r.ticker;
+      case "price": return cur ?? NULL_HIGH;
+      case "shares": return r.shares;
+      case "entry_price": return r.entry_price;
+      case "cost": return cost;
+      case "mktVal": return mktVal ?? NULL_LOW;
+      case "plDollar": return plDollar ?? NULL_LOW;
+      case "plPct": return plPct ?? NULL_LOW;
+      case "stop_level": return r.stop_level;
+      case "trimDist": return stopDist ?? NULL_LOW;
+      case "ema50": return ema50 ?? NULL_HIGH;
+      case "hardStopDist": return hardStopDist ?? NULL_LOW;
+      case "rev_growth": return r.rev_growth ?? NULL_LOW;
+      case "gross_margin": return r.gross_margin ?? NULL_LOW;
+      case "op_margin": return r.op_margin ?? NULL_LOW;
+      case "net_margin": return r.net_margin ?? NULL_LOW;
+      case "fcf_margin": return r.fcf_margin ?? NULL_LOW;
+      case "fwd_pe": return r.fwd_pe ?? NULL_HIGH;
+      case "peg": return r.peg ?? NULL_HIGH;
+      case "ev_ebitda": return r.ev_ebitda ?? NULL_HIGH;
+      case "notes": return r.notes;
+      case "date_entered": return r.date_entered;
+    }
+  }
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -270,19 +321,33 @@ export default function PortfolioPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-100 border-b border-gray-200">
                 <tr>
-                  {[
-                    "Ticker", "Price", "Shares ✎", "Entry ✎", "Cost Basis",
-                    "Mkt Value", "P&L $", "P&L %", "Trim ✎ (EMA20w)", "Trim Dist", "Stop (EMA50w)", "Hard Stop Dist",
-                    "Rev Gr", "Gross%", "Op%", "Net%", "FCF%",
-                    "Fwd PE", "PEG", "EV/EBITDA",
-                    "Notes ✎", "Date", "",
-                  ].map((h) => (
-                    <th key={h} className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">{h}</th>
+                  {([
+                    ["ticker", "Ticker"], ["price", "Price"], ["shares", "Shares ✎"], ["entry_price", "Entry ✎"],
+                    ["cost", "Cost Basis"], ["mktVal", "Mkt Value"], ["plDollar", "P&L $"], ["plPct", "P&L %"],
+                    ["stop_level", "Trim ✎ (EMA20w)"], ["trimDist", "Trim Dist"], ["ema50", "Stop (EMA50w)"], ["hardStopDist", "Hard Stop Dist"],
+                    ["rev_growth", "Rev Gr"], ["gross_margin", "Gross%"], ["op_margin", "Op%"], ["net_margin", "Net%"], ["fcf_margin", "FCF%"],
+                    ["fwd_pe", "Fwd PE"], ["peg", "PEG"], ["ev_ebitda", "EV/EBITDA"],
+                    ["notes", "Notes ✎"], ["date_entered", "Date"],
+                  ] as [SortKey, string][]).map(([key, label]) => (
+                    <th
+                      key={key}
+                      onClick={() => handleSort(key)}
+                      className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap cursor-pointer select-none hover:text-gray-800 hover:bg-gray-200 transition-colors"
+                    >
+                      {label}
+                      {sortKey === key && <span className="ml-1">{sortDir === 1 ? "↑" : "↓"}</span>}
+                    </th>
                   ))}
+                  <th className="px-3 py-2" />
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {rows.map((r) => {
+                {[...rows].sort((a, b) => {
+                  const av = getSortValue(a, sortKey);
+                  const bv = getSortValue(b, sortKey);
+                  if (typeof av === "string" && typeof bv === "string") return av.localeCompare(bv) * sortDir;
+                  return ((av as number) - (bv as number)) * sortDir;
+                }).map((r) => {
                   const cur = prices[r.ticker] ?? null;
                   const cost = r.entry_price * r.shares;
                   const mktVal = cur != null ? cur * r.shares : null;
