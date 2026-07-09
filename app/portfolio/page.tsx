@@ -120,6 +120,8 @@ export default function PortfolioPage() {
   const [prices, setPrices] = useState<Record<string, number | null>>({});
   const [ema20s, setEma20s] = useState<Record<string, number | null>>({});
   const [ema50s, setEma50s] = useState<Record<string, number | null>>({});
+  const [aths, setAths] = useState<Record<string, number | null>>({});
+  const [supportLows, setSupportLows] = useState<Record<string, number | null>>({});
   const [loading, setLoading] = useState(true);
   const [emaLoading, setEmaLoading] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("ticker");
@@ -153,8 +155,18 @@ export default function PortfolioPage() {
       case "plPct": return plPct ?? NULL_LOW;
       case "stop_level": return r.stop_level;
       case "trimDist": return stopDist ?? NULL_LOW;
-      case "ema50": return ema50 ?? NULL_HIGH;
-      case "hardStopDist": return hardStopDist ?? NULL_LOW;
+      case "ema50": {
+        const _ath = aths[r.ticker] ?? null;
+        const _isBeatenDown = cur != null && _ath != null && cur <= _ath * 0.60;
+        return _isBeatenDown ? (supportLows[r.ticker] ?? NULL_HIGH) : (ema50s[r.ticker] ?? NULL_HIGH);
+      }
+      case "hardStopDist": {
+        const _ath2 = aths[r.ticker] ?? null;
+        const _isBeatenDown2 = cur != null && _ath2 != null && cur <= _ath2 * 0.60;
+        const _support = supportLows[r.ticker] ?? null;
+        const _supportDist = cur != null && _support != null ? (cur - _support) / cur : null;
+        return _isBeatenDown2 ? (_supportDist ?? NULL_LOW) : (hardStopDist ?? NULL_LOW);
+      }
       case "rev_growth": return r.rev_growth ?? NULL_LOW;
       case "gross_margin": return r.gross_margin ?? NULL_LOW;
       case "op_margin": return r.op_margin ?? NULL_LOW;
@@ -227,6 +239,8 @@ export default function PortfolioPage() {
           .then((d) => {
             setEma20s(d.ema20 ?? {});
             setEma50s(d.ema50 ?? {});
+            setAths(d.ath ?? {});
+            setSupportLows(d.supportLow ?? {});
             // Auto-save EMA20 as stop for any position where stop is still 0
             built.forEach((row) => {
               const ema = d.ema20?.[row.ticker];
@@ -324,7 +338,7 @@ export default function PortfolioPage() {
                   {([
                     ["ticker", "Ticker"], ["price", "Price"], ["shares", "Shares ✎"], ["entry_price", "Entry ✎"],
                     ["cost", "Cost Basis"], ["mktVal", "Mkt Value"], ["plDollar", "P&L $"], ["plPct", "P&L %"],
-                    ["stop_level", "Trim ✎ (EMA20w)"], ["trimDist", "Trim Dist"], ["ema50", "Stop (EMA50w)"], ["hardStopDist", "Hard Stop Dist"],
+                    ["stop_level", "Trim ✎ (EMA20w)"], ["trimDist", "Trim Dist"], ["ema50", "Stop Level"], ["hardStopDist", "Stop Dist"],
                     ["rev_growth", "Rev Gr"], ["gross_margin", "Gross%"], ["op_margin", "Op%"], ["net_margin", "Net%"], ["fcf_margin", "FCF%"],
                     ["fwd_pe", "Fwd PE"], ["peg", "PEG"], ["ev_ebitda", "EV/EBITDA"],
                     ["notes", "Notes ✎"], ["date_entered", "Date"],
@@ -356,6 +370,10 @@ export default function PortfolioPage() {
                   const stopDist = cur != null && r.stop_level > 0 ? (cur - r.stop_level) / cur : null;
                   const ema50 = ema50s[r.ticker] ?? null;
                   const hardStopDist = cur != null && ema50 != null ? (cur - ema50) / cur : null;
+                  const ath = aths[r.ticker] ?? null;
+                  const isBeatenDown = cur != null && ath != null && cur <= ath * 0.60;
+                  const supportLow = supportLows[r.ticker] ?? null;
+                  const supportDist = cur != null && supportLow != null ? (cur - supportLow) / cur : null;
                   return (
                     <tr key={r.ticker} className="hover:bg-gray-50 transition-colors">
                       <td className="px-3 py-2 font-semibold whitespace-nowrap">
@@ -383,22 +401,48 @@ export default function PortfolioPage() {
                       <td className={`px-3 py-2 ${plPct != null ? pctColor(plPct) : "text-gray-400"}`}>
                         {plPct != null ? `${plPct >= 0 ? "+" : ""}${(plPct * 100).toFixed(1)}%` : "—"}
                       </td>
+                      {/* Trim (EMA20w) — blank for beaten-down stocks */}
                       <td className="px-3 py-2">
-                        <EditCell value={r.stop_level} prefix="$" onSave={(v) => updateField(r.ticker, "stop_level", v)} />
-                        {ema20s[r.ticker] != null && Math.abs((ema20s[r.ticker] ?? 0) - r.stop_level) > 0.01 && (
-                          <span className="block text-xs text-gray-400 leading-tight">
-                            EMA20w: ${(ema20s[r.ticker] ?? 0).toFixed(2)}
-                          </span>
+                        {isBeatenDown ? (
+                          <span className="text-gray-300 text-xs italic">—</span>
+                        ) : (
+                          <>
+                            <EditCell value={r.stop_level} prefix="$" onSave={(v) => updateField(r.ticker, "stop_level", v)} />
+                            {ema20s[r.ticker] != null && Math.abs((ema20s[r.ticker] ?? 0) - r.stop_level) > 0.01 && (
+                              <span className="block text-xs text-gray-400 leading-tight">
+                                EMA20w: ${(ema20s[r.ticker] ?? 0).toFixed(2)}
+                              </span>
+                            )}
+                          </>
                         )}
                       </td>
-                      <td className={`px-3 py-2 font-medium whitespace-nowrap ${stopDist != null ? (stopDist < 0.05 ? "text-red-500" : stopDist < 0.10 ? "text-yellow-600" : "text-green-600") : "text-gray-400"}`}>
-                        {stopDist != null ? `${(stopDist * 100).toFixed(1)}%` : "—"}
+                      {/* Trim Dist — blank for beaten-down stocks */}
+                      <td className={`px-3 py-2 font-medium whitespace-nowrap ${!isBeatenDown && stopDist != null ? (stopDist < 0.05 ? "text-red-500" : stopDist < 0.10 ? "text-yellow-600" : "text-green-600") : "text-gray-300"}`}>
+                        {!isBeatenDown && stopDist != null ? `${(stopDist * 100).toFixed(1)}%` : "—"}
                       </td>
-                      <td className="px-3 py-2 whitespace-nowrap text-gray-700">
-                        {ema50 != null ? `$${ema50.toFixed(2)}` : <span className="text-gray-400">—</span>}
+                      {/* Stop — EMA50w for normal, prev support low for beaten-down */}
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        {isBeatenDown ? (
+                          supportLow != null ? (
+                            <span className="text-gray-700">
+                              ${supportLow.toFixed(2)}
+                              <span className="block text-xs text-gray-400 leading-tight">prev support</span>
+                            </span>
+                          ) : <span className="text-gray-400">—</span>
+                        ) : (
+                          ema50 != null ? <span className="text-gray-700">${ema50.toFixed(2)}</span> : <span className="text-gray-400">—</span>
+                        )}
                       </td>
-                      <td className={`px-3 py-2 font-medium whitespace-nowrap ${hardStopDist != null ? (hardStopDist < 0.05 ? "text-red-500" : hardStopDist < 0.10 ? "text-yellow-600" : "text-green-600") : "text-gray-400"}`}>
-                        {hardStopDist != null ? `${(hardStopDist * 100).toFixed(1)}%` : "—"}
+                      {/* Hard Stop Dist — vs EMA50w for normal, vs prev support for beaten-down */}
+                      <td className={`px-3 py-2 font-medium whitespace-nowrap ${
+                        isBeatenDown
+                          ? supportDist != null ? (supportDist < 0.05 ? "text-red-500" : supportDist < 0.10 ? "text-yellow-600" : "text-green-600") : "text-gray-400"
+                          : hardStopDist != null ? (hardStopDist < 0.05 ? "text-red-500" : hardStopDist < 0.10 ? "text-yellow-600" : "text-green-600") : "text-gray-400"
+                      }`}>
+                        {isBeatenDown
+                          ? (supportDist != null ? `${(supportDist * 100).toFixed(1)}%` : "—")
+                          : (hardStopDist != null ? `${(hardStopDist * 100).toFixed(1)}%` : "—")
+                        }
                       </td>
                       <td className="px-3 py-2 text-gray-600">{pct(r.rev_growth)}</td>
                       <td className="px-3 py-2 text-gray-600">{pct(r.gross_margin)}</td>
