@@ -13,14 +13,14 @@ function calcEMA(values: number[], period: number): number | null {
   return ema;
 }
 
-async function fetchEMA20(ticker: string): Promise<number | null> {
+async function fetchEMAs(ticker: string): Promise<{ ema20: number | null; ema50: number | null }> {
   const now = new Date();
-  const twoYearsAgo = new Date(now.getTime() - 2 * 365 * 24 * 3600 * 1000);
+  const threeYearsAgo = new Date(now.getTime() - 3 * 365 * 24 * 3600 * 1000);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const result: any = await yf.chart(ticker, { period1: twoYearsAgo, period2: now, interval: "1wk" });
+  const result: any = await yf.chart(ticker, { period1: threeYearsAgo, period2: now, interval: "1wk" });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const closes = (result?.quotes ?? []).filter((q: any) => q.open != null && q.high != null && q.low != null && q.close != null && q.volume != null).map((q: any) => q.close as number);
-  return calcEMA(closes, 20);
+  return { ema20: calcEMA(closes, 20), ema50: calcEMA(closes, 50) };
 }
 
 export async function GET(req: NextRequest) {
@@ -28,7 +28,8 @@ export async function GET(req: NextRequest) {
   if (!param) return NextResponse.json({ error: "tickers required" }, { status: 400 });
 
   const tickers = param.split(",").map((t) => t.trim().toUpperCase()).filter(Boolean);
-  const result: Record<string, number | null> = {};
+  const ema20: Record<string, number | null> = {};
+  const ema50: Record<string, number | null> = {};
 
   // Fetch in parallel, cap concurrency at 5
   const chunkSize = 5;
@@ -36,12 +37,15 @@ export async function GET(req: NextRequest) {
     const chunk = tickers.slice(i, i + chunkSize);
     await Promise.all(chunk.map(async (ticker) => {
       try {
-        result[ticker] = await fetchEMA20(ticker);
+        const r = await fetchEMAs(ticker);
+        ema20[ticker] = r.ema20;
+        ema50[ticker] = r.ema50;
       } catch {
-        result[ticker] = null;
+        ema20[ticker] = null;
+        ema50[ticker] = null;
       }
     }));
   }
 
-  return NextResponse.json({ ema20: result });
+  return NextResponse.json({ ema20, ema50 });
 }

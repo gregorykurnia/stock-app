@@ -113,6 +113,7 @@ export default function PortfolioPage() {
   const [rows, setRows] = useState<PortfolioRow[]>([]);
   const [prices, setPrices] = useState<Record<string, number | null>>({});
   const [ema20s, setEma20s] = useState<Record<string, number | null>>({});
+  const [ema50s, setEma50s] = useState<Record<string, number | null>>({});
   const [loading, setLoading] = useState(true);
   const [emaLoading, setEmaLoading] = useState(false);
 
@@ -174,6 +175,7 @@ export default function PortfolioPage() {
           .then((r) => r.json())
           .then((d) => {
             setEma20s(d.ema20 ?? {});
+            setEma50s(d.ema50 ?? {});
             // Auto-save EMA20 as stop for any position where stop is still 0
             built.forEach((row) => {
               const ema = d.ema20?.[row.ticker];
@@ -229,7 +231,7 @@ export default function PortfolioPage() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Portfolio</h1>
             <p className="text-gray-500 text-sm mt-0.5">
-              Added from master table · Click any value to edit inline · Stop defaults to EMA20 weekly{emaLoading && <span className="ml-2 text-blue-400 animate-pulse">Fetching EMA20s…</span>}
+              Added from master table · Click any value to edit inline · Trim defaults to EMA20 weekly · Hard Stop = EMA50 weekly{emaLoading && <span className="ml-2 text-blue-400 animate-pulse">Fetching EMA20s…</span>}
             </p>
           </div>
           <Link href="/" className="text-sm text-blue-600 hover:text-blue-800">
@@ -270,7 +272,7 @@ export default function PortfolioPage() {
                 <tr>
                   {[
                     "Ticker", "Price", "Shares ✎", "Entry ✎", "Cost Basis",
-                    "Mkt Value", "P&L $", "P&L %", "Stop ✎ (EMA20w)", "Stop Dist",
+                    "Mkt Value", "P&L $", "P&L %", "Trim ✎ (EMA20w)", "Trim Dist", "Stop (EMA50w)", "Hard Stop Dist",
                     "Rev Gr", "Gross%", "Op%", "Net%", "FCF%",
                     "Fwd PE", "PEG", "EV/EBITDA",
                     "Notes ✎", "Date", "",
@@ -287,6 +289,8 @@ export default function PortfolioPage() {
                   const plDollar = mktVal != null ? mktVal - cost : null;
                   const plPct = plDollar != null && cost > 0 ? plDollar / cost : null;
                   const stopDist = cur != null && r.stop_level > 0 ? (cur - r.stop_level) / cur : null;
+                  const ema50 = ema50s[r.ticker] ?? null;
+                  const hardStopDist = cur != null && ema50 != null ? (cur - ema50) / cur : null;
                   return (
                     <tr key={r.ticker} className="hover:bg-gray-50 transition-colors">
                       <td className="px-3 py-2 font-semibold whitespace-nowrap">
@@ -324,6 +328,12 @@ export default function PortfolioPage() {
                       </td>
                       <td className={`px-3 py-2 font-medium whitespace-nowrap ${stopDist != null ? (stopDist < 0.05 ? "text-red-500" : stopDist < 0.10 ? "text-yellow-600" : "text-green-600") : "text-gray-400"}`}>
                         {stopDist != null ? `${(stopDist * 100).toFixed(1)}%` : "—"}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap text-gray-700">
+                        {ema50 != null ? `$${ema50.toFixed(2)}` : <span className="text-gray-400">—</span>}
+                      </td>
+                      <td className={`px-3 py-2 font-medium whitespace-nowrap ${hardStopDist != null ? (hardStopDist < 0.05 ? "text-red-500" : hardStopDist < 0.10 ? "text-yellow-600" : "text-green-600") : "text-gray-400"}`}>
+                        {hardStopDist != null ? `${(hardStopDist * 100).toFixed(1)}%` : "—"}
                       </td>
                       <td className="px-3 py-2 text-gray-600">{pct(r.rev_growth)}</td>
                       <td className="px-3 py-2 text-gray-600">{pct(r.gross_margin)}</td>
