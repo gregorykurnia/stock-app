@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { getPortfolio, savePortfolioEntry, removePortfolioEntry, getCustomStocks } from "@/lib/firestore";
+import { getPortfolio, savePortfolioEntry, removePortfolioEntry, getCustomStocks, loadStockData } from "@/lib/firestore";
 import { SEED_STOCKS, FUNDAMENTALS_RAW, VALUATION_RAW } from "@/lib/seedData";
 import type { CustomStock } from "@/lib/types";
 
@@ -110,7 +110,7 @@ function EditTextCell({ value, onSave }: { value: string; onSave: (v: string) =>
 }
 
 type SortKey =
-  | "ticker" | "price" | "shares" | "entry_price" | "cost" | "mktVal"
+  | "ticker" | "setup" | "price" | "shares" | "entry_price" | "cost" | "mktVal"
   | "plDollar" | "plPct" | "stop_level" | "trimDist" | "ema50" | "hardStopDist"
   | "rev_growth" | "gross_margin" | "op_margin" | "net_margin" | "fcf_margin"
   | "fwd_pe" | "peg" | "ev_ebitda" | "notes" | "date_entered";
@@ -122,6 +122,7 @@ export default function PortfolioPage() {
   const [ema50s, setEma50s] = useState<Record<string, number | null>>({});
   const [aths, setAths] = useState<Record<string, number | null>>({});
   const [supportLows, setSupportLows] = useState<Record<string, number | null>>({});
+  const [setups, setSetups] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [emaLoading, setEmaLoading] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("ticker");
@@ -146,6 +147,7 @@ export default function PortfolioPage() {
     const NULL_HIGH = 1e15, NULL_LOW = -1e15;
     switch (key) {
       case "ticker": return r.ticker;
+      case "setup": return setups[r.ticker] ?? "";
       case "price": return cur ?? NULL_HIGH;
       case "shares": return r.shares;
       case "entry_price": return r.entry_price;
@@ -226,11 +228,20 @@ export default function PortfolioPage() {
       if (built.length > 0) {
         const tickers = built.map((r) => r.ticker).join(",");
 
-        // Prices + EMA20s in parallel
+        // Prices + setups in parallel
         const [priceRes] = await Promise.all([
           fetch(`/api/prices?tickers=${tickers}`).then((r) => r.json()),
         ]);
         setPrices(priceRes.prices ?? {});
+
+        // Fetch setup from latest_verdict for each ticker
+        const setupResults = await Promise.all(
+          built.map(async (row) => {
+            const data = await loadStockData(row.ticker).catch(() => null);
+            return [row.ticker, (data as Record<string, Record<string, string>> | null)?.latest_verdict?.setup ?? ""] as [string, string];
+          })
+        );
+        setSetups(Object.fromEntries(setupResults));
 
         // EMA20 fetch separately (slower — weekly chart data)
         setEmaLoading(true);
@@ -336,7 +347,7 @@ export default function PortfolioPage() {
               <thead className="bg-gray-100 border-b border-gray-200">
                 <tr>
                   {([
-                    ["ticker", "Ticker"], ["price", "Price"], ["shares", "Shares ✎"], ["entry_price", "Entry ✎"],
+                    ["ticker", "Ticker"], ["setup", "Setup"], ["price", "Price"], ["shares", "Shares ✎"], ["entry_price", "Entry ✎"],
                     ["cost", "Cost Basis"], ["mktVal", "Mkt Value"], ["plDollar", "P&L $"], ["plPct", "P&L %"],
                     ["stop_level", "Trim ✎ (EMA20w)"], ["trimDist", "Trim Dist"], ["ema50", "Stop Level"], ["hardStopDist", "Stop Dist"],
                     ["rev_growth", "Rev Gr"], ["gross_margin", "Gross%"], ["op_margin", "Op%"], ["net_margin", "Net%"], ["fcf_margin", "FCF%"],
@@ -379,6 +390,20 @@ export default function PortfolioPage() {
                       <td className="px-3 py-2 font-semibold whitespace-nowrap">
                         <Link href={`/stock/${r.ticker}`} className="text-blue-600 hover:text-blue-800">{r.ticker}</Link>
                         {r.name && <span className="block text-xs text-gray-400 font-normal">{r.name}</span>}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        {(() => {
+                          const s = setups[r.ticker];
+                          if (!s) return <span className="text-gray-300 text-xs">—</span>;
+                          const cfg: Record<string, { label: string; cls: string }> = {
+                            beaten_down: { label: "Beaten Down", cls: "bg-orange-100 text-orange-700" },
+                            pullback:    { label: "Pullback",    cls: "bg-blue-100 text-blue-700"   },
+                            parabolic:   { label: "Parabolic",   cls: "bg-purple-100 text-purple-700" },
+                            volatile:    { label: "Volatile",    cls: "bg-gray-100 text-gray-600"   },
+                          };
+                          const c = cfg[s] ?? { label: s, cls: "bg-gray-100 text-gray-500" };
+                          return <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${c.cls}`}>{c.label}</span>;
+                        })()}
                       </td>
                       <td className="px-3 py-2 text-gray-900 font-medium whitespace-nowrap">
                         {cur != null ? `$${cur.toFixed(2)}` : <span className="text-gray-400">—</span>}
