@@ -33,9 +33,10 @@ export default function StockChart({ bars, indicators }: Props) {
   const priceRef = useRef<HTMLDivElement>(null);
   const obvRef = useRef<HTMLDivElement>(null);
   const cmfRef = useRef<HTMLDivElement>(null);
+  const dmiRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!priceRef.current || !obvRef.current || !cmfRef.current || bars.length === 0) return;
+    if (!priceRef.current || !obvRef.current || !cmfRef.current || !dmiRef.current || bars.length === 0) return;
 
     const w = priceRef.current.clientWidth;
     const times = bars.map((b) => b.time as import("lightweight-charts").Time);
@@ -96,24 +97,32 @@ export default function StockChart({ bars, indicators }: Props) {
     );
     cmfChart.timeScale().fitContent();
 
+    // --- DMI chart (ADX + DI+ + DI-) ---
+    const dmiChart = createChart(dmiRef.current, { ...CHART_OPTIONS(w), height: 160 });
+
+    const diPlusSeries = dmiChart.addSeries(LineSeries, { color: "#22c55e", lineWidth: 2, title: "DI+" });
+    diPlusSeries.setData(
+      bars.map((b, i) => ({ time: times[i], value: indicators.diPlus[i] })).filter((d) => !isNaN(d.value))
+    );
+
+    const diMinusSeries = dmiChart.addSeries(LineSeries, { color: "#ef4444", lineWidth: 2, title: "DI-" });
+    diMinusSeries.setData(
+      bars.map((b, i) => ({ time: times[i], value: indicators.diMinus[i] })).filter((d) => !isNaN(d.value))
+    );
+
+    const adxSeries = dmiChart.addSeries(LineSeries, { color: "#f59e0b", lineWidth: 2, lineStyle: 1, title: "ADX" });
+    adxSeries.setData(
+      bars.map((b, i) => ({ time: times[i], value: indicators.adx[i] })).filter((d) => !isNaN(d.value))
+    );
+
+    dmiChart.timeScale().fitContent();
+
     // Sync time scales
-    priceChart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
-      if (range) {
-        obvChart.timeScale().setVisibleLogicalRange(range);
-        cmfChart.timeScale().setVisibleLogicalRange(range);
-      }
-    });
-    obvChart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
-      if (range) {
-        priceChart.timeScale().setVisibleLogicalRange(range);
-        cmfChart.timeScale().setVisibleLogicalRange(range);
-      }
-    });
-    cmfChart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
-      if (range) {
-        priceChart.timeScale().setVisibleLogicalRange(range);
-        obvChart.timeScale().setVisibleLogicalRange(range);
-      }
+    const charts = [priceChart, obvChart, cmfChart, dmiChart];
+    charts.forEach((chart) => {
+      chart.timeScale().subscribeVisibleLogicalRangeChange((range) => {
+        if (range) charts.forEach((c) => { if (c !== chart) c.timeScale().setVisibleLogicalRange(range); });
+      });
     });
 
     const handleResize = () => {
@@ -121,6 +130,7 @@ export default function StockChart({ bars, indicators }: Props) {
       priceChart.applyOptions({ width: nw });
       obvChart.applyOptions({ width: nw });
       cmfChart.applyOptions({ width: nw });
+      dmiChart.applyOptions({ width: nw });
     };
     window.addEventListener("resize", handleResize);
 
@@ -129,6 +139,7 @@ export default function StockChart({ bars, indicators }: Props) {
       priceChart.remove();
       obvChart.remove();
       cmfChart.remove();
+      dmiChart.remove();
     };
   }, [bars, indicators]);
 
@@ -138,7 +149,16 @@ export default function StockChart({ bars, indicators }: Props) {
       <div className="w-full px-2 pt-1 pb-0 bg-[#0f172a] text-xs text-violet-400 font-semibold tracking-wide">OBV</div>
       <div ref={obvRef} className="w-full overflow-hidden" />
       <div className="w-full px-2 pt-1 pb-0 bg-[#0f172a] text-xs text-green-400 font-semibold tracking-wide">CMF</div>
-      <div ref={cmfRef} className="w-full rounded-b-lg overflow-hidden" />
+      <div ref={cmfRef} className="w-full overflow-hidden" />
+      <div className="w-full px-2 pt-1 pb-0 bg-[#0f172a] text-xs font-semibold tracking-wide">
+        <span className="text-green-400">DI+</span>
+        <span className="text-gray-500 mx-1">/</span>
+        <span className="text-red-400">DI-</span>
+        <span className="text-gray-500 mx-1">/</span>
+        <span className="text-amber-400">ADX</span>
+        <span className="text-gray-500 ml-1">(DMI)</span>
+      </div>
+      <div ref={dmiRef} className="w-full rounded-b-lg overflow-hidden" />
     </div>
   );
 }
