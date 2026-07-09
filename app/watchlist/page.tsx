@@ -131,6 +131,9 @@ function VerdictCell({ value, onSave }: { value: string; onSave: (v: string) => 
 export default function WatchlistPage() {
   const [rows, setRows] = useState<WatchlistRow[]>([]);
   const [prices, setPrices] = useState<Record<string, number | null>>({});
+  const [ema20s, setEma20s] = useState<Record<string, number | null>>({});
+  const [ema50s, setEma50s] = useState<Record<string, number | null>>({});
+  const [emaLoading, setEmaLoading] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
@@ -181,6 +184,16 @@ export default function WatchlistPage() {
         const res = await fetch(`/api/prices?tickers=${tickers}`);
         const json = await res.json();
         setPrices(json.prices ?? {});
+
+        setEmaLoading(true);
+        fetch(`/api/ema?tickers=${tickers}`)
+          .then((r) => r.json())
+          .then((d) => {
+            setEma20s(d.ema20 ?? {});
+            setEma50s(d.ema50 ?? {});
+          })
+          .catch(() => {})
+          .finally(() => setEmaLoading(false));
       }
     } finally {
       setLoading(false);
@@ -214,7 +227,7 @@ export default function WatchlistPage() {
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Watchlist</h1>
             <p className="text-gray-500 text-sm mt-0.5">
-              Added from master table · Click any value to edit inline
+              Added from master table · Click any value to edit inline{emaLoading && <span className="ml-2 text-blue-400 animate-pulse">Fetching EMAs…</span>}
             </p>
           </div>
           <Link href="/" className="text-sm text-blue-600 hover:text-blue-800">
@@ -234,7 +247,8 @@ export default function WatchlistPage() {
               <thead className="bg-gray-100 border-b border-gray-200">
                 <tr>
                   {[
-                    "Ticker", "Price", "Alert ✎", "Entry Zone ✎", "Verdict ✎",
+                    "Ticker", "Price", "EMA20w", "Dist 20w", "EMA50w", "Dist 50w",
+                    "Alert ✎", "Entry Zone ✎", "Verdict ✎",
                     "Rev Gr", "Gross%", "Op%", "Net%", "FCF%",
                     "Fwd PE", "PEG", "EV/EBITDA",
                     "Notes ✎", "Date Added", "",
@@ -256,6 +270,32 @@ export default function WatchlistPage() {
                       </td>
                       <td className="px-3 py-2 text-gray-900 font-medium whitespace-nowrap">
                         {cur != null ? `$${cur.toFixed(2)}` : <span className="text-gray-400">—</span>}
+                      </td>
+                      {/* EMA20w */}
+                      <td className="px-3 py-2 text-gray-600 whitespace-nowrap">
+                        {ema20s[r.ticker] != null ? `$${(ema20s[r.ticker] ?? 0).toFixed(2)}` : <span className="text-gray-300">—</span>}
+                      </td>
+                      <td className={`px-3 py-2 font-medium whitespace-nowrap ${
+                        cur != null && ema20s[r.ticker] != null
+                          ? ((cur - (ema20s[r.ticker] ?? 0)) / (ema20s[r.ticker] ?? 1)) > 0 ? "text-green-600" : "text-red-500"
+                          : "text-gray-300"
+                      }`}>
+                        {cur != null && ema20s[r.ticker] != null
+                          ? `${(((cur - (ema20s[r.ticker] ?? 0)) / (ema20s[r.ticker] ?? 1)) * 100).toFixed(1)}%`
+                          : "—"}
+                      </td>
+                      {/* EMA50w */}
+                      <td className="px-3 py-2 text-gray-600 whitespace-nowrap">
+                        {ema50s[r.ticker] != null ? `$${(ema50s[r.ticker] ?? 0).toFixed(2)}` : <span className="text-gray-300">—</span>}
+                      </td>
+                      <td className={`px-3 py-2 font-medium whitespace-nowrap ${
+                        cur != null && ema50s[r.ticker] != null
+                          ? ((cur - (ema50s[r.ticker] ?? 0)) / (ema50s[r.ticker] ?? 1)) > 0 ? "text-green-600" : "text-red-500"
+                          : "text-gray-300"
+                      }`}>
+                        {cur != null && ema50s[r.ticker] != null
+                          ? `${(((cur - (ema50s[r.ticker] ?? 0)) / (ema50s[r.ticker] ?? 1)) * 100).toFixed(1)}%`
+                          : "—"}
                       </td>
                       <td className="px-3 py-2">
                         <EditCell value={r.alert_price} prefix="$" onSave={(v) => updateField(r.ticker, "alert_price", v)} />
