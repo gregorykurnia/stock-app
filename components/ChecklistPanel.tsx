@@ -7,8 +7,9 @@ function detectSetup(ind: LatestIndicators): SetupType {
   const priceVsEma20 = (ind.price - ind.ema20) / ind.ema20;
   if (ema20VsEma50 < -0.10) return "beaten_down";
   if (ind.ema20 > ind.ema50 && priceVsEma20 > 0.20) return "parabolic";
-  if (ind.ema20 > ind.ema50) return "pullback";
-  return "volatile";
+  // Everything else — EMA20 near/crossing EMA50, choppy price — treated as pullback
+  // The checklist indicators will naturally surface poor internals
+  return "pullback";
 }
 
 function obvPatternToStatus(pattern: HistoricalArrays["obv_analysis"]["pattern"]): "pass" | "fail" | "unconfirmed" {
@@ -63,7 +64,8 @@ function buildChecklist(
       { label: "EMA20 vs EMA50 gap under 25%", mustHave: false, status: Math.abs((ind.ema20 - ind.ema50) / ind.ema50) < 0.25 ? "pass" : "fail" },
     ];
   }
-  if (setup === "pullback") {
+  // pullback (covers all remaining cases including choppy/sideways)
+  {
     const obvTrend = hist.obv_history;
     const obvFlatOrRising = obvTrend[obvTrend.length - 1] >= obvTrend[0] * 0.97;
     const cmfStatus = ind.cmfVal > -0.15 ? "pass" : ind.cmfVal >= -0.20 ? "borderline" : "fail";
@@ -76,10 +78,6 @@ function buildChecklist(
       { label: "CMF above -0.15", mustHave: false, status: cmfStatus },
     ];
   }
-  // volatile
-  return [
-    { label: "Swing only — no long term entry", mustHave: false, status: "unconfirmed" },
-  ];
 }
 
 const statusIcon: Record<string, string> = {
@@ -120,7 +118,6 @@ export default function ChecklistPanel({ indicators, history }: Props) {
     beaten_down: "Beaten Down",
     parabolic: "Parabolic (near ATH)",
     pullback: "Healthy Pullback",
-    volatile: "Volatile / Choppy",
   };
 
   return (

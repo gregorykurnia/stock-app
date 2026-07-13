@@ -399,7 +399,6 @@ export default function PortfolioPage() {
                             beaten_down: { label: "Beaten Down", cls: "bg-orange-100 text-orange-700" },
                             pullback:    { label: "Pullback",    cls: "bg-blue-100 text-blue-700"   },
                             parabolic:   { label: "Parabolic",   cls: "bg-purple-100 text-purple-700" },
-                            volatile:    { label: "Volatile",    cls: "bg-gray-100 text-gray-600"   },
                           };
                           const c = cfg[s] ?? { label: s, cls: "bg-gray-100 text-gray-500" };
                           return <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${c.cls}`}>{c.label}</span>;

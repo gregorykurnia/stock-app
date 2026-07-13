@@ -67,8 +67,9 @@ Run these rules in order and stop at the first match:
 1. If EMA20 is more than 10% below EMA50 → setup = "beaten_down"
 2. If price is 40%+ below max(price_history) → setup = "beaten_down"
 3. If EMA20 is above EMA50 AND price is more than 20% above EMA20 → setup = "parabolic"
-4. If EMA20 is above EMA50 → setup = "pullback"
-5. Otherwise → setup = "volatile"
+4. Otherwise → setup = "pullback"
+
+Note: There is no "volatile" category. Stocks with choppy/sideways price action are classified as "pullback" — the checklist indicators will surface the weak internals naturally.
 
 State your classification in "setup_detected" and "setup_reason" fields. Score ONLY the must-haves for the detected setup — never mix must-haves across checklists.
 
@@ -135,9 +136,6 @@ Confirming signals:
 - ADX 25–45
 - EMA20 vs EMA50 gap under 25%
 
-### CHECKLIST 4 — Volatile/Choppy
-No formal must-haves. Swing only, 2–3% max, tight stops.
-
 ## STEP 5 — VERDICT CALIBRATION
 
 STRONG BUY: All must-haves confirmed, confirming signals mostly passing
@@ -182,7 +180,7 @@ CRITICAL RULES:
     ],
     "score": "X/3 must-haves confirmed"
   },
-  "setup": "beaten_down|pullback|parabolic|volatile",
+  "setup": "beaten_down|pullback|parabolic",
   "checklist_score": "X/Y",
   "must_have_failures": ["only genuinely failed must-haves, not unconfirmed ones"],
   "verdict_text": "2–3 sentence actionable verdict from an experienced technical analyst",

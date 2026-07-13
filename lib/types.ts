@@ -30,7 +30,7 @@ export interface LatestIndicators {
   price: number;
 }
 
-export type SetupType = "beaten_down" | "pullback" | "parabolic" | "volatile";
+export type SetupType = "beaten_down" | "pullback" | "parabolic";
 export type Urgency = "urgent" | "watch" | "hold" | "avoid";
 
 export interface ChecklistItem {

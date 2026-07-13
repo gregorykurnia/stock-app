@@ -22,7 +22,6 @@ const setupCfg: Record<string, { label: string; cls: string }> = {
   beaten_down: { label: "Beaten Down", cls: "bg-orange-100 text-orange-700" },
   pullback:    { label: "Pullback",    cls: "bg-blue-100 text-blue-700"     },
   parabolic:   { label: "Parabolic",   cls: "bg-purple-100 text-purple-700" },
-  volatile:    { label: "Volatile",    cls: "bg-gray-100 text-gray-600"     },
 };
 
 interface WatchlistRow {
