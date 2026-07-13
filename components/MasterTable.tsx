@@ -178,11 +178,12 @@ export default function MasterTable({ prices, verdicts, atrs, loading, customSto
   }, [allRows, sortKey, sortDir, industryFilter, urgencyFilter, search]);
 
   function exportCsv() {
-    const headers = ["Ticker", "Industry", "Score", "Val", "Fund", "Price", "Urgency", "Rev Gr%", "Gross%", "Op%", "Net%", "FCF%", "Fwd PE", "PEG", "EV/EBITDA", "EV/FCF"];
+    const headers = ["Ticker", "Industry", "Score", "Val", "Fund", "Price", "ATR%", "Urgency", "Rev Gr%", "Gross%", "Op%", "Net%", "FCF%", "Fwd PE", "PEG", "EV/EBITDA", "EV/FCF"];
     const data = rows.map((r) => [
       r.ticker, r.industry,
       r.combined?.toFixed(1) ?? "", r.val?.toFixed(1) ?? "", r.fund?.toFixed(1) ?? "",
       r.price?.toFixed(2) ?? "",
+      atrs[r.ticker]?.toFixed(1) ?? "",
       r.verdict?.urgency ?? "",
       r.rev_growth != null ? (r.rev_growth * 100).toFixed(1) : "",
       r.gross_margin != null ? (r.gross_margin * 100).toFixed(1) : "",
