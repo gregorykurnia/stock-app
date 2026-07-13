@@ -326,7 +326,7 @@ export default function WatchlistPage() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => {
-                const headers = ["Ticker", "Setup", "Price", "EMA20w", "Dist 20w%", "EMA50w", "Dist 50w%", "Alert Price", "Verdict", "Rev Gr%", "Gross%", "Op%", "Net%", "FCF%", "Fwd PE", "PEG", "EV/EBITDA", "Notes", "Date Added"];
+                const headers = ["Ticker", "Setup", "Price", "EMA20w", "Dist 20w%", "EMA50w", "Dist 50w%", "ATR%", "Alert Price", "Verdict", "Rev Gr%", "Gross%", "Op%", "Net%", "FCF%", "Fwd PE", "PEG", "EV/EBITDA", "Notes", "Date Added"];
                 const data = sorted.map((r) => {
                   const cur = prices[r.ticker] ?? null;
                   const ema20 = ema20s[r.ticker] ?? null;
@@ -338,6 +338,7 @@ export default function WatchlistPage() {
                     cur?.toFixed(2) ?? "",
                     ema20?.toFixed(2) ?? "", dist20,
                     ema50?.toFixed(2) ?? "", dist50,
+                    atrPcts[r.ticker]?.toFixed(1) ?? "",
                     r.alert_price > 0 ? r.alert_price : "", r.verdict,
                     r.rev_growth != null ? (r.rev_growth * 100).toFixed(1) : "",
                     r.gross_margin != null ? (r.gross_margin * 100).toFixed(1) : "",

@@ -332,7 +332,7 @@ export default function PortfolioPage() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => {
-                const headers = ["Ticker", "Setup", "Shares", "Entry Price", "Cost Basis", "Market Value", "P&L $", "P&L %", "Stop Level", "Stop Dist %", "EMA20w", "EMA50w", "Rev Gr%", "Gross%", "Op%", "Net%", "FCF%", "Fwd PE", "PEG", "EV/EBITDA", "Notes", "Date Entered"];
+                const headers = ["Ticker", "Setup", "Shares", "Entry Price", "Cost Basis", "Market Value", "P&L $", "P&L %", "Stop Level", "Stop Dist %", "EMA20w", "EMA50w", "ATR%", "Rev Gr%", "Gross%", "Op%", "Net%", "FCF%", "Fwd PE", "PEG", "EV/EBITDA", "Notes", "Date Entered"];
                 const data = rows.map((r) => {
                   const cur = prices[r.ticker] ?? null;
                   const cost = r.entry_price * r.shares;
@@ -346,6 +346,7 @@ export default function PortfolioPage() {
                     plDollar?.toFixed(2) ?? "", plPct?.toFixed(1) ?? "",
                     r.stop_level > 0 ? r.stop_level : "", stopDist?.toFixed(1) ?? "",
                     ema20s[r.ticker]?.toFixed(2) ?? "", ema50s[r.ticker]?.toFixed(2) ?? "",
+                    atrPcts[r.ticker]?.toFixed(1) ?? "",
                     r.rev_growth != null ? (r.rev_growth * 100).toFixed(1) : "",
                     r.gross_margin != null ? (r.gross_margin * 100).toFixed(1) : "",
                     r.op_margin != null ? (r.op_margin * 100).toFixed(1) : "",
