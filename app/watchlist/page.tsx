@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { getWatchlist, saveWatchlistEntry, removeWatchlistEntry, getCustomStocks, loadStockData } from "@/lib/firestore";
+import { getCached, setCached, invalidateCache } from "@/lib/pageCache";
 import { SEED_STOCKS, FUNDAMENTALS_RAW, VALUATION_RAW } from "@/lib/seedData";
 import { atrLabel } from "@/lib/indicators";
 import type { CustomStock } from "@/lib/types";
@@ -186,8 +187,18 @@ export default function WatchlistPage() {
     }
   }
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (background = false) => {
+    if (!background) {
+      const hit = getCached<{ rows: WatchlistRow[]; prices: Record<string, number | null> }>("watchlist");
+      if (hit) {
+        setRows(hit.rows);
+        setPrices(hit.prices);
+        setLoading(false);
+        load(true);
+        return;
+      }
+    }
+    if (!background) setLoading(true);
     try {
       const [watchlistData, customData] = await Promise.all([
         getWatchlist(),
@@ -233,7 +244,9 @@ export default function WatchlistPage() {
         const tickers = built.map((r) => r.ticker).join(",");
         const res = await fetch(`/api/prices?tickers=${tickers}`);
         const json = await res.json();
-        setPrices(json.prices ?? {});
+        const pricesData = json.prices ?? {};
+        setPrices(pricesData);
+        setCached("watchlist", { rows: built, prices: pricesData });
 
         // Fetch setups from Firestore latest_verdict
         const setupResults = await Promise.all(
@@ -277,6 +290,7 @@ export default function WatchlistPage() {
   async function handleRemove(ticker: string) {
     if (!confirm(`Remove ${ticker} from watchlist? (It stays in the master table.)`)) return;
     await removeWatchlistEntry(ticker);
+    invalidateCache("watchlist");
     await load();
   }
 

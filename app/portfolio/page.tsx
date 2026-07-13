@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { getPortfolio, savePortfolioEntry, removePortfolioEntry, getCustomStocks, loadStockData } from "@/lib/firestore";
+import { getCached, setCached, invalidateCache } from "@/lib/pageCache";
 import { SEED_STOCKS, FUNDAMENTALS_RAW, VALUATION_RAW } from "@/lib/seedData";
 import { atrLabel } from "@/lib/indicators";
 import type { CustomStock } from "@/lib/types";
@@ -184,8 +185,19 @@ export default function PortfolioPage() {
     }
   }
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (background = false) => {
+    if (!background) {
+      const hit = getCached<{ rows: PortfolioRow[]; prices: Record<string, number | null> }>("portfolio");
+      if (hit) {
+        setRows(hit.rows);
+        setPrices(hit.prices);
+        setLoading(false);
+        // Still refresh in background
+        load(true);
+        return;
+      }
+    }
+    if (!background) setLoading(true);
     try {
       const [portfolioData, customData] = await Promise.all([
         getPortfolio(),
@@ -234,7 +246,9 @@ export default function PortfolioPage() {
         const [priceRes] = await Promise.all([
           fetch(`/api/prices?tickers=${tickers}`).then((r) => r.json()),
         ]);
-        setPrices(priceRes.prices ?? {});
+        const pricesData = priceRes.prices ?? {};
+        setPrices(pricesData);
+        setCached("portfolio", { rows: built, prices: pricesData });
 
         // Fetch setup from latest_verdict for each ticker
         const setupResults = await Promise.all(
@@ -293,6 +307,7 @@ export default function PortfolioPage() {
   async function handleRemove(ticker: string) {
     if (!confirm(`Remove ${ticker} from portfolio? (It stays in the master table.)`)) return;
     await removePortfolioEntry(ticker);
+    invalidateCache("portfolio");
     await load();
   }
 
