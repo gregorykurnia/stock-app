@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { getWatchlist, saveWatchlistEntry, removeWatchlistEntry, getCustomStocks, loadStockData } from "@/lib/firestore";
+import { downloadCsv } from "@/lib/exportCsv";
 import { getCached, setCached, invalidateCache } from "@/lib/pageCache";
 import { SEED_STOCKS, FUNDAMENTALS_RAW, VALUATION_RAW } from "@/lib/seedData";
 import { atrLabel } from "@/lib/indicators";
@@ -322,9 +323,42 @@ export default function WatchlistPage() {
               Added from master table · Click any value to edit inline{emaLoading && <span className="ml-2 text-blue-400 animate-pulse">Fetching EMAs…</span>}
             </p>
           </div>
-          <Link href="/" className="text-sm text-blue-600 hover:text-blue-800">
-            ← Back to Master Table
-          </Link>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                const headers = ["Ticker", "Setup", "Price", "EMA20w", "Dist 20w%", "EMA50w", "Dist 50w%", "Alert Price", "Verdict", "Rev Gr%", "Gross%", "Op%", "Net%", "FCF%", "Fwd PE", "PEG", "EV/EBITDA", "Notes", "Date Added"];
+                const data = sorted.map((r) => {
+                  const cur = prices[r.ticker] ?? null;
+                  const ema20 = ema20s[r.ticker] ?? null;
+                  const ema50 = ema50s[r.ticker] ?? null;
+                  const dist20 = cur != null && ema20 != null ? ((cur - ema20) / ema20 * 100).toFixed(1) : "";
+                  const dist50 = cur != null && ema50 != null ? ((cur - ema50) / ema50 * 100).toFixed(1) : "";
+                  return [
+                    r.ticker, setups[r.ticker] ?? "",
+                    cur?.toFixed(2) ?? "",
+                    ema20?.toFixed(2) ?? "", dist20,
+                    ema50?.toFixed(2) ?? "", dist50,
+                    r.alert_price > 0 ? r.alert_price : "", r.verdict,
+                    r.rev_growth != null ? (r.rev_growth * 100).toFixed(1) : "",
+                    r.gross_margin != null ? (r.gross_margin * 100).toFixed(1) : "",
+                    r.op_margin != null ? (r.op_margin * 100).toFixed(1) : "",
+                    r.net_margin != null ? (r.net_margin * 100).toFixed(1) : "",
+                    r.fcf_margin != null ? (r.fcf_margin * 100).toFixed(1) : "",
+                    r.fwd_pe?.toFixed(2) ?? "", r.peg?.toFixed(2) ?? "",
+                    r.ev_ebitda?.toFixed(1) ?? "",
+                    r.notes, r.date_added,
+                  ];
+                });
+                downloadCsv(`watchlist-${new Date().toISOString().slice(0, 10)}.csv`, headers, data);
+              }}
+              className="text-xs px-3 py-1.5 rounded border border-gray-300 text-gray-600 hover:border-gray-400 hover:text-gray-800 bg-white"
+            >
+              Export CSV
+            </button>
+            <Link href="/" className="text-sm text-blue-600 hover:text-blue-800">
+              ← Back to Master Table
+            </Link>
+          </div>
         </div>
 
         {loading ? (

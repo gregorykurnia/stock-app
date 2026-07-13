@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { getPortfolio, savePortfolioEntry, removePortfolioEntry, getCustomStocks, loadStockData } from "@/lib/firestore";
+import { downloadCsv } from "@/lib/exportCsv";
 import { getCached, setCached, invalidateCache } from "@/lib/pageCache";
 import { SEED_STOCKS, FUNDAMENTALS_RAW, VALUATION_RAW } from "@/lib/seedData";
 import { atrLabel } from "@/lib/indicators";
@@ -328,9 +329,43 @@ export default function PortfolioPage() {
               Added from master table · Click any value to edit inline · Trim defaults to EMA20 weekly · Hard Stop = EMA50 weekly{emaLoading && <span className="ml-2 text-blue-400 animate-pulse">Fetching EMA20s…</span>}
             </p>
           </div>
-          <Link href="/" className="text-sm text-blue-600 hover:text-blue-800">
-            ← Back to Master Table
-          </Link>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                const headers = ["Ticker", "Setup", "Shares", "Entry Price", "Cost Basis", "Market Value", "P&L $", "P&L %", "Stop Level", "Stop Dist %", "EMA20w", "EMA50w", "Rev Gr%", "Gross%", "Op%", "Net%", "FCF%", "Fwd PE", "PEG", "EV/EBITDA", "Notes", "Date Entered"];
+                const data = rows.map((r) => {
+                  const cur = prices[r.ticker] ?? null;
+                  const cost = r.entry_price * r.shares;
+                  const mktVal = cur != null ? cur * r.shares : null;
+                  const plDollar = mktVal != null ? mktVal - cost : null;
+                  const plPct = plDollar != null && cost > 0 ? plDollar / cost * 100 : null;
+                  const stopDist = cur != null && r.stop_level > 0 ? (cur - r.stop_level) / cur * 100 : null;
+                  return [
+                    r.ticker, setups[r.ticker] ?? "", r.shares, r.entry_price,
+                    cost.toFixed(2), mktVal?.toFixed(2) ?? "",
+                    plDollar?.toFixed(2) ?? "", plPct?.toFixed(1) ?? "",
+                    r.stop_level > 0 ? r.stop_level : "", stopDist?.toFixed(1) ?? "",
+                    ema20s[r.ticker]?.toFixed(2) ?? "", ema50s[r.ticker]?.toFixed(2) ?? "",
+                    r.rev_growth != null ? (r.rev_growth * 100).toFixed(1) : "",
+                    r.gross_margin != null ? (r.gross_margin * 100).toFixed(1) : "",
+                    r.op_margin != null ? (r.op_margin * 100).toFixed(1) : "",
+                    r.net_margin != null ? (r.net_margin * 100).toFixed(1) : "",
+                    r.fcf_margin != null ? (r.fcf_margin * 100).toFixed(1) : "",
+                    r.fwd_pe?.toFixed(2) ?? "", r.peg?.toFixed(2) ?? "",
+                    r.ev_ebitda?.toFixed(1) ?? "",
+                    r.notes, r.date_entered,
+                  ];
+                });
+                downloadCsv(`portfolio-${new Date().toISOString().slice(0, 10)}.csv`, headers, data);
+              }}
+              className="text-xs px-3 py-1.5 rounded border border-gray-300 text-gray-600 hover:border-gray-400 hover:text-gray-800 bg-white"
+            >
+              Export CSV
+            </button>
+            <Link href="/" className="text-sm text-blue-600 hover:text-blue-800">
+              ← Back to Master Table
+            </Link>
+          </div>
         </div>
 
         {/* Summary */}

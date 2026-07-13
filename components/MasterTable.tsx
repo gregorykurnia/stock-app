@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { SEED_STOCKS, FUNDAMENTALS_RAW, VALUATION_RAW } from "@/lib/seedData";
 import { atrLabel } from "@/lib/indicators";
+import { downloadCsv } from "@/lib/exportCsv";
 import type { CustomStock } from "@/lib/types";
 
 type SortKey =
@@ -176,6 +177,24 @@ export default function MasterTable({ prices, verdicts, atrs, loading, customSto
     return data;
   }, [allRows, sortKey, sortDir, industryFilter, urgencyFilter, search]);
 
+  function exportCsv() {
+    const headers = ["Ticker", "Industry", "Score", "Val", "Fund", "Price", "Urgency", "Rev Gr%", "Gross%", "Op%", "Net%", "FCF%", "Fwd PE", "PEG", "EV/EBITDA", "EV/FCF"];
+    const data = rows.map((r) => [
+      r.ticker, r.industry,
+      r.combined?.toFixed(1) ?? "", r.val?.toFixed(1) ?? "", r.fund?.toFixed(1) ?? "",
+      r.price?.toFixed(2) ?? "",
+      r.verdict?.urgency ?? "",
+      r.rev_growth != null ? (r.rev_growth * 100).toFixed(1) : "",
+      r.gross_margin != null ? (r.gross_margin * 100).toFixed(1) : "",
+      r.op_margin != null ? (r.op_margin * 100).toFixed(1) : "",
+      r.net_margin != null ? (r.net_margin * 100).toFixed(1) : "",
+      r.fcf_margin != null ? (r.fcf_margin * 100).toFixed(1) : "",
+      r.fwd_pe?.toFixed(2) ?? "", r.peg?.toFixed(2) ?? "",
+      r.ev_ebitda?.toFixed(1) ?? "", r.ev_fcf?.toFixed(1) ?? "",
+    ]);
+    downloadCsv(`master-table-${new Date().toISOString().slice(0, 10)}.csv`, headers, data);
+  }
+
   function toggleSort(key: SortKey) {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     else { setSortKey(key); setSortDir("desc"); }
@@ -224,6 +243,12 @@ export default function MasterTable({ prices, verdicts, atrs, loading, customSto
         </select>
         {loading && <span className="text-xs text-gray-400 animate-pulse">Loading prices…</span>}
         <span className="text-xs text-gray-400">{rows.length} stocks</span>
+        <button
+          onClick={exportCsv}
+          className="ml-auto text-xs px-3 py-1.5 rounded border border-gray-300 text-gray-600 hover:border-gray-400 hover:text-gray-800 bg-white"
+        >
+          Export CSV
+        </button>
       </div>
 
       {/* Table */}
