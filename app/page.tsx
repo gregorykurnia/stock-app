@@ -19,6 +19,7 @@ export default function Home() {
   const [inputTicker, setInputTicker] = useState("");
   const [prices, setPrices] = useState<Record<string, number | null>>({});
   const [verdicts, setVerdicts] = useState<Record<string, { urgency: string; setup: string } | null>>({});
+  const [atrs, setAtrs] = useState<Record<string, number | null>>({});
   const [pricesLoading, setPricesLoading] = useState(true);
   const [customStocks, setCustomStocks] = useState<CustomStock[]>([]);
   const [portfolioSet, setPortfolioSet] = useState<Set<string>>(new Set());
@@ -52,6 +53,11 @@ export default function Home() {
       .then((d) => setPrices((p) => ({ ...p, ...(d.prices ?? {}) })))
       .catch(() => {})
       .finally(() => setPricesLoading(false));
+
+    fetch(`/api/ema?tickers=${seedTickers}`)
+      .then((r) => r.json())
+      .then((d) => setAtrs(d.atrPct ?? {}))
+      .catch(() => {});
 
     Promise.all(
       SEED_STOCKS.map(async (s) => {
@@ -237,6 +243,7 @@ export default function Home() {
         <MasterTable
           prices={prices}
           verdicts={verdicts}
+          atrs={atrs}
           loading={pricesLoading}
           customStocks={customStocks}
           portfolioSet={portfolioSet}

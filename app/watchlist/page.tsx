@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { getWatchlist, saveWatchlistEntry, removeWatchlistEntry, getCustomStocks, loadStockData } from "@/lib/firestore";
 import { SEED_STOCKS, FUNDAMENTALS_RAW, VALUATION_RAW } from "@/lib/seedData";
+import { atrLabel } from "@/lib/indicators";
 import type { CustomStock } from "@/lib/types";
 
 const SEED_MAP = new Set(SEED_STOCKS.map((s) => s.ticker));
@@ -144,6 +145,7 @@ export default function WatchlistPage() {
   const [prices, setPrices] = useState<Record<string, number | null>>({});
   const [ema20s, setEma20s] = useState<Record<string, number | null>>({});
   const [ema50s, setEma50s] = useState<Record<string, number | null>>({});
+  const [atrPcts, setAtrPcts] = useState<Record<string, number | null>>({});
   const [setups, setSetups] = useState<Record<string, string>>({});
   const [emaLoading, setEmaLoading] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -248,6 +250,7 @@ export default function WatchlistPage() {
           .then((d) => {
             setEma20s(d.ema20 ?? {});
             setEma50s(d.ema50 ?? {});
+            setAtrPcts(d.atrPct ?? {});
           })
           .catch(() => {})
           .finally(() => setEmaLoading(false));
@@ -277,10 +280,12 @@ export default function WatchlistPage() {
     await load();
   }
 
-  const headers: [SortKey, string][] = [
+  const headersLeft: [SortKey, string][] = [
     ["ticker", "Ticker"], ["setup", "Setup"], ["price", "Price"],
     ["ema20", "EMA20w"], ["dist20", "Dist 20w"], ["ema50", "EMA50w"], ["dist50", "Dist 50w"],
     ["alert_price", "Alert ✎"], ["verdict", "Verdict ✎"],
+  ];
+  const headersRight: [SortKey, string][] = [
     ["rev_growth", "Rev Gr"], ["gross_margin", "Gross%"], ["op_margin", "Op%"], ["net_margin", "Net%"], ["fcf_margin", "FCF%"],
     ["fwd_pe", "Fwd PE"], ["peg", "PEG"], ["ev_ebitda", "EV/EBITDA"],
     ["date_added", "Date Added"],
@@ -319,7 +324,18 @@ export default function WatchlistPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-100 border-b border-gray-200">
                 <tr>
-                  {headers.map(([key, label]) => (
+                  {headersLeft.map(([key, label]) => (
+                    <th
+                      key={key}
+                      onClick={() => handleSort(key)}
+                      className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap cursor-pointer select-none hover:text-gray-800 hover:bg-gray-200 transition-colors"
+                    >
+                      {label}
+                      {sortKey === key && <span className="ml-1">{sortDir === 1 ? "↑" : "↓"}</span>}
+                    </th>
+                  ))}
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Weekly ATR% — volatility as % of price">ATR%</th>
+                  {headersRight.map(([key, label]) => (
                     <th
                       key={key}
                       onClick={() => handleSort(key)}
@@ -375,6 +391,19 @@ export default function WatchlistPage() {
                       </td>
                       <td className="px-3 py-2">
                         <VerdictCell value={r.verdict} onSave={(v) => updateField(r.ticker, "verdict", v)} />
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        {(() => {
+                          const v = atrPcts[r.ticker];
+                          if (v == null) return <span className="text-gray-300">—</span>;
+                          const al = atrLabel(v);
+                          return (
+                            <div>
+                              <span className={`font-semibold ${al.color}`}>{v.toFixed(1)}%</span>
+                              <span className={`block text-xs leading-tight ${al.color} opacity-80`}>{al.label}</span>
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td className="px-3 py-2 text-gray-600">{pct(r.rev_growth)}</td>
                       <td className="px-3 py-2 text-gray-600">{pct(r.gross_margin)}</td>

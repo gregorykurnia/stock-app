@@ -7,6 +7,40 @@ import {
 } from "technicalindicators";
 import type { OHLCVBar, Indicators, LatestIndicators, HistoricalArrays } from "./types";
 
+export interface ATRLabel {
+  label: string;
+  description: string;
+  color: string; // tailwind text color class
+}
+
+export function atrLabel(atrPct: number): ATRLabel {
+  if (atrPct < 2)  return { label: "Very Low",  description: "Tight/range-bound",        color: "text-blue-500"  };
+  if (atrPct < 4)  return { label: "Low–Mod",   description: "Healthy swing zone",        color: "text-green-600" };
+  if (atrPct < 7)  return { label: "Mod–High",  description: "Active, size tighter",      color: "text-yellow-600" };
+  if (atrPct < 10) return { label: "High",       description: "Volatile, wide stops",      color: "text-orange-500" };
+  return               { label: "Extreme",     description: "Speculative, gap risk",      color: "text-red-500"   };
+}
+
+function calcATR(bars: OHLCVBar[], period = 14): number[] {
+  const result: number[] = new Array(bars.length).fill(NaN);
+  if (bars.length < 2) return result;
+  const trs: number[] = [];
+  for (let i = 1; i < bars.length; i++) {
+    const { high, low } = bars[i];
+    const prevClose = bars[i - 1].close;
+    trs.push(Math.max(high - low, Math.abs(high - prevClose), Math.abs(low - prevClose)));
+  }
+  // first ATR = simple average of first `period` TRs
+  if (trs.length < period) return result;
+  let atr = trs.slice(0, period).reduce((a, b) => a + b, 0) / period;
+  result[period] = atr; // index offset by 1 (trs[0] = bars[1])
+  for (let i = period; i < trs.length; i++) {
+    atr = (atr * (period - 1) + trs[i]) / period;
+    result[i + 1] = atr;
+  }
+  return result;
+}
+
 function calcCMF(bars: OHLCVBar[], period = 20): number[] {
   const result: number[] = [];
   for (let i = 0; i < bars.length; i++) {
@@ -55,6 +89,7 @@ export function calcIndicators(bars: OHLCVBar[]): Indicators {
     diPlus: padLeft(diPlusRaw, bars.length),
     diMinus: padLeft(diMinusRaw, bars.length),
     adx: padLeft(adxValRaw, bars.length),
+    atr: calcATR(bars, 14),
   };
 }
 
@@ -187,6 +222,8 @@ export function getLatest(bars: OHLCVBar[], ind: Indicators): LatestIndicators {
     }
     return 0;
   };
+  const price = bars[bars.length - 1].close;
+  const atrVal = last(ind.atr);
   return {
     ema20: last(ind.ema20),
     ema50: last(ind.ema50),
@@ -196,6 +233,7 @@ export function getLatest(bars: OHLCVBar[], ind: Indicators): LatestIndicators {
     diPlus: last(ind.diPlus),
     diMinus: last(ind.diMinus),
     adx: last(ind.adx),
-    price: bars[bars.length - 1].close,
+    atrPct: price > 0 ? (atrVal / price) * 100 : 0,
+    price,
   };
 }

@@ -16,8 +16,26 @@ function calcEMA(values: number[], period: number): number | null {
 interface EMAResult {
   ema20: number | null;
   ema50: number | null;
-  ath: number | null;        // max high across full 3-year dataset
-  supportLow: number | null; // min weekly close in last 52 weeks
+  ath: number | null;
+  supportLow: number | null;
+  atrPct: number | null;
+}
+
+function calcATRPct(quotes: { high: number; low: number; close: number }[], period = 14): number | null {
+  if (quotes.length < period + 1) return null;
+  const trs: number[] = [];
+  for (let i = 1; i < quotes.length; i++) {
+    const { high, low } = quotes[i];
+    const prevClose = quotes[i - 1].close;
+    trs.push(Math.max(high - low, Math.abs(high - prevClose), Math.abs(low - prevClose)));
+  }
+  if (trs.length < period) return null;
+  let atr = trs.slice(0, period).reduce((a, b) => a + b, 0) / period;
+  for (let i = period; i < trs.length; i++) {
+    atr = (atr * (period - 1) + trs[i]) / period;
+  }
+  const lastClose = quotes[quotes.length - 1].close;
+  return lastClose > 0 ? (atr / lastClose) * 100 : null;
 }
 
 async function fetchEMAs(ticker: string): Promise<EMAResult> {
@@ -34,7 +52,8 @@ async function fetchEMAs(ticker: string): Promise<EMAResult> {
   const last52 = quotes.slice(-52);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supportLow = last52.length > 0 ? Math.min(...last52.map((q: any) => q.close as number)) : null;
-  return { ema20: calcEMA(closes, 20), ema50: calcEMA(closes, 50), ath, supportLow };
+  const atrPct = calcATRPct(quotes, 14);
+  return { ema20: calcEMA(closes, 20), ema50: calcEMA(closes, 50), ath, supportLow, atrPct };
 }
 
 export async function GET(req: NextRequest) {
@@ -46,6 +65,7 @@ export async function GET(req: NextRequest) {
   const ema50: Record<string, number | null> = {};
   const ath: Record<string, number | null> = {};
   const supportLow: Record<string, number | null> = {};
+  const atrPct: Record<string, number | null> = {};
 
   const chunkSize = 5;
   for (let i = 0; i < tickers.length; i += chunkSize) {
@@ -57,14 +77,16 @@ export async function GET(req: NextRequest) {
         ema50[ticker] = r.ema50;
         ath[ticker] = r.ath;
         supportLow[ticker] = r.supportLow;
+        atrPct[ticker] = r.atrPct;
       } catch {
         ema20[ticker] = null;
         ema50[ticker] = null;
         ath[ticker] = null;
         supportLow[ticker] = null;
+        atrPct[ticker] = null;
       }
     }));
   }
 
-  return NextResponse.json({ ema20, ema50, ath, supportLow });
+  return NextResponse.json({ ema20, ema50, ath, supportLow, atrPct });
 }

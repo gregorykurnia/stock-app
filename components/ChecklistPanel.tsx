@@ -1,6 +1,7 @@
 "use client";
 
 import type { LatestIndicators, HistoricalArrays, SetupType, ChecklistItem } from "@/lib/types";
+import { atrLabel } from "@/lib/indicators";
 
 function detectSetup(ind: LatestIndicators): SetupType {
   const ema20VsEma50 = (ind.ema20 - ind.ema50) / ind.ema50;
@@ -176,6 +177,15 @@ export default function ChecklistPanel({ indicators, history }: Props) {
         <div>DI-: <span className="text-gray-900">{indicators.diMinus.toFixed(1)}</span></div>
         <div>ADX: <span className="text-gray-900">{indicators.adx.toFixed(1)}</span></div>
         <div>Price: <span className="text-gray-900">${indicators.price.toFixed(2)}</span></div>
+        {indicators.atrPct > 0 && (() => {
+          const al = atrLabel(indicators.atrPct);
+          return (
+            <div className="col-span-2">
+              ATR%: <span className={`font-semibold ${al.color}`}>{indicators.atrPct.toFixed(1)}% — {al.label}</span>
+              <span className="text-gray-400 ml-1">({al.description})</span>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

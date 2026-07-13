@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { SEED_STOCKS, FUNDAMENTALS_RAW, VALUATION_RAW } from "@/lib/seedData";
+import { atrLabel } from "@/lib/indicators";
 import type { CustomStock } from "@/lib/types";
 
 type SortKey =
@@ -55,6 +56,7 @@ interface TableRow {
 interface Props {
   prices: Record<string, number | null>;
   verdicts: Record<string, { urgency: string; setup: string } | null>;
+  atrs: Record<string, number | null>;
   loading: boolean;
   customStocks: CustomStock[];
   portfolioSet: Set<string>;
@@ -63,7 +65,7 @@ interface Props {
   onRemoveCustom: (ticker: string) => void;
 }
 
-export default function MasterTable({ prices, verdicts, loading, customStocks, portfolioSet, watchlistSet, onSetStatus, onRemoveCustom }: Props) {
+export default function MasterTable({ prices, verdicts, atrs, loading, customStocks, portfolioSet, watchlistSet, onSetStatus, onRemoveCustom }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>("combined");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [industryFilter, setIndustryFilter] = useState("all");
@@ -235,6 +237,7 @@ export default function MasterTable({ prices, verdicts, loading, customStocks, p
               <Th label="Val"       k="val"      title="Valuation score (seed stocks only)" />
               <Th label="Fund"      k="fund"     title="Fundamentals score (seed stocks only)" />
               <Th label="Price"     k="price" />
+              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Weekly ATR% — volatility as % of price">ATR%</th>
               <Th label="Urgency"   k="urgency" />
               <Th label="Rev Gr"    k="rev_growth"   title="Revenue Growth YoY" />
               <Th label="Gross%"    k="gross_margin" title="Gross Margin" />
@@ -269,6 +272,19 @@ export default function MasterTable({ prices, verdicts, loading, customStocks, p
                 </td>
                 <td className="px-3 py-2 text-gray-900 whitespace-nowrap">
                   {r.price != null ? `$${r.price.toFixed(2)}` : <span className="text-gray-400">—</span>}
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap">
+                  {(() => {
+                    const v = atrs[r.ticker];
+                    if (v == null) return <span className="text-gray-300">—</span>;
+                    const al = atrLabel(v);
+                    return (
+                      <div>
+                        <span className={`font-semibold ${al.color}`}>{v.toFixed(1)}%</span>
+                        <span className={`block text-xs leading-tight ${al.color} opacity-80`}>{al.label}</span>
+                      </div>
+                    );
+                  })()}
                 </td>
                 <td className="px-3 py-2">
                   {r.verdict?.urgency ? (

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { getPortfolio, savePortfolioEntry, removePortfolioEntry, getCustomStocks, loadStockData } from "@/lib/firestore";
 import { SEED_STOCKS, FUNDAMENTALS_RAW, VALUATION_RAW } from "@/lib/seedData";
+import { atrLabel } from "@/lib/indicators";
 import type { CustomStock } from "@/lib/types";
 
 const SEED_MAP = new Set(SEED_STOCKS.map((s) => s.ticker));
@@ -120,6 +121,7 @@ export default function PortfolioPage() {
   const [prices, setPrices] = useState<Record<string, number | null>>({});
   const [ema20s, setEma20s] = useState<Record<string, number | null>>({});
   const [ema50s, setEma50s] = useState<Record<string, number | null>>({});
+  const [atrPcts, setAtrPcts] = useState<Record<string, number | null>>({});
   const [aths, setAths] = useState<Record<string, number | null>>({});
   const [supportLows, setSupportLows] = useState<Record<string, number | null>>({});
   const [setups, setSetups] = useState<Record<string, string>>({});
@@ -250,6 +252,7 @@ export default function PortfolioPage() {
           .then((d) => {
             setEma20s(d.ema20 ?? {});
             setEma50s(d.ema50 ?? {});
+            setAtrPcts(d.atrPct ?? {});
             setAths(d.ath ?? {});
             setSupportLows(d.supportLow ?? {});
             // Auto-save EMA20 as stop for any position where stop is still 0
@@ -350,6 +353,18 @@ export default function PortfolioPage() {
                     ["ticker", "Ticker"], ["setup", "Setup"], ["price", "Price"], ["shares", "Shares ✎"], ["entry_price", "Entry ✎"],
                     ["cost", "Cost Basis"], ["mktVal", "Mkt Value"], ["plDollar", "P&L $"], ["plPct", "P&L %"],
                     ["stop_level", "Trim ✎ (EMA20w)"], ["trimDist", "Trim Dist"], ["ema50", "Stop Level"], ["hardStopDist", "Stop Dist"],
+                  ] as [SortKey, string][]).map(([key, label]) => (
+                    <th
+                      key={key}
+                      onClick={() => handleSort(key)}
+                      className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap cursor-pointer select-none hover:text-gray-800 hover:bg-gray-200 transition-colors"
+                    >
+                      {label}
+                      {sortKey === key && <span className="ml-1">{sortDir === 1 ? "↑" : "↓"}</span>}
+                    </th>
+                  ))}
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Weekly ATR% — volatility as % of price">ATR%</th>
+                  {([
                     ["rev_growth", "Rev Gr"], ["gross_margin", "Gross%"], ["op_margin", "Op%"], ["net_margin", "Net%"], ["fcf_margin", "FCF%"],
                     ["fwd_pe", "Fwd PE"], ["peg", "PEG"], ["ev_ebitda", "EV/EBITDA"],
                     ["notes", "Notes ✎"], ["date_entered", "Date"],
@@ -467,6 +482,19 @@ export default function PortfolioPage() {
                           ? (supportDist != null ? `${(supportDist * 100).toFixed(1)}%` : "—")
                           : (hardStopDist != null ? `${(hardStopDist * 100).toFixed(1)}%` : "—")
                         }
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        {(() => {
+                          const v = atrPcts[r.ticker];
+                          if (v == null) return <span className="text-gray-300">—</span>;
+                          const al = atrLabel(v);
+                          return (
+                            <div>
+                              <span className={`font-semibold ${al.color}`}>{v.toFixed(1)}%</span>
+                              <span className={`block text-xs leading-tight ${al.color} opacity-80`}>{al.label}</span>
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td className="px-3 py-2 text-gray-600">{pct(r.rev_growth)}</td>
                       <td className="px-3 py-2 text-gray-600">{pct(r.gross_margin)}</td>

@@ -16,6 +16,7 @@ export interface Indicators {
   diPlus: number[];
   diMinus: number[];
   adx: number[];
+  atr: number[];
 }
 
 export interface LatestIndicators {
@@ -27,6 +28,7 @@ export interface LatestIndicators {
   diPlus: number;
   diMinus: number;
   adx: number;
+  atrPct: number;
   price: number;
 }
 
