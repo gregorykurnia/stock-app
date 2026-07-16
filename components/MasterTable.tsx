@@ -9,7 +9,7 @@ import type { CustomStock } from "@/lib/types";
 import type { FundData } from "@/app/api/funddata/route";
 
 type SortKey =
-  | "ticker" | "combined" | "val" | "fund" | "price" | "industry" | "urgency"
+  | "ticker" | "combined" | "val" | "fund" | "price" | "industry" | "urgency" | "atr"
   | "rev_growth" | "gross_margin" | "op_margin" | "net_margin" | "fcf_margin"
   | "fwd_pe" | "peg" | "ev_ebitda" | "ev_fcf"
   | "trailing_pe" | "ps_ratio" | "pb_ratio" | "ev_revenue" | "p_fcf"
@@ -214,6 +214,7 @@ export default function MasterTable({ prices, verdicts, atrs, ema20s, ema50s, su
         val:      (r) => r.val,
         fund:     (r) => r.fund,
         price:    (r) => r.price,
+        atr:      (r) => atrs[r.ticker] ?? null,
         rev_growth:    (r) => r.rev_growth,
         gross_margin:  (r) => r.gross_margin,
         op_margin:     (r) => r.op_margin,
@@ -515,7 +516,7 @@ export default function MasterTable({ prices, verdicts, atrs, ema20s, ema50s, su
                   <Th label="Val"       k="val"      title="Valuation score (seed stocks only)" />
                   <Th label="Fund"      k="fund"     title="Fundamentals score (seed stocks only)" />
                   <Th label="Price"     k="price" />
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Weekly ATR% — volatility as % of price">ATR%</th>
+                  <Th label="ATR%" k="atr" title="Weekly ATR% — volatility as % of price" />
                   <Th label="Urgency"   k="urgency" />
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">EMA20W</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Distance from EMA20W">Dist EMA20</th>
@@ -797,7 +798,7 @@ export default function MasterTable({ prices, verdicts, atrs, ema20s, ema50s, su
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">DI+</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">DI-</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">CMF</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">ATR%</th>
+                  <Th label="ATR%" k="atr" title="Weekly ATR% — volatility as % of price" />
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Status</th>
                 </tr>
               </thead>
