@@ -13,7 +13,8 @@ type SortKey =
   | "rev_growth" | "gross_margin" | "op_margin" | "net_margin" | "fcf_margin"
   | "fwd_pe" | "peg" | "ev_ebitda" | "ev_fcf"
   | "trailing_pe" | "ps_ratio" | "pb_ratio" | "ev_revenue" | "p_fcf"
-  | "roe" | "debt_to_equity" | "eps_ttm" | "eps_fwd" | "eps_past_5y" | "eps_next_5y" | "short_float";
+  | "roe" | "debt_to_equity" | "eps_ttm" | "eps_fwd" | "eps_past_5y" | "eps_next_5y" | "short_float"
+  | "ema20" | "dist_ema20" | "ema50" | "dist_ema50" | "rsi" | "di_plus" | "di_minus" | "cmf";
 type SortDir = "asc" | "desc";
 type SubTab = "all" | "fundamental" | "valuation" | "technical";
 
@@ -215,6 +216,20 @@ export default function MasterTable({ prices, verdicts, atrs, ema20s, ema50s, su
         fund:     (r) => r.fund,
         price:    (r) => r.price,
         atr:      (r) => atrs[r.ticker] ?? null,
+        ema20:    (r) => ema20s[r.ticker] ?? null,
+        dist_ema20: (r) => {
+          const p = prices[r.ticker] ?? null; const e = ema20s[r.ticker] ?? null;
+          return p != null && e != null ? ((p - e) / e) * 100 : null;
+        },
+        ema50:    (r) => ema50s[r.ticker] ?? null,
+        dist_ema50: (r) => {
+          const p = prices[r.ticker] ?? null; const e = ema50s[r.ticker] ?? null;
+          return p != null && e != null ? ((p - e) / e) * 100 : null;
+        },
+        rsi:      (r) => rsis[r.ticker] ?? null,
+        di_plus:  (r) => diPluses[r.ticker] ?? null,
+        di_minus: (r) => diMinuses[r.ticker] ?? null,
+        cmf:      (r) => cmfs[r.ticker] ?? null,
         rev_growth:    (r) => r.rev_growth,
         gross_margin:  (r) => r.gross_margin,
         op_margin:     (r) => r.op_margin,
@@ -518,15 +533,15 @@ export default function MasterTable({ prices, verdicts, atrs, ema20s, ema50s, su
                   <Th label="Price"     k="price" />
                   <Th label="ATR%" k="atr" title="Weekly ATR% — volatility as % of price" />
                   <Th label="Urgency"   k="urgency" />
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">EMA20W</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Distance from EMA20W">Dist EMA20</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">EMA50W</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Distance from EMA50W">Dist EMA50</th>
+                  <Th label="EMA20W"     k="ema20"      title="EMA20 Weekly" />
+                  <Th label="Dist EMA20" k="dist_ema20"  title="Distance from EMA20W" />
+                  <Th label="EMA50W"     k="ema50"      title="EMA50 Weekly" />
+                  <Th label="Dist EMA50" k="dist_ema50"  title="Distance from EMA50W" />
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Previous support low (beaten-down stocks only)">Prev Support</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">RSI</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">DI+</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">DI-</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">CMF</th>
+                  <Th label="RSI"        k="rsi" />
+                  <Th label="DI+"        k="di_plus" />
+                  <Th label="DI-"        k="di_minus" />
+                  <Th label="CMF"        k="cmf" />
                   <Th label="Rev Gr"    k="rev_growth"   title="Revenue Growth YoY" />
                   <Th label="Gross%"    k="gross_margin" title="Gross Margin" />
                   <Th label="Op%"       k="op_margin"    title="Operating Margin" />
@@ -793,7 +808,7 @@ export default function MasterTable({ prices, verdicts, atrs, ema20s, ema50s, su
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Distance from EMA20W">Dist EMA20</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">EMA50W</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Distance from EMA50W">Dist EMA50</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Previous support low (52-week, beaten-down stocks only)">Prev Support</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Previous support low (beaten-down stocks only)">Prev Support</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">RSI</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">DI+</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">DI-</th>
