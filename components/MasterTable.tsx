@@ -66,7 +66,10 @@ interface Props {
   onRemoveCustom: (ticker: string) => void;
 }
 
+type SubTab = "all" | "fundamental" | "valuation" | "technical";
+
 export default function MasterTable({ prices, verdicts, atrs, loading, customStocks, portfolioSet, watchlistSet, onSetStatus, onRemoveCustom }: Props) {
+  const [activeTab, setActiveTab] = useState<SubTab>("all");
   const [sortKey, setSortKey] = useState<SortKey>("combined");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [industryFilter, setIndustryFilter] = useState("all");
@@ -211,8 +214,50 @@ export default function MasterTable({ prices, verdicts, atrs, loading, customSto
     </th>
   );
 
+  const tabs: { id: SubTab; label: string }[] = [
+    { id: "all", label: "All" },
+    { id: "fundamental", label: "Fundamental" },
+    { id: "valuation", label: "Valuation" },
+    { id: "technical", label: "Technical" },
+  ];
+
   return (
     <div className="space-y-3">
+      {/* Subtabs */}
+      <div className="flex gap-1 border-b border-gray-200">
+        {tabs.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setActiveTab(t.id)}
+            className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
+              activeTab === t.id
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Placeholder panels for non-All tabs */}
+      {activeTab === "fundamental" && (
+        <div className="rounded-lg border border-gray-200 bg-white p-8 text-center text-gray-400 text-sm">
+          Fundamental view — coming soon
+        </div>
+      )}
+      {activeTab === "valuation" && (
+        <div className="rounded-lg border border-gray-200 bg-white p-8 text-center text-gray-400 text-sm">
+          Valuation view — coming soon
+        </div>
+      )}
+      {activeTab === "technical" && (
+        <div className="rounded-lg border border-gray-200 bg-white p-8 text-center text-gray-400 text-sm">
+          Technical view — coming soon
+        </div>
+      )}
+
+      {activeTab === "all" && <>
       {/* Filters */}
       <div className="flex flex-wrap gap-2 items-center">
         <input
@@ -378,6 +423,7 @@ export default function MasterTable({ prices, verdicts, atrs, loading, customSto
           </tbody>
         </table>
       </div>
+      </>}
     </div>
   );
 }
