@@ -517,6 +517,15 @@ export default function MasterTable({ prices, verdicts, atrs, ema20s, ema50s, su
                   <Th label="Price"     k="price" />
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Weekly ATR% — volatility as % of price">ATR%</th>
                   <Th label="Urgency"   k="urgency" />
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">EMA20W</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Distance from EMA20W">Dist EMA20</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">EMA50W</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Distance from EMA50W">Dist EMA50</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Previous support low (beaten-down stocks only)">Prev Support</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">RSI</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">DI+</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">DI-</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">CMF</th>
                   <Th label="Rev Gr"    k="rev_growth"   title="Revenue Growth YoY" />
                   <Th label="Gross%"    k="gross_margin" title="Gross Margin" />
                   <Th label="Op%"       k="op_margin"    title="Operating Margin" />
@@ -578,6 +587,63 @@ export default function MasterTable({ prices, verdicts, atrs, ema20s, ema50s, su
                         </span>
                       ) : <span className="text-gray-400 text-xs">—</span>}
                     </td>
+                    {(() => {
+                      const price = r.price;
+                      const ema20 = ema20s[r.ticker] ?? null;
+                      const ema50 = ema50s[r.ticker] ?? null;
+                      const support = supportLows[r.ticker] ?? null;
+                      const distEma20 = price != null && ema20 != null ? ((price - ema20) / ema20) * 100 : null;
+                      const distEma50 = price != null && ema50 != null ? ((price - ema50) / ema50) * 100 : null;
+                      const rsi = rsis[r.ticker] ?? null;
+                      const diP = diPluses[r.ticker] ?? null;
+                      const diM = diMinuses[r.ticker] ?? null;
+                      const cmf = cmfs[r.ticker] ?? null;
+                      const isBeatenDown = r.verdict?.setup === "beaten_down";
+
+                      const distColor = (d: number | null) => {
+                        if (d == null) return "text-gray-400";
+                        if (d < -10) return "text-red-500";
+                        if (d < 0) return "text-orange-500";
+                        if (d < 10) return "text-green-600";
+                        return "text-blue-600";
+                      };
+                      const rsiColor = (v: number | null) => {
+                        if (v == null) return "text-gray-400";
+                        if (v > 70) return "text-red-500";
+                        if (v < 40) return "text-blue-500";
+                        return "text-gray-700";
+                      };
+                      const cmfColor = (v: number | null) => {
+                        if (v == null) return "text-gray-400";
+                        if (v > 0.05) return "text-green-600";
+                        if (v < -0.05) return "text-red-500";
+                        return "text-gray-500";
+                      };
+
+                      return (
+                        <>
+                          <td className="px-3 py-2 text-gray-700">{ema20 != null ? `$${ema20.toFixed(2)}` : <span className="text-gray-400">—</span>}</td>
+                          <td className={`px-3 py-2 font-semibold ${distColor(distEma20)}`}>
+                            {distEma20 != null ? `${distEma20 > 0 ? "+" : ""}${distEma20.toFixed(1)}%` : <span className="text-gray-400">—</span>}
+                          </td>
+                          <td className="px-3 py-2 text-gray-700">{ema50 != null ? `$${ema50.toFixed(2)}` : <span className="text-gray-400">—</span>}</td>
+                          <td className={`px-3 py-2 font-semibold ${distColor(distEma50)}`}>
+                            {distEma50 != null ? `${distEma50 > 0 ? "+" : ""}${distEma50.toFixed(1)}%` : <span className="text-gray-400">—</span>}
+                          </td>
+                          <td className="px-3 py-2 text-gray-700">
+                            {isBeatenDown && support != null ? `$${support.toFixed(2)}` : <span className="text-gray-300">—</span>}
+                          </td>
+                          <td className={`px-3 py-2 font-semibold ${rsiColor(rsi)}`}>
+                            {rsi != null ? rsi.toFixed(1) : <span className="text-gray-400">—</span>}
+                          </td>
+                          <td className="px-3 py-2 text-gray-700">{diP != null ? diP.toFixed(1) : <span className="text-gray-400">—</span>}</td>
+                          <td className="px-3 py-2 text-gray-700">{diM != null ? diM.toFixed(1) : <span className="text-gray-400">—</span>}</td>
+                          <td className={`px-3 py-2 font-semibold ${cmfColor(cmf)}`}>
+                            {cmf != null ? cmf.toFixed(3) : <span className="text-gray-400">—</span>}
+                          </td>
+                        </>
+                      );
+                    })()}
                     <td className="px-3 py-2 text-gray-700">{pct(r.rev_growth)}</td>
                     <td className="px-3 py-2 text-gray-700">{pct(r.gross_margin)}</td>
                     <td className="px-3 py-2 text-gray-700">{pct(r.op_margin)}</td>
