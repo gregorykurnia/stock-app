@@ -243,7 +243,7 @@ export default function MasterTable({ prices, verdicts, atrs, fundData, loading,
   function exportCsv() {
     const headers = ["Ticker", "Industry", "Score", "Val", "Fund", "Price", "ATR%", "Urgency",
       "Rev Gr%", "Gross%", "Op%", "Net%", "FCF%", "ROE%", "D/E", "EPS TTM", "EPS Fwd", "EPS Past 5Y%", "EPS Next 5Y%", "Short Float%",
-      "Fwd PE", "PEG", "EV/EBITDA", "EV/FCF"];
+      "Fwd PE", "Trail PE", "PEG", "P/S", "P/B", "EV/EBITDA", "EV/Rev", "EV/FCF", "P/FCF"];
     const data = rows.map((r) => [
       r.ticker, r.industry,
       r.combined?.toFixed(1) ?? "", r.val?.toFixed(1) ?? "", r.fund?.toFixed(1) ?? "",
@@ -262,8 +262,10 @@ export default function MasterTable({ prices, verdicts, atrs, fundData, loading,
       r.eps_past_5y != null ? (r.eps_past_5y * 100).toFixed(1) : "",
       r.eps_next_5y != null ? (r.eps_next_5y * 100).toFixed(1) : "",
       r.short_float != null ? (r.short_float * 100).toFixed(1) : "",
-      r.fwd_pe?.toFixed(2) ?? "", r.peg?.toFixed(2) ?? "",
-      r.ev_ebitda?.toFixed(1) ?? "", r.ev_fcf?.toFixed(1) ?? "",
+      r.fwd_pe?.toFixed(2) ?? "", r.trailing_pe?.toFixed(2) ?? "", r.peg?.toFixed(2) ?? "",
+      r.ps_ratio?.toFixed(2) ?? "", r.pb_ratio?.toFixed(2) ?? "",
+      r.ev_ebitda?.toFixed(1) ?? "", r.ev_revenue?.toFixed(2) ?? "",
+      r.ev_fcf?.toFixed(1) ?? "", r.p_fcf?.toFixed(1) ?? "",
     ]);
     downloadCsv(`master-table-${new Date().toISOString().slice(0, 10)}.csv`, headers, data);
   }
