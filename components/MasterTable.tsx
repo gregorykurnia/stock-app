@@ -79,6 +79,13 @@ interface Props {
   prices: Record<string, number | null>;
   verdicts: Record<string, { urgency: string; setup: string } | null>;
   atrs: Record<string, number | null>;
+  ema20s: Record<string, number | null>;
+  ema50s: Record<string, number | null>;
+  supportLows: Record<string, number | null>;
+  rsis: Record<string, number | null>;
+  diPluses: Record<string, number | null>;
+  diMinuses: Record<string, number | null>;
+  cmfs: Record<string, number | null>;
   fundData: Record<string, FundData>;
   loading: boolean;
   customStocks: CustomStock[];
@@ -90,7 +97,7 @@ interface Props {
   onToggleMark: (ticker: string) => void;
 }
 
-export default function MasterTable({ prices, verdicts, atrs, fundData, loading, customStocks, portfolioSet, watchlistSet, markedSet, onSetStatus, onRemoveCustom, onToggleMark }: Props) {
+export default function MasterTable({ prices, verdicts, atrs, ema20s, ema50s, supportLows, rsis, diPluses, diMinuses, cmfs, fundData, loading, customStocks, portfolioSet, watchlistSet, markedSet, onSetStatus, onRemoveCustom, onToggleMark }: Props) {
   const [activeTab, setActiveTab] = useState<SubTab>("all");
   const [sortKey, setSortKey] = useState<SortKey>("combined");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
@@ -281,14 +288,32 @@ export default function MasterTable({ prices, verdicts, atrs, fundData, loading,
     }
 
     if (activeTab === "technical") {
-      const headers = ["Ticker", "Industry", "Price", "ATR%", "Urgency", "Setup", "Marked"];
-      const data = rows.map((r) => [
-        r.ticker, r.industry,
-        r.price?.toFixed(2) ?? "",
-        atrs[r.ticker]?.toFixed(1) ?? "",
-        r.verdict?.urgency ?? "", r.verdict?.setup ?? "",
-        marked(r),
-      ]);
+      const headers = ["Ticker", "Industry", "Price", "Urgency", "Setup",
+        "EMA20W", "Dist EMA20%", "EMA50W", "Dist EMA50%", "Prev Support",
+        "RSI", "DI+", "DI-", "CMF", "ATR%", "Marked"];
+      const data = rows.map((r) => {
+        const price = r.price;
+        const ema20 = ema20s[r.ticker] ?? null;
+        const ema50 = ema50s[r.ticker] ?? null;
+        const support = supportLows[r.ticker] ?? null;
+        const distEma20 = price != null && ema20 != null ? ((price - ema20) / ema20) * 100 : null;
+        const distEma50 = price != null && ema50 != null ? ((price - ema50) / ema50) * 100 : null;
+        const isBeatenDown = r.verdict?.setup === "beaten_down";
+        return [
+          r.ticker, r.industry,
+          price?.toFixed(2) ?? "",
+          r.verdict?.urgency ?? "", r.verdict?.setup ?? "",
+          ema20?.toFixed(2) ?? "", distEma20?.toFixed(1) ?? "",
+          ema50?.toFixed(2) ?? "", distEma50?.toFixed(1) ?? "",
+          isBeatenDown && support != null ? support.toFixed(2) : "",
+          rsis[r.ticker]?.toFixed(1) ?? "",
+          diPluses[r.ticker]?.toFixed(1) ?? "",
+          diMinuses[r.ticker]?.toFixed(1) ?? "",
+          cmfs[r.ticker]?.toFixed(3) ?? "",
+          atrs[r.ticker]?.toFixed(1) ?? "",
+          marked(r),
+        ];
+      });
       return downloadCsv(`technical-${date}.csv`, headers, data);
     }
 
@@ -687,8 +712,117 @@ export default function MasterTable({ prices, verdicts, atrs, fundData, loading,
 
       {/* TECHNICAL TAB */}
       {activeTab === "technical" && (
-        <div className="rounded-lg border border-gray-200 bg-white p-8 text-center text-gray-400 text-sm">
-          Technical view — coming soon
+        <div className="space-y-3">
+          <Filters />
+          <div className="overflow-x-auto rounded-lg border border-gray-200">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-100 border-b border-gray-200">
+                <tr>
+                  <Th label="Ticker"   k="ticker" sticky />
+                  <Th label="Industry" k="industry" />
+                  <Th label="Price"    k="price" />
+                  <Th label="Urgency"  k="urgency" />
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">EMA20W</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Distance from EMA20W">Dist EMA20</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">EMA50W</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Distance from EMA50W">Dist EMA50</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Previous support low (52-week, beaten-down stocks only)">Prev Support</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">RSI</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">DI+</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">DI-</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">CMF</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">ATR%</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {rows.map((r) => {
+                  const price = r.price;
+                  const ema20 = ema20s[r.ticker] ?? null;
+                  const ema50 = ema50s[r.ticker] ?? null;
+                  const support = supportLows[r.ticker] ?? null;
+                  const ath = atrs[r.ticker]; // note: ath not passed separately, support shown based on beaten-down
+                  const distEma20 = price != null && ema20 != null ? ((price - ema20) / ema20) * 100 : null;
+                  const distEma50 = price != null && ema50 != null ? ((price - ema50) / ema50) * 100 : null;
+                  const rsi = rsis[r.ticker] ?? null;
+                  const diP = diPluses[r.ticker] ?? null;
+                  const diM = diMinuses[r.ticker] ?? null;
+                  const cmf = cmfs[r.ticker] ?? null;
+                  const atrV = atrs[r.ticker] ?? null;
+                  const isBeatenDown = r.verdict?.setup === "beaten_down";
+
+                  const distColor = (d: number | null) => {
+                    if (d == null) return "text-gray-400";
+                    if (d < -10) return "text-red-500";
+                    if (d < 0) return "text-orange-500";
+                    if (d < 10) return "text-green-600";
+                    return "text-blue-600";
+                  };
+                  const rsiColor = (v: number | null) => {
+                    if (v == null) return "text-gray-400";
+                    if (v > 70) return "text-red-500";
+                    if (v < 40) return "text-blue-500";
+                    return "text-gray-700";
+                  };
+                  const cmfColor = (v: number | null) => {
+                    if (v == null) return "text-gray-400";
+                    if (v > 0.05) return "text-green-600";
+                    if (v < -0.05) return "text-red-500";
+                    return "text-gray-500";
+                  };
+
+                  return (
+                    <tr key={r.ticker} className={`group transition-colors ${markedSet.has(r.ticker) ? "bg-red-50 hover:bg-red-100" : r.isCustom ? "bg-blue-50/30 hover:bg-gray-50" : "hover:bg-gray-50"}`}>
+                      <TickerCell r={r} />
+                      <td className="px-3 py-2 text-gray-500 text-xs whitespace-nowrap">{r.industry}</td>
+                      <td className="px-3 py-2 text-gray-900 whitespace-nowrap">
+                        {price != null ? `$${price.toFixed(2)}` : <span className="text-gray-400">—</span>}
+                      </td>
+                      <td className="px-3 py-2">
+                        {r.verdict?.urgency ? (
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-semibold uppercase ${urgencyStyles[r.verdict.urgency] ?? ""}`}>
+                            {r.verdict.urgency}
+                          </span>
+                        ) : <span className="text-gray-400 text-xs">—</span>}
+                      </td>
+                      <td className="px-3 py-2 text-gray-700">{ema20 != null ? `$${ema20.toFixed(2)}` : <span className="text-gray-400">—</span>}</td>
+                      <td className={`px-3 py-2 font-semibold ${distColor(distEma20)}`}>
+                        {distEma20 != null ? `${distEma20 > 0 ? "+" : ""}${distEma20.toFixed(1)}%` : <span className="text-gray-400">—</span>}
+                      </td>
+                      <td className="px-3 py-2 text-gray-700">{ema50 != null ? `$${ema50.toFixed(2)}` : <span className="text-gray-400">—</span>}</td>
+                      <td className={`px-3 py-2 font-semibold ${distColor(distEma50)}`}>
+                        {distEma50 != null ? `${distEma50 > 0 ? "+" : ""}${distEma50.toFixed(1)}%` : <span className="text-gray-400">—</span>}
+                      </td>
+                      <td className="px-3 py-2 text-gray-700">
+                        {isBeatenDown && support != null ? `$${support.toFixed(2)}` : <span className="text-gray-300">—</span>}
+                      </td>
+                      <td className={`px-3 py-2 font-semibold ${rsiColor(rsi)}`}>
+                        {rsi != null ? rsi.toFixed(1) : <span className="text-gray-400">—</span>}
+                      </td>
+                      <td className="px-3 py-2 text-gray-700">{diP != null ? diP.toFixed(1) : <span className="text-gray-400">—</span>}</td>
+                      <td className="px-3 py-2 text-gray-700">{diM != null ? diM.toFixed(1) : <span className="text-gray-400">—</span>}</td>
+                      <td className={`px-3 py-2 font-semibold ${cmfColor(cmf)}`}>
+                        {cmf != null ? cmf.toFixed(3) : <span className="text-gray-400">—</span>}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        {(() => {
+                          if (atrV == null) return <span className="text-gray-300">—</span>;
+                          const al = atrLabel(atrV);
+                          return (
+                            <div>
+                              <span className={`font-semibold ${al.color}`}>{atrV.toFixed(1)}%</span>
+                              <span className={`block text-xs leading-tight ${al.color} opacity-80`}>{al.label}</span>
+                            </div>
+                          );
+                        })()}
+                      </td>
+                      <StatusCell r={r} />
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

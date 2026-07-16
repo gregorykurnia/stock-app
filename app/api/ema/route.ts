@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { calcIndicators } from "@/lib/indicators";
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const YahooFinance = require("yahoo-finance2").default;
 const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
@@ -19,6 +20,10 @@ interface EMAResult {
   ath: number | null;
   supportLow: number | null;
   atrPct: number | null;
+  rsi: number | null;
+  diPlus: number | null;
+  diMinus: number | null;
+  cmf: number | null;
 }
 
 function calcATRPct(quotes: { high: number; low: number; close: number }[], period = 14): number | null {
@@ -53,7 +58,17 @@ async function fetchEMAs(ticker: string): Promise<EMAResult> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supportLow = last52.length > 0 ? Math.min(...last52.map((q: any) => q.close as number)) : null;
   const atrPct = calcATRPct(quotes, 14);
-  return { ema20: calcEMA(closes, 20), ema50: calcEMA(closes, 50), ath, supportLow, atrPct };
+
+  const bars = quotes.map((q: any) => ({ open: q.open, high: q.high, low: q.low, close: q.close, volume: q.volume }));
+  const ind = calcIndicators(bars);
+  const last = bars.length - 1;
+  const rsi = ind.rsi[last] ?? null;
+  const diPlus = ind.diPlus[last] ?? null;
+  const diMinus = ind.diMinus[last] ?? null;
+  const cmfArr = ind.cmf;
+  const cmf = cmfArr[cmfArr.length - 1] ?? null;
+
+  return { ema20: calcEMA(closes, 20), ema50: calcEMA(closes, 50), ath, supportLow, atrPct, rsi, diPlus, diMinus, cmf };
 }
 
 export async function GET(req: NextRequest) {
@@ -66,6 +81,10 @@ export async function GET(req: NextRequest) {
   const ath: Record<string, number | null> = {};
   const supportLow: Record<string, number | null> = {};
   const atrPct: Record<string, number | null> = {};
+  const rsi: Record<string, number | null> = {};
+  const diPlus: Record<string, number | null> = {};
+  const diMinus: Record<string, number | null> = {};
+  const cmf: Record<string, number | null> = {};
 
   const chunkSize = 5;
   for (let i = 0; i < tickers.length; i += chunkSize) {
@@ -78,15 +97,23 @@ export async function GET(req: NextRequest) {
         ath[ticker] = r.ath;
         supportLow[ticker] = r.supportLow;
         atrPct[ticker] = r.atrPct;
+        rsi[ticker] = r.rsi;
+        diPlus[ticker] = r.diPlus;
+        diMinus[ticker] = r.diMinus;
+        cmf[ticker] = r.cmf;
       } catch {
         ema20[ticker] = null;
         ema50[ticker] = null;
         ath[ticker] = null;
         supportLow[ticker] = null;
         atrPct[ticker] = null;
+        rsi[ticker] = null;
+        diPlus[ticker] = null;
+        diMinus[ticker] = null;
+        cmf[ticker] = null;
       }
     }));
   }
 
-  return NextResponse.json({ ema20, ema50, ath, supportLow, atrPct });
+  return NextResponse.json({ ema20, ema50, ath, supportLow, atrPct, rsi, diPlus, diMinus, cmf });
 }
