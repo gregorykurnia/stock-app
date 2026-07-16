@@ -21,11 +21,12 @@ export interface FundData {
 async function fetchOne(ticker: string): Promise<FundData> {
   try {
     const summary = await yf.quoteSummary(ticker, {
-      modules: ["financialData", "defaultKeyStatistics", "earningsTrend"],
+      modules: ["financialData", "defaultKeyStatistics", "earningsTrend", "summaryDetail"],
     });
 
     const fd = summary.financialData ?? {};
     const ks = summary.defaultKeyStatistics ?? {};
+    const sd = summary.summaryDetail ?? {};
     const et = summary.earningsTrend ?? {};
     const trends: { period: string; growth?: number | null }[] = et.trend ?? [];
 
@@ -42,11 +43,13 @@ async function fetchOne(ticker: string): Promise<FundData> {
       eps_past_5y: findGrowth("-5y") ?? findGrowth("5y") ?? null,
       eps_next_5y: findGrowth("+5y") ?? null,
       short_float: ks.shortPercentOfFloat ?? null,
-      trailing_pe: ks.trailingPE ?? null,
-      ps_ratio: ks.priceToSalesTrailing12Months ?? null,
+      trailing_pe: sd.trailingPE ?? null,
+      ps_ratio: sd.priceToSalesTrailing12Months ?? null,
       pb_ratio: ks.priceToBook ?? null,
       ev_revenue: ks.enterpriseToRevenue ?? null,
-      p_fcf: ks.priceToFreeCashflows ?? null,
+      p_fcf: (sd.marketCap != null && fd.freeCashflow != null && fd.freeCashflow > 0)
+        ? sd.marketCap / fd.freeCashflow
+        : null,
     };
   } catch {
     return { roe: null, debt_to_equity: null, eps_ttm: null, eps_fwd: null, eps_past_5y: null, eps_next_5y: null, short_float: null, trailing_pe: null, ps_ratio: null, pb_ratio: null, ev_revenue: null, p_fcf: null };
