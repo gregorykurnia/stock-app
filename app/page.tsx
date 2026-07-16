@@ -11,6 +11,7 @@ import {
   saveWatchlistEntry, removeWatchlistEntry,
 } from "@/lib/firestore";
 import type { CustomStock } from "@/lib/types";
+import type { FundData } from "@/app/api/funddata/route";
 
 const SEED_TICKERS = new Set(SEED_STOCKS.map((s) => s.ticker));
 
@@ -22,6 +23,7 @@ export default function Home() {
   const [atrs, setAtrs] = useState<Record<string, number | null>>({});
   const [pricesLoading, setPricesLoading] = useState(true);
   const [customStocks, setCustomStocks] = useState<CustomStock[]>([]);
+  const [fundData, setFundData] = useState<Record<string, FundData>>({});
   const [portfolioSet, setPortfolioSet] = useState<Set<string>>(new Set());
   const [watchlistSet, setWatchlistSet] = useState<Set<string>>(new Set());
 
@@ -57,6 +59,11 @@ export default function Home() {
     fetch(`/api/ema?tickers=${seedTickers}`)
       .then((r) => r.json())
       .then((d) => setAtrs(d.atrPct ?? {}))
+      .catch(() => {});
+
+    fetch(`/api/funddata?tickers=${seedTickers}`)
+      .then((r) => r.json())
+      .then((d) => setFundData(d.data ?? {}))
       .catch(() => {});
 
     Promise.all(
@@ -244,6 +251,7 @@ export default function Home() {
           prices={prices}
           verdicts={verdicts}
           atrs={atrs}
+          fundData={fundData}
           loading={pricesLoading}
           customStocks={customStocks}
           portfolioSet={portfolioSet}

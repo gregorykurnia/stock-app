@@ -6,18 +6,24 @@ import { SEED_STOCKS, FUNDAMENTALS_RAW, VALUATION_RAW } from "@/lib/seedData";
 import { atrLabel } from "@/lib/indicators";
 import { downloadCsv } from "@/lib/exportCsv";
 import type { CustomStock } from "@/lib/types";
+import type { FundData } from "@/app/api/funddata/route";
 
 type SortKey =
   | "ticker" | "combined" | "val" | "fund" | "price" | "industry" | "urgency"
   | "rev_growth" | "gross_margin" | "op_margin" | "net_margin" | "fcf_margin"
-  | "fwd_pe" | "peg" | "ev_ebitda" | "ev_fcf";
+  | "fwd_pe" | "peg" | "ev_ebitda" | "ev_fcf"
+  | "roe" | "debt_to_equity" | "eps_ttm" | "eps_fwd" | "eps_past_5y" | "eps_next_5y" | "short_float";
 type SortDir = "asc" | "desc";
+type SubTab = "all" | "fundamental" | "valuation" | "technical";
 
 const pct = (v: number | null | undefined) =>
   v == null ? <span className="text-gray-400">—</span> : `${(v * 100).toFixed(1)}%`;
 
 const num = (v: number | null | undefined, dec = 1) =>
   v == null ? <span className="text-gray-400">—</span> : v.toFixed(dec);
+
+const eps = (v: number | null | undefined) =>
+  v == null ? <span className="text-gray-400">—</span> : (v >= 0 ? `$${v.toFixed(2)}` : `-$${Math.abs(v).toFixed(2)}`);
 
 const urgencyStyles: Record<string, string> = {
   urgent: "bg-green-100 text-green-700 border border-green-300",
@@ -37,12 +43,20 @@ interface TableRow {
   combined: number | null;
   val: number | null;
   fund: number | null;
-  // Raw fundamentals
+  // Raw fundamentals (seed data)
   rev_growth: number | null;
   gross_margin: number | null;
   op_margin: number | null;
   net_margin: number | null;
   fcf_margin: number | null;
+  // Fetched fundamentals
+  roe: number | null;
+  debt_to_equity: number | null;
+  eps_ttm: number | null;
+  eps_fwd: number | null;
+  eps_past_5y: number | null;
+  eps_next_5y: number | null;
+  short_float: number | null;
   // Raw valuation
   fwd_pe: number | null;
   peg: number | null;
@@ -58,6 +72,7 @@ interface Props {
   prices: Record<string, number | null>;
   verdicts: Record<string, { urgency: string; setup: string } | null>;
   atrs: Record<string, number | null>;
+  fundData: Record<string, FundData>;
   loading: boolean;
   customStocks: CustomStock[];
   portfolioSet: Set<string>;
@@ -66,9 +81,7 @@ interface Props {
   onRemoveCustom: (ticker: string) => void;
 }
 
-type SubTab = "all" | "fundamental" | "valuation" | "technical";
-
-export default function MasterTable({ prices, verdicts, atrs, loading, customStocks, portfolioSet, watchlistSet, onSetStatus, onRemoveCustom }: Props) {
+export default function MasterTable({ prices, verdicts, atrs, fundData, loading, customStocks, portfolioSet, watchlistSet, onSetStatus, onRemoveCustom }: Props) {
   const [activeTab, setActiveTab] = useState<SubTab>("all");
   const [sortKey, setSortKey] = useState<SortKey>("combined");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
@@ -80,6 +93,7 @@ export default function MasterTable({ prices, verdicts, atrs, loading, customSto
     const seedRows: TableRow[] = SEED_STOCKS.map((s) => {
       const fr = FUNDAMENTALS_RAW[s.ticker];
       const vr = VALUATION_RAW[s.ticker];
+      const fd = fundData[s.ticker] ?? {};
       return {
         ticker: s.ticker,
         name: null,
@@ -92,6 +106,13 @@ export default function MasterTable({ prices, verdicts, atrs, loading, customSto
         op_margin: fr?.op_margin ?? null,
         net_margin: null,
         fcf_margin: fr?.fcf_margin ?? null,
+        roe: fd.roe ?? null,
+        debt_to_equity: fd.debt_to_equity ?? null,
+        eps_ttm: fd.eps_ttm ?? null,
+        eps_fwd: fd.eps_fwd ?? null,
+        eps_past_5y: fd.eps_past_5y ?? null,
+        eps_next_5y: fd.eps_next_5y ?? null,
+        short_float: fd.short_float ?? null,
         fwd_pe: vr?.fwd_pe ?? null,
         peg: vr?.peg ?? null,
         ev_ebitda: vr?.ev_ebitda ?? null,
@@ -102,29 +123,39 @@ export default function MasterTable({ prices, verdicts, atrs, loading, customSto
       };
     });
 
-    const customRows: TableRow[] = customStocks.map((c) => ({
-      ticker: c.ticker,
-      name: c.name,
-      industry: c.industry ?? c.sector ?? "—",
-      combined: null,
-      val: null,
-      fund: null,
-      rev_growth: c.rev_growth,
-      gross_margin: c.gross_margin,
-      op_margin: c.op_margin,
-      net_margin: c.net_margin,
-      fcf_margin: c.fcf_margin,
-      fwd_pe: c.fwd_pe,
-      peg: c.peg,
-      ev_ebitda: c.ev_ebitda,
-      ev_fcf: c.ev_fcf,
-      price: prices[c.ticker] ?? null,
-      verdict: verdicts[c.ticker] ?? null,
-      isCustom: true,
-    }));
+    const customRows: TableRow[] = customStocks.map((c) => {
+      const fd = fundData[c.ticker] ?? {};
+      return {
+        ticker: c.ticker,
+        name: c.name,
+        industry: c.industry ?? c.sector ?? "—",
+        combined: null,
+        val: null,
+        fund: null,
+        rev_growth: c.rev_growth,
+        gross_margin: c.gross_margin,
+        op_margin: c.op_margin,
+        net_margin: c.net_margin,
+        fcf_margin: c.fcf_margin,
+        roe: fd.roe ?? null,
+        debt_to_equity: fd.debt_to_equity ?? null,
+        eps_ttm: fd.eps_ttm ?? null,
+        eps_fwd: fd.eps_fwd ?? null,
+        eps_past_5y: fd.eps_past_5y ?? null,
+        eps_next_5y: fd.eps_next_5y ?? null,
+        short_float: fd.short_float ?? null,
+        fwd_pe: c.fwd_pe,
+        peg: c.peg,
+        ev_ebitda: c.ev_ebitda,
+        ev_fcf: c.ev_fcf,
+        price: prices[c.ticker] ?? null,
+        verdict: verdicts[c.ticker] ?? null,
+        isCustom: true,
+      };
+    });
 
     return [...seedRows, ...customRows];
-  }, [prices, verdicts, customStocks]);
+  }, [prices, verdicts, customStocks, fundData]);
 
   const industries = useMemo(() => {
     const set = new Set(allRows.map((r) => r.industry));
@@ -157,15 +188,22 @@ export default function MasterTable({ prices, verdicts, atrs, loading, customSto
         val:      (r) => r.val,
         fund:     (r) => r.fund,
         price:    (r) => r.price,
-        rev_growth:   (r) => r.rev_growth,
-        gross_margin: (r) => r.gross_margin,
-        op_margin:    (r) => r.op_margin,
-        net_margin:   (r) => r.net_margin,
-        fcf_margin:   (r) => r.fcf_margin,
-        fwd_pe:   (r) => r.fwd_pe,
-        peg:      (r) => r.peg,
-        ev_ebitda:(r) => r.ev_ebitda,
-        ev_fcf:   (r) => r.ev_fcf,
+        rev_growth:    (r) => r.rev_growth,
+        gross_margin:  (r) => r.gross_margin,
+        op_margin:     (r) => r.op_margin,
+        net_margin:    (r) => r.net_margin,
+        fcf_margin:    (r) => r.fcf_margin,
+        roe:           (r) => r.roe,
+        debt_to_equity:(r) => r.debt_to_equity,
+        eps_ttm:       (r) => r.eps_ttm,
+        eps_fwd:       (r) => r.eps_fwd,
+        eps_past_5y:   (r) => r.eps_past_5y,
+        eps_next_5y:   (r) => r.eps_next_5y,
+        short_float:   (r) => r.short_float,
+        fwd_pe:    (r) => r.fwd_pe,
+        peg:       (r) => r.peg,
+        ev_ebitda: (r) => r.ev_ebitda,
+        ev_fcf:    (r) => r.ev_fcf,
       };
 
       const av = keyMap[sortKey]?.(a) ?? null;
@@ -181,7 +219,9 @@ export default function MasterTable({ prices, verdicts, atrs, loading, customSto
   }, [allRows, sortKey, sortDir, industryFilter, urgencyFilter, search]);
 
   function exportCsv() {
-    const headers = ["Ticker", "Industry", "Score", "Val", "Fund", "Price", "ATR%", "Urgency", "Rev Gr%", "Gross%", "Op%", "Net%", "FCF%", "Fwd PE", "PEG", "EV/EBITDA", "EV/FCF"];
+    const headers = ["Ticker", "Industry", "Score", "Val", "Fund", "Price", "ATR%", "Urgency",
+      "Rev Gr%", "Gross%", "Op%", "Net%", "FCF%", "ROE%", "D/E", "EPS TTM", "EPS Fwd", "EPS Past 5Y%", "EPS Next 5Y%", "Short Float%",
+      "Fwd PE", "PEG", "EV/EBITDA", "EV/FCF"];
     const data = rows.map((r) => [
       r.ticker, r.industry,
       r.combined?.toFixed(1) ?? "", r.val?.toFixed(1) ?? "", r.fund?.toFixed(1) ?? "",
@@ -193,6 +233,13 @@ export default function MasterTable({ prices, verdicts, atrs, loading, customSto
       r.op_margin != null ? (r.op_margin * 100).toFixed(1) : "",
       r.net_margin != null ? (r.net_margin * 100).toFixed(1) : "",
       r.fcf_margin != null ? (r.fcf_margin * 100).toFixed(1) : "",
+      r.roe != null ? (r.roe * 100).toFixed(1) : "",
+      r.debt_to_equity?.toFixed(2) ?? "",
+      r.eps_ttm?.toFixed(2) ?? "",
+      r.eps_fwd?.toFixed(2) ?? "",
+      r.eps_past_5y != null ? (r.eps_past_5y * 100).toFixed(1) : "",
+      r.eps_next_5y != null ? (r.eps_next_5y * 100).toFixed(1) : "",
+      r.short_float != null ? (r.short_float * 100).toFixed(1) : "",
       r.fwd_pe?.toFixed(2) ?? "", r.peg?.toFixed(2) ?? "",
       r.ev_ebitda?.toFixed(1) ?? "", r.ev_fcf?.toFixed(1) ?? "",
     ]);
@@ -221,6 +268,104 @@ export default function MasterTable({ prices, verdicts, atrs, loading, customSto
     { id: "technical", label: "Technical" },
   ];
 
+  // Shared ticker sticky cell
+  const TickerCell = ({ r }: { r: TableRow }) => (
+    <td className={`px-3 py-2 font-semibold whitespace-nowrap sticky left-0 z-10 after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-gray-200 after:content-[''] group-hover:bg-gray-50 ${r.isCustom ? "bg-blue-50/30 group-hover:bg-blue-100/40" : "bg-white"}`}>
+      <Link href={`/stock/${r.ticker}`} className="text-blue-600 hover:text-blue-800">
+        {r.ticker}
+      </Link>
+      {r.name && <span className="block text-xs text-gray-400 font-normal leading-tight">{r.name}</span>}
+    </td>
+  );
+
+  const Filters = () => (
+    <div className="flex flex-wrap gap-2 items-center">
+      <input
+        type="text"
+        placeholder="Search…"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        className="bg-white border border-gray-300 rounded px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 w-36"
+      />
+      <select
+        value={industryFilter}
+        onChange={(e) => setIndustryFilter(e.target.value)}
+        className="bg-white border border-gray-300 rounded px-3 py-1.5 text-sm text-gray-900"
+      >
+        {industries.map((i) => (
+          <option key={i} value={i}>{i === "all" ? "All Industries" : i}</option>
+        ))}
+      </select>
+      <select
+        value={urgencyFilter}
+        onChange={(e) => setUrgencyFilter(e.target.value)}
+        className="bg-white border border-gray-300 rounded px-3 py-1.5 text-sm text-gray-900"
+      >
+        <option value="all">All Urgency</option>
+        <option value="urgent">Urgent</option>
+        <option value="watch">Watch</option>
+        <option value="hold">Hold</option>
+        <option value="avoid">Avoid</option>
+      </select>
+      {loading && <span className="text-xs text-gray-400 animate-pulse">Loading prices…</span>}
+      <span className="text-xs text-gray-400">{rows.length} stocks</span>
+      <button
+        onClick={exportCsv}
+        className="ml-auto text-xs px-3 py-1.5 rounded border border-gray-300 text-gray-600 hover:border-gray-400 hover:text-gray-800 bg-white"
+      >
+        Export CSV
+      </button>
+    </div>
+  );
+
+  const StatusCell = ({ r }: { r: TableRow }) => (
+    <td className="px-3 py-2 whitespace-nowrap">
+      <div className="flex items-center gap-1">
+        {portfolioSet.has(r.ticker) ? (
+          <button
+            onClick={() => onSetStatus(r.ticker, "portfolio")}
+            className="text-xs px-2 py-0.5 rounded-full font-semibold bg-green-100 text-green-700 border border-green-300 hover:bg-green-200"
+            title="In Portfolio — click to remove"
+          >
+            ✓ Portfolio
+          </button>
+        ) : watchlistSet.has(r.ticker) ? (
+          <button
+            onClick={() => onSetStatus(r.ticker, "watchlist")}
+            className="text-xs px-2 py-0.5 rounded-full font-semibold bg-yellow-100 text-yellow-700 border border-yellow-300 hover:bg-yellow-200"
+            title="In Watchlist — click to remove"
+          >
+            ✓ Watchlist
+          </button>
+        ) : (
+          <>
+            <button
+              onClick={() => onSetStatus(r.ticker, "portfolio")}
+              className="text-xs px-2 py-0.5 rounded border border-gray-300 text-gray-500 hover:border-green-400 hover:text-green-600"
+            >
+              + Portfolio
+            </button>
+            <button
+              onClick={() => onSetStatus(r.ticker, "watchlist")}
+              className="text-xs px-2 py-0.5 rounded border border-gray-300 text-gray-500 hover:border-yellow-400 hover:text-yellow-600"
+            >
+              + Watchlist
+            </button>
+          </>
+        )}
+        {r.isCustom && (
+          <button
+            onClick={() => onRemoveCustom(r.ticker)}
+            className="text-red-300 hover:text-red-500 text-xs ml-1"
+            title="Remove from master table"
+          >
+            ✕
+          </button>
+        )}
+      </div>
+    </td>
+  );
+
   return (
     <div className="space-y-3">
       {/* Subtabs */}
@@ -240,190 +385,169 @@ export default function MasterTable({ prices, verdicts, atrs, loading, customSto
         ))}
       </div>
 
-      {/* Placeholder panels for non-All tabs */}
-      {activeTab === "fundamental" && (
-        <div className="rounded-lg border border-gray-200 bg-white p-8 text-center text-gray-400 text-sm">
-          Fundamental view — coming soon
+      {/* ALL TAB */}
+      {activeTab === "all" && (
+        <div className="space-y-3">
+          <Filters />
+          <div className="overflow-x-auto rounded-lg border border-gray-200">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-100 border-b border-gray-200">
+                <tr>
+                  <Th label="Ticker"    k="ticker" sticky />
+                  <Th label="Industry"  k="industry" />
+                  <Th label="Score"     k="combined" title="Combined score (seed stocks only)" />
+                  <Th label="Val"       k="val"      title="Valuation score (seed stocks only)" />
+                  <Th label="Fund"      k="fund"     title="Fundamentals score (seed stocks only)" />
+                  <Th label="Price"     k="price" />
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Weekly ATR% — volatility as % of price">ATR%</th>
+                  <Th label="Urgency"   k="urgency" />
+                  <Th label="Rev Gr"    k="rev_growth"   title="Revenue Growth YoY" />
+                  <Th label="Gross%"    k="gross_margin" title="Gross Margin" />
+                  <Th label="Op%"       k="op_margin"    title="Operating Margin" />
+                  <Th label="Net%"      k="net_margin"   title="Net/Profit Margin" />
+                  <Th label="FCF%"      k="fcf_margin"   title="Free Cash Flow Margin" />
+                  <Th label="ROE%"      k="roe"          title="Return on Equity" />
+                  <Th label="D/E"       k="debt_to_equity" title="Debt to Equity ratio" />
+                  <Th label="EPS TTM"   k="eps_ttm"      title="Trailing EPS (This Year)" />
+                  <Th label="EPS Fwd"   k="eps_fwd"      title="Forward EPS (Next Year)" />
+                  <Th label="EPS P5Y"   k="eps_past_5y"  title="EPS Growth Past 5 Years" />
+                  <Th label="EPS N5Y"   k="eps_next_5y"  title="EPS Growth Next 5 Years (analyst est.)" />
+                  <Th label="Short%"    k="short_float"  title="Short Float %" />
+                  <Th label="Fwd PE"    k="fwd_pe" />
+                  <Th label="PEG"       k="peg" />
+                  <Th label="EV/EBITDA" k="ev_ebitda" />
+                  <Th label="EV/FCF"    k="ev_fcf" />
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {rows.map((r) => (
+                  <tr key={r.ticker} className={`group hover:bg-gray-50 transition-colors ${r.isCustom ? "bg-blue-50/30" : ""}`}>
+                    <TickerCell r={r} />
+                    <td className="px-3 py-2 text-gray-500 text-xs whitespace-nowrap">{r.industry}</td>
+                    <td className={`px-3 py-2 font-bold ${scoreColor(r.combined)}`}>
+                      {r.combined != null ? r.combined.toFixed(1) : <span className="text-gray-300">—</span>}
+                    </td>
+                    <td className={`px-3 py-2 ${scoreColor(r.val)}`}>
+                      {r.val != null ? r.val.toFixed(1) : <span className="text-gray-300">—</span>}
+                    </td>
+                    <td className={`px-3 py-2 ${scoreColor(r.fund)}`}>
+                      {r.fund != null ? r.fund.toFixed(1) : <span className="text-gray-300">—</span>}
+                    </td>
+                    <td className="px-3 py-2 text-gray-900 whitespace-nowrap">
+                      {r.price != null ? `$${r.price.toFixed(2)}` : <span className="text-gray-400">—</span>}
+                    </td>
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      {(() => {
+                        const v = atrs[r.ticker];
+                        if (v == null) return <span className="text-gray-300">—</span>;
+                        const al = atrLabel(v);
+                        return (
+                          <div>
+                            <span className={`font-semibold ${al.color}`}>{v.toFixed(1)}%</span>
+                            <span className={`block text-xs leading-tight ${al.color} opacity-80`}>{al.label}</span>
+                          </div>
+                        );
+                      })()}
+                    </td>
+                    <td className="px-3 py-2">
+                      {r.verdict?.urgency ? (
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-semibold uppercase ${urgencyStyles[r.verdict.urgency] ?? ""}`}>
+                          {r.verdict.urgency}
+                        </span>
+                      ) : <span className="text-gray-400 text-xs">—</span>}
+                    </td>
+                    <td className="px-3 py-2 text-gray-700">{pct(r.rev_growth)}</td>
+                    <td className="px-3 py-2 text-gray-700">{pct(r.gross_margin)}</td>
+                    <td className="px-3 py-2 text-gray-700">{pct(r.op_margin)}</td>
+                    <td className="px-3 py-2 text-gray-700">{pct(r.net_margin)}</td>
+                    <td className="px-3 py-2 text-gray-700">{pct(r.fcf_margin)}</td>
+                    <td className="px-3 py-2 text-gray-700">{pct(r.roe)}</td>
+                    <td className="px-3 py-2 text-gray-700">{num(r.debt_to_equity, 2)}</td>
+                    <td className="px-3 py-2 text-gray-700">{eps(r.eps_ttm)}</td>
+                    <td className="px-3 py-2 text-gray-700">{eps(r.eps_fwd)}</td>
+                    <td className="px-3 py-2 text-gray-700">{pct(r.eps_past_5y)}</td>
+                    <td className="px-3 py-2 text-gray-700">{pct(r.eps_next_5y)}</td>
+                    <td className="px-3 py-2 text-gray-700">{pct(r.short_float)}</td>
+                    <td className="px-3 py-2 text-gray-700">{num(r.fwd_pe)}</td>
+                    <td className="px-3 py-2 text-gray-700">{num(r.peg, 2)}</td>
+                    <td className="px-3 py-2 text-gray-700">{num(r.ev_ebitda)}</td>
+                    <td className="px-3 py-2 text-gray-700">{num(r.ev_fcf)}</td>
+                    <StatusCell r={r} />
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
+
+      {/* FUNDAMENTAL TAB */}
+      {activeTab === "fundamental" && (
+        <div className="space-y-3">
+          <Filters />
+          <div className="overflow-x-auto rounded-lg border border-gray-200">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-100 border-b border-gray-200">
+                <tr>
+                  <Th label="Ticker"    k="ticker" sticky />
+                  <Th label="Industry"  k="industry" />
+                  <Th label="Fund Score" k="fund" title="Fundamentals score (seed stocks only)" />
+                  <Th label="Rev Gr"    k="rev_growth"   title="Revenue Growth YoY" />
+                  <Th label="Gross%"    k="gross_margin" title="Gross Margin" />
+                  <Th label="Op%"       k="op_margin"    title="Operating Margin" />
+                  <Th label="FCF%"      k="fcf_margin"   title="Free Cash Flow Margin" />
+                  <Th label="ROE%"      k="roe"          title="Return on Equity" />
+                  <Th label="D/E"       k="debt_to_equity" title="Debt to Equity ratio" />
+                  <Th label="EPS TTM"   k="eps_ttm"      title="Trailing EPS (This Year)" />
+                  <Th label="EPS Fwd"   k="eps_fwd"      title="Forward EPS (Next Year)" />
+                  <Th label="EPS P5Y"   k="eps_past_5y"  title="EPS Growth Past 5 Years" />
+                  <Th label="EPS N5Y"   k="eps_next_5y"  title="EPS Growth Next 5 Years (analyst est.)" />
+                  <Th label="Short%"    k="short_float"  title="Short Float %" />
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {rows.map((r) => (
+                  <tr key={r.ticker} className={`group hover:bg-gray-50 transition-colors ${r.isCustom ? "bg-blue-50/30" : ""}`}>
+                    <TickerCell r={r} />
+                    <td className="px-3 py-2 text-gray-500 text-xs whitespace-nowrap">{r.industry}</td>
+                    <td className={`px-3 py-2 font-bold ${scoreColor(r.fund)}`}>
+                      {r.fund != null ? r.fund.toFixed(1) : <span className="text-gray-300">—</span>}
+                    </td>
+                    <td className="px-3 py-2 text-gray-700">{pct(r.rev_growth)}</td>
+                    <td className="px-3 py-2 text-gray-700">{pct(r.gross_margin)}</td>
+                    <td className="px-3 py-2 text-gray-700">{pct(r.op_margin)}</td>
+                    <td className="px-3 py-2 text-gray-700">{pct(r.fcf_margin)}</td>
+                    <td className="px-3 py-2 text-gray-700">{pct(r.roe)}</td>
+                    <td className="px-3 py-2 text-gray-700">{num(r.debt_to_equity, 2)}</td>
+                    <td className="px-3 py-2 text-gray-700">{eps(r.eps_ttm)}</td>
+                    <td className="px-3 py-2 text-gray-700">{eps(r.eps_fwd)}</td>
+                    <td className="px-3 py-2 text-gray-700">{pct(r.eps_past_5y)}</td>
+                    <td className="px-3 py-2 text-gray-700">{pct(r.eps_next_5y)}</td>
+                    <td className="px-3 py-2 text-gray-700">{pct(r.short_float)}</td>
+                    <StatusCell r={r} />
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* VALUATION TAB */}
       {activeTab === "valuation" && (
         <div className="rounded-lg border border-gray-200 bg-white p-8 text-center text-gray-400 text-sm">
           Valuation view — coming soon
         </div>
       )}
+
+      {/* TECHNICAL TAB */}
       {activeTab === "technical" && (
         <div className="rounded-lg border border-gray-200 bg-white p-8 text-center text-gray-400 text-sm">
           Technical view — coming soon
         </div>
       )}
-
-      {activeTab === "all" && <>
-      {/* Filters */}
-      <div className="flex flex-wrap gap-2 items-center">
-        <input
-          type="text"
-          placeholder="Search…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="bg-white border border-gray-300 rounded px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 w-36"
-        />
-        <select
-          value={industryFilter}
-          onChange={(e) => setIndustryFilter(e.target.value)}
-          className="bg-white border border-gray-300 rounded px-3 py-1.5 text-sm text-gray-900"
-        >
-          {industries.map((i) => (
-            <option key={i} value={i}>{i === "all" ? "All Industries" : i}</option>
-          ))}
-        </select>
-        <select
-          value={urgencyFilter}
-          onChange={(e) => setUrgencyFilter(e.target.value)}
-          className="bg-white border border-gray-300 rounded px-3 py-1.5 text-sm text-gray-900"
-        >
-          <option value="all">All Urgency</option>
-          <option value="urgent">Urgent</option>
-          <option value="watch">Watch</option>
-          <option value="hold">Hold</option>
-          <option value="avoid">Avoid</option>
-        </select>
-        {loading && <span className="text-xs text-gray-400 animate-pulse">Loading prices…</span>}
-        <span className="text-xs text-gray-400">{rows.length} stocks</span>
-        <button
-          onClick={exportCsv}
-          className="ml-auto text-xs px-3 py-1.5 rounded border border-gray-300 text-gray-600 hover:border-gray-400 hover:text-gray-800 bg-white"
-        >
-          Export CSV
-        </button>
-      </div>
-
-      {/* Table */}
-      <div className="overflow-x-auto rounded-lg border border-gray-200">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-100 border-b border-gray-200">
-            <tr>
-              <Th label="Ticker"    k="ticker" sticky />
-              <Th label="Industry"  k="industry" />
-              <Th label="Score"     k="combined" title="Combined score (seed stocks only)" />
-              <Th label="Val"       k="val"      title="Valuation score (seed stocks only)" />
-              <Th label="Fund"      k="fund"     title="Fundamentals score (seed stocks only)" />
-              <Th label="Price"     k="price" />
-              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Weekly ATR% — volatility as % of price">ATR%</th>
-              <Th label="Urgency"   k="urgency" />
-              <Th label="Rev Gr"    k="rev_growth"   title="Revenue Growth YoY" />
-              <Th label="Gross%"    k="gross_margin" title="Gross Margin" />
-              <Th label="Op%"       k="op_margin"    title="Operating Margin" />
-              <Th label="Net%"      k="net_margin"   title="Net/Profit Margin" />
-              <Th label="FCF%"      k="fcf_margin"   title="Free Cash Flow Margin" />
-              <Th label="Fwd PE"    k="fwd_pe" />
-              <Th label="PEG"       k="peg" />
-              <Th label="EV/EBITDA" k="ev_ebitda" />
-              <Th label="EV/FCF"    k="ev_fcf" />
-              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Status</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-100">
-            {rows.map((r) => (
-              <tr key={r.ticker} className={`group hover:bg-gray-50 transition-colors ${r.isCustom ? "bg-blue-50/30" : ""}`}>
-                <td className={`px-3 py-2 font-semibold whitespace-nowrap sticky left-0 z-10 after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-gray-200 after:content-[''] group-hover:bg-gray-50 ${r.isCustom ? "bg-blue-50/30 group-hover:bg-blue-100/40" : "bg-white"}`}>
-                  <Link href={`/stock/${r.ticker}`} className="text-blue-600 hover:text-blue-800">
-                    {r.ticker}
-                  </Link>
-                  {r.name && <span className="block text-xs text-gray-400 font-normal leading-tight">{r.name}</span>}
-                </td>
-                <td className="px-3 py-2 text-gray-500 text-xs whitespace-nowrap">{r.industry}</td>
-                <td className={`px-3 py-2 font-bold ${scoreColor(r.combined)}`}>
-                  {r.combined != null ? r.combined.toFixed(1) : <span className="text-gray-300">—</span>}
-                </td>
-                <td className={`px-3 py-2 ${scoreColor(r.val)}`}>
-                  {r.val != null ? r.val.toFixed(1) : <span className="text-gray-300">—</span>}
-                </td>
-                <td className={`px-3 py-2 ${scoreColor(r.fund)}`}>
-                  {r.fund != null ? r.fund.toFixed(1) : <span className="text-gray-300">—</span>}
-                </td>
-                <td className="px-3 py-2 text-gray-900 whitespace-nowrap">
-                  {r.price != null ? `$${r.price.toFixed(2)}` : <span className="text-gray-400">—</span>}
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap">
-                  {(() => {
-                    const v = atrs[r.ticker];
-                    if (v == null) return <span className="text-gray-300">—</span>;
-                    const al = atrLabel(v);
-                    return (
-                      <div>
-                        <span className={`font-semibold ${al.color}`}>{v.toFixed(1)}%</span>
-                        <span className={`block text-xs leading-tight ${al.color} opacity-80`}>{al.label}</span>
-                      </div>
-                    );
-                  })()}
-                </td>
-                <td className="px-3 py-2">
-                  {r.verdict?.urgency ? (
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-semibold uppercase ${urgencyStyles[r.verdict.urgency] ?? ""}`}>
-                      {r.verdict.urgency}
-                    </span>
-                  ) : <span className="text-gray-400 text-xs">—</span>}
-                </td>
-                <td className="px-3 py-2 text-gray-700">{pct(r.rev_growth)}</td>
-                <td className="px-3 py-2 text-gray-700">{pct(r.gross_margin)}</td>
-                <td className="px-3 py-2 text-gray-700">{pct(r.op_margin)}</td>
-                <td className="px-3 py-2 text-gray-700">{pct(r.net_margin)}</td>
-                <td className="px-3 py-2 text-gray-700">{pct(r.fcf_margin)}</td>
-                <td className="px-3 py-2 text-gray-700">{num(r.fwd_pe)}</td>
-                <td className="px-3 py-2 text-gray-700">{num(r.peg, 2)}</td>
-                <td className="px-3 py-2 text-gray-700">{num(r.ev_ebitda)}</td>
-                <td className="px-3 py-2 text-gray-700">{num(r.ev_fcf)}</td>
-                <td className="px-3 py-2 whitespace-nowrap">
-                  <div className="flex items-center gap-1">
-                    {portfolioSet.has(r.ticker) ? (
-                      <button
-                        onClick={() => onSetStatus(r.ticker, "portfolio")}
-                        className="text-xs px-2 py-0.5 rounded-full font-semibold bg-green-100 text-green-700 border border-green-300 hover:bg-green-200"
-                        title="In Portfolio — click to remove"
-                      >
-                        ✓ Portfolio
-                      </button>
-                    ) : watchlistSet.has(r.ticker) ? (
-                      <button
-                        onClick={() => onSetStatus(r.ticker, "watchlist")}
-                        className="text-xs px-2 py-0.5 rounded-full font-semibold bg-yellow-100 text-yellow-700 border border-yellow-300 hover:bg-yellow-200"
-                        title="In Watchlist — click to remove"
-                      >
-                        ✓ Watchlist
-                      </button>
-                    ) : (
-                      <>
-                        <button
-                          onClick={() => onSetStatus(r.ticker, "portfolio")}
-                          className="text-xs px-2 py-0.5 rounded border border-gray-300 text-gray-500 hover:border-green-400 hover:text-green-600"
-                        >
-                          + Portfolio
-                        </button>
-                        <button
-                          onClick={() => onSetStatus(r.ticker, "watchlist")}
-                          className="text-xs px-2 py-0.5 rounded border border-gray-300 text-gray-500 hover:border-yellow-400 hover:text-yellow-600"
-                        >
-                          + Watchlist
-                        </button>
-                      </>
-                    )}
-                    {r.isCustom && (
-                      <button
-                        onClick={() => onRemoveCustom(r.ticker)}
-                        className="text-red-300 hover:text-red-500 text-xs ml-1"
-                        title="Remove from master table"
-                      >
-                        ✕
-                      </button>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-      </>}
     </div>
   );
 }
