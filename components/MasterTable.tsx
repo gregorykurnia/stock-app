@@ -335,14 +335,30 @@ export default function MasterTable({ prices, verdicts, atrs, ema20s, ema50s, su
 
     // "all" tab — full export
     const headers = ["Ticker", "Industry", "Score", "Val", "Fund", "Price", "ATR%", "Urgency",
+      "EMA20W", "Dist EMA20%", "EMA50W", "Dist EMA50%", "Prev Support", "RSI", "DI+", "DI-", "CMF",
       "Rev Gr%", "Gross%", "Op%", "Net%", "FCF%", "ROE%", "D/E", "EPS TTM", "EPS Fwd", "EPS Past 5Y%", "EPS Next 5Y%", "Short Float%",
       "Fwd PE", "Trail PE", "PEG", "P/S", "P/B", "EV/EBITDA", "EV/Rev", "EV/FCF", "P/FCF", "Marked"];
-    const data = rows.map((r) => [
+    const data = rows.map((r) => {
+      const price = r.price;
+      const ema20 = ema20s[r.ticker] ?? null;
+      const ema50 = ema50s[r.ticker] ?? null;
+      const support = supportLows[r.ticker] ?? null;
+      const distEma20 = price != null && ema20 != null ? ((price - ema20) / ema20) * 100 : null;
+      const distEma50 = price != null && ema50 != null ? ((price - ema50) / ema50) * 100 : null;
+      const isBeatenDown = r.verdict?.setup === "beaten_down";
+      return [
       r.ticker, r.industry,
       r.combined?.toFixed(1) ?? "", r.val?.toFixed(1) ?? "", r.fund?.toFixed(1) ?? "",
-      r.price?.toFixed(2) ?? "",
+      price?.toFixed(2) ?? "",
       atrs[r.ticker]?.toFixed(1) ?? "",
       r.verdict?.urgency ?? "",
+      ema20?.toFixed(2) ?? "", distEma20?.toFixed(1) ?? "",
+      ema50?.toFixed(2) ?? "", distEma50?.toFixed(1) ?? "",
+      isBeatenDown && support != null ? support.toFixed(2) : "",
+      rsis[r.ticker]?.toFixed(1) ?? "",
+      diPluses[r.ticker]?.toFixed(1) ?? "",
+      diMinuses[r.ticker]?.toFixed(1) ?? "",
+      cmfs[r.ticker]?.toFixed(3) ?? "",
       r.rev_growth != null ? (r.rev_growth * 100).toFixed(1) : "",
       r.gross_margin != null ? (r.gross_margin * 100).toFixed(1) : "",
       r.op_margin != null ? (r.op_margin * 100).toFixed(1) : "",
@@ -360,7 +376,8 @@ export default function MasterTable({ prices, verdicts, atrs, ema20s, ema50s, su
       r.ev_ebitda?.toFixed(1) ?? "", r.ev_revenue?.toFixed(2) ?? "",
       r.ev_fcf?.toFixed(1) ?? "", r.p_fcf?.toFixed(1) ?? "",
       marked(r),
-    ]);
+      ]; // close inner array
+    }); // close rows.map
     downloadCsv(`master-table-${date}.csv`, headers, data);
   }
 
