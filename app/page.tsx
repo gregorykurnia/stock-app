@@ -86,6 +86,10 @@ export default function Home() {
           .then((r) => r.json())
           .then((d) => setPrices((p) => ({ ...p, ...(d.prices ?? {}) })))
           .catch(() => {});
+        fetch(`/api/funddata?tickers=${tickers}`)
+          .then((r) => r.json())
+          .then((d) => setFundData((prev) => ({ ...prev, ...(d.data ?? {}) })))
+          .catch(() => {});
       }
     });
 
@@ -145,6 +149,10 @@ export default function Home() {
       };
       await saveCustomStock(sym, entry);
       if (data.price != null) setPrices((p) => ({ ...p, [sym]: data.price }));
+      fetch(`/api/funddata?tickers=${sym}`)
+        .then((r) => r.json())
+        .then((d) => setFundData((prev) => ({ ...prev, ...(d.data ?? {}) })))
+        .catch(() => {});
       setAddTicker("");
       setShowAdd(false);
       await loadCustomStocks();
