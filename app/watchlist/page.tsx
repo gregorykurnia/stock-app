@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { getWatchlist, saveWatchlistEntry, removeWatchlistEntry, getCustomStocks, loadStockData } from "@/lib/firestore";
+import { getWatchlist, saveWatchlistEntry, removeWatchlistEntry, getCustomStocks, loadStockData, getMarkedTickers } from "@/lib/firestore";
 import { downloadCsv } from "@/lib/exportCsv";
 import { getCached, setCached, invalidateCache } from "@/lib/pageCache";
 import { SEED_STOCKS, FUNDAMENTALS_RAW, VALUATION_RAW } from "@/lib/seedData";
@@ -151,6 +151,7 @@ export default function WatchlistPage() {
   const [setups, setSetups] = useState<Record<string, string>>({});
   const [emaLoading, setEmaLoading] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [markedSet, setMarkedSet] = useState<Set<string>>(new Set());
   const [sortKey, setSortKey] = useState<SortKey>("ticker");
   const [sortDir, setSortDir] = useState<1 | -1>(1);
 
@@ -275,6 +276,7 @@ export default function WatchlistPage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { getMarkedTickers().then(setMarkedSet).catch(() => {}); }, []);
 
   async function updateField(ticker: string, field: string, value: unknown) {
     const row = rows.find((r) => r.ticker === ticker);
@@ -409,7 +411,7 @@ export default function WatchlistPage() {
                   const setup = setups[r.ticker];
                   const setupStyle = setupCfg[setup];
                   return (
-                    <tr key={r.ticker} className={`hover:bg-gray-50 transition-colors ${nearAlert ? "bg-yellow-50" : ""}`}>
+                    <tr key={r.ticker} className={`transition-colors ${markedSet.has(r.ticker) ? "bg-red-50 hover:bg-red-100" : nearAlert ? "bg-yellow-50 hover:bg-yellow-100" : "hover:bg-gray-50"}`}>
                       <td className="px-3 py-2 font-semibold whitespace-nowrap">
                         <Link href={`/stock/${r.ticker}`} className="text-blue-600 hover:text-blue-800">{r.ticker}</Link>
                         {nearAlert && <span className="ml-1 text-xs text-yellow-600 font-medium">Near!</span>}

@@ -84,11 +84,13 @@ interface Props {
   customStocks: CustomStock[];
   portfolioSet: Set<string>;
   watchlistSet: Set<string>;
+  markedSet: Set<string>;
   onSetStatus: (ticker: string, status: "portfolio" | "watchlist") => void;
   onRemoveCustom: (ticker: string) => void;
+  onToggleMark: (ticker: string) => void;
 }
 
-export default function MasterTable({ prices, verdicts, atrs, fundData, loading, customStocks, portfolioSet, watchlistSet, onSetStatus, onRemoveCustom }: Props) {
+export default function MasterTable({ prices, verdicts, atrs, fundData, loading, customStocks, portfolioSet, watchlistSet, markedSet, onSetStatus, onRemoveCustom, onToggleMark }: Props) {
   const [activeTab, setActiveTab] = useState<SubTab>("all");
   const [sortKey, setSortKey] = useState<SortKey>("combined");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
@@ -294,7 +296,7 @@ export default function MasterTable({ prices, verdicts, atrs, fundData, loading,
 
   // Shared ticker sticky cell
   const TickerCell = ({ r }: { r: TableRow }) => (
-    <td className={`px-3 py-2 font-semibold whitespace-nowrap sticky left-0 z-10 after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-gray-200 after:content-[''] group-hover:bg-gray-50 ${r.isCustom ? "bg-blue-50/30 group-hover:bg-blue-100/40" : "bg-white"}`}>
+    <td className={`px-3 py-2 font-semibold whitespace-nowrap sticky left-0 z-10 after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-gray-200 after:content-[''] group-hover:bg-red-50 ${markedSet.has(r.ticker) ? "bg-red-50" : r.isCustom ? "bg-blue-50/30 group-hover:bg-blue-100/40" : "bg-white group-hover:bg-gray-50"}`}>
       <Link href={`/stock/${r.ticker}`} className="text-blue-600 hover:text-blue-800">
         {r.ticker}
       </Link>
@@ -342,53 +344,67 @@ export default function MasterTable({ prices, verdicts, atrs, fundData, loading,
     </div>
   );
 
-  const StatusCell = ({ r }: { r: TableRow }) => (
-    <td className="px-3 py-2 whitespace-nowrap">
-      <div className="flex items-center gap-1">
-        {portfolioSet.has(r.ticker) ? (
-          <button
-            onClick={() => onSetStatus(r.ticker, "portfolio")}
-            className="text-xs px-2 py-0.5 rounded-full font-semibold bg-green-100 text-green-700 border border-green-300 hover:bg-green-200"
-            title="In Portfolio — click to remove"
-          >
-            ✓ Portfolio
-          </button>
-        ) : watchlistSet.has(r.ticker) ? (
-          <button
-            onClick={() => onSetStatus(r.ticker, "watchlist")}
-            className="text-xs px-2 py-0.5 rounded-full font-semibold bg-yellow-100 text-yellow-700 border border-yellow-300 hover:bg-yellow-200"
-            title="In Watchlist — click to remove"
-          >
-            ✓ Watchlist
-          </button>
-        ) : (
-          <>
+  const StatusCell = ({ r }: { r: TableRow }) => {
+    const isMarked = markedSet.has(r.ticker);
+    return (
+      <td className="px-3 py-2 whitespace-nowrap">
+        <div className="flex items-center gap-1">
+          {portfolioSet.has(r.ticker) ? (
             <button
               onClick={() => onSetStatus(r.ticker, "portfolio")}
-              className="text-xs px-2 py-0.5 rounded border border-gray-300 text-gray-500 hover:border-green-400 hover:text-green-600"
+              className="text-xs px-2 py-0.5 rounded-full font-semibold bg-green-100 text-green-700 border border-green-300 hover:bg-green-200"
+              title="In Portfolio — click to remove"
             >
-              + Portfolio
+              ✓ Portfolio
             </button>
+          ) : watchlistSet.has(r.ticker) ? (
             <button
               onClick={() => onSetStatus(r.ticker, "watchlist")}
-              className="text-xs px-2 py-0.5 rounded border border-gray-300 text-gray-500 hover:border-yellow-400 hover:text-yellow-600"
+              className="text-xs px-2 py-0.5 rounded-full font-semibold bg-yellow-100 text-yellow-700 border border-yellow-300 hover:bg-yellow-200"
+              title="In Watchlist — click to remove"
             >
-              + Watchlist
+              ✓ Watchlist
             </button>
-          </>
-        )}
-        {r.isCustom && (
+          ) : (
+            <>
+              <button
+                onClick={() => onSetStatus(r.ticker, "portfolio")}
+                className="text-xs px-2 py-0.5 rounded border border-gray-300 text-gray-500 hover:border-green-400 hover:text-green-600"
+              >
+                + Portfolio
+              </button>
+              <button
+                onClick={() => onSetStatus(r.ticker, "watchlist")}
+                className="text-xs px-2 py-0.5 rounded border border-gray-300 text-gray-500 hover:border-yellow-400 hover:text-yellow-600"
+              >
+                + Watchlist
+              </button>
+            </>
+          )}
           <button
-            onClick={() => onRemoveCustom(r.ticker)}
-            className="text-red-300 hover:text-red-500 text-xs ml-1"
-            title="Remove from master table"
+            onClick={() => onToggleMark(r.ticker)}
+            className={`text-xs px-2 py-0.5 rounded border font-semibold transition-colors ${
+              isMarked
+                ? "bg-red-100 text-red-700 border-red-300 hover:bg-red-200"
+                : "border-gray-300 text-gray-400 hover:border-red-300 hover:text-red-500"
+            }`}
+            title={isMarked ? "Marked — click to unmark" : "Mark as danger zone"}
           >
-            ✕
+            {isMarked ? "⚠ Marked" : "Mark"}
           </button>
-        )}
-      </div>
-    </td>
-  );
+          {r.isCustom && (
+            <button
+              onClick={() => onRemoveCustom(r.ticker)}
+              className="text-red-300 hover:text-red-500 text-xs ml-1"
+              title="Remove from master table"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+      </td>
+    );
+  };
 
   return (
     <div className="space-y-3">
@@ -451,7 +467,7 @@ export default function MasterTable({ prices, verdicts, atrs, fundData, loading,
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {rows.map((r) => (
-                  <tr key={r.ticker} className={`group hover:bg-gray-50 transition-colors ${r.isCustom ? "bg-blue-50/30" : ""}`}>
+                  <tr key={r.ticker} className={`group transition-colors ${markedSet.has(r.ticker) ? "bg-red-50 hover:bg-red-100" : r.isCustom ? "bg-blue-50/30 hover:bg-gray-50" : "hover:bg-gray-50"}`}>
                     <TickerCell r={r} />
                     <td className="px-3 py-2 text-gray-500 text-xs whitespace-nowrap">{r.industry}</td>
                     <td className={`px-3 py-2 font-bold ${scoreColor(r.combined)}`}>
@@ -543,7 +559,7 @@ export default function MasterTable({ prices, verdicts, atrs, fundData, loading,
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {rows.map((r) => (
-                  <tr key={r.ticker} className={`group hover:bg-gray-50 transition-colors ${r.isCustom ? "bg-blue-50/30" : ""}`}>
+                  <tr key={r.ticker} className={`group transition-colors ${markedSet.has(r.ticker) ? "bg-red-50 hover:bg-red-100" : r.isCustom ? "bg-blue-50/30 hover:bg-gray-50" : "hover:bg-gray-50"}`}>
                     <TickerCell r={r} />
                     <td className="px-3 py-2 text-gray-500 text-xs whitespace-nowrap">{r.industry}</td>
                     <td className={`px-3 py-2 font-bold ${scoreColor(r.fund)}`}>
@@ -594,7 +610,7 @@ export default function MasterTable({ prices, verdicts, atrs, fundData, loading,
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {rows.map((r) => (
-                  <tr key={r.ticker} className={`group hover:bg-gray-50 transition-colors ${r.isCustom ? "bg-blue-50/30" : ""}`}>
+                  <tr key={r.ticker} className={`group transition-colors ${markedSet.has(r.ticker) ? "bg-red-50 hover:bg-red-100" : r.isCustom ? "bg-blue-50/30 hover:bg-gray-50" : "hover:bg-gray-50"}`}>
                     <TickerCell r={r} />
                     <td className="px-3 py-2 text-gray-500 text-xs whitespace-nowrap">{r.industry}</td>
                     <td className={`px-3 py-2 font-bold ${scoreColor(r.val)}`}>

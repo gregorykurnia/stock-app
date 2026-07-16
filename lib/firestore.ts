@@ -82,3 +82,17 @@ export async function saveWatchlistEntry(ticker: string, data: object) {
 export async function removeWatchlistEntry(ticker: string) {
   await deleteDoc(doc(db, "watchlist", ticker));
 }
+
+// Marked stocks (danger zone)
+export async function getMarkedTickers(): Promise<Set<string>> {
+  const snap = await getDocs(collection(db, "marked"));
+  return new Set(snap.docs.map((d) => d.id));
+}
+
+export async function markTicker(ticker: string) {
+  await setDoc(doc(db, "marked", ticker), { marked_at: new Date().toISOString() });
+}
+
+export async function unmarkTicker(ticker: string) {
+  await deleteDoc(doc(db, "marked", ticker));
+}

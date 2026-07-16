@@ -9,6 +9,7 @@ import {
   getPortfolioTickers, getWatchlistTickers,
   savePortfolioEntry, removePortfolioEntry,
   saveWatchlistEntry, removeWatchlistEntry,
+  getMarkedTickers, markTicker, unmarkTicker,
 } from "@/lib/firestore";
 import type { CustomStock } from "@/lib/types";
 import type { FundData } from "@/app/api/funddata/route";
@@ -26,6 +27,7 @@ export default function Home() {
   const [fundData, setFundData] = useState<Record<string, FundData>>({});
   const [portfolioSet, setPortfolioSet] = useState<Set<string>>(new Set());
   const [watchlistSet, setWatchlistSet] = useState<Set<string>>(new Set());
+  const [markedSet, setMarkedSet] = useState<Set<string>>(new Set());
 
   // Add stock modal
   const [showAdd, setShowAdd] = useState(false);
@@ -34,9 +36,20 @@ export default function Home() {
   const [addError, setAddError] = useState("");
 
   async function loadSets() {
-    const [p, w] = await Promise.all([getPortfolioTickers(), getWatchlistTickers()]);
+    const [p, w, m] = await Promise.all([getPortfolioTickers(), getWatchlistTickers(), getMarkedTickers()]);
     setPortfolioSet(p);
     setWatchlistSet(w);
+    setMarkedSet(m);
+  }
+
+  async function handleToggleMark(ticker: string) {
+    if (markedSet.has(ticker)) {
+      await unmarkTicker(ticker);
+      setMarkedSet((prev) => { const s = new Set(prev); s.delete(ticker); return s; });
+    } else {
+      await markTicker(ticker);
+      setMarkedSet((prev) => new Set(prev).add(ticker));
+    }
   }
 
   async function loadCustomStocks() {
@@ -264,8 +277,10 @@ export default function Home() {
           customStocks={customStocks}
           portfolioSet={portfolioSet}
           watchlistSet={watchlistSet}
+          markedSet={markedSet}
           onSetStatus={handleSetStatus}
           onRemoveCustom={handleRemoveCustom}
+          onToggleMark={handleToggleMark}
         />
       </div>
     </main>

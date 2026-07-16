@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { getPortfolio, savePortfolioEntry, removePortfolioEntry, getCustomStocks, loadStockData } from "@/lib/firestore";
+import { getPortfolio, savePortfolioEntry, removePortfolioEntry, getCustomStocks, loadStockData, getMarkedTickers } from "@/lib/firestore";
 import { downloadCsv } from "@/lib/exportCsv";
 import { getCached, setCached, invalidateCache } from "@/lib/pageCache";
 import { SEED_STOCKS, FUNDAMENTALS_RAW, VALUATION_RAW } from "@/lib/seedData";
@@ -128,6 +128,7 @@ export default function PortfolioPage() {
   const [supportLows, setSupportLows] = useState<Record<string, number | null>>({});
   const [setups, setSetups] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [markedSet, setMarkedSet] = useState<Set<string>>(new Set());
   const [emaLoading, setEmaLoading] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("ticker");
   const [sortDir, setSortDir] = useState<1 | -1>(1);
@@ -292,6 +293,7 @@ export default function PortfolioPage() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+  useEffect(() => { getMarkedTickers().then(setMarkedSet).catch(() => {}); }, []);
 
   async function updateField(ticker: string, field: string, value: unknown) {
     const row = rows.find((r) => r.ticker === ticker);
@@ -452,7 +454,7 @@ export default function PortfolioPage() {
                   const supportLow = supportLows[r.ticker] ?? null;
                   const supportDist = cur != null && supportLow != null ? (cur - supportLow) / cur : null;
                   return (
-                    <tr key={r.ticker} className="hover:bg-gray-50 transition-colors">
+                    <tr key={r.ticker} className={`transition-colors ${markedSet.has(r.ticker) ? "bg-red-50 hover:bg-red-100" : "hover:bg-gray-50"}`}>
                       <td className="px-3 py-2 font-semibold whitespace-nowrap">
                         <Link href={`/stock/${r.ticker}`} className="text-blue-600 hover:text-blue-800">{r.ticker}</Link>
                         {r.name && <span className="block text-xs text-gray-400 font-normal">{r.name}</span>}
