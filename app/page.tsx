@@ -63,7 +63,7 @@ export default function Home() {
 
     fetch(`/api/funddata?tickers=${seedTickers}`)
       .then((r) => r.json())
-      .then((d) => setFundData(d.data ?? {}))
+      .then((d) => setFundData((prev) => ({ ...prev, ...(d.data ?? {}) })))
       .catch(() => {});
 
     Promise.all(
