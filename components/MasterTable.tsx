@@ -243,9 +243,59 @@ export default function MasterTable({ prices, verdicts, atrs, fundData, loading,
   }, [allRows, sortKey, sortDir, industryFilter, urgencyFilter, search]);
 
   function exportCsv() {
+    const date = new Date().toISOString().slice(0, 10);
+    const marked = (r: TableRow) => markedSet.has(r.ticker) ? "yes" : "";
+
+    if (activeTab === "fundamental") {
+      const headers = ["Ticker", "Industry", "Fund Score", "Rev Gr%", "Gross%", "Op%", "FCF%",
+        "ROE%", "D/E", "EPS TTM", "EPS Fwd", "EPS Past 5Y%", "EPS Next 5Y%", "Short Float%", "Marked"];
+      const data = rows.map((r) => [
+        r.ticker, r.industry, r.fund?.toFixed(1) ?? "",
+        r.rev_growth != null ? (r.rev_growth * 100).toFixed(1) : "",
+        r.gross_margin != null ? (r.gross_margin * 100).toFixed(1) : "",
+        r.op_margin != null ? (r.op_margin * 100).toFixed(1) : "",
+        r.fcf_margin != null ? (r.fcf_margin * 100).toFixed(1) : "",
+        r.roe != null ? (r.roe * 100).toFixed(1) : "",
+        r.debt_to_equity?.toFixed(2) ?? "",
+        r.eps_ttm?.toFixed(2) ?? "", r.eps_fwd?.toFixed(2) ?? "",
+        r.eps_past_5y != null ? (r.eps_past_5y * 100).toFixed(1) : "",
+        r.eps_next_5y != null ? (r.eps_next_5y * 100).toFixed(1) : "",
+        r.short_float != null ? (r.short_float * 100).toFixed(1) : "",
+        marked(r),
+      ]);
+      return downloadCsv(`fundamental-${date}.csv`, headers, data);
+    }
+
+    if (activeTab === "valuation") {
+      const headers = ["Ticker", "Industry", "Val Score", "Fwd PE", "Trail PE", "PEG",
+        "P/S", "P/B", "EV/EBITDA", "EV/Rev", "EV/FCF", "P/FCF", "Marked"];
+      const data = rows.map((r) => [
+        r.ticker, r.industry, r.val?.toFixed(1) ?? "",
+        r.fwd_pe?.toFixed(2) ?? "", r.trailing_pe?.toFixed(2) ?? "", r.peg?.toFixed(2) ?? "",
+        r.ps_ratio?.toFixed(2) ?? "", r.pb_ratio?.toFixed(2) ?? "",
+        r.ev_ebitda?.toFixed(1) ?? "", r.ev_revenue?.toFixed(2) ?? "",
+        r.ev_fcf?.toFixed(1) ?? "", r.p_fcf?.toFixed(1) ?? "",
+        marked(r),
+      ]);
+      return downloadCsv(`valuation-${date}.csv`, headers, data);
+    }
+
+    if (activeTab === "technical") {
+      const headers = ["Ticker", "Industry", "Price", "ATR%", "Urgency", "Setup", "Marked"];
+      const data = rows.map((r) => [
+        r.ticker, r.industry,
+        r.price?.toFixed(2) ?? "",
+        atrs[r.ticker]?.toFixed(1) ?? "",
+        r.verdict?.urgency ?? "", r.verdict?.setup ?? "",
+        marked(r),
+      ]);
+      return downloadCsv(`technical-${date}.csv`, headers, data);
+    }
+
+    // "all" tab — full export
     const headers = ["Ticker", "Industry", "Score", "Val", "Fund", "Price", "ATR%", "Urgency",
       "Rev Gr%", "Gross%", "Op%", "Net%", "FCF%", "ROE%", "D/E", "EPS TTM", "EPS Fwd", "EPS Past 5Y%", "EPS Next 5Y%", "Short Float%",
-      "Fwd PE", "Trail PE", "PEG", "P/S", "P/B", "EV/EBITDA", "EV/Rev", "EV/FCF", "P/FCF"];
+      "Fwd PE", "Trail PE", "PEG", "P/S", "P/B", "EV/EBITDA", "EV/Rev", "EV/FCF", "P/FCF", "Marked"];
     const data = rows.map((r) => [
       r.ticker, r.industry,
       r.combined?.toFixed(1) ?? "", r.val?.toFixed(1) ?? "", r.fund?.toFixed(1) ?? "",
@@ -268,8 +318,9 @@ export default function MasterTable({ prices, verdicts, atrs, fundData, loading,
       r.ps_ratio?.toFixed(2) ?? "", r.pb_ratio?.toFixed(2) ?? "",
       r.ev_ebitda?.toFixed(1) ?? "", r.ev_revenue?.toFixed(2) ?? "",
       r.ev_fcf?.toFixed(1) ?? "", r.p_fcf?.toFixed(1) ?? "",
+      marked(r),
     ]);
-    downloadCsv(`master-table-${new Date().toISOString().slice(0, 10)}.csv`, headers, data);
+    downloadCsv(`master-table-${date}.csv`, headers, data);
   }
 
   function toggleSort(key: SortKey) {
