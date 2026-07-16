@@ -119,6 +119,19 @@ export default function Home() {
           .then((r) => r.json())
           .then((d) => setFundData((prev) => ({ ...prev, ...(d.data ?? {}) })))
           .catch(() => {});
+        fetch(`/api/ema?tickers=${tickers}`)
+          .then((r) => r.json())
+          .then((d) => {
+            setAtrs((prev) => ({ ...prev, ...(d.atrPct ?? {}) }));
+            setEma20s((prev) => ({ ...prev, ...(d.ema20 ?? {}) }));
+            setEma50s((prev) => ({ ...prev, ...(d.ema50 ?? {}) }));
+            setSupportLows((prev) => ({ ...prev, ...(d.supportLow ?? {}) }));
+            setRsis((prev) => ({ ...prev, ...(d.rsi ?? {}) }));
+            setDiPluses((prev) => ({ ...prev, ...(d.diPlus ?? {}) }));
+            setDiMinuses((prev) => ({ ...prev, ...(d.diMinus ?? {}) }));
+            setCmfs((prev) => ({ ...prev, ...(d.cmf ?? {}) }));
+          })
+          .catch(() => {});
       }
     });
 
@@ -181,6 +194,19 @@ export default function Home() {
       fetch(`/api/funddata?tickers=${sym}`)
         .then((r) => r.json())
         .then((d) => setFundData((prev) => ({ ...prev, ...(d.data ?? {}) })))
+        .catch(() => {});
+      fetch(`/api/ema?tickers=${sym}`)
+        .then((r) => r.json())
+        .then((d) => {
+          setAtrs((prev) => ({ ...prev, ...(d.atrPct ?? {}) }));
+          setEma20s((prev) => ({ ...prev, ...(d.ema20 ?? {}) }));
+          setEma50s((prev) => ({ ...prev, ...(d.ema50 ?? {}) }));
+          setSupportLows((prev) => ({ ...prev, ...(d.supportLow ?? {}) }));
+          setRsis((prev) => ({ ...prev, ...(d.rsi ?? {}) }));
+          setDiPluses((prev) => ({ ...prev, ...(d.diPlus ?? {}) }));
+          setDiMinuses((prev) => ({ ...prev, ...(d.diMinus ?? {}) }));
+          setCmfs((prev) => ({ ...prev, ...(d.cmf ?? {}) }));
+        })
         .catch(() => {});
       setAddTicker("");
       setShowAdd(false);
