@@ -21,7 +21,7 @@ export interface FundData {
 async function fetchOne(ticker: string): Promise<FundData> {
   try {
     const summary = await yf.quoteSummary(ticker, {
-      modules: ["financialData", "defaultKeyStatistics", "earningsTrend", "summaryDetail", "cashflowStatementHistory"],
+      modules: ["financialData", "defaultKeyStatistics", "earningsTrend", "summaryDetail"],
     });
 
     const fd = summary.financialData ?? {};
@@ -47,14 +47,9 @@ async function fetchOne(ticker: string): Promise<FundData> {
       ps_ratio: sd.priceToSalesTrailing12Months ?? null,
       pb_ratio: ks.priceToBook ?? null,
       ev_revenue: ks.enterpriseToRevenue ?? null,
-      p_fcf: (() => {
-        const stmt = summary.cashflowStatementHistory?.cashflowStatements?.[0];
-        const ocf = stmt?.totalCashFromOperatingActivities ?? null;
-        const capex = stmt?.capitalExpenditures ?? null;
-        if (ocf == null || capex == null || sd.marketCap == null) return null;
-        const fcf = ocf - Math.abs(capex);
-        return fcf > 0 ? sd.marketCap / fcf : null;
-      })(),
+      p_fcf: (sd.marketCap != null && fd.freeCashflow != null && fd.freeCashflow > 0)
+        ? sd.marketCap / fd.freeCashflow
+        : null,
     };
   } catch {
     return { roe: null, debt_to_equity: null, eps_ttm: null, eps_fwd: null, eps_past_5y: null, eps_next_5y: null, short_float: null, trailing_pe: null, ps_ratio: null, pb_ratio: null, ev_revenue: null, p_fcf: null };
