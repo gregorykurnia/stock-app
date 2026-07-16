@@ -11,6 +11,11 @@ export interface FundData {
   eps_past_5y: number | null;
   eps_next_5y: number | null;
   short_float: number | null;
+  trailing_pe: number | null;
+  ps_ratio: number | null;
+  pb_ratio: number | null;
+  ev_revenue: number | null;
+  p_fcf: number | null;
 }
 
 async function fetchOne(ticker: string): Promise<FundData> {
@@ -37,9 +42,14 @@ async function fetchOne(ticker: string): Promise<FundData> {
       eps_past_5y: findGrowth("-5y") ?? findGrowth("5y") ?? null,
       eps_next_5y: findGrowth("+5y") ?? null,
       short_float: ks.shortPercentOfFloat ?? null,
+      trailing_pe: ks.trailingPE ?? null,
+      ps_ratio: ks.priceToSalesTrailing12Months ?? null,
+      pb_ratio: ks.priceToBook ?? null,
+      ev_revenue: ks.enterpriseToRevenue ?? null,
+      p_fcf: ks.priceToFreeCashflows ?? null,
     };
   } catch {
-    return { roe: null, debt_to_equity: null, eps_ttm: null, eps_fwd: null, eps_past_5y: null, eps_next_5y: null, short_float: null };
+    return { roe: null, debt_to_equity: null, eps_ttm: null, eps_fwd: null, eps_past_5y: null, eps_next_5y: null, short_float: null, trailing_pe: null, ps_ratio: null, pb_ratio: null, ev_revenue: null, p_fcf: null };
   }
 }
 

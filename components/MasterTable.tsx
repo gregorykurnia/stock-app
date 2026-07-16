@@ -12,6 +12,7 @@ type SortKey =
   | "ticker" | "combined" | "val" | "fund" | "price" | "industry" | "urgency"
   | "rev_growth" | "gross_margin" | "op_margin" | "net_margin" | "fcf_margin"
   | "fwd_pe" | "peg" | "ev_ebitda" | "ev_fcf"
+  | "trailing_pe" | "ps_ratio" | "pb_ratio" | "ev_revenue" | "p_fcf"
   | "roe" | "debt_to_equity" | "eps_ttm" | "eps_fwd" | "eps_past_5y" | "eps_next_5y" | "short_float";
 type SortDir = "asc" | "desc";
 type SubTab = "all" | "fundamental" | "valuation" | "technical";
@@ -57,11 +58,17 @@ interface TableRow {
   eps_past_5y: number | null;
   eps_next_5y: number | null;
   short_float: number | null;
-  // Raw valuation
+  // Raw valuation (seed)
   fwd_pe: number | null;
   peg: number | null;
   ev_ebitda: number | null;
   ev_fcf: number | null;
+  // Fetched valuation
+  trailing_pe: number | null;
+  ps_ratio: number | null;
+  pb_ratio: number | null;
+  ev_revenue: number | null;
+  p_fcf: number | null;
   // Live
   price: number | null;
   verdict: { urgency: string; setup: string } | null;
@@ -117,6 +124,11 @@ export default function MasterTable({ prices, verdicts, atrs, fundData, loading,
         peg: vr?.peg ?? null,
         ev_ebitda: vr?.ev_ebitda ?? null,
         ev_fcf: vr?.ev_fcf ?? null,
+        trailing_pe: fd.trailing_pe ?? null,
+        ps_ratio: fd.ps_ratio ?? null,
+        pb_ratio: fd.pb_ratio ?? null,
+        ev_revenue: fd.ev_revenue ?? null,
+        p_fcf: fd.p_fcf ?? null,
         price: prices[s.ticker] ?? null,
         verdict: verdicts[s.ticker] ?? null,
         isCustom: false,
@@ -148,6 +160,11 @@ export default function MasterTable({ prices, verdicts, atrs, fundData, loading,
         peg: c.peg,
         ev_ebitda: c.ev_ebitda,
         ev_fcf: c.ev_fcf,
+        trailing_pe: fundData[c.ticker]?.trailing_pe ?? null,
+        ps_ratio: fundData[c.ticker]?.ps_ratio ?? null,
+        pb_ratio: fundData[c.ticker]?.pb_ratio ?? null,
+        ev_revenue: fundData[c.ticker]?.ev_revenue ?? null,
+        p_fcf: fundData[c.ticker]?.p_fcf ?? null,
         price: prices[c.ticker] ?? null,
         verdict: verdicts[c.ticker] ?? null,
         isCustom: true,
@@ -204,6 +221,11 @@ export default function MasterTable({ prices, verdicts, atrs, fundData, loading,
         peg:       (r) => r.peg,
         ev_ebitda: (r) => r.ev_ebitda,
         ev_fcf:    (r) => r.ev_fcf,
+        trailing_pe: (r) => r.trailing_pe,
+        ps_ratio:    (r) => r.ps_ratio,
+        pb_ratio:    (r) => r.pb_ratio,
+        ev_revenue:  (r) => r.ev_revenue,
+        p_fcf:       (r) => r.p_fcf,
       };
 
       const av = keyMap[sortKey]?.(a) ?? null;
@@ -537,8 +559,50 @@ export default function MasterTable({ prices, verdicts, atrs, fundData, loading,
 
       {/* VALUATION TAB */}
       {activeTab === "valuation" && (
-        <div className="rounded-lg border border-gray-200 bg-white p-8 text-center text-gray-400 text-sm">
-          Valuation view — coming soon
+        <div className="space-y-3">
+          <Filters />
+          <div className="overflow-x-auto rounded-lg border border-gray-200">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-100 border-b border-gray-200">
+                <tr>
+                  <Th label="Ticker"     k="ticker" sticky />
+                  <Th label="Industry"   k="industry" />
+                  <Th label="Val Score"  k="val" title="Valuation score (seed stocks only)" />
+                  <Th label="Fwd PE"     k="fwd_pe"     title="Forward Price/Earnings (seed data)" />
+                  <Th label="Trail PE"   k="trailing_pe" title="Trailing Price/Earnings (live)" />
+                  <Th label="PEG"        k="peg"         title="PEG Ratio (seed data)" />
+                  <Th label="P/S"        k="ps_ratio"    title="Price/Sales TTM (live)" />
+                  <Th label="P/B"        k="pb_ratio"    title="Price/Book (live)" />
+                  <Th label="EV/EBITDA"  k="ev_ebitda"   title="EV/EBITDA (seed data)" />
+                  <Th label="EV/Rev"     k="ev_revenue"  title="EV/Revenue (live)" />
+                  <Th label="EV/FCF"     k="ev_fcf"      title="EV/Free Cash Flow (seed data)" />
+                  <Th label="P/FCF"      k="p_fcf"       title="Price/Free Cash Flow (live)" />
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {rows.map((r) => (
+                  <tr key={r.ticker} className={`group hover:bg-gray-50 transition-colors ${r.isCustom ? "bg-blue-50/30" : ""}`}>
+                    <TickerCell r={r} />
+                    <td className="px-3 py-2 text-gray-500 text-xs whitespace-nowrap">{r.industry}</td>
+                    <td className={`px-3 py-2 font-bold ${scoreColor(r.val)}`}>
+                      {r.val != null ? r.val.toFixed(1) : <span className="text-gray-300">—</span>}
+                    </td>
+                    <td className="px-3 py-2 text-gray-700">{num(r.fwd_pe, 1)}</td>
+                    <td className="px-3 py-2 text-gray-700">{num(r.trailing_pe, 1)}</td>
+                    <td className="px-3 py-2 text-gray-700">{num(r.peg, 2)}</td>
+                    <td className="px-3 py-2 text-gray-700">{num(r.ps_ratio, 1)}</td>
+                    <td className="px-3 py-2 text-gray-700">{num(r.pb_ratio, 1)}</td>
+                    <td className="px-3 py-2 text-gray-700">{num(r.ev_ebitda, 1)}</td>
+                    <td className="px-3 py-2 text-gray-700">{num(r.ev_revenue, 1)}</td>
+                    <td className="px-3 py-2 text-gray-700">{num(r.ev_fcf, 1)}</td>
+                    <td className="px-3 py-2 text-gray-700">{num(r.p_fcf, 1)}</td>
+                    <StatusCell r={r} />
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
