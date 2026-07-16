@@ -436,9 +436,14 @@ export default function MasterTable({ prices, verdicts, atrs, fundData, loading,
                   <Th label="EPS N5Y"   k="eps_next_5y"  title="EPS Growth Next 5 Years (analyst est.)" />
                   <Th label="Short%"    k="short_float"  title="Short Float %" />
                   <Th label="Fwd PE"    k="fwd_pe" />
+                  <Th label="Trail PE"  k="trailing_pe" title="Trailing Price/Earnings (live)" />
                   <Th label="PEG"       k="peg" />
+                  <Th label="P/S"       k="ps_ratio"   title="Price/Sales TTM (live)" />
+                  <Th label="P/B"       k="pb_ratio"   title="Price/Book (live)" />
                   <Th label="EV/EBITDA" k="ev_ebitda" />
+                  <Th label="EV/Rev"    k="ev_revenue" title="EV/Revenue (live)" />
                   <Th label="EV/FCF"    k="ev_fcf" />
+                  <Th label="P/FCF"     k="p_fcf"      title="Price/Free Cash Flow (live)" />
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Status</th>
                 </tr>
               </thead>
@@ -492,9 +497,14 @@ export default function MasterTable({ prices, verdicts, atrs, fundData, loading,
                     <td className="px-3 py-2 text-gray-700">{pct(r.eps_next_5y)}</td>
                     <td className="px-3 py-2 text-gray-700">{pct(r.short_float)}</td>
                     <td className="px-3 py-2 text-gray-700">{num(r.fwd_pe)}</td>
+                    <td className="px-3 py-2 text-gray-700">{num(r.trailing_pe, 1)}</td>
                     <td className="px-3 py-2 text-gray-700">{num(r.peg, 2)}</td>
+                    <td className="px-3 py-2 text-gray-700">{num(r.ps_ratio, 1)}</td>
+                    <td className="px-3 py-2 text-gray-700">{num(r.pb_ratio, 1)}</td>
                     <td className="px-3 py-2 text-gray-700">{num(r.ev_ebitda)}</td>
+                    <td className="px-3 py-2 text-gray-700">{num(r.ev_revenue, 1)}</td>
                     <td className="px-3 py-2 text-gray-700">{num(r.ev_fcf)}</td>
+                    <td className="px-3 py-2 text-gray-700">{num(r.p_fcf, 1)}</td>
                     <StatusCell r={r} />
                   </tr>
                 ))}
