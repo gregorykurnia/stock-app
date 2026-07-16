@@ -79,14 +79,14 @@ export default function Home() {
     fetch(`/api/ema?tickers=${seedTickers}`)
       .then((r) => r.json())
       .then((d) => {
-        setAtrs(d.atrPct ?? {});
-        setEma20s(d.ema20 ?? {});
-        setEma50s(d.ema50 ?? {});
-        setSupportLows(d.supportLow ?? {});
-        setRsis(d.rsi ?? {});
-        setDiPluses(d.diPlus ?? {});
-        setDiMinuses(d.diMinus ?? {});
-        setCmfs(d.cmf ?? {});
+        setAtrs((prev) => ({ ...prev, ...(d.atrPct ?? {}) }));
+        setEma20s((prev) => ({ ...prev, ...(d.ema20 ?? {}) }));
+        setEma50s((prev) => ({ ...prev, ...(d.ema50 ?? {}) }));
+        setSupportLows((prev) => ({ ...prev, ...(d.supportLow ?? {}) }));
+        setRsis((prev) => ({ ...prev, ...(d.rsi ?? {}) }));
+        setDiPluses((prev) => ({ ...prev, ...(d.diPlus ?? {}) }));
+        setDiMinuses((prev) => ({ ...prev, ...(d.diMinus ?? {}) }));
+        setCmfs((prev) => ({ ...prev, ...(d.cmf ?? {}) }));
       })
       .catch(() => {});
 
