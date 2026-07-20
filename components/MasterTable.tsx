@@ -270,10 +270,10 @@ export default function MasterTable({ prices, verdicts, atrs, ema20s, ema50s, su
     const marked = (r: TableRow) => markedSet.has(r.ticker) ? "yes" : "";
 
     if (activeTab === "fundamental") {
-      const headers = ["Ticker", "Industry", "Fund Score", "Rev Gr%", "Gross%", "Op%", "FCF%",
+      const headers = ["Ticker", "Industry", "Rev Gr%", "Gross%", "Op%", "FCF%",
         "ROE%", "D/E", "EPS TTM", "EPS Fwd", "EPS Past 5Y%", "EPS Next 5Y%", "Short Float%", "Marked"];
       const data = rows.map((r) => [
-        r.ticker, r.industry, r.fund?.toFixed(1) ?? "",
+        r.ticker, r.industry,
         r.rev_growth != null ? (r.rev_growth * 100).toFixed(1) : "",
         r.gross_margin != null ? (r.gross_margin * 100).toFixed(1) : "",
         r.op_margin != null ? (r.op_margin * 100).toFixed(1) : "",
@@ -290,10 +290,10 @@ export default function MasterTable({ prices, verdicts, atrs, ema20s, ema50s, su
     }
 
     if (activeTab === "valuation") {
-      const headers = ["Ticker", "Industry", "Val Score", "Fwd PE", "Trail PE", "PEG",
+      const headers = ["Ticker", "Industry", "Fwd PE", "Trail PE", "PEG",
         "P/S", "P/B", "EV/EBITDA", "EV/Rev", "EV/FCF", "P/FCF", "Marked"];
       const data = rows.map((r) => [
-        r.ticker, r.industry, r.val?.toFixed(1) ?? "",
+        r.ticker, r.industry,
         r.fwd_pe?.toFixed(2) ?? "", r.trailing_pe?.toFixed(2) ?? "", r.peg?.toFixed(2) ?? "",
         r.ps_ratio?.toFixed(2) ?? "", r.pb_ratio?.toFixed(2) ?? "",
         r.ev_ebitda?.toFixed(1) ?? "", r.ev_revenue?.toFixed(2) ?? "",
@@ -334,7 +334,7 @@ export default function MasterTable({ prices, verdicts, atrs, ema20s, ema50s, su
     }
 
     // "all" tab — full export
-    const headers = ["Ticker", "Industry", "Score", "Val", "Fund", "Price", "ATR%", "Urgency",
+    const headers = ["Ticker", "Industry", "Price", "ATR%", "Urgency",
       "EMA20W", "Dist EMA20%", "EMA50W", "Dist EMA50%", "Prev Support", "RSI", "DI+", "DI-", "CMF",
       "Rev Gr%", "Gross%", "Op%", "Net%", "FCF%", "ROE%", "D/E", "EPS TTM", "EPS Fwd", "EPS Past 5Y%", "EPS Next 5Y%", "Short Float%",
       "Fwd PE", "Trail PE", "PEG", "P/S", "P/B", "EV/EBITDA", "EV/Rev", "EV/FCF", "P/FCF", "Marked"];
@@ -348,7 +348,6 @@ export default function MasterTable({ prices, verdicts, atrs, ema20s, ema50s, su
       const isBeatenDown = r.verdict?.setup === "beaten_down";
       return [
       r.ticker, r.industry,
-      r.combined?.toFixed(1) ?? "", r.val?.toFixed(1) ?? "", r.fund?.toFixed(1) ?? "",
       price?.toFixed(2) ?? "",
       atrs[r.ticker]?.toFixed(1) ?? "",
       r.verdict?.urgency ?? "",
