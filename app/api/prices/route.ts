@@ -11,6 +11,8 @@ export async function GET(req: NextRequest) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const results: Record<string, number | null> = {};
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const preMarket: Record<string, number | null> = {};
 
   // Batch in chunks of 10 to avoid rate limits
   const chunkSize = 10;
@@ -22,12 +24,14 @@ export async function GET(req: NextRequest) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const q: any = await yf.quote(ticker);
           results[ticker] = q?.regularMarketPrice ?? null;
+          preMarket[ticker] = q?.preMarketPrice ?? null;
         } catch {
           results[ticker] = null;
+          preMarket[ticker] = null;
         }
       })
     );
   }
 
-  return NextResponse.json({ prices: results });
+  return NextResponse.json({ prices: results, preMarketPrices: preMarket });
 }

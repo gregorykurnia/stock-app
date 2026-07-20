@@ -78,6 +78,7 @@ interface TableRow {
 
 interface Props {
   prices: Record<string, number | null>;
+  preMarketPrices: Record<string, number | null>;
   verdicts: Record<string, { urgency: string; setup: string } | null>;
   atrs: Record<string, number | null>;
   ema20s: Record<string, number | null>;
@@ -98,7 +99,7 @@ interface Props {
   onToggleMark: (ticker: string) => void;
 }
 
-export default function MasterTable({ prices, verdicts, atrs, ema20s, ema50s, supportLows, rsis, diPluses, diMinuses, cmfs, fundData, loading, customStocks, portfolioSet, watchlistSet, markedSet, onSetStatus, onRemoveCustom, onToggleMark }: Props) {
+export default function MasterTable({ prices, preMarketPrices, verdicts, atrs, ema20s, ema50s, supportLows, rsis, diPluses, diMinuses, cmfs, fundData, loading, customStocks, portfolioSet, watchlistSet, markedSet, onSetStatus, onRemoveCustom, onToggleMark }: Props) {
   const [activeTab, setActiveTab] = useState<SubTab>("all");
   const [sortKey, setSortKey] = useState<SortKey>("combined");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
@@ -597,6 +598,7 @@ export default function MasterTable({ prices, verdicts, atrs, ema20s, ema50s, su
                     </td>
                     <td className="px-3 py-2 text-gray-900 whitespace-nowrap">
                       {r.price != null ? `$${r.price.toFixed(2)}` : <span className="text-gray-400">—</span>}
+                      {(() => { const pm = preMarketPrices[r.ticker]; return pm != null ? <span className="block text-xs text-blue-500">${pm.toFixed(2)} pre</span> : null; })()}
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap">
                       {(() => {
@@ -874,6 +876,7 @@ export default function MasterTable({ prices, verdicts, atrs, ema20s, ema50s, su
                       <td className="px-3 py-2 text-gray-500 text-xs whitespace-nowrap">{r.industry}</td>
                       <td className="px-3 py-2 text-gray-900 whitespace-nowrap">
                         {price != null ? `$${price.toFixed(2)}` : <span className="text-gray-400">—</span>}
+                        {(() => { const pm = preMarketPrices[r.ticker]; return pm != null ? <span className="block text-xs text-blue-500">${pm.toFixed(2)} pre</span> : null; })()}
                       </td>
                       <td className="px-3 py-2">
                         {r.verdict?.urgency ? (

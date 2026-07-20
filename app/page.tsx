@@ -20,6 +20,7 @@ export default function Home() {
   const router = useRouter();
   const [inputTicker, setInputTicker] = useState("");
   const [prices, setPrices] = useState<Record<string, number | null>>({});
+  const [preMarketPrices, setPreMarketPrices] = useState<Record<string, number | null>>({});
   const [verdicts, setVerdicts] = useState<Record<string, { urgency: string; setup: string } | null>>({});
   const [atrs, setAtrs] = useState<Record<string, number | null>>({});
   const [ema20s, setEma20s] = useState<Record<string, number | null>>({});
@@ -72,7 +73,10 @@ export default function Home() {
 
     fetch(`/api/prices?tickers=${seedTickers}`)
       .then((r) => r.json())
-      .then((d) => setPrices((p) => ({ ...p, ...(d.prices ?? {}) })))
+      .then((d) => {
+        setPrices((p) => ({ ...p, ...(d.prices ?? {}) }));
+        setPreMarketPrices((p) => ({ ...p, ...(d.preMarketPrices ?? {}) }));
+      })
       .catch(() => {})
       .finally(() => setPricesLoading(false));
 
@@ -113,7 +117,10 @@ export default function Home() {
         const tickers = list.map((s) => s.ticker).join(",");
         fetch(`/api/prices?tickers=${tickers}`)
           .then((r) => r.json())
-          .then((d) => setPrices((p) => ({ ...p, ...(d.prices ?? {}) })))
+          .then((d) => {
+            setPrices((p) => ({ ...p, ...(d.prices ?? {}) }));
+            setPreMarketPrices((p) => ({ ...p, ...(d.preMarketPrices ?? {}) }));
+          })
           .catch(() => {});
         fetch(`/api/funddata?tickers=${tickers}`)
           .then((r) => r.json())
@@ -312,6 +319,7 @@ export default function Home() {
 
         <MasterTable
           prices={prices}
+          preMarketPrices={preMarketPrices}
           verdicts={verdicts}
           atrs={atrs}
           ema20s={ema20s}
