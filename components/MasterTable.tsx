@@ -304,7 +304,7 @@ export default function MasterTable({ prices, verdicts, atrs, ema20s, ema50s, su
     }
 
     if (activeTab === "technical") {
-      const headers = ["Ticker", "Industry", "Price", "Urgency", "Setup",
+      const headers = ["Ticker", "Industry", "Price", "Setup",
         "EMA20W", "Dist EMA20%", "EMA50W", "Dist EMA50%", "Prev Support",
         "RSI", "DI+", "DI-", "CMF", "ATR%", "Marked"];
       const data = rows.map((r) => {
@@ -318,7 +318,7 @@ export default function MasterTable({ prices, verdicts, atrs, ema20s, ema50s, su
         return [
           r.ticker, r.industry,
           price?.toFixed(2) ?? "",
-          r.verdict?.urgency ?? "", r.verdict?.setup ?? "",
+          r.verdict?.setup ?? "",
           ema20?.toFixed(2) ?? "", distEma20?.toFixed(1) ?? "",
           ema50?.toFixed(2) ?? "", distEma50?.toFixed(1) ?? "",
           isBeatenDown && support != null ? support.toFixed(2) : "",
@@ -334,7 +334,7 @@ export default function MasterTable({ prices, verdicts, atrs, ema20s, ema50s, su
     }
 
     // "all" tab — full export
-    const headers = ["Ticker", "Industry", "Price", "ATR%", "Urgency",
+    const headers = ["Ticker", "Industry", "Price", "ATR%",
       "EMA20W", "Dist EMA20%", "EMA50W", "Dist EMA50%", "Prev Support", "RSI", "DI+", "DI-", "CMF",
       "Rev Gr%", "Gross%", "Op%", "Net%", "FCF%", "ROE%", "D/E", "EPS TTM", "EPS Fwd", "EPS Past 5Y%", "EPS Next 5Y%", "Short Float%",
       "Fwd PE", "Trail PE", "PEG", "P/S", "P/B", "EV/EBITDA", "EV/Rev", "EV/FCF", "P/FCF", "Marked"];
@@ -350,7 +350,6 @@ export default function MasterTable({ prices, verdicts, atrs, ema20s, ema50s, su
       r.ticker, r.industry,
       price?.toFixed(2) ?? "",
       atrs[r.ticker]?.toFixed(1) ?? "",
-      r.verdict?.urgency ?? "",
       ema20?.toFixed(2) ?? "", distEma20?.toFixed(1) ?? "",
       ema50?.toFixed(2) ?? "", distEma50?.toFixed(1) ?? "",
       isBeatenDown && support != null ? support.toFixed(2) : "",
