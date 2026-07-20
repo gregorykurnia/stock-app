@@ -537,9 +537,9 @@ export default function MasterTable({ prices, preMarketPrices, verdicts, atrs, e
       {activeTab === "all" && (
         <div className="space-y-3">
           <Filters />
-          <div className="overflow-x-auto rounded-lg border border-gray-200">
+          <div className="overflow-x-auto overflow-y-auto max-h-[72vh] rounded-lg border border-gray-200">
             <table className="w-full text-sm">
-              <thead className="bg-gray-100 border-b border-gray-200">
+              <thead className="bg-gray-100 border-b border-gray-200 sticky top-0 z-30">
                 <tr>
                   <Th label="Ticker"    k="ticker" sticky />
                   <Th label="Industry"  k="industry" />
@@ -711,9 +711,9 @@ export default function MasterTable({ prices, preMarketPrices, verdicts, atrs, e
       {activeTab === "fundamental" && (
         <div className="space-y-3">
           <Filters />
-          <div className="overflow-x-auto rounded-lg border border-gray-200">
+          <div className="overflow-x-auto overflow-y-auto max-h-[72vh] rounded-lg border border-gray-200">
             <table className="w-full text-sm">
-              <thead className="bg-gray-100 border-b border-gray-200">
+              <thead className="bg-gray-100 border-b border-gray-200 sticky top-0 z-30">
                 <tr>
                   <Th label="Ticker"    k="ticker" sticky />
                   <Th label="Industry"  k="industry" />
@@ -764,9 +764,9 @@ export default function MasterTable({ prices, preMarketPrices, verdicts, atrs, e
       {activeTab === "valuation" && (
         <div className="space-y-3">
           <Filters />
-          <div className="overflow-x-auto rounded-lg border border-gray-200">
+          <div className="overflow-x-auto overflow-y-auto max-h-[72vh] rounded-lg border border-gray-200">
             <table className="w-full text-sm">
-              <thead className="bg-gray-100 border-b border-gray-200">
+              <thead className="bg-gray-100 border-b border-gray-200 sticky top-0 z-30">
                 <tr>
                   <Th label="Ticker"     k="ticker" sticky />
                   <Th label="Industry"   k="industry" />
@@ -813,9 +813,9 @@ export default function MasterTable({ prices, preMarketPrices, verdicts, atrs, e
       {activeTab === "technical" && (
         <div className="space-y-3">
           <Filters />
-          <div className="overflow-x-auto rounded-lg border border-gray-200">
+          <div className="overflow-x-auto overflow-y-auto max-h-[72vh] rounded-lg border border-gray-200">
             <table className="w-full text-sm">
-              <thead className="bg-gray-100 border-b border-gray-200">
+              <thead className="bg-gray-100 border-b border-gray-200 sticky top-0 z-30">
                 <tr>
                   <Th label="Ticker"   k="ticker" sticky />
                   <Th label="Industry" k="industry" />
