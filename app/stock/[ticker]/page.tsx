@@ -77,10 +77,10 @@ function StockDataPanels({ sym, latest, fundData }: { sym: string; latest: Lates
         {seed && (
           <DataRow label="Fund Score" value={seed.fund.toFixed(1)} highlight={seed.fund >= 7.5 ? "text-green-600" : seed.fund >= 6 ? "text-yellow-600" : "text-red-500"} />
         )}
-        <DataRow label="Rev Growth" value={pct(fr?.rev_growth)} />
-        <DataRow label="Gross Margin" value={pct(fr?.gross_margin)} />
-        <DataRow label="Op Margin" value={pct(fr?.op_margin)} />
-        <DataRow label="FCF Margin" value={pct(fr?.fcf_margin)} />
+        <DataRow label="Rev Growth" value={pct(fr?.rev_growth ?? fundData?.rev_growth)} />
+        <DataRow label="Gross Margin" value={pct(fr?.gross_margin ?? fundData?.gross_margin)} />
+        <DataRow label="Op Margin" value={pct(fr?.op_margin ?? fundData?.op_margin)} />
+        <DataRow label="FCF Margin" value={pct(fr?.fcf_margin ?? fundData?.fcf_margin)} />
         <DataRow label="ROE" value={fundData ? pct(fundData.roe) : "—"} />
         <DataRow label="D/E" value={fundData ? num(fundData.debt_to_equity, 2) : "—"} />
         <DataRow label="EPS TTM" value={fundData ? dollar(fundData.eps_ttm) : "—"} />
@@ -98,15 +98,15 @@ function StockDataPanels({ sym, latest, fundData }: { sym: string; latest: Lates
         {seed && (
           <DataRow label="Combined Score" value={seed.combined.toFixed(1)} highlight={seed.combined >= 7.5 ? "text-green-600" : seed.combined >= 6 ? "text-yellow-600" : "text-red-500"} />
         )}
-        <DataRow label="Fwd PE" value={vr ? num(vr.fwd_pe) : "—"} />
-        <DataRow label="Trailing PE" value={fundData ? num(fundData.trailing_pe) : "—"} />
-        <DataRow label="PEG" value={vr ? num(vr.peg, 2) : "—"} />
-        <DataRow label="P/S" value={fundData ? num(fundData.ps_ratio) : "—"} />
-        <DataRow label="P/B" value={fundData ? num(fundData.pb_ratio) : "—"} />
-        <DataRow label="EV/EBITDA" value={vr ? num(vr.ev_ebitda) : "—"} />
-        <DataRow label="EV/Revenue" value={fundData ? num(fundData.ev_revenue) : "—"} />
-        <DataRow label="EV/FCF" value={vr ? num(vr.ev_fcf) : "—"} />
-        <DataRow label="P/FCF" value={fundData ? num(fundData.p_fcf) : "—"} />
+        <DataRow label="Fwd PE" value={num(vr?.fwd_pe ?? fundData?.fwd_pe)} />
+        <DataRow label="Trailing PE" value={num(fundData?.trailing_pe)} />
+        <DataRow label="PEG" value={num(vr?.peg ?? fundData?.peg, 2)} />
+        <DataRow label="P/S" value={num(fundData?.ps_ratio)} />
+        <DataRow label="P/B" value={num(fundData?.pb_ratio)} />
+        <DataRow label="EV/EBITDA" value={num(vr?.ev_ebitda ?? fundData?.ev_ebitda)} />
+        <DataRow label="EV/Revenue" value={num(fundData?.ev_revenue)} />
+        <DataRow label="EV/FCF" value={num(vr?.ev_fcf ?? fundData?.ev_fcf)} />
+        <DataRow label="P/FCF" value={num(fundData?.p_fcf)} />
       </Panel>
 
       {/* Technical */}
