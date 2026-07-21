@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import MasterTable from "@/components/MasterTable";
 import { SEED_STOCKS } from "@/lib/seedData";
+import { IHSG_STOCKS } from "@/lib/ihsgSeedData";
 import {
   loadStockData, getCustomStocks, saveCustomStock, removeCustomStock,
   getPortfolioTickers, getWatchlistTickers,
@@ -15,9 +16,13 @@ import type { CustomStock } from "@/lib/types";
 import type { FundData } from "@/app/api/funddata/route";
 
 const SEED_TICKERS = new Set(SEED_STOCKS.map((s) => s.ticker));
+const IHSG_TICKERS = new Set(IHSG_STOCKS.map((s) => s.ticker));
+
+type Market = "us" | "ihsg";
 
 export default function Home() {
   const router = useRouter();
+  const [market, setMarket] = useState<Market>("us");
   const [inputTicker, setInputTicker] = useState("");
   const [prices, setPrices] = useState<Record<string, number | null>>({});
   const [preMarketPrices, setPreMarketPrices] = useState<Record<string, number | null>>({});
@@ -36,6 +41,20 @@ export default function Home() {
   const [portfolioSet, setPortfolioSet] = useState<Set<string>>(new Set());
   const [watchlistSet, setWatchlistSet] = useState<Set<string>>(new Set());
   const [markedSet, setMarkedSet] = useState<Set<string>>(new Set());
+
+  // IHSG state (mirrors US state, tickers stored without .JK)
+  const [ihsgPrices, setIhsgPrices] = useState<Record<string, number | null>>({});
+  const [ihsgAtrs, setIhsgAtrs] = useState<Record<string, number | null>>({});
+  const [ihsgEma20s, setIhsgEma20s] = useState<Record<string, number | null>>({});
+  const [ihsgEma50s, setIhsgEma50s] = useState<Record<string, number | null>>({});
+  const [ihsgSupportLows, setIhsgSupportLows] = useState<Record<string, number | null>>({});
+  const [ihsgRsis, setIhsgRsis] = useState<Record<string, number | null>>({});
+  const [ihsgDiPluses, setIhsgDiPluses] = useState<Record<string, number | null>>({});
+  const [ihsgDiMinuses, setIhsgDiMinuses] = useState<Record<string, number | null>>({});
+  const [ihsgCmfs, setIhsgCmfs] = useState<Record<string, number | null>>({});
+  const [ihsgVerdicts, setIhsgVerdicts] = useState<Record<string, { urgency: string; setup: string } | null>>({});
+  const [ihsgFundData, setIhsgFundData] = useState<Record<string, FundData>>({});
+  const [ihsgPricesLoading, setIhsgPricesLoading] = useState(false);
 
   // Add stock modal
   const [showAdd, setShowAdd] = useState(false);
@@ -146,6 +165,69 @@ export default function Home() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Load IHSG data when switching to IHSG tab (lazy)
+  useEffect(() => {
+    if (market !== "ihsg" || IHSG_STOCKS.length === 0) return;
+    const tickers = IHSG_STOCKS.map((s) => s.ticker);
+    const jkTickers = tickers.map((t) => `${t}.JK`).join(",");
+
+    setIhsgPricesLoading(true);
+    fetch(`/api/prices?tickers=${jkTickers}`)
+      .then((r) => r.json())
+      .then((d) => {
+        // remap keys from BBCA.JK → BBCA
+        const prices: Record<string, number | null> = {};
+        for (const [k, v] of Object.entries(d.prices ?? {})) {
+          prices[k.replace(".JK", "")] = v as number | null;
+        }
+        setIhsgPrices(prices);
+      })
+      .catch(() => {})
+      .finally(() => setIhsgPricesLoading(false));
+
+    fetch(`/api/ema?tickers=${jkTickers}`)
+      .then((r) => r.json())
+      .then((d) => {
+        const remap = (obj: Record<string, unknown>) => {
+          const out: Record<string, number | null> = {};
+          for (const [k, v] of Object.entries(obj)) out[k.replace(".JK", "")] = v as number | null;
+          return out;
+        };
+        setIhsgAtrs((p) => ({ ...p, ...remap(d.atrPct ?? {}) }));
+        setIhsgEma20s((p) => ({ ...p, ...remap(d.ema20 ?? {}) }));
+        setIhsgEma50s((p) => ({ ...p, ...remap(d.ema50 ?? {}) }));
+        setIhsgSupportLows((p) => ({ ...p, ...remap(d.supportLow ?? {}) }));
+        setIhsgRsis((p) => ({ ...p, ...remap(d.rsi ?? {}) }));
+        setIhsgDiPluses((p) => ({ ...p, ...remap(d.diPlus ?? {}) }));
+        setIhsgDiMinuses((p) => ({ ...p, ...remap(d.diMinus ?? {}) }));
+        setIhsgCmfs((p) => ({ ...p, ...remap(d.cmf ?? {}) }));
+      })
+      .catch(() => {});
+
+    fetch(`/api/funddata?tickers=${jkTickers}`)
+      .then((r) => r.json())
+      .then((d) => {
+        const out: Record<string, FundData> = {};
+        for (const [k, v] of Object.entries(d.data ?? {})) out[k.replace(".JK", "")] = v as FundData;
+        setIhsgFundData((p) => ({ ...p, ...out }));
+      })
+      .catch(() => {});
+
+    Promise.all(
+      tickers.map(async (ticker) => {
+        const data = await loadStockData(`${ticker}.JK`).catch(() => null);
+        return { ticker, verdict: data?.latest_verdict ?? null };
+      })
+    ).then((results) => {
+      const map: Record<string, { urgency: string; setup: string } | null> = {};
+      results.forEach(({ ticker, verdict }) => {
+        map[ticker] = verdict ? { urgency: verdict.urgency, setup: verdict.setup } : null;
+      });
+      setIhsgVerdicts(map);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [market]);
+
   async function handleSetStatus(ticker: string, status: "portfolio" | "watchlist" | null) {
     const inPortfolio = portfolioSet.has(ticker);
     const inWatchlist = watchlistSet.has(ticker);
@@ -180,14 +262,15 @@ export default function Home() {
     e.preventDefault();
     const sym = addTicker.trim().toUpperCase();
     if (!sym) return;
-    if (SEED_TICKERS.has(sym)) {
+    const apiSym = market === "ihsg" ? `${sym}.JK` : sym;
+    if (SEED_TICKERS.has(sym) || IHSG_TICKERS.has(sym)) {
       setAddError(`${sym} is already in the master table.`);
       return;
     }
     setAddLoading(true);
     setAddError("");
     try {
-      const res = await fetch(`/api/fundamentals?ticker=${sym}`);
+      const res = await fetch(`/api/fundamentals?ticker=${apiSym}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to fetch data");
 
@@ -236,17 +319,47 @@ export default function Home() {
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
     const sym = inputTicker.trim().toUpperCase();
-    if (sym) router.push(`/stock/${sym}`);
+    if (sym) router.push(`/stock/${market === "ihsg" ? `${sym}.JK` : sym}`);
   }
+
+  const isIhsg = market === "ihsg";
 
   return (
     <main className="min-h-screen bg-gray-50 text-gray-900 p-6">
       <div className="max-w-screen-xl mx-auto space-y-6">
+        {/* Top-level market switcher */}
+        <div className="flex items-center gap-1 border-b-2 border-gray-200">
+          <button
+            onClick={() => setMarket("us")}
+            className={`px-5 py-2.5 text-sm font-semibold transition-colors border-b-2 -mb-px ${
+              market === "us"
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300"
+            }`}
+          >
+            🇺🇸 US Stocks
+          </button>
+          <button
+            onClick={() => setMarket("ihsg")}
+            className={`px-5 py-2.5 text-sm font-semibold transition-colors border-b-2 -mb-px ${
+              market === "ihsg"
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300"
+            }`}
+          >
+            🇮🇩 IHSG
+          </button>
+        </div>
+
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Stock Analysis</h1>
+            <h1 className="text-2xl font-bold text-gray-900">
+              {isIhsg ? "IHSG Analysis" : "Stock Analysis"}
+            </h1>
             <p className="text-gray-500 text-sm mt-0.5">
-              {54 + customStocks.length} stocks · Weekly framework · AI verdicts
+              {isIhsg
+                ? `${IHSG_STOCKS.length} stocks · Weekly framework · AI verdicts`
+                : `${54 + customStocks.length} stocks · Weekly framework · AI verdicts`}
             </p>
           </div>
           <div className="flex gap-2 flex-wrap">
@@ -261,7 +374,7 @@ export default function Home() {
                 type="text"
                 value={inputTicker}
                 onChange={(e) => setInputTicker(e.target.value.toUpperCase())}
-                placeholder="Analyze ticker…"
+                placeholder={isIhsg ? "e.g. BBCA" : "Analyze ticker…"}
                 className="bg-white border border-gray-300 rounded-lg px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 w-40 text-sm"
               />
               <button
@@ -317,28 +430,63 @@ export default function Home() {
           </div>
         )}
 
-        <MasterTable
-          prices={prices}
-          preMarketPrices={preMarketPrices}
-          verdicts={verdicts}
-          atrs={atrs}
-          ema20s={ema20s}
-          ema50s={ema50s}
-          supportLows={supportLows}
-          rsis={rsis}
-          diPluses={diPluses}
-          diMinuses={diMinuses}
-          cmfs={cmfs}
-          fundData={fundData}
-          loading={pricesLoading}
-          customStocks={customStocks}
-          portfolioSet={portfolioSet}
-          watchlistSet={watchlistSet}
-          markedSet={markedSet}
-          onSetStatus={handleSetStatus}
-          onRemoveCustom={handleRemoveCustom}
-          onToggleMark={handleToggleMark}
-        />
+        {isIhsg ? (
+          IHSG_STOCKS.length === 0 ? (
+            <div className="text-center py-24 text-gray-400">
+              <p className="text-lg font-medium">No IHSG stocks yet</p>
+              <p className="text-sm mt-1">Populate <code className="bg-gray-100 px-1 rounded">lib/ihsgSeedData.ts</code> with IDX tickers to get started.</p>
+            </div>
+          ) : (
+            <MasterTable
+              market="ihsg"
+              prices={ihsgPrices}
+              preMarketPrices={{}}
+              verdicts={ihsgVerdicts}
+              atrs={ihsgAtrs}
+              ema20s={ihsgEma20s}
+              ema50s={ihsgEma50s}
+              supportLows={ihsgSupportLows}
+              rsis={ihsgRsis}
+              diPluses={ihsgDiPluses}
+              diMinuses={ihsgDiMinuses}
+              cmfs={ihsgCmfs}
+              fundData={ihsgFundData}
+              loading={ihsgPricesLoading}
+              customStocks={[]}
+              portfolioSet={portfolioSet}
+              watchlistSet={watchlistSet}
+              markedSet={markedSet}
+              onSetStatus={handleSetStatus}
+              onRemoveCustom={() => {}}
+              onToggleMark={handleToggleMark}
+              ihsgStocks={IHSG_STOCKS}
+            />
+          )
+        ) : (
+          <MasterTable
+            market="us"
+            prices={prices}
+            preMarketPrices={preMarketPrices}
+            verdicts={verdicts}
+            atrs={atrs}
+            ema20s={ema20s}
+            ema50s={ema50s}
+            supportLows={supportLows}
+            rsis={rsis}
+            diPluses={diPluses}
+            diMinuses={diMinuses}
+            cmfs={cmfs}
+            fundData={fundData}
+            loading={pricesLoading}
+            customStocks={customStocks}
+            portfolioSet={portfolioSet}
+            watchlistSet={watchlistSet}
+            markedSet={markedSet}
+            onSetStatus={handleSetStatus}
+            onRemoveCustom={handleRemoveCustom}
+            onToggleMark={handleToggleMark}
+          />
+        )}
       </div>
     </main>
   );

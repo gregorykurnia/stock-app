@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { SEED_STOCKS, FUNDAMENTALS_RAW, VALUATION_RAW } from "@/lib/seedData";
+import { IHSG_STOCKS, type IhsgStock } from "@/lib/ihsgSeedData";
 import { atrLabel } from "@/lib/indicators";
 import { downloadCsv } from "@/lib/exportCsv";
 import type { CustomStock } from "@/lib/types";
@@ -77,6 +78,8 @@ interface TableRow {
 }
 
 interface Props {
+  market?: "us" | "ihsg";
+  ihsgStocks?: IhsgStock[];
   prices: Record<string, number | null>;
   preMarketPrices: Record<string, number | null>;
   verdicts: Record<string, { urgency: string; setup: string } | null>;
@@ -99,7 +102,10 @@ interface Props {
   onToggleMark: (ticker: string) => void;
 }
 
-export default function MasterTable({ prices, preMarketPrices, verdicts, atrs, ema20s, ema50s, supportLows, rsis, diPluses, diMinuses, cmfs, fundData, loading, customStocks, portfolioSet, watchlistSet, markedSet, onSetStatus, onRemoveCustom, onToggleMark }: Props) {
+export default function MasterTable({ market = "us", ihsgStocks, prices, preMarketPrices, verdicts, atrs, ema20s, ema50s, supportLows, rsis, diPluses, diMinuses, cmfs, fundData, loading, customStocks, portfolioSet, watchlistSet, markedSet, onSetStatus, onRemoveCustom, onToggleMark }: Props) {
+  const isIhsg = market === "ihsg";
+  // Currency prefix and price formatter
+  const fmtPrice = (v: number) => isIhsg ? `Rp${Math.round(v).toLocaleString("id-ID")}` : `$${v.toFixed(2)}`;
   const [activeTab, setActiveTab] = useState<SubTab>("all");
   const [sortKey, setSortKey] = useState<SortKey>("combined");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
@@ -108,6 +114,45 @@ export default function MasterTable({ prices, preMarketPrices, verdicts, atrs, e
   const [search, setSearch] = useState("");
 
   const allRows = useMemo((): TableRow[] => {
+    if (isIhsg) {
+      const stocks = ihsgStocks ?? IHSG_STOCKS;
+      return stocks.map((s) => {
+        const fd = fundData[s.ticker] ?? {};
+        return {
+          ticker: s.ticker,
+          name: null,
+          industry: s.industry,
+          combined: s.combined,
+          val: s.val,
+          fund: s.fund,
+          rev_growth: fd.rev_growth ?? null,
+          gross_margin: fd.gross_margin ?? null,
+          op_margin: fd.op_margin ?? null,
+          net_margin: null,
+          fcf_margin: fd.fcf_margin ?? null,
+          roe: fd.roe ?? null,
+          debt_to_equity: fd.debt_to_equity ?? null,
+          eps_ttm: fd.eps_ttm ?? null,
+          eps_fwd: fd.eps_fwd ?? null,
+          eps_past_5y: fd.eps_past_5y ?? null,
+          eps_next_5y: fd.eps_next_5y ?? null,
+          short_float: fd.short_float ?? null,
+          fwd_pe: fd.fwd_pe ?? null,
+          peg: fd.peg ?? null,
+          ev_ebitda: fd.ev_ebitda ?? null,
+          ev_fcf: fd.ev_fcf ?? null,
+          trailing_pe: fd.trailing_pe ?? null,
+          ps_ratio: fd.ps_ratio ?? null,
+          pb_ratio: fd.pb_ratio ?? null,
+          ev_revenue: fd.ev_revenue ?? null,
+          p_fcf: fd.p_fcf ?? null,
+          price: prices[s.ticker] ?? null,
+          verdict: verdicts[s.ticker] ?? null,
+          isCustom: false,
+        };
+      });
+    }
+
     const seedRows: TableRow[] = SEED_STOCKS.map((s) => {
       const fr = FUNDAMENTALS_RAW[s.ticker];
       const vr = VALUATION_RAW[s.ticker];
@@ -405,7 +450,7 @@ export default function MasterTable({ prices, preMarketPrices, verdicts, atrs, e
   // Shared ticker sticky cell
   const TickerCell = ({ r }: { r: TableRow }) => (
     <td className={`px-3 py-2 font-semibold whitespace-nowrap sticky left-0 z-10 after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-gray-200 after:content-[''] group-hover:bg-red-50 ${markedSet.has(r.ticker) ? "bg-red-50" : r.isCustom ? "bg-blue-50/30 group-hover:bg-blue-100/40" : "bg-white group-hover:bg-gray-50"}`}>
-      <Link href={`/stock/${r.ticker}`} className="text-blue-600 hover:text-blue-800">
+      <Link href={`/stock/${isIhsg ? `${r.ticker}.JK` : r.ticker}`} className="text-blue-600 hover:text-blue-800">
         {r.ticker}
       </Link>
       {r.name && <span className="block text-xs text-gray-400 font-normal leading-tight">{r.name}</span>}
@@ -597,8 +642,8 @@ export default function MasterTable({ prices, preMarketPrices, verdicts, atrs, e
                       {r.fund != null ? r.fund.toFixed(1) : <span className="text-gray-300">—</span>}
                     </td>
                     <td className="px-3 py-2 text-gray-900 whitespace-nowrap">
-                      {r.price != null ? `$${r.price.toFixed(2)}` : <span className="text-gray-400">—</span>}
-                      {(() => { const pm = preMarketPrices[r.ticker]; return pm != null ? <span className="block text-xs text-blue-500">${pm.toFixed(2)} pre</span> : null; })()}
+                      {r.price != null ? fmtPrice(r.price) : <span className="text-gray-400">—</span>}
+                      {(() => { const pm = preMarketPrices[r.ticker]; return pm != null ? <span className="block text-xs text-blue-500">{fmtPrice(pm)} pre</span> : null; })()}
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap">
                       {(() => {
@@ -655,16 +700,16 @@ export default function MasterTable({ prices, preMarketPrices, verdicts, atrs, e
 
                       return (
                         <>
-                          <td className="px-3 py-2 text-gray-700">{ema20 != null ? `$${ema20.toFixed(2)}` : <span className="text-gray-400">—</span>}</td>
+                          <td className="px-3 py-2 text-gray-700">{ema20 != null ? fmtPrice(ema20) : <span className="text-gray-400">—</span>}</td>
                           <td className={`px-3 py-2 font-semibold ${distColor(distEma20)}`}>
                             {distEma20 != null ? `${distEma20 > 0 ? "+" : ""}${distEma20.toFixed(1)}%` : <span className="text-gray-400">—</span>}
                           </td>
-                          <td className="px-3 py-2 text-gray-700">{ema50 != null ? `$${ema50.toFixed(2)}` : <span className="text-gray-400">—</span>}</td>
+                          <td className="px-3 py-2 text-gray-700">{ema50 != null ? fmtPrice(ema50) : <span className="text-gray-400">—</span>}</td>
                           <td className={`px-3 py-2 font-semibold ${distColor(distEma50)}`}>
                             {distEma50 != null ? `${distEma50 > 0 ? "+" : ""}${distEma50.toFixed(1)}%` : <span className="text-gray-400">—</span>}
                           </td>
                           <td className="px-3 py-2 text-gray-700">
-                            {isBeatenDown && support != null ? `$${support.toFixed(2)}` : <span className="text-gray-300">—</span>}
+                            {isBeatenDown && support != null ? fmtPrice(support) : <span className="text-gray-300">—</span>}
                           </td>
                           <td className={`px-3 py-2 font-semibold ${rsiColor(rsi)}`}>
                             {rsi != null ? rsi.toFixed(1) : <span className="text-gray-400">—</span>}
@@ -875,8 +920,8 @@ export default function MasterTable({ prices, preMarketPrices, verdicts, atrs, e
                       <TickerCell r={r} />
                       <td className="px-3 py-2 text-gray-500 text-xs whitespace-nowrap">{r.industry}</td>
                       <td className="px-3 py-2 text-gray-900 whitespace-nowrap">
-                        {price != null ? `$${price.toFixed(2)}` : <span className="text-gray-400">—</span>}
-                        {(() => { const pm = preMarketPrices[r.ticker]; return pm != null ? <span className="block text-xs text-blue-500">${pm.toFixed(2)} pre</span> : null; })()}
+                        {price != null ? fmtPrice(price) : <span className="text-gray-400">—</span>}
+                        {(() => { const pm = preMarketPrices[r.ticker]; return pm != null ? <span className="block text-xs text-blue-500">{fmtPrice(pm)} pre</span> : null; })()}
                       </td>
                       <td className="px-3 py-2">
                         {r.verdict?.urgency ? (
@@ -885,16 +930,16 @@ export default function MasterTable({ prices, preMarketPrices, verdicts, atrs, e
                           </span>
                         ) : <span className="text-gray-400 text-xs">—</span>}
                       </td>
-                      <td className="px-3 py-2 text-gray-700">{ema20 != null ? `$${ema20.toFixed(2)}` : <span className="text-gray-400">—</span>}</td>
+                      <td className="px-3 py-2 text-gray-700">{ema20 != null ? fmtPrice(ema20) : <span className="text-gray-400">—</span>}</td>
                       <td className={`px-3 py-2 font-semibold ${distColor(distEma20)}`}>
                         {distEma20 != null ? `${distEma20 > 0 ? "+" : ""}${distEma20.toFixed(1)}%` : <span className="text-gray-400">—</span>}
                       </td>
-                      <td className="px-3 py-2 text-gray-700">{ema50 != null ? `$${ema50.toFixed(2)}` : <span className="text-gray-400">—</span>}</td>
+                      <td className="px-3 py-2 text-gray-700">{ema50 != null ? fmtPrice(ema50) : <span className="text-gray-400">—</span>}</td>
                       <td className={`px-3 py-2 font-semibold ${distColor(distEma50)}`}>
                         {distEma50 != null ? `${distEma50 > 0 ? "+" : ""}${distEma50.toFixed(1)}%` : <span className="text-gray-400">—</span>}
                       </td>
                       <td className="px-3 py-2 text-gray-700">
-                        {isBeatenDown && support != null ? `$${support.toFixed(2)}` : <span className="text-gray-300">—</span>}
+                        {isBeatenDown && support != null ? fmtPrice(support) : <span className="text-gray-300">—</span>}
                       </td>
                       <td className={`px-3 py-2 font-semibold ${rsiColor(rsi)}`}>
                         {rsi != null ? rsi.toFixed(1) : <span className="text-gray-400">—</span>}
