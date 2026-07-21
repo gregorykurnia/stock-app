@@ -280,12 +280,17 @@ export default function Home() {
         last_fetched: new Date().toISOString(),
       };
       await saveCustomStock(sym, entry);
+      // Optimistic update — add to local state immediately so it appears in the table right away
+      setCustomStocks((prev) => {
+        const without = prev.filter((s) => s.ticker !== sym);
+        return [...without, entry].sort((a, b) => a.ticker.localeCompare(b.ticker));
+      });
       if (data.price != null) setPrices((p) => ({ ...p, [sym]: data.price }));
-      fetch(`/api/funddata?tickers=${sym}`)
+      fetch(`/api/funddata?tickers=${apiSym}`)
         .then((r) => r.json())
         .then((d) => setFundData((prev) => ({ ...prev, ...(d.data ?? {}) })))
         .catch(() => {});
-      fetch(`/api/ema?tickers=${sym}`)
+      fetch(`/api/ema?tickers=${apiSym}`)
         .then((r) => r.json())
         .then((d) => {
           setAtrs((prev) => ({ ...prev, ...(d.atrPct ?? {}) }));
@@ -300,7 +305,8 @@ export default function Home() {
         .catch(() => {});
       setAddTicker("");
       setShowAdd(false);
-      await loadCustomStocks();
+      // Sync Firestore in background to catch any drift (non-blocking)
+      loadCustomStocks().catch(() => {});
     } catch (err) {
       setAddError(err instanceof Error ? err.message : "Unknown error");
     } finally {
