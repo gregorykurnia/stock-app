@@ -354,10 +354,12 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
   function exportCsv() {
     const date = new Date().toISOString().slice(0, 10);
     const marked = (r: TableRow) => markedSet.has(r.ticker) ? "yes" : "";
+    const portfolio = (r: TableRow) => portfolioSet.has(r.ticker) ? "yes" : "";
+    const watchlist = (r: TableRow) => watchlistSet.has(r.ticker) ? "yes" : "";
 
     if (activeTab === "fundamental") {
       const headers = ["Ticker", "Industry", "Rev Gr%", "Gross%", "Op%", "FCF%",
-        "ROE%", "D/E", "EPS TTM", "EPS Fwd", "EPS Past 5Y%", "EPS Next 5Y%", "Short Float%", "Marked"];
+        "ROE%", "D/E", "EPS TTM", "EPS Fwd", "EPS Past 5Y%", "EPS Next 5Y%", "Short Float%", "Portfolio", "Watchlist", "Marked"];
       const data = rows.map((r) => [
         r.ticker, r.industry,
         r.rev_growth != null ? (r.rev_growth * 100).toFixed(1) : "",
@@ -370,21 +372,21 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
         r.eps_past_5y != null ? (r.eps_past_5y * 100).toFixed(1) : "",
         r.eps_next_5y != null ? (r.eps_next_5y * 100).toFixed(1) : "",
         r.short_float != null ? (r.short_float * 100).toFixed(1) : "",
-        marked(r),
+        portfolio(r), watchlist(r), marked(r),
       ]);
       return downloadCsv(`fundamental-${date}.csv`, headers, data);
     }
 
     if (activeTab === "valuation") {
       const headers = ["Ticker", "Industry", "Fwd PE", "Trail PE", "PEG",
-        "P/S", "P/B", "EV/EBITDA", "EV/Rev", "EV/FCF", "P/FCF", "Marked"];
+        "P/S", "P/B", "EV/EBITDA", "EV/Rev", "EV/FCF", "P/FCF", "Portfolio", "Watchlist", "Marked"];
       const data = rows.map((r) => [
         r.ticker, r.industry,
         r.fwd_pe?.toFixed(2) ?? "", r.trailing_pe?.toFixed(2) ?? "", r.peg?.toFixed(2) ?? "",
         r.ps_ratio?.toFixed(2) ?? "", r.pb_ratio?.toFixed(2) ?? "",
         r.ev_ebitda?.toFixed(1) ?? "", r.ev_revenue?.toFixed(2) ?? "",
         r.ev_fcf?.toFixed(1) ?? "", r.p_fcf?.toFixed(1) ?? "",
-        marked(r),
+        portfolio(r), watchlist(r), marked(r),
       ]);
       return downloadCsv(`valuation-${date}.csv`, headers, data);
     }
@@ -392,7 +394,7 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
     if (activeTab === "technical") {
       const headers = ["Ticker", "Industry", "Price", "Setup",
         "EMA20W", "Dist EMA20%", "EMA50W", "Dist EMA50%", "Prev Support",
-        "RSI", "DI+", "DI-", "CMF", "ATR%", "Marked"];
+        "RSI", "DI+", "DI-", "CMF", "ATR%", "Portfolio", "Watchlist", "Marked"];
       const data = rows.map((r) => {
         const price = r.price;
         const ema20 = ema20s[r.ticker] ?? null;
@@ -413,7 +415,7 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
           diMinuses[r.ticker]?.toFixed(1) ?? "",
           cmfs[r.ticker]?.toFixed(3) ?? "",
           atrs[r.ticker]?.toFixed(1) ?? "",
-          marked(r),
+          portfolio(r), watchlist(r), marked(r),
         ];
       });
       return downloadCsv(`technical-${date}.csv`, headers, data);
@@ -423,7 +425,7 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
     const headers = ["Ticker", "Industry", "Price", "ATR%",
       "EMA20W", "Dist EMA20%", "EMA50W", "Dist EMA50%", "Prev Support", "RSI", "DI+", "DI-", "CMF",
       "Rev Gr%", "Gross%", "Op%", "Net%", "FCF%", "ROE%", "D/E", "EPS TTM", "EPS Fwd", "EPS Past 5Y%", "EPS Next 5Y%", "Short Float%",
-      "Fwd PE", "Trail PE", "PEG", "P/S", "P/B", "EV/EBITDA", "EV/Rev", "EV/FCF", "P/FCF", "Marked"];
+      "Fwd PE", "Trail PE", "PEG", "P/S", "P/B", "EV/EBITDA", "EV/Rev", "EV/FCF", "P/FCF", "Portfolio", "Watchlist", "Marked"];
     const data = rows.map((r) => {
       const price = r.price;
       const ema20 = ema20s[r.ticker] ?? null;
@@ -459,7 +461,7 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
       r.ps_ratio?.toFixed(2) ?? "", r.pb_ratio?.toFixed(2) ?? "",
       r.ev_ebitda?.toFixed(1) ?? "", r.ev_revenue?.toFixed(2) ?? "",
       r.ev_fcf?.toFixed(1) ?? "", r.p_fcf?.toFixed(1) ?? "",
-      marked(r),
+      portfolio(r), watchlist(r), marked(r),
       ]; // close inner array
     }); // close rows.map
     downloadCsv(`master-table-${date}.csv`, headers, data);
