@@ -13,7 +13,7 @@ type SortKey =
   | "ticker" | "combined" | "val" | "fund" | "price" | "industry" | "urgency" | "atr"
   | "rev_growth" | "gross_margin" | "op_margin" | "net_margin" | "fcf_margin"
   | "fwd_pe" | "peg" | "ev_ebitda" | "ev_fcf"
-  | "trailing_pe" | "ps_ratio" | "pb_ratio" | "ev_revenue" | "p_fcf"
+  | "trailing_pe" | "ps_ratio" | "pb_ratio" | "ev_revenue" | "p_fcf" | "dividend_yield"
   | "roe" | "debt_to_equity" | "eps_ttm" | "eps_fwd" | "eps_past_5y" | "eps_next_5y" | "short_float"
   | "ema20" | "dist_ema20" | "ema50" | "dist_ema50" | "rsi" | "di_plus" | "di_minus" | "cmf";
 type SortDir = "asc" | "desc";
@@ -71,6 +71,7 @@ interface TableRow {
   pb_ratio: number | null;
   ev_revenue: number | null;
   p_fcf: number | null;
+  dividend_yield: number | null;
   // Live
   price: number | null;
   verdict: { urgency: string; setup: string } | null;
@@ -146,6 +147,7 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
           pb_ratio: fd.pb_ratio ?? null,
           ev_revenue: fd.ev_revenue ?? null,
           p_fcf: fd.p_fcf ?? null,
+          dividend_yield: fd.dividend_yield ?? null,
           price: prices[s.ticker] ?? null,
           verdict: verdicts[s.ticker] ?? null,
           isCustom: false,
@@ -167,6 +169,7 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
           fwd_pe: c.fwd_pe, peg: c.peg, ev_ebitda: c.ev_ebitda, ev_fcf: c.ev_fcf,
           trailing_pe: fd.trailing_pe ?? null, ps_ratio: fd.ps_ratio ?? null,
           pb_ratio: fd.pb_ratio ?? null, ev_revenue: fd.ev_revenue ?? null, p_fcf: fd.p_fcf ?? null,
+          dividend_yield: fd.dividend_yield ?? null,
           price: prices[c.ticker] ?? null,
           verdict: verdicts[c.ticker] ?? null,
           isCustom: true,
@@ -207,6 +210,7 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
         pb_ratio: fd.pb_ratio ?? null,
         ev_revenue: fd.ev_revenue ?? null,
         p_fcf: fd.p_fcf ?? null,
+        dividend_yield: fd.dividend_yield ?? null,
         price: prices[s.ticker] ?? null,
         verdict: verdicts[s.ticker] ?? null,
         isCustom: false,
@@ -243,6 +247,7 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
         pb_ratio: fundData[c.ticker]?.pb_ratio ?? null,
         ev_revenue: fundData[c.ticker]?.ev_revenue ?? null,
         p_fcf: fundData[c.ticker]?.p_fcf ?? null,
+        dividend_yield: fundData[c.ticker]?.dividend_yield ?? null,
         price: prices[c.ticker] ?? null,
         verdict: verdicts[c.ticker] ?? null,
         isCustom: true,
@@ -314,11 +319,12 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
         peg:       (r) => r.peg,
         ev_ebitda: (r) => r.ev_ebitda,
         ev_fcf:    (r) => r.ev_fcf,
-        trailing_pe: (r) => r.trailing_pe,
-        ps_ratio:    (r) => r.ps_ratio,
-        pb_ratio:    (r) => r.pb_ratio,
-        ev_revenue:  (r) => r.ev_revenue,
-        p_fcf:       (r) => r.p_fcf,
+        trailing_pe:    (r) => r.trailing_pe,
+        ps_ratio:       (r) => r.ps_ratio,
+        pb_ratio:       (r) => r.pb_ratio,
+        ev_revenue:     (r) => r.ev_revenue,
+        p_fcf:          (r) => r.p_fcf,
+        dividend_yield: (r) => r.dividend_yield,
       };
 
       const av = keyMap[sortKey]?.(a) ?? null;
@@ -835,18 +841,31 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
             <table className="w-full text-sm">
               <thead className="bg-gray-100 border-b border-gray-200 sticky top-0 z-30">
                 <tr>
-                  <Th label="Ticker"     k="ticker" sticky />
-                  <Th label="Industry"   k="industry" />
-                  <Th label="Val Score"  k="val" title="Valuation score (seed stocks only)" />
-                  <Th label="Fwd PE"     k="fwd_pe"     title="Forward Price/Earnings (seed data)" />
-                  <Th label="Trail PE"   k="trailing_pe" title="Trailing Price/Earnings (live)" />
-                  <Th label="PEG"        k="peg"         title="PEG Ratio (seed data)" />
-                  <Th label="P/S"        k="ps_ratio"    title="Price/Sales TTM (live)" />
-                  <Th label="P/B"        k="pb_ratio"    title="Price/Book (live)" />
-                  <Th label="EV/EBITDA"  k="ev_ebitda"   title="EV/EBITDA (seed data)" />
-                  <Th label="EV/Rev"     k="ev_revenue"  title="EV/Revenue (live)" />
-                  <Th label="EV/FCF"     k="ev_fcf"      title="EV/Free Cash Flow (seed data)" />
-                  <Th label="P/FCF"      k="p_fcf"       title="Price/Free Cash Flow (live)" />
+                  <Th label="Ticker"    k="ticker" sticky />
+                  <Th label="Industry"  k="industry" />
+                  <Th label="Val Score" k="val" title="Valuation score (seed stocks only)" />
+                  {isIhsg ? (
+                    <>
+                      <Th label="P/E"        k="trailing_pe"    title="Trailing Price/Earnings" />
+                      <Th label="P/B (PBV)"  k="pb_ratio"       title="Price to Book Value" />
+                      <Th label="Div Yield"  k="dividend_yield" title="Dividend Yield %" />
+                      <Th label="P/S"        k="ps_ratio"       title="Price/Sales TTM" />
+                      <Th label="EV/EBITDA"  k="ev_ebitda"      title="EV/EBITDA" />
+                      <Th label="EV/Rev"     k="ev_revenue"     title="EV/Revenue" />
+                    </>
+                  ) : (
+                    <>
+                      <Th label="Fwd PE"    k="fwd_pe"      title="Forward Price/Earnings (seed data)" />
+                      <Th label="Trail PE"  k="trailing_pe" title="Trailing Price/Earnings (live)" />
+                      <Th label="PEG"       k="peg"         title="PEG Ratio (seed data)" />
+                      <Th label="P/S"       k="ps_ratio"    title="Price/Sales TTM (live)" />
+                      <Th label="P/B"       k="pb_ratio"    title="Price/Book (live)" />
+                      <Th label="EV/EBITDA" k="ev_ebitda"   title="EV/EBITDA (seed data)" />
+                      <Th label="EV/Rev"    k="ev_revenue"  title="EV/Revenue (live)" />
+                      <Th label="EV/FCF"    k="ev_fcf"      title="EV/Free Cash Flow (seed data)" />
+                      <Th label="P/FCF"     k="p_fcf"       title="Price/Free Cash Flow (live)" />
+                    </>
+                  )}
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Status</th>
                 </tr>
               </thead>
@@ -858,15 +877,28 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
                     <td className={`px-3 py-2 font-bold ${scoreColor(r.val)}`}>
                       {r.val != null ? r.val.toFixed(1) : <span className="text-gray-300">—</span>}
                     </td>
-                    <td className="px-3 py-2 text-gray-700">{num(r.fwd_pe, 1)}</td>
-                    <td className="px-3 py-2 text-gray-700">{num(r.trailing_pe, 1)}</td>
-                    <td className="px-3 py-2 text-gray-700">{num(r.peg, 2)}</td>
-                    <td className="px-3 py-2 text-gray-700">{num(r.ps_ratio, 1)}</td>
-                    <td className="px-3 py-2 text-gray-700">{num(r.pb_ratio, 1)}</td>
-                    <td className="px-3 py-2 text-gray-700">{num(r.ev_ebitda, 1)}</td>
-                    <td className="px-3 py-2 text-gray-700">{num(r.ev_revenue, 1)}</td>
-                    <td className="px-3 py-2 text-gray-700">{num(r.ev_fcf, 1)}</td>
-                    <td className="px-3 py-2 text-gray-700">{num(r.p_fcf, 1)}</td>
+                    {isIhsg ? (
+                      <>
+                        <td className="px-3 py-2 text-gray-700">{num(r.trailing_pe, 1)}</td>
+                        <td className="px-3 py-2 text-gray-700">{num(r.pb_ratio, 1)}</td>
+                        <td className="px-3 py-2 text-gray-700">{r.dividend_yield != null ? `${(r.dividend_yield * 100).toFixed(2)}%` : <span className="text-gray-400">—</span>}</td>
+                        <td className="px-3 py-2 text-gray-700">{num(r.ps_ratio, 1)}</td>
+                        <td className="px-3 py-2 text-gray-700">{num(r.ev_ebitda, 1)}</td>
+                        <td className="px-3 py-2 text-gray-700">{num(r.ev_revenue, 1)}</td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="px-3 py-2 text-gray-700">{num(r.fwd_pe, 1)}</td>
+                        <td className="px-3 py-2 text-gray-700">{num(r.trailing_pe, 1)}</td>
+                        <td className="px-3 py-2 text-gray-700">{num(r.peg, 2)}</td>
+                        <td className="px-3 py-2 text-gray-700">{num(r.ps_ratio, 1)}</td>
+                        <td className="px-3 py-2 text-gray-700">{num(r.pb_ratio, 1)}</td>
+                        <td className="px-3 py-2 text-gray-700">{num(r.ev_ebitda, 1)}</td>
+                        <td className="px-3 py-2 text-gray-700">{num(r.ev_revenue, 1)}</td>
+                        <td className="px-3 py-2 text-gray-700">{num(r.ev_fcf, 1)}</td>
+                        <td className="px-3 py-2 text-gray-700">{num(r.p_fcf, 1)}</td>
+                      </>
+                    )}
                     <StatusCell r={r} />
                   </tr>
                 ))}
