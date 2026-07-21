@@ -548,16 +548,20 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
   };
 
   function ValTooltipTh({ label, k }: { label: string; k: SortKey }) {
-    const [open, setOpen] = useState(false);
+    const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const iconRef = useRef<HTMLSpanElement>(null);
     const tip = VAL_TOOLTIPS[k];
 
     function show() {
       if (timerRef.current) clearTimeout(timerRef.current);
-      setOpen(true);
+      if (iconRef.current) {
+        const r = iconRef.current.getBoundingClientRect();
+        setPos({ top: r.bottom + 6, left: Math.min(r.left, window.innerWidth - 348) });
+      }
     }
     function hide() {
-      timerRef.current = setTimeout(() => setOpen(false), 120);
+      timerRef.current = setTimeout(() => setPos(null), 120);
     }
 
     return (
@@ -569,46 +573,42 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
           {label}{sortKey === k ? (sortDir === "desc" ? " ↓" : " ↑") : ""}
           {tip && (
             <span
-              className="relative"
-              onClick={(e) => e.stopPropagation()}
+              ref={iconRef}
+              className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-gray-300 text-gray-600 text-[9px] font-bold cursor-default leading-none"
+              onClick={(e) => { e.stopPropagation(); pos ? setPos(null) : show(); }}
               onMouseEnter={show}
               onMouseLeave={hide}
-            >
-              <span
-                className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-gray-300 text-gray-600 text-[9px] font-bold cursor-default leading-none"
-                onClick={(e) => { e.stopPropagation(); setOpen(v => !v); }}
-              >i</span>
-              {open && (
-                <div
-                  className="absolute left-0 bottom-full mb-2 z-[999] w-[340px] bg-white border border-gray-200 rounded-lg shadow-xl p-3 text-left normal-case tracking-normal font-normal"
-                  style={{ maxWidth: "min(340px, calc(100vw - 24px))" }}
-                  onMouseEnter={show}
-                  onMouseLeave={hide}
-                >
-                  <p className="text-[11px] text-gray-500 leading-snug mb-2 whitespace-normal">{tip.definition}</p>
-                  <table className="w-full text-[11px] border-collapse">
-                    <thead>
-                      <tr className="border-b border-gray-200">
-                        <th className="text-left py-0.5 pr-2 text-gray-400 font-semibold w-14">Range</th>
-                        <th className="text-left py-0.5 pr-2 text-gray-400 font-semibold w-20">Label</th>
-                        <th className="text-left py-0.5 text-gray-400 font-semibold">Meaning</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {tip.ranges.map((row, i) => (
-                        <tr key={i} className="border-b border-gray-100 last:border-0">
-                          <td className="py-0.5 pr-2 text-gray-700 font-mono whitespace-nowrap">{row.range}</td>
-                          <td className="py-0.5 pr-2 text-gray-700 whitespace-nowrap">{row.label}</td>
-                          <td className="py-0.5 text-gray-500 leading-snug">{row.meaning}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </span>
+            >i</span>
           )}
         </span>
+        {pos && tip && (
+          <div
+            className="fixed z-[9999] w-[340px] bg-white border border-gray-200 rounded-lg shadow-xl p-3 text-left normal-case tracking-normal font-normal"
+            style={{ top: pos.top, left: pos.left }}
+            onMouseEnter={() => { if (timerRef.current) clearTimeout(timerRef.current); }}
+            onMouseLeave={hide}
+          >
+            <p className="text-[11px] text-gray-500 leading-snug mb-2 whitespace-normal">{tip.definition}</p>
+            <table className="w-full text-[11px] border-collapse">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="text-left py-0.5 pr-2 text-gray-400 font-semibold w-14">Range</th>
+                  <th className="text-left py-0.5 pr-2 text-gray-400 font-semibold w-20">Label</th>
+                  <th className="text-left py-0.5 text-gray-400 font-semibold">Meaning</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tip.ranges.map((row, i) => (
+                  <tr key={i} className="border-b border-gray-100 last:border-0">
+                    <td className="py-0.5 pr-2 text-gray-700 font-mono whitespace-nowrap">{row.range}</td>
+                    <td className="py-0.5 pr-2 text-gray-700 whitespace-nowrap">{row.label}</td>
+                    <td className="py-0.5 text-gray-500 leading-snug">{row.meaning}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </th>
     );
   }
