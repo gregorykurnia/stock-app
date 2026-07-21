@@ -64,7 +64,7 @@ async function fetchOne(ticker: string): Promise<FundData> {
       short_float: ks.shortPercentOfFloat ?? null,
       trailing_pe: cap(sd.trailingPE ?? null, 2000),
       ps_ratio: cap(sd.priceToSalesTrailing12Months ?? null, 500),
-      pb_ratio: cap(ks.priceToBook ?? null, 100000),
+      pb_ratio: cap(ks.priceToBook ?? null, 200),
       ev_revenue: cap(ks.enterpriseToRevenue ?? null, 500),
       p_fcf: cap(pFcf, 2000),
       rev_growth: fd.revenueGrowth ?? null,
