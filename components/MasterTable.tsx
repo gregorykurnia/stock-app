@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import Link from "next/link";
 import { SEED_STOCKS, FUNDAMENTALS_RAW, VALUATION_RAW } from "@/lib/seedData";
 import { IHSG_STOCKS, type IhsgStock } from "@/lib/ihsgSeedData";
@@ -482,6 +482,136 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
     </th>
   );
 
+  type TooltipRange = { range: string; label: string; meaning: string };
+  type ValTooltipDef = { definition: string; ranges: TooltipRange[] };
+  const VAL_TOOLTIPS: Record<string, ValTooltipDef> = {
+    fwd_pe: {
+      definition: "Stock price divided by estimated earnings per share for the next 12 months. Tells you how much you're paying today for future profits. Pure forward-looking — based on analyst estimates so can be wrong if growth disappoints.",
+      ranges: [
+        { range: "<10x",   label: "Very cheap",         meaning: "Market pricing in low growth or distress — either a gift or a trap, check why" },
+        { range: "10–20x", label: "Cheap to fair",      meaning: "Reasonable for most quality businesses, good entry zone" },
+        { range: "20–30x", label: "Fair to slightly rich", meaning: "Acceptable for high-quality compounders with 15%+ growth" },
+        { range: "30–50x", label: "Expensive",          meaning: "Requires strong growth justification, limited margin of safety" },
+        { range: ">50x",   label: "Very expensive",     meaning: "Priced for perfection — any miss and multiple compresses hard" },
+      ],
+    },
+    trailing_pe: {
+      definition: "Stock price divided by actual earnings per share over the last 12 months. Based on real reported profits, not estimates. More reliable than Fwd PE but backward-looking — doesn't reflect where the business is going.",
+      ranges: [
+        { range: "<10x",   label: "Very cheap",     meaning: "Earning a lot relative to price — check if sustainable or one-time" },
+        { range: "10–20x", label: "Cheap to fair",  meaning: "Good zone for quality businesses, based on actual earned profits" },
+        { range: "20–35x", label: "Fair",           meaning: "Reasonable for consistent compounders with proven earnings track record" },
+        { range: "35–60x", label: "Expensive",      meaning: "Paying well above historical norms — growth must continue to justify" },
+        { range: ">60x",   label: "Very expensive", meaning: "Earnings too thin relative to price — forward expectations doing all the work" },
+      ],
+    },
+    peg: {
+      definition: "Forward PE divided by the expected earnings growth rate. Normalizes the PE ratio for growth so you can compare a fast-growing company to a slow one fairly. A PEG of 1.0 means you're paying exactly in line with the growth rate — the classic fair value benchmark.",
+      ranges: [
+        { range: "<0.5",   label: "Extremely cheap", meaning: "Paying half the growth rate — rare, usually a signal or data issue, investigate" },
+        { range: "0.5–1.0",label: "Cheap",           meaning: "Paying below or at growth rate — historically strong return zone" },
+        { range: "1.0–1.5",label: "Fair",            meaning: "Paying a small premium for growth — acceptable for quality businesses" },
+        { range: "1.5–2.0",label: "Stretched",       meaning: "Paying meaningful premium — needs strong moat to justify" },
+        { range: ">2.0",   label: "Expensive",       meaning: "Paying double the growth rate — narrative-driven, high risk of disappointment" },
+      ],
+    },
+    ps_ratio: {
+      definition: "Market cap divided by annual revenue. Useful when a company has little or no earnings yet — measures how much you're paying per dollar of revenue. Always pair with gross margin because $1 of revenue at 80% gross is worth far more than $1 at 20% gross.",
+      ranges: [
+        { range: "<1x",   label: "Very cheap",         meaning: "Either deep value or business in trouble — check margins" },
+        { range: "1–3x",  label: "Cheap to fair",      meaning: "Reasonable for most businesses, good for low-margin industrials" },
+        { range: "3–8x",  label: "Fair to rich",       meaning: "Acceptable only with 60%+ gross margins" },
+        { range: "8–15x", label: "Expensive",          meaning: "Requires 75%+ gross margins and strong growth to justify" },
+        { range: ">15x",  label: "Very expensive",     meaning: "Priced for hypergrowth — multiple compression risk is high" },
+      ],
+    },
+    ev_ebitda: {
+      definition: "Enterprise Value (market cap plus debt minus cash) divided by EBITDA (earnings before interest, tax, depreciation, amortization). More complete than PE because it accounts for debt and cash on the balance sheet and strips out accounting distortions. The go-to metric for comparing companies with different capital structures.",
+      ranges: [
+        { range: "<8x",   label: "Very cheap",         meaning: "Deep value territory — market pricing in stagnation or risk" },
+        { range: "8–15x", label: "Cheap to fair",      meaning: "Good entry for quality businesses, industrials and mature tech" },
+        { range: "15–25x",label: "Fair to rich",       meaning: "Acceptable for 20%+ growth businesses with strong margins" },
+        { range: "25–40x",label: "Expensive",          meaning: "Requires hypergrowth or dominant moat to justify" },
+        { range: ">40x",  label: "Very expensive",     meaning: "Priced for a perfect outcome — high multiple compression risk" },
+      ],
+    },
+    p_fcf: {
+      definition: "Market cap divided by free cash flow (operating cash flow minus capex). The most honest valuation metric — FCF is actual cash the business generates after maintaining and growing its operations, harder to manipulate than earnings. A low P/FCF means the business is generating lots of real cash relative to what you're paying.",
+      ranges: [
+        { range: "<10x",  label: "Very cheap",     meaning: "Generating lots of cash relative to price — strong value signal" },
+        { range: "10–20x",label: "Cheap to fair",  meaning: "Good zone for quality FCF businesses, solid margin of safety" },
+        { range: "20–35x",label: "Fair",           meaning: "Reasonable for high-margin compounders with durable growth" },
+        { range: "35–60x",label: "Expensive",      meaning: "FCF yield getting thin — needs strong reinvestment thesis" },
+        { range: ">60x",  label: "Very expensive", meaning: "Paying far ahead of current cash generation — high risk" },
+      ],
+    },
+  };
+
+  function ValTooltipTh({ label, k }: { label: string; k: SortKey }) {
+    const [open, setOpen] = useState(false);
+    const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const tip = VAL_TOOLTIPS[k];
+
+    function show() {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      setOpen(true);
+    }
+    function hide() {
+      timerRef.current = setTimeout(() => setOpen(false), 120);
+    }
+
+    return (
+      <th
+        className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide cursor-pointer hover:text-gray-900 whitespace-nowrap select-none"
+        onClick={() => toggleSort(k)}
+      >
+        <span className="inline-flex items-center gap-1">
+          {label}{sortKey === k ? (sortDir === "desc" ? " ↓" : " ↑") : ""}
+          {tip && (
+            <span
+              className="relative"
+              onClick={(e) => e.stopPropagation()}
+              onMouseEnter={show}
+              onMouseLeave={hide}
+            >
+              <span
+                className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-gray-300 text-gray-600 text-[9px] font-bold cursor-default leading-none"
+                onClick={(e) => { e.stopPropagation(); setOpen(v => !v); }}
+              >i</span>
+              {open && (
+                <div
+                  className="absolute left-1/2 -translate-x-1/2 top-5 z-[999] w-80 bg-white border border-gray-200 rounded-lg shadow-xl p-3 text-left normal-case tracking-normal font-normal"
+                  onMouseEnter={show}
+                  onMouseLeave={hide}
+                >
+                  <p className="text-[11px] text-gray-500 leading-snug mb-2">{tip.definition}</p>
+                  <table className="w-full text-[11px] border-collapse">
+                    <thead>
+                      <tr className="border-b border-gray-200">
+                        <th className="text-left py-0.5 pr-2 text-gray-400 font-semibold w-16">Range</th>
+                        <th className="text-left py-0.5 pr-2 text-gray-400 font-semibold w-24">Label</th>
+                        <th className="text-left py-0.5 text-gray-400 font-semibold">Meaning</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {tip.ranges.map((row, i) => (
+                        <tr key={i} className="border-b border-gray-100 last:border-0">
+                          <td className="py-0.5 pr-2 text-gray-700 font-mono whitespace-nowrap">{row.range}</td>
+                          <td className="py-0.5 pr-2 text-gray-700 whitespace-nowrap">{row.label}</td>
+                          <td className="py-0.5 text-gray-500 leading-snug">{row.meaning}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </span>
+          )}
+        </span>
+      </th>
+    );
+  }
+
   const tabs: { id: SubTab; label: string }[] = [
     { id: "all", label: "All" },
     { id: "fundamental", label: "Fundamental" },
@@ -659,15 +789,15 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
                       <Th label="EPS P5Y"   k="eps_past_5y"  title="EPS Growth Past 5 Years" />
                       <Th label="EPS N5Y"   k="eps_next_5y"  title="EPS Growth Next 5 Years (analyst est.)" />
                       <Th label="Short%"    k="short_float"  title="Short Float %" />
-                      <Th label="Fwd PE"    k="fwd_pe" />
-                      <Th label="Trail PE"  k="trailing_pe" title="Trailing Price/Earnings (live)" />
-                      <Th label="PEG"       k="peg" />
-                      <Th label="P/S"       k="ps_ratio"   title="Price/Sales TTM (live)" />
+                      <ValTooltipTh label="Fwd PE"    k="fwd_pe" />
+                      <ValTooltipTh label="Trail PE"  k="trailing_pe" />
+                      <ValTooltipTh label="PEG"       k="peg" />
+                      <ValTooltipTh label="P/S"       k="ps_ratio" />
                       <Th label="P/B"       k="pb_ratio"   title="Price/Book (live)" />
-                      <Th label="EV/EBITDA" k="ev_ebitda" />
+                      <ValTooltipTh label="EV/EBITDA" k="ev_ebitda" />
                       <Th label="EV/Rev"    k="ev_revenue" title="EV/Revenue (live)" />
                       <Th label="EV/FCF"    k="ev_fcf" />
-                      <Th label="P/FCF"     k="p_fcf"      title="Price/Free Cash Flow (live)" />
+                      <ValTooltipTh label="P/FCF"     k="p_fcf" />
                     </>
                   )}
                   {isIhsg && (
@@ -905,15 +1035,15 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
                     </>
                   ) : (
                     <>
-                      <Th label="Fwd PE"    k="fwd_pe"      title="Forward Price/Earnings (seed data)" />
-                      <Th label="Trail PE"  k="trailing_pe" title="Trailing Price/Earnings (live)" />
-                      <Th label="PEG"       k="peg"         title="PEG Ratio (seed data)" />
-                      <Th label="P/S"       k="ps_ratio"    title="Price/Sales TTM (live)" />
+                      <ValTooltipTh label="Fwd PE"    k="fwd_pe" />
+                      <ValTooltipTh label="Trail PE"  k="trailing_pe" />
+                      <ValTooltipTh label="PEG"       k="peg" />
+                      <ValTooltipTh label="P/S"       k="ps_ratio" />
                       <Th label="P/B"       k="pb_ratio"    title="Price/Book (live)" />
-                      <Th label="EV/EBITDA" k="ev_ebitda"   title="EV/EBITDA (seed data)" />
+                      <ValTooltipTh label="EV/EBITDA" k="ev_ebitda" />
                       <Th label="EV/Rev"    k="ev_revenue"  title="EV/Revenue (live)" />
                       <Th label="EV/FCF"    k="ev_fcf"      title="EV/Free Cash Flow (seed data)" />
-                      <Th label="P/FCF"     k="p_fcf"       title="Price/Free Cash Flow (live)" />
+                      <ValTooltipTh label="P/FCF"     k="p_fcf" />
                     </>
                   )}
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Status</th>
