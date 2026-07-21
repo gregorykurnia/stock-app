@@ -589,20 +589,25 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
             onMouseLeave={hide}
           >
             <p className="text-[11px] text-gray-500 leading-snug mb-2 whitespace-normal">{tip.definition}</p>
-            <table className="w-full text-[11px] border-collapse">
+            <table className="w-full text-[11px] border-collapse table-fixed">
+              <colgroup>
+                <col className="w-14" />
+                <col className="w-24" />
+                <col />
+              </colgroup>
               <thead>
                 <tr className="border-b border-gray-200">
-                  <th className="text-left py-0.5 pr-2 text-gray-400 font-semibold w-14">Range</th>
-                  <th className="text-left py-0.5 pr-2 text-gray-400 font-semibold w-20">Label</th>
+                  <th className="text-left py-0.5 pr-2 text-gray-400 font-semibold">Range</th>
+                  <th className="text-left py-0.5 pr-2 text-gray-400 font-semibold">Label</th>
                   <th className="text-left py-0.5 text-gray-400 font-semibold">Meaning</th>
                 </tr>
               </thead>
               <tbody>
                 {tip.ranges.map((row, i) => (
                   <tr key={i} className="border-b border-gray-100 last:border-0">
-                    <td className="py-0.5 pr-2 text-gray-700 font-mono whitespace-nowrap">{row.range}</td>
-                    <td className="py-0.5 pr-2 text-gray-700 whitespace-nowrap">{row.label}</td>
-                    <td className="py-0.5 text-gray-500 leading-snug">{row.meaning}</td>
+                    <td className="py-0.5 pr-2 text-gray-700 font-mono whitespace-nowrap align-top">{row.range}</td>
+                    <td className="py-0.5 pr-2 text-gray-700 whitespace-nowrap align-top">{row.label}</td>
+                    <td className="py-0.5 text-gray-500 leading-snug whitespace-normal break-words align-top">{row.meaning}</td>
                   </tr>
                 ))}
               </tbody>
