@@ -322,6 +322,7 @@ export default function Home() {
 
       const entry: CustomStock = {
         ...data,
+        ticker: sym, // always use display ticker (no .JK) so state lookups work
         added_at: new Date().toISOString(),
         last_fetched: new Date().toISOString(),
       };
