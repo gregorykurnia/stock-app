@@ -580,16 +580,17 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
               >i</span>
               {open && (
                 <div
-                  className="absolute left-1/2 -translate-x-1/2 top-5 z-[999] w-80 bg-white border border-gray-200 rounded-lg shadow-xl p-3 text-left normal-case tracking-normal font-normal"
+                  className="absolute left-0 bottom-full mb-2 z-[999] w-[340px] bg-white border border-gray-200 rounded-lg shadow-xl p-3 text-left normal-case tracking-normal font-normal"
+                  style={{ maxWidth: "min(340px, calc(100vw - 24px))" }}
                   onMouseEnter={show}
                   onMouseLeave={hide}
                 >
-                  <p className="text-[11px] text-gray-500 leading-snug mb-2">{tip.definition}</p>
+                  <p className="text-[11px] text-gray-500 leading-snug mb-2 whitespace-normal">{tip.definition}</p>
                   <table className="w-full text-[11px] border-collapse">
                     <thead>
                       <tr className="border-b border-gray-200">
-                        <th className="text-left py-0.5 pr-2 text-gray-400 font-semibold w-16">Range</th>
-                        <th className="text-left py-0.5 pr-2 text-gray-400 font-semibold w-24">Label</th>
+                        <th className="text-left py-0.5 pr-2 text-gray-400 font-semibold w-14">Range</th>
+                        <th className="text-left py-0.5 pr-2 text-gray-400 font-semibold w-20">Label</th>
                         <th className="text-left py-0.5 text-gray-400 font-semibold">Meaning</th>
                       </tr>
                     </thead>
