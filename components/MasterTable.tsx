@@ -23,7 +23,7 @@ const pct = (v: number | null | undefined) =>
   v == null ? <span className="text-gray-400">—</span> : `${(v * 100).toFixed(1)}%`;
 
 const num = (v: number | null | undefined, dec = 1) =>
-  v == null ? <span className="text-gray-400">—</span> : v.toFixed(dec);
+  v == null ? <span className="text-gray-400">—</span> : v >= 1000 ? Math.round(v).toLocaleString() : v.toFixed(dec);
 
 const eps = (v: number | null | undefined) =>
   v == null ? <span className="text-gray-400">—</span> : (v >= 0 ? `$${v.toFixed(2)}` : `-$${Math.abs(v).toFixed(2)}`);
