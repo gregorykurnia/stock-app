@@ -7,6 +7,7 @@ import { SEED_STOCKS } from "@/lib/seedData";
 import { IHSG_STOCKS } from "@/lib/ihsgSeedData";
 import {
   loadStockData, getCustomStocks, saveCustomStock, removeCustomStock,
+  getIhsgCustomStocks, saveIhsgCustomStock, removeIhsgCustomStock,
   getPortfolioTickers, getWatchlistTickers,
   savePortfolioEntry, removePortfolioEntry,
   saveWatchlistEntry, removeWatchlistEntry,
@@ -43,6 +44,7 @@ export default function Home() {
   const [markedSet, setMarkedSet] = useState<Set<string>>(new Set());
 
   // IHSG state (mirrors US state, tickers stored without .JK)
+  const [ihsgCustomStocks, setIhsgCustomStocks] = useState<CustomStock[]>([]);
   const [ihsgPrices, setIhsgPrices] = useState<Record<string, number | null>>({});
   const [ihsgAtrs, setIhsgAtrs] = useState<Record<string, number | null>>({});
   const [ihsgEma20s, setIhsgEma20s] = useState<Record<string, number | null>>({});
@@ -84,6 +86,14 @@ export default function Home() {
     const list = Object.entries(data).map(([ticker, d]) => ({ ticker, ...(d as object) } as CustomStock));
     list.sort((a, b) => a.ticker.localeCompare(b.ticker));
     setCustomStocks(list);
+    return list;
+  }
+
+  async function loadIhsgCustomStocks() {
+    const data = await getIhsgCustomStocks().catch(() => ({}));
+    const list = Object.entries(data).map(([ticker, d]) => ({ ticker, ...(d as object) } as CustomStock));
+    list.sort((a, b) => a.ticker.localeCompare(b.ticker));
+    setIhsgCustomStocks(list);
     return list;
   }
 
@@ -162,6 +172,42 @@ export default function Home() {
     });
 
     loadSets();
+
+    loadIhsgCustomStocks().then((list) => {
+      if (list.length === 0) return;
+      const jkTickers = list.map((s) => `${s.ticker}.JK`).join(",");
+      const remap = (obj: Record<string, unknown>) => {
+        const out: Record<string, number | null> = {};
+        for (const [k, v] of Object.entries(obj)) out[k.replace(".JK", "")] = v as number | null;
+        return out;
+      };
+      fetch(`/api/prices?tickers=${jkTickers}`)
+        .then((r) => r.json())
+        .then((d) => {
+          const prices: Record<string, number | null> = {};
+          for (const [k, v] of Object.entries(d.prices ?? {})) prices[k.replace(".JK", "")] = v as number | null;
+          setIhsgPrices((p) => ({ ...p, ...prices }));
+        }).catch(() => {});
+      fetch(`/api/ema?tickers=${jkTickers}`)
+        .then((r) => r.json())
+        .then((d) => {
+          setIhsgAtrs((p) => ({ ...p, ...remap(d.atrPct ?? {}) }));
+          setIhsgEma20s((p) => ({ ...p, ...remap(d.ema20 ?? {}) }));
+          setIhsgEma50s((p) => ({ ...p, ...remap(d.ema50 ?? {}) }));
+          setIhsgSupportLows((p) => ({ ...p, ...remap(d.supportLow ?? {}) }));
+          setIhsgRsis((p) => ({ ...p, ...remap(d.rsi ?? {}) }));
+          setIhsgDiPluses((p) => ({ ...p, ...remap(d.diPlus ?? {}) }));
+          setIhsgDiMinuses((p) => ({ ...p, ...remap(d.diMinus ?? {}) }));
+          setIhsgCmfs((p) => ({ ...p, ...remap(d.cmf ?? {}) }));
+        }).catch(() => {});
+      fetch(`/api/funddata?tickers=${jkTickers}`)
+        .then((r) => r.json())
+        .then((d) => {
+          const out: Record<string, FundData> = {};
+          for (const [k, v] of Object.entries(d.data ?? {})) out[k.replace(".JK", "")] = v as FundData;
+          setIhsgFundData((p) => ({ ...p, ...out }));
+        }).catch(() => {});
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -279,34 +325,63 @@ export default function Home() {
         added_at: new Date().toISOString(),
         last_fetched: new Date().toISOString(),
       };
-      await saveCustomStock(sym, entry);
-      // Optimistic update — add to local state immediately so it appears in the table right away
-      setCustomStocks((prev) => {
-        const without = prev.filter((s) => s.ticker !== sym);
-        return [...without, entry].sort((a, b) => a.ticker.localeCompare(b.ticker));
-      });
-      if (data.price != null) setPrices((p) => ({ ...p, [sym]: data.price }));
-      fetch(`/api/funddata?tickers=${apiSym}`)
-        .then((r) => r.json())
-        .then((d) => setFundData((prev) => ({ ...prev, ...(d.data ?? {}) })))
-        .catch(() => {});
-      fetch(`/api/ema?tickers=${apiSym}`)
-        .then((r) => r.json())
-        .then((d) => {
-          setAtrs((prev) => ({ ...prev, ...(d.atrPct ?? {}) }));
-          setEma20s((prev) => ({ ...prev, ...(d.ema20 ?? {}) }));
-          setEma50s((prev) => ({ ...prev, ...(d.ema50 ?? {}) }));
-          setSupportLows((prev) => ({ ...prev, ...(d.supportLow ?? {}) }));
-          setRsis((prev) => ({ ...prev, ...(d.rsi ?? {}) }));
-          setDiPluses((prev) => ({ ...prev, ...(d.diPlus ?? {}) }));
-          setDiMinuses((prev) => ({ ...prev, ...(d.diMinus ?? {}) }));
-          setCmfs((prev) => ({ ...prev, ...(d.cmf ?? {}) }));
-        })
-        .catch(() => {});
+      if (isIhsg) {
+        await saveIhsgCustomStock(sym, entry);
+        setIhsgCustomStocks((prev) => {
+          const without = prev.filter((s) => s.ticker !== sym);
+          return [...without, entry].sort((a, b) => a.ticker.localeCompare(b.ticker));
+        });
+        if (data.price != null) setIhsgPrices((p) => ({ ...p, [sym]: data.price }));
+        fetch(`/api/funddata?tickers=${apiSym}`)
+          .then((r) => r.json())
+          .then((d) => {
+            const out: Record<string, FundData> = {};
+            for (const [k, v] of Object.entries(d.data ?? {})) out[k.replace(".JK", "")] = v as FundData;
+            setIhsgFundData((prev) => ({ ...prev, ...out }));
+          }).catch(() => {});
+        fetch(`/api/ema?tickers=${apiSym}`)
+          .then((r) => r.json())
+          .then((d) => {
+            const remap = (obj: Record<string, unknown>) => {
+              const out: Record<string, number | null> = {};
+              for (const [k, v] of Object.entries(obj)) out[k.replace(".JK", "")] = v as number | null;
+              return out;
+            };
+            setIhsgAtrs((prev) => ({ ...prev, ...remap(d.atrPct ?? {}) }));
+            setIhsgEma20s((prev) => ({ ...prev, ...remap(d.ema20 ?? {}) }));
+            setIhsgEma50s((prev) => ({ ...prev, ...remap(d.ema50 ?? {}) }));
+            setIhsgSupportLows((prev) => ({ ...prev, ...remap(d.supportLow ?? {}) }));
+            setIhsgRsis((prev) => ({ ...prev, ...remap(d.rsi ?? {}) }));
+            setIhsgDiPluses((prev) => ({ ...prev, ...remap(d.diPlus ?? {}) }));
+            setIhsgDiMinuses((prev) => ({ ...prev, ...remap(d.diMinus ?? {}) }));
+            setIhsgCmfs((prev) => ({ ...prev, ...remap(d.cmf ?? {}) }));
+          }).catch(() => {});
+      } else {
+        await saveCustomStock(sym, entry);
+        setCustomStocks((prev) => {
+          const without = prev.filter((s) => s.ticker !== sym);
+          return [...without, entry].sort((a, b) => a.ticker.localeCompare(b.ticker));
+        });
+        if (data.price != null) setPrices((p) => ({ ...p, [sym]: data.price }));
+        fetch(`/api/funddata?tickers=${sym}`)
+          .then((r) => r.json())
+          .then((d) => setFundData((prev) => ({ ...prev, ...(d.data ?? {}) })))
+          .catch(() => {});
+        fetch(`/api/ema?tickers=${sym}`)
+          .then((r) => r.json())
+          .then((d) => {
+            setAtrs((prev) => ({ ...prev, ...(d.atrPct ?? {}) }));
+            setEma20s((prev) => ({ ...prev, ...(d.ema20 ?? {}) }));
+            setEma50s((prev) => ({ ...prev, ...(d.ema50 ?? {}) }));
+            setSupportLows((prev) => ({ ...prev, ...(d.supportLow ?? {}) }));
+            setRsis((prev) => ({ ...prev, ...(d.rsi ?? {}) }));
+            setDiPluses((prev) => ({ ...prev, ...(d.diPlus ?? {}) }));
+            setDiMinuses((prev) => ({ ...prev, ...(d.diMinus ?? {}) }));
+            setCmfs((prev) => ({ ...prev, ...(d.cmf ?? {}) }));
+          }).catch(() => {});
+      }
       setAddTicker("");
       setShowAdd(false);
-      // Sync Firestore in background to catch any drift (non-blocking)
-      loadCustomStocks().catch(() => {});
     } catch (err) {
       setAddError(err instanceof Error ? err.message : "Unknown error");
     } finally {
@@ -316,10 +391,16 @@ export default function Home() {
 
   async function handleRemoveCustom(ticker: string) {
     if (!confirm(`Remove ${ticker} from the master table?`)) return;
-    await removeCustomStock(ticker);
+    if (isIhsg) {
+      await removeIhsgCustomStock(ticker);
+      setIhsgCustomStocks((prev) => prev.filter((s) => s.ticker !== ticker));
+    } else {
+      await removeCustomStock(ticker);
+      setCustomStocks((prev) => prev.filter((s) => s.ticker !== ticker));
+    }
     await removePortfolioEntry(ticker).catch(() => {});
     await removeWatchlistEntry(ticker).catch(() => {});
-    await Promise.all([loadCustomStocks(), loadSets()]);
+    await loadSets();
   }
 
   function handleSearch(e: React.FormEvent) {
@@ -437,37 +518,30 @@ export default function Home() {
         )}
 
         {isIhsg ? (
-          IHSG_STOCKS.length === 0 ? (
-            <div className="text-center py-24 text-gray-400">
-              <p className="text-lg font-medium">No IHSG stocks yet</p>
-              <p className="text-sm mt-1">Populate <code className="bg-gray-100 px-1 rounded">lib/ihsgSeedData.ts</code> with IDX tickers to get started.</p>
-            </div>
-          ) : (
-            <MasterTable
-              market="ihsg"
-              prices={ihsgPrices}
-              preMarketPrices={{}}
-              verdicts={ihsgVerdicts}
-              atrs={ihsgAtrs}
-              ema20s={ihsgEma20s}
-              ema50s={ihsgEma50s}
-              supportLows={ihsgSupportLows}
-              rsis={ihsgRsis}
-              diPluses={ihsgDiPluses}
-              diMinuses={ihsgDiMinuses}
-              cmfs={ihsgCmfs}
-              fundData={ihsgFundData}
-              loading={ihsgPricesLoading}
-              customStocks={[]}
-              portfolioSet={portfolioSet}
-              watchlistSet={watchlistSet}
-              markedSet={markedSet}
-              onSetStatus={handleSetStatus}
-              onRemoveCustom={() => {}}
-              onToggleMark={handleToggleMark}
-              ihsgStocks={IHSG_STOCKS}
-            />
-          )
+          <MasterTable
+            market="ihsg"
+            prices={ihsgPrices}
+            preMarketPrices={{}}
+            verdicts={ihsgVerdicts}
+            atrs={ihsgAtrs}
+            ema20s={ihsgEma20s}
+            ema50s={ihsgEma50s}
+            supportLows={ihsgSupportLows}
+            rsis={ihsgRsis}
+            diPluses={ihsgDiPluses}
+            diMinuses={ihsgDiMinuses}
+            cmfs={ihsgCmfs}
+            fundData={ihsgFundData}
+            loading={ihsgPricesLoading}
+            customStocks={ihsgCustomStocks}
+            portfolioSet={portfolioSet}
+            watchlistSet={watchlistSet}
+            markedSet={markedSet}
+            onSetStatus={handleSetStatus}
+            onRemoveCustom={handleRemoveCustom}
+            onToggleMark={handleToggleMark}
+            ihsgStocks={IHSG_STOCKS}
+          />
         ) : (
           <MasterTable
             market="us"

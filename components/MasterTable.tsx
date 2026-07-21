@@ -115,8 +115,8 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
 
   const allRows = useMemo((): TableRow[] => {
     if (isIhsg) {
-      const stocks = ihsgStocks ?? IHSG_STOCKS;
-      return stocks.map((s) => {
+      const seedStocks = ihsgStocks ?? IHSG_STOCKS;
+      const seedRows = seedStocks.map((s) => {
         const fd = fundData[s.ticker] ?? {};
         return {
           ticker: s.ticker,
@@ -149,8 +149,30 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
           price: prices[s.ticker] ?? null,
           verdict: verdicts[s.ticker] ?? null,
           isCustom: false,
+        } as TableRow;
+      });
+      const customRows: TableRow[] = customStocks.map((c) => {
+        const fd = fundData[c.ticker] ?? {};
+        return {
+          ticker: c.ticker,
+          name: c.name,
+          industry: c.industry ?? c.sector ?? "—",
+          combined: null, val: null, fund: null,
+          rev_growth: c.rev_growth, gross_margin: c.gross_margin,
+          op_margin: c.op_margin, net_margin: c.net_margin, fcf_margin: c.fcf_margin,
+          roe: fd.roe ?? null, debt_to_equity: fd.debt_to_equity ?? null,
+          eps_ttm: fd.eps_ttm ?? null, eps_fwd: fd.eps_fwd ?? null,
+          eps_past_5y: fd.eps_past_5y ?? null, eps_next_5y: fd.eps_next_5y ?? null,
+          short_float: fd.short_float ?? null,
+          fwd_pe: c.fwd_pe, peg: c.peg, ev_ebitda: c.ev_ebitda, ev_fcf: c.ev_fcf,
+          trailing_pe: fd.trailing_pe ?? null, ps_ratio: fd.ps_ratio ?? null,
+          pb_ratio: fd.pb_ratio ?? null, ev_revenue: fd.ev_revenue ?? null, p_fcf: fd.p_fcf ?? null,
+          price: prices[c.ticker] ?? null,
+          verdict: verdicts[c.ticker] ?? null,
+          isCustom: true,
         };
       });
+      return [...seedRows, ...customRows];
     }
 
     const seedRows: TableRow[] = SEED_STOCKS.map((s) => {

@@ -51,6 +51,22 @@ export async function removeCustomStock(ticker: string) {
   await deleteDoc(doc(db, "custom_stocks", ticker));
 }
 
+// IHSG custom stocks (stored without .JK suffix as document ID)
+export async function getIhsgCustomStocks(): Promise<Record<string, object>> {
+  const snap = await getDocs(collection(db, "custom_stocks_ihsg"));
+  const result: Record<string, object> = {};
+  snap.forEach((d) => { result[d.id] = d.data(); });
+  return result;
+}
+
+export async function saveIhsgCustomStock(ticker: string, data: object) {
+  await setDoc(doc(db, "custom_stocks_ihsg", ticker), data);
+}
+
+export async function removeIhsgCustomStock(ticker: string) {
+  await deleteDoc(doc(db, "custom_stocks_ihsg", ticker));
+}
+
 // Portfolio
 export async function getPortfolio(): Promise<Record<string, object>> {
   const snap = await getDocs(collection(db, "portfolio"));
