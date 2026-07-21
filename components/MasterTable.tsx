@@ -113,6 +113,18 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
   const [industryFilter, setIndustryFilter] = useState("all");
   const [urgencyFilter, setUrgencyFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const [ihsgPbv, setIhsgPbv] = useState<Record<string, string>>(() => {
+    if (typeof window === "undefined") return {};
+    try { return JSON.parse(localStorage.getItem("ihsg_pbv") ?? "{}"); } catch { return {}; }
+  });
+
+  function setIhsgPbvValue(ticker: string, val: string) {
+    setIhsgPbv((prev) => {
+      const next = { ...prev, [ticker]: val };
+      try { localStorage.setItem("ihsg_pbv", JSON.stringify(next)); } catch {}
+      return next;
+    });
+  }
 
   const allRows = useMemo((): TableRow[] => {
     if (isIhsg) {
@@ -790,18 +802,27 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
                 <tr>
                   <Th label="Ticker"    k="ticker" sticky />
                   <Th label="Industry"  k="industry" />
-                  <Th label="Fund Score" k="fund" title="Fundamentals score (seed stocks only)" />
-                  <Th label="Rev Gr"    k="rev_growth"   title="Revenue Growth YoY" />
-                  <Th label="Gross%"    k="gross_margin" title="Gross Margin" />
-                  <Th label="Op%"       k="op_margin"    title="Operating Margin" />
-                  <Th label="FCF%"      k="fcf_margin"   title="Free Cash Flow Margin" />
-                  <Th label="ROE%"      k="roe"          title="Return on Equity" />
-                  <Th label="D/E"       k="debt_to_equity" title="Debt to Equity ratio" />
-                  <Th label="EPS TTM"   k="eps_ttm"      title="Trailing EPS (This Year)" />
-                  <Th label="EPS Fwd"   k="eps_fwd"      title="Forward EPS (Next Year)" />
-                  <Th label="EPS P5Y"   k="eps_past_5y"  title="EPS Growth Past 5 Years" />
-                  <Th label="EPS N5Y"   k="eps_next_5y"  title="EPS Growth Next 5 Years (analyst est.)" />
-                  <Th label="Short%"    k="short_float"  title="Short Float %" />
+                  {isIhsg ? (
+                    <>
+                      <Th label="Trailing P/E" k="trailing_pe" title="Trailing Price/Earnings (live)" />
+                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Price to Book Value — enter manually">PBV</th>
+                    </>
+                  ) : (
+                    <>
+                      <Th label="Fund Score" k="fund" title="Fundamentals score (seed stocks only)" />
+                      <Th label="Rev Gr"    k="rev_growth"   title="Revenue Growth YoY" />
+                      <Th label="Gross%"    k="gross_margin" title="Gross Margin" />
+                      <Th label="Op%"       k="op_margin"    title="Operating Margin" />
+                      <Th label="FCF%"      k="fcf_margin"   title="Free Cash Flow Margin" />
+                      <Th label="ROE%"      k="roe"          title="Return on Equity" />
+                      <Th label="D/E"       k="debt_to_equity" title="Debt to Equity ratio" />
+                      <Th label="EPS TTM"   k="eps_ttm"      title="Trailing EPS (This Year)" />
+                      <Th label="EPS Fwd"   k="eps_fwd"      title="Forward EPS (Next Year)" />
+                      <Th label="EPS P5Y"   k="eps_past_5y"  title="EPS Growth Past 5 Years" />
+                      <Th label="EPS N5Y"   k="eps_next_5y"  title="EPS Growth Next 5 Years (analyst est.)" />
+                      <Th label="Short%"    k="short_float"  title="Short Float %" />
+                    </>
+                  )}
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Status</th>
                 </tr>
               </thead>
@@ -810,20 +831,39 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
                   <tr key={r.ticker} className={`group transition-colors ${markedSet.has(r.ticker) ? "bg-red-50 hover:bg-red-100" : r.isCustom ? "bg-blue-50/30 hover:bg-gray-50" : "hover:bg-gray-50"}`}>
                     <TickerCell r={r} />
                     <td className="px-3 py-2 text-gray-500 text-xs whitespace-nowrap">{r.industry}</td>
-                    <td className={`px-3 py-2 font-bold ${scoreColor(r.fund)}`}>
-                      {r.fund != null ? r.fund.toFixed(1) : <span className="text-gray-300">—</span>}
-                    </td>
-                    <td className="px-3 py-2 text-gray-700">{pct(r.rev_growth)}</td>
-                    <td className="px-3 py-2 text-gray-700">{pct(r.gross_margin)}</td>
-                    <td className="px-3 py-2 text-gray-700">{pct(r.op_margin)}</td>
-                    <td className="px-3 py-2 text-gray-700">{pct(r.fcf_margin)}</td>
-                    <td className="px-3 py-2 text-gray-700">{pct(r.roe)}</td>
-                    <td className="px-3 py-2 text-gray-700">{num(r.debt_to_equity, 2)}</td>
-                    <td className="px-3 py-2 text-gray-700">{eps(r.eps_ttm)}</td>
-                    <td className="px-3 py-2 text-gray-700">{eps(r.eps_fwd)}</td>
-                    <td className="px-3 py-2 text-gray-700">{pct(r.eps_past_5y)}</td>
-                    <td className="px-3 py-2 text-gray-700">{pct(r.eps_next_5y)}</td>
-                    <td className="px-3 py-2 text-gray-700">{pct(r.short_float)}</td>
+                    {isIhsg ? (
+                      <>
+                        <td className="px-3 py-2 text-gray-700">{num(r.trailing_pe, 1)}</td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={ihsgPbv[r.ticker] ?? ""}
+                            onChange={(e) => setIhsgPbvValue(r.ticker, e.target.value)}
+                            placeholder="—"
+                            className="w-20 px-2 py-0.5 text-sm border border-gray-300 rounded text-gray-800 focus:outline-none focus:border-blue-400 bg-white"
+                          />
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td className={`px-3 py-2 font-bold ${scoreColor(r.fund)}`}>
+                          {r.fund != null ? r.fund.toFixed(1) : <span className="text-gray-300">—</span>}
+                        </td>
+                        <td className="px-3 py-2 text-gray-700">{pct(r.rev_growth)}</td>
+                        <td className="px-3 py-2 text-gray-700">{pct(r.gross_margin)}</td>
+                        <td className="px-3 py-2 text-gray-700">{pct(r.op_margin)}</td>
+                        <td className="px-3 py-2 text-gray-700">{pct(r.fcf_margin)}</td>
+                        <td className="px-3 py-2 text-gray-700">{pct(r.roe)}</td>
+                        <td className="px-3 py-2 text-gray-700">{num(r.debt_to_equity, 2)}</td>
+                        <td className="px-3 py-2 text-gray-700">{eps(r.eps_ttm)}</td>
+                        <td className="px-3 py-2 text-gray-700">{eps(r.eps_fwd)}</td>
+                        <td className="px-3 py-2 text-gray-700">{pct(r.eps_past_5y)}</td>
+                        <td className="px-3 py-2 text-gray-700">{pct(r.eps_next_5y)}</td>
+                        <td className="px-3 py-2 text-gray-700">{pct(r.short_float)}</td>
+                      </>
+                    )}
                     <StatusCell r={r} />
                   </tr>
                 ))}
