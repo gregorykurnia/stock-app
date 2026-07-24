@@ -44,7 +44,10 @@ export async function GET(req: NextRequest) {
     const fcf_margin = totalRevenue && freeCashflow ? freeCashflow / totalRevenue : null;
     const ev: number | null = ks.enterpriseValue ?? null;
     const ev_fcf = ev && freeCashflow && freeCashflow > 0 ? ev / freeCashflow / fxCorrection : null;
-    const ev_ebitda = ks.enterpriseToEbitda != null ? ks.enterpriseToEbitda / fxCorrection : null;
+    const ebitda: number | null = fd.ebitda ?? null;
+    const ev_ebitda = ev != null && ebitda != null && ebitda > 0
+      ? ev / ebitda / fxCorrection
+      : ks.enterpriseToEbitda != null ? ks.enterpriseToEbitda / fxCorrection : null;
 
     return NextResponse.json({
       ticker: ticker.toUpperCase(),

@@ -81,6 +81,11 @@ async function fetchOne(ticker: string): Promise<FundData> {
       ? fd.freeCashflow / fd.totalRevenue : null;
     const pFcf = (sd.marketCap != null && fd.freeCashflow != null && fd.freeCashflow > 0)
       ? sd.marketCap / fd.freeCashflow / fxCorrection : null;
+    // Compute manually from EV / TTM EBITDA — matches Yahoo Finance website Statistics page
+    // enterpriseToEbitda from the API can diverge from the website value
+    const evEbitda = ks.enterpriseValue != null && fd.ebitda != null && fd.ebitda > 0
+      ? ks.enterpriseValue / fd.ebitda / fxCorrection
+      : (ks.enterpriseToEbitda ?? null) != null ? (ks.enterpriseToEbitda as number) / fxCorrection : null;
 
     // Cap ratios that are clearly bad data
     const cap = <T extends number | null>(v: T, max: number): T | null => (v != null && (v as number) > max) ? null : v;
@@ -104,7 +109,7 @@ async function fetchOne(ticker: string): Promise<FundData> {
       fcf_margin: fcfMargin,
       fwd_pe: ks.forwardPE ?? sd.forwardPE ?? null,
       peg: ks.pegRatio ?? null,
-      ev_ebitda: cap((ks.enterpriseToEbitda ?? null) != null ? (ks.enterpriseToEbitda as number) / fxCorrection : null, 2000),
+      ev_ebitda: cap(evEbitda, 2000),
       ev_fcf: cap(evFcf, 2000),
       dividend_yield: sd.dividendYield ?? null,
     };
