@@ -3,6 +3,15 @@ import { NextRequest, NextResponse } from "next/server";
 const YahooFinance = require("yahoo-finance2").default;
 const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
 
+async function getExchangeRate(from: string, to: string): Promise<number | null> {
+  try {
+    const q = await yf.quote(`${from}${to}=X`);
+    return q.regularMarketPrice ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(req: NextRequest) {
   const ticker = req.nextUrl.searchParams.get("ticker");
   if (!ticker) return NextResponse.json({ error: "ticker required" }, { status: 400 });
@@ -19,11 +28,23 @@ export async function GET(req: NextRequest) {
     const ks = summary.defaultKeyStatistics ?? {};
     const sp = summary.summaryProfile ?? {};
 
+    // FX correction: same logic as /api/funddata
+    // Some stocks (e.g. Indonesian stocks reporting in USD) have EV in stock currency
+    // but financials in another currency, inflating ratios like EV/EBITDA by the FX rate.
+    const stockCurrency: string = quote?.currency ?? "";
+    const financialCurrency: string = quote?.financialCurrency ?? stockCurrency;
+    let fxCorrection = 1;
+    if (stockCurrency && financialCurrency && stockCurrency !== financialCurrency) {
+      const rate = await getExchangeRate(financialCurrency, stockCurrency);
+      if (rate != null && rate > 0) fxCorrection = rate;
+    }
+
     const totalRevenue: number | null = fd.totalRevenue ?? null;
     const freeCashflow: number | null = fd.freeCashflow ?? null;
     const fcf_margin = totalRevenue && freeCashflow ? freeCashflow / totalRevenue : null;
     const ev: number | null = ks.enterpriseValue ?? null;
-    const ev_fcf = ev && freeCashflow && freeCashflow > 0 ? ev / freeCashflow : null;
+    const ev_fcf = ev && freeCashflow && freeCashflow > 0 ? ev / freeCashflow / fxCorrection : null;
+    const ev_ebitda = ks.enterpriseToEbitda != null ? ks.enterpriseToEbitda / fxCorrection : null;
 
     return NextResponse.json({
       ticker: ticker.toUpperCase(),
@@ -38,9 +59,9 @@ export async function GET(req: NextRequest) {
       ebitda_margin: fd.ebitdaMargins ?? null,
       fwd_pe: ks.forwardPE ?? null,
       peg: ks.pegRatio ?? null,
-      ev_ebitda: ks.enterpriseToEbitda ?? null,
+      ev_ebitda,
       ev_fcf,
-      price_to_book: ks.priceToBook ?? null,
+      price_to_book: ks.priceToBook != null ? ks.priceToBook / fxCorrection : null,
       price: quote?.regularMarketPrice ?? null,
     });
   } catch (err) {
