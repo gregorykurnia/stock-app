@@ -113,19 +113,6 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
   const [industryFilter, setIndustryFilter] = useState("all");
   const [urgencyFilter, setUrgencyFilter] = useState("all");
   const [search, setSearch] = useState("");
-  const [ihsgPbv, setIhsgPbv] = useState<Record<string, string>>(() => {
-    if (typeof window === "undefined") return {};
-    try { return JSON.parse(localStorage.getItem("ihsg_pbv") ?? "{}"); } catch { return {}; }
-  });
-
-  function setIhsgPbvValue(ticker: string, val: string) {
-    setIhsgPbv((prev) => {
-      const next = { ...prev, [ticker]: val };
-      try { localStorage.setItem("ihsg_pbv", JSON.stringify(next)); } catch {}
-      return next;
-    });
-  }
-
   const allRows = useMemo((): TableRow[] => {
     if (isIhsg) {
       const seedStocks = ihsgStocks ?? IHSG_STOCKS;
@@ -378,6 +365,17 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
     }
 
     if (activeTab === "valuation") {
+      if (isIhsg) {
+        const headers = ["Ticker", "Industry", "Trail PE", "P/S", "P/B", "EV/Rev", "EV/EBITDA", "Portfolio", "Watchlist", "Marked"];
+        const data = rows.map((r) => [
+          r.ticker, r.industry,
+          r.trailing_pe?.toFixed(2) ?? "", r.ps_ratio?.toFixed(2) ?? "",
+          r.pb_ratio?.toFixed(2) ?? "", r.ev_revenue?.toFixed(2) ?? "",
+          r.ev_ebitda?.toFixed(1) ?? "",
+          portfolio(r), watchlist(r), marked(r),
+        ]);
+        return downloadCsv(`valuation-ihsg-${date}.csv`, headers, data);
+      }
       const headers = ["Ticker", "Industry", "Fwd PE", "Trail PE", "PEG",
         "P/S", "P/B", "EV/EBITDA", "EV/Rev", "EV/FCF", "P/FCF", "Portfolio", "Watchlist", "Marked"];
       const data = rows.map((r) => [
@@ -422,10 +420,14 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
     }
 
     // "all" tab — full export
+    const valHeaders = isIhsg
+      ? ["Trail PE", "P/S", "P/B", "EV/Rev", "EV/EBITDA"]
+      : ["Fwd PE", "Trail PE", "PEG", "P/S", "P/B", "EV/EBITDA", "EV/Rev", "EV/FCF", "P/FCF"];
     const headers = ["Ticker", "Industry", "Price", "ATR%",
       "EMA20W", "Dist EMA20%", "EMA50W", "Dist EMA50%", "Prev Support", "RSI", "DI+", "DI-", "CMF",
-      "Rev Gr%", "Gross%", "Op%", "Net%", "FCF%", "ROE%", "D/E", "EPS TTM", "EPS Fwd", "EPS Past 5Y%", "EPS Next 5Y%", "Short Float%",
-      "Fwd PE", "Trail PE", "PEG", "P/S", "P/B", "EV/EBITDA", "EV/Rev", "EV/FCF", "P/FCF", "Portfolio", "Watchlist", "Marked"];
+      "Rev Gr%", "Gross%", "Op%", "Net%", "FCF%", "ROE%", "D/E",
+      ...(isIhsg ? [] : ["EPS TTM", "EPS Fwd", "EPS Past 5Y%", "EPS Next 5Y%", "Short Float%"]),
+      ...valHeaders, "Portfolio", "Watchlist", "Marked"];
     const data = rows.map((r) => {
       const price = r.price;
       const ema20 = ema20s[r.ticker] ?? null;
@@ -452,15 +454,23 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
       r.fcf_margin != null ? (r.fcf_margin * 100).toFixed(1) : "",
       r.roe != null ? (r.roe * 100).toFixed(1) : "",
       r.debt_to_equity?.toFixed(2) ?? "",
-      r.eps_ttm?.toFixed(2) ?? "",
-      r.eps_fwd?.toFixed(2) ?? "",
-      r.eps_past_5y != null ? (r.eps_past_5y * 100).toFixed(1) : "",
-      r.eps_next_5y != null ? (r.eps_next_5y * 100).toFixed(1) : "",
-      r.short_float != null ? (r.short_float * 100).toFixed(1) : "",
-      r.fwd_pe?.toFixed(2) ?? "", r.trailing_pe?.toFixed(2) ?? "", r.peg?.toFixed(2) ?? "",
-      r.ps_ratio?.toFixed(2) ?? "", r.pb_ratio?.toFixed(2) ?? "",
-      r.ev_ebitda?.toFixed(1) ?? "", r.ev_revenue?.toFixed(2) ?? "",
-      r.ev_fcf?.toFixed(1) ?? "", r.p_fcf?.toFixed(1) ?? "",
+      ...(isIhsg ? [] : [
+        r.eps_ttm?.toFixed(2) ?? "",
+        r.eps_fwd?.toFixed(2) ?? "",
+        r.eps_past_5y != null ? (r.eps_past_5y * 100).toFixed(1) : "",
+        r.eps_next_5y != null ? (r.eps_next_5y * 100).toFixed(1) : "",
+        r.short_float != null ? (r.short_float * 100).toFixed(1) : "",
+      ]),
+      ...(isIhsg ? [
+        r.trailing_pe?.toFixed(2) ?? "", r.ps_ratio?.toFixed(2) ?? "",
+        r.pb_ratio?.toFixed(2) ?? "", r.ev_revenue?.toFixed(2) ?? "",
+        r.ev_ebitda?.toFixed(1) ?? "",
+      ] : [
+        r.fwd_pe?.toFixed(2) ?? "", r.trailing_pe?.toFixed(2) ?? "", r.peg?.toFixed(2) ?? "",
+        r.ps_ratio?.toFixed(2) ?? "", r.pb_ratio?.toFixed(2) ?? "",
+        r.ev_ebitda?.toFixed(1) ?? "", r.ev_revenue?.toFixed(2) ?? "",
+        r.ev_fcf?.toFixed(1) ?? "", r.p_fcf?.toFixed(1) ?? "",
+      ]),
       portfolio(r), watchlist(r), marked(r),
       ]; // close inner array
     }); // close rows.map
@@ -808,8 +818,11 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
                   )}
                   {isIhsg && (
                     <>
-                      <Th label="P/E (Trailing)" k="trailing_pe" title="Trailing Price/Earnings (live)" />
-                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Price to Book Value — enter manually">PBV</th>
+                      <Th label="Trail PE"   k="trailing_pe" title="Trailing Price/Earnings (live)" />
+                      <Th label="P/S"        k="ps_ratio"    title="Price/Sales (live)" />
+                      <Th label="P/B"        k="pb_ratio"    title="Price/Book (live)" />
+                      <Th label="EV/Rev"     k="ev_revenue"  title="EV/Revenue (live)" />
+                      <Th label="EV/EBITDA"  k="ev_ebitda"   title="EV/EBITDA (live)" />
                     </>
                   )}
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Status</th>
@@ -938,17 +951,10 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
                     {isIhsg && (
                       <>
                         <td className="px-3 py-2 text-gray-700">{num(r.trailing_pe, 1)}</td>
-                        <td className="px-3 py-2">
-                          <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={ihsgPbv[r.ticker] ?? ""}
-                            onChange={(e) => setIhsgPbvValue(r.ticker, e.target.value)}
-                            placeholder="—"
-                            className="w-20 px-2 py-0.5 text-sm border border-gray-300 rounded text-gray-800 focus:outline-none focus:border-blue-400 bg-white"
-                          />
-                        </td>
+                        <td className="px-3 py-2 text-gray-700">{num(r.ps_ratio, 1)}</td>
+                        <td className="px-3 py-2 text-gray-700">{num(r.pb_ratio, 1)}</td>
+                        <td className="px-3 py-2 text-gray-700">{num(r.ev_revenue, 1)}</td>
+                        <td className="px-3 py-2 text-gray-700">{num(r.ev_ebitda, 1)}</td>
                       </>
                     )}
                     <StatusCell r={r} />
@@ -1036,8 +1042,11 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
                   <Th label="Val Score" k="val" title="Valuation score (seed stocks only)" />
                   {isIhsg ? (
                     <>
-                      <Th label="P/E (Trailing)" k="trailing_pe" title="Trailing Price/Earnings (live)" />
-                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Price to Book Value — enter manually">PBV</th>
+                      <Th label="Trail PE"   k="trailing_pe" title="Trailing Price/Earnings (live)" />
+                      <Th label="P/S"        k="ps_ratio"    title="Price/Sales (live)" />
+                      <Th label="P/B"        k="pb_ratio"    title="Price/Book (live)" />
+                      <Th label="EV/Rev"     k="ev_revenue"  title="EV/Revenue (live)" />
+                      <Th label="EV/EBITDA"  k="ev_ebitda"   title="EV/EBITDA (live)" />
                     </>
                   ) : (
                     <>
@@ -1066,17 +1075,10 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
                     {isIhsg ? (
                       <>
                         <td className="px-3 py-2 text-gray-700">{num(r.trailing_pe, 1)}</td>
-                        <td className="px-3 py-2">
-                          <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={ihsgPbv[r.ticker] ?? ""}
-                            onChange={(e) => setIhsgPbvValue(r.ticker, e.target.value)}
-                            placeholder="—"
-                            className="w-20 px-2 py-0.5 text-sm border border-gray-300 rounded text-gray-800 focus:outline-none focus:border-blue-400 bg-white"
-                          />
-                        </td>
+                        <td className="px-3 py-2 text-gray-700">{num(r.ps_ratio, 1)}</td>
+                        <td className="px-3 py-2 text-gray-700">{num(r.pb_ratio, 1)}</td>
+                        <td className="px-3 py-2 text-gray-700">{num(r.ev_revenue, 1)}</td>
+                        <td className="px-3 py-2 text-gray-700">{num(r.ev_ebitda, 1)}</td>
                       </>
                     ) : (
                       <>
