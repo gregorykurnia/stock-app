@@ -366,12 +366,11 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
 
     if (activeTab === "valuation") {
       if (isIhsg) {
-        const headers = ["Ticker", "Industry", "Trail PE", "P/S", "P/B", "EV/Rev", "EV/EBITDA", "Portfolio", "Watchlist", "Marked"];
+        const headers = ["Ticker", "Industry", "Trail PE", "P/S", "P/B", "EV/Rev", "Portfolio", "Watchlist", "Marked"];
         const data = rows.map((r) => [
           r.ticker, r.industry,
           r.trailing_pe?.toFixed(2) ?? "", r.ps_ratio?.toFixed(2) ?? "",
           r.pb_ratio?.toFixed(2) ?? "", r.ev_revenue?.toFixed(2) ?? "",
-          r.ev_ebitda?.toFixed(1) ?? "",
           portfolio(r), watchlist(r), marked(r),
         ]);
         return downloadCsv(`valuation-ihsg-${date}.csv`, headers, data);
@@ -421,7 +420,7 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
 
     // "all" tab — full export
     const valHeaders = isIhsg
-      ? ["Trail PE", "P/S", "P/B", "EV/Rev", "EV/EBITDA"]
+      ? ["Trail PE", "P/S", "P/B", "EV/Rev"]
       : ["Fwd PE", "Trail PE", "PEG", "P/S", "P/B", "EV/EBITDA", "EV/Rev", "EV/FCF", "P/FCF"];
     const headers = ["Ticker", "Industry", "Price", "ATR%",
       "EMA20W", "Dist EMA20%", "EMA50W", "Dist EMA50%", "Prev Support", "RSI", "DI+", "DI-", "CMF",
@@ -464,7 +463,6 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
       ...(isIhsg ? [
         r.trailing_pe?.toFixed(2) ?? "", r.ps_ratio?.toFixed(2) ?? "",
         r.pb_ratio?.toFixed(2) ?? "", r.ev_revenue?.toFixed(2) ?? "",
-        r.ev_ebitda?.toFixed(1) ?? "",
       ] : [
         r.fwd_pe?.toFixed(2) ?? "", r.trailing_pe?.toFixed(2) ?? "", r.peg?.toFixed(2) ?? "",
         r.ps_ratio?.toFixed(2) ?? "", r.pb_ratio?.toFixed(2) ?? "",
@@ -822,7 +820,6 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
                       <Th label="P/S"        k="ps_ratio"    title="Price/Sales (live)" />
                       <Th label="P/B"        k="pb_ratio"    title="Price/Book (live)" />
                       <Th label="EV/Rev"     k="ev_revenue"  title="EV/Revenue (live)" />
-                      <Th label="EV/EBITDA"  k="ev_ebitda"   title="EV/EBITDA (live)" />
                     </>
                   )}
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Status</th>
@@ -954,7 +951,6 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
                         <td className="px-3 py-2 text-gray-700">{num(r.ps_ratio, 1)}</td>
                         <td className="px-3 py-2 text-gray-700">{num(r.pb_ratio, 1)}</td>
                         <td className="px-3 py-2 text-gray-700">{num(r.ev_revenue, 1)}</td>
-                        <td className="px-3 py-2 text-gray-700">{num(r.ev_ebitda, 1)}</td>
                       </>
                     )}
                     <StatusCell r={r} />
@@ -1046,7 +1042,6 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
                       <Th label="P/S"        k="ps_ratio"    title="Price/Sales (live)" />
                       <Th label="P/B"        k="pb_ratio"    title="Price/Book (live)" />
                       <Th label="EV/Rev"     k="ev_revenue"  title="EV/Revenue (live)" />
-                      <Th label="EV/EBITDA"  k="ev_ebitda"   title="EV/EBITDA (live)" />
                     </>
                   ) : (
                     <>
@@ -1078,7 +1073,6 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
                         <td className="px-3 py-2 text-gray-700">{num(r.ps_ratio, 1)}</td>
                         <td className="px-3 py-2 text-gray-700">{num(r.pb_ratio, 1)}</td>
                         <td className="px-3 py-2 text-gray-700">{num(r.ev_revenue, 1)}</td>
-                        <td className="px-3 py-2 text-gray-700">{num(r.ev_ebitda, 1)}</td>
                       </>
                     ) : (
                       <>
