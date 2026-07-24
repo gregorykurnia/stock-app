@@ -75,16 +75,25 @@ async function fetchOne(ticker: string): Promise<FundData> {
       if (rate != null && rate > 0) fxCorrection = rate;
     }
 
-    const evFcf = (ks.enterpriseValue != null && fd.freeCashflow != null && fd.freeCashflow > 0)
-      ? ks.enterpriseValue / fd.freeCashflow / fxCorrection : null;
     const fcfMargin = (fd.freeCashflow != null && fd.totalRevenue != null && fd.totalRevenue > 0)
       ? fd.freeCashflow / fd.totalRevenue : null;
     const pFcf = (sd.marketCap != null && fd.freeCashflow != null && fd.freeCashflow > 0)
       ? sd.marketCap / fd.freeCashflow / fxCorrection : null;
-    // Compute manually from EV / TTM EBITDA — matches Yahoo Finance website Statistics page
-    // enterpriseToEbitda from the API can diverge from the website value
-    const evEbitda = ks.enterpriseValue != null && fd.ebitda != null && fd.ebitda > 0
-      ? ks.enterpriseValue / fd.ebitda / fxCorrection
+
+    // ks.enterpriseValue can be stale (cached from days/weeks ago), causing EV-based ratios to
+    // diverge from the Yahoo Finance Statistics page. Recompute from live market cap + balance sheet.
+    const liveMarketCap: number | null = quoteData?.marketCap ?? sd.marketCap ?? null;
+    const liveEV: number | null = liveMarketCap != null
+      ? liveMarketCap + (fd.totalDebt ?? 0) - (fd.totalCash ?? 0)
+      : ks.enterpriseValue ?? null;
+
+    const evFcf = (liveEV != null && fd.freeCashflow != null && fd.freeCashflow > 0)
+      ? liveEV / fd.freeCashflow / fxCorrection : null;
+    const evRevenue = liveEV != null && fd.totalRevenue != null && fd.totalRevenue > 0
+      ? liveEV / fd.totalRevenue / fxCorrection
+      : (ks.enterpriseToRevenue ?? null) != null ? (ks.enterpriseToRevenue as number) / fxCorrection : null;
+    const evEbitda = liveEV != null && fd.ebitda != null && fd.ebitda > 0
+      ? liveEV / fd.ebitda / fxCorrection
       : (ks.enterpriseToEbitda ?? null) != null ? (ks.enterpriseToEbitda as number) / fxCorrection : null;
 
     // Cap ratios that are clearly bad data
@@ -101,7 +110,7 @@ async function fetchOne(ticker: string): Promise<FundData> {
       trailing_pe: cap(sd.trailingPE ?? null, 2000),
       ps_ratio: cap((sd.priceToSalesTrailing12Months ?? null) != null ? (sd.priceToSalesTrailing12Months as number) / fxCorrection : null, 500),
       pb_ratio: cap((ks.priceToBook ?? null) != null ? (ks.priceToBook as number) / fxCorrection : null, 200),
-      ev_revenue: cap((ks.enterpriseToRevenue ?? null) != null ? (ks.enterpriseToRevenue as number) / fxCorrection : null, 500),
+      ev_revenue: cap(evRevenue, 500),
       p_fcf: cap(pFcf, 2000),
       rev_growth: fd.revenueGrowth ?? null,
       gross_margin: fd.grossMargins ?? null,

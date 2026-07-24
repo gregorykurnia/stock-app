@@ -42,11 +42,16 @@ export async function GET(req: NextRequest) {
     const totalRevenue: number | null = fd.totalRevenue ?? null;
     const freeCashflow: number | null = fd.freeCashflow ?? null;
     const fcf_margin = totalRevenue && freeCashflow ? freeCashflow / totalRevenue : null;
-    const ev: number | null = ks.enterpriseValue ?? null;
-    const ev_fcf = ev && freeCashflow && freeCashflow > 0 ? ev / freeCashflow / fxCorrection : null;
+    // Recompute EV from live market cap to avoid stale ks.enterpriseValue
+    const liveMarketCap: number | null = quote?.marketCap ?? null;
+    const liveEV: number | null = liveMarketCap != null
+      ? liveMarketCap + (fd.totalDebt ?? 0) - (fd.totalCash ?? 0)
+      : ks.enterpriseValue ?? null;
     const ebitda: number | null = fd.ebitda ?? null;
-    const ev_ebitda = ev != null && ebitda != null && ebitda > 0
-      ? ev / ebitda / fxCorrection
+    const ev_fcf = liveEV != null && freeCashflow != null && freeCashflow > 0
+      ? liveEV / freeCashflow / fxCorrection : null;
+    const ev_ebitda = liveEV != null && ebitda != null && ebitda > 0
+      ? liveEV / ebitda / fxCorrection
       : ks.enterpriseToEbitda != null ? ks.enterpriseToEbitda / fxCorrection : null;
 
     return NextResponse.json({
