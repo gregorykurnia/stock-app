@@ -29,11 +29,30 @@ export interface FundData {
   dividend_yield: number | null;
 }
 
+// Cache exchange rates for 1 hour to avoid hammering Yahoo on every batch
+const fxCache: Record<string, { rate: number; ts: number }> = {};
+async function getExchangeRate(from: string, to: string): Promise<number | null> {
+  const pair = `${from}${to}=X`;
+  const cached = fxCache[pair];
+  if (cached && Date.now() - cached.ts < 3600_000) return cached.rate;
+  try {
+    const q = await yf.quote(pair);
+    const rate = q.regularMarketPrice ?? null;
+    if (rate != null) fxCache[pair] = { rate, ts: Date.now() };
+    return rate;
+  } catch {
+    return null;
+  }
+}
+
 async function fetchOne(ticker: string): Promise<FundData> {
   try {
-    const summary = await yf.quoteSummary(ticker, {
-      modules: ["financialData", "defaultKeyStatistics", "earningsTrend", "summaryDetail"],
-    });
+    const [summary, quoteData] = await Promise.all([
+      yf.quoteSummary(ticker, {
+        modules: ["financialData", "defaultKeyStatistics", "earningsTrend", "summaryDetail"],
+      }),
+      yf.quote(ticker).catch(() => null),
+    ]);
 
     const fd = summary.financialData ?? {};
     const ks = summary.defaultKeyStatistics ?? {};
@@ -44,14 +63,26 @@ async function fetchOne(ticker: string): Promise<FundData> {
     const findGrowth = (period: string) =>
       trends.find((t) => t.period === period)?.growth ?? null;
 
+    // Detect currency mismatch: stock trades in one currency but reports financials in another
+    // e.g. BUMI.JK: currency=IDR, financialCurrency=USD → ratios like P/S, P/B, EV/Rev are inflated by the FX rate
+    const stockCurrency: string = quoteData?.currency ?? "";
+    const financialCurrency: string = quoteData?.financialCurrency ?? stockCurrency;
+    let fxCorrection = 1;
+    if (stockCurrency && financialCurrency && stockCurrency !== financialCurrency) {
+      // Ratio = (market cap in stockCurrency) / (revenue in financialCurrency)
+      // Correct = ratio / (stockCurrency per financialCurrency)
+      const rate = await getExchangeRate(financialCurrency, stockCurrency);
+      if (rate != null && rate > 0) fxCorrection = rate;
+    }
+
     const evFcf = (ks.enterpriseValue != null && fd.freeCashflow != null && fd.freeCashflow > 0)
-      ? ks.enterpriseValue / fd.freeCashflow : null;
+      ? ks.enterpriseValue / fd.freeCashflow / fxCorrection : null;
     const fcfMargin = (fd.freeCashflow != null && fd.totalRevenue != null && fd.totalRevenue > 0)
       ? fd.freeCashflow / fd.totalRevenue : null;
     const pFcf = (sd.marketCap != null && fd.freeCashflow != null && fd.freeCashflow > 0)
-      ? sd.marketCap / fd.freeCashflow : null;
+      ? sd.marketCap / fd.freeCashflow / fxCorrection : null;
 
-    // Cap ratios that are clearly bad data (Yahoo Finance returns junk for some IDX micro-caps)
+    // Cap ratios that are clearly bad data
     const cap = <T extends number | null>(v: T, max: number): T | null => (v != null && (v as number) > max) ? null : v;
 
     return {
@@ -63,9 +94,9 @@ async function fetchOne(ticker: string): Promise<FundData> {
       eps_next_5y: findGrowth("+5y") ?? null,
       short_float: ks.shortPercentOfFloat ?? null,
       trailing_pe: cap(sd.trailingPE ?? null, 2000),
-      ps_ratio: cap(sd.priceToSalesTrailing12Months ?? null, 500),
-      pb_ratio: cap(ks.priceToBook ?? null, 200),
-      ev_revenue: cap(ks.enterpriseToRevenue ?? null, 500),
+      ps_ratio: cap((sd.priceToSalesTrailing12Months ?? null) != null ? (sd.priceToSalesTrailing12Months as number) / fxCorrection : null, 500),
+      pb_ratio: cap((ks.priceToBook ?? null) != null ? (ks.priceToBook as number) / fxCorrection : null, 200),
+      ev_revenue: cap((ks.enterpriseToRevenue ?? null) != null ? (ks.enterpriseToRevenue as number) / fxCorrection : null, 500),
       p_fcf: cap(pFcf, 2000),
       rev_growth: fd.revenueGrowth ?? null,
       gross_margin: fd.grossMargins ?? null,
@@ -73,7 +104,7 @@ async function fetchOne(ticker: string): Promise<FundData> {
       fcf_margin: fcfMargin,
       fwd_pe: ks.forwardPE ?? sd.forwardPE ?? null,
       peg: ks.pegRatio ?? null,
-      ev_ebitda: cap(ks.enterpriseToEbitda ?? null, 2000),
+      ev_ebitda: cap((ks.enterpriseToEbitda ?? null) != null ? (ks.enterpriseToEbitda as number) / fxCorrection : null, 2000),
       ev_fcf: cap(evFcf, 2000),
       dividend_yield: sd.dividendYield ?? null,
     };
