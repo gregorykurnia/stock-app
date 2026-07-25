@@ -8,12 +8,24 @@ import { getCached, setCached, invalidateCache } from "@/lib/pageCache";
 import { SEED_STOCKS, FUNDAMENTALS_RAW, VALUATION_RAW } from "@/lib/seedData";
 import { atrLabel } from "@/lib/indicators";
 import type { CustomStock } from "@/lib/types";
+import type { FundData } from "@/app/api/funddata/route";
 
-const SEED_MAP = new Set(SEED_STOCKS.map((s) => s.ticker));
+const SEED_MAP = new Map(SEED_STOCKS.map((s) => [s.ticker, s]));
 
 const pctColor = (v: number) => v > 0 ? "text-green-600" : v < 0 ? "text-red-500" : "text-gray-500";
 const pct = (v: number | null | undefined) => v == null ? "—" : `${(v * 100).toFixed(1)}%`;
 const num = (v: number | null | undefined, dec = 1) => v == null ? "—" : v.toFixed(dec);
+const eps = (v: number | null | undefined) => v == null ? "—" : (v >= 0 ? `$${v.toFixed(2)}` : `-$${Math.abs(v).toFixed(2)}`);
+
+const scoreColor = (s: number | null | undefined) =>
+  s == null ? "text-gray-400" : s >= 7.5 ? "text-green-600" : s >= 6 ? "text-yellow-600" : "text-red-500";
+
+const urgencyStyles: Record<string, string> = {
+  urgent: "bg-green-100 text-green-700 border border-green-300",
+  watch:  "bg-yellow-100 text-yellow-700 border border-yellow-300",
+  hold:   "bg-blue-100 text-blue-700 border border-blue-300",
+  avoid:  "bg-red-100 text-red-700 border border-red-300",
+};
 
 interface PortfolioRow {
   ticker: string;
@@ -25,6 +37,10 @@ interface PortfolioRow {
   stop_level: number;
   date_entered: string;
   notes: string;
+  // Scores (seed only)
+  combined: number | null;
+  val: number | null;
+  fund: number | null;
   // Fundamentals
   gross_margin: number | null;
   op_margin: number | null;
@@ -34,6 +50,20 @@ interface PortfolioRow {
   fwd_pe: number | null;
   peg: number | null;
   ev_ebitda: number | null;
+  ev_fcf: number | null;
+  // Fetched fundamentals
+  roe: number | null;
+  debt_to_equity: number | null;
+  eps_ttm: number | null;
+  eps_fwd: number | null;
+  eps_past_5y: number | null;
+  eps_next_5y: number | null;
+  short_float: number | null;
+  trailing_pe: number | null;
+  ps_ratio: number | null;
+  pb_ratio: number | null;
+  ev_revenue: number | null;
+  p_fcf: number | null;
   // Live
   price: number | null;
 }
@@ -115,8 +145,12 @@ function EditTextCell({ value, onSave }: { value: string; onSave: (v: string) =>
 type SortKey =
   | "ticker" | "setup" | "price" | "shares" | "entry_price" | "cost" | "mktVal"
   | "plDollar" | "plPct" | "stop_level" | "trimDist" | "ema50" | "hardStopDist"
+  | "combined" | "val" | "fund" | "atr" | "urgency"
+  | "ema20" | "dist_ema20" | "dist_ema50" | "rsi" | "di_plus" | "di_minus" | "cmf"
   | "rev_growth" | "gross_margin" | "op_margin" | "net_margin" | "fcf_margin"
-  | "fwd_pe" | "peg" | "ev_ebitda" | "notes" | "date_entered";
+  | "roe" | "debt_to_equity" | "eps_ttm" | "eps_fwd" | "eps_past_5y" | "eps_next_5y" | "short_float"
+  | "fwd_pe" | "trailing_pe" | "peg" | "ps_ratio" | "pb_ratio" | "ev_ebitda" | "ev_revenue" | "ev_fcf" | "p_fcf"
+  | "notes" | "date_entered";
 
 export default function PortfolioPage() {
   const [rows, setRows] = useState<PortfolioRow[]>([]);
@@ -126,7 +160,13 @@ export default function PortfolioPage() {
   const [atrPcts, setAtrPcts] = useState<Record<string, number | null>>({});
   const [aths, setAths] = useState<Record<string, number | null>>({});
   const [supportLows, setSupportLows] = useState<Record<string, number | null>>({});
+  const [rsis, setRsis] = useState<Record<string, number | null>>({});
+  const [diPluses, setDiPluses] = useState<Record<string, number | null>>({});
+  const [diMinuses, setDiMinuses] = useState<Record<string, number | null>>({});
+  const [cmfs, setCmfs] = useState<Record<string, number | null>>({});
+  const [fundData, setFundData] = useState<Record<string, FundData>>({});
   const [setups, setSetups] = useState<Record<string, string>>({});
+  const [urgencies, setUrgencies] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [markedSet, setMarkedSet] = useState<Set<string>>(new Set());
   const [emaLoading, setEmaLoading] = useState(false);
@@ -174,14 +214,45 @@ export default function PortfolioPage() {
         const _supportDist = cur != null && _support != null ? (cur - _support) / cur : null;
         return _isBeatenDown2 ? (_supportDist ?? NULL_LOW) : (hardStopDist ?? NULL_LOW);
       }
+      case "combined": return r.combined ?? NULL_LOW;
+      case "val": return r.val ?? NULL_LOW;
+      case "fund": return r.fund ?? NULL_LOW;
+      case "atr": return atrPcts[r.ticker] ?? NULL_LOW;
+      case "urgency": {
+        const order = ["urgent", "watch", "hold", "avoid", ""];
+        return order.indexOf(urgencies[r.ticker] ?? "");
+      }
+      case "ema20": return ema20s[r.ticker] ?? NULL_HIGH;
+      case "dist_ema20": {
+        const e = ema20s[r.ticker] ?? null;
+        return cur != null && e != null ? ((cur - e) / e) * 100 : NULL_LOW;
+      }
+      case "dist_ema50": return hardStopDist != null ? hardStopDist * 100 : NULL_LOW;
+      case "rsi": return rsis[r.ticker] ?? NULL_LOW;
+      case "di_plus": return diPluses[r.ticker] ?? NULL_LOW;
+      case "di_minus": return diMinuses[r.ticker] ?? NULL_LOW;
+      case "cmf": return cmfs[r.ticker] ?? NULL_LOW;
       case "rev_growth": return r.rev_growth ?? NULL_LOW;
       case "gross_margin": return r.gross_margin ?? NULL_LOW;
       case "op_margin": return r.op_margin ?? NULL_LOW;
       case "net_margin": return r.net_margin ?? NULL_LOW;
       case "fcf_margin": return r.fcf_margin ?? NULL_LOW;
+      case "roe": return r.roe ?? NULL_LOW;
+      case "debt_to_equity": return r.debt_to_equity ?? NULL_HIGH;
+      case "eps_ttm": return r.eps_ttm ?? NULL_LOW;
+      case "eps_fwd": return r.eps_fwd ?? NULL_LOW;
+      case "eps_past_5y": return r.eps_past_5y ?? NULL_LOW;
+      case "eps_next_5y": return r.eps_next_5y ?? NULL_LOW;
+      case "short_float": return r.short_float ?? NULL_HIGH;
       case "fwd_pe": return r.fwd_pe ?? NULL_HIGH;
+      case "trailing_pe": return r.trailing_pe ?? NULL_HIGH;
       case "peg": return r.peg ?? NULL_HIGH;
+      case "ps_ratio": return r.ps_ratio ?? NULL_HIGH;
+      case "pb_ratio": return r.pb_ratio ?? NULL_HIGH;
       case "ev_ebitda": return r.ev_ebitda ?? NULL_HIGH;
+      case "ev_revenue": return r.ev_revenue ?? NULL_HIGH;
+      case "ev_fcf": return r.ev_fcf ?? NULL_HIGH;
+      case "p_fcf": return r.p_fcf ?? NULL_HIGH;
       case "notes": return r.notes;
       case "date_entered": return r.date_entered;
     }
@@ -212,7 +283,8 @@ export default function PortfolioPage() {
 
       const built: PortfolioRow[] = Object.entries(portfolioData).map(([ticker, raw]) => {
         const p = raw as Record<string, unknown>;
-        const isSeed = SEED_MAP.has(ticker);
+        const seed = SEED_MAP.get(ticker);
+        const isSeed = !!seed;
         const fr = FUNDAMENTALS_RAW[ticker];
         const vr = VALUATION_RAW[ticker];
         const custom = customMap.get(ticker);
@@ -226,6 +298,9 @@ export default function PortfolioPage() {
           stop_level: Number(p.stop_level ?? 0),
           date_entered: String(p.date_entered ?? ""),
           notes: String(p.notes ?? ""),
+          combined: seed?.combined ?? null,
+          val: seed?.val ?? null,
+          fund: seed?.fund ?? null,
           gross_margin: fr?.gross_margin ?? custom?.gross_margin ?? null,
           op_margin: fr?.op_margin ?? custom?.op_margin ?? null,
           net_margin: custom?.net_margin ?? null,
@@ -234,6 +309,19 @@ export default function PortfolioPage() {
           fwd_pe: vr?.fwd_pe ?? custom?.fwd_pe ?? null,
           peg: vr?.peg ?? custom?.peg ?? null,
           ev_ebitda: vr?.ev_ebitda ?? custom?.ev_ebitda ?? null,
+          ev_fcf: vr?.ev_fcf ?? custom?.ev_fcf ?? null,
+          roe: null,
+          debt_to_equity: null,
+          eps_ttm: null,
+          eps_fwd: null,
+          eps_past_5y: null,
+          eps_next_5y: null,
+          short_float: null,
+          trailing_pe: null,
+          ps_ratio: null,
+          pb_ratio: null,
+          ev_revenue: null,
+          p_fcf: null,
           price: null,
         };
       });
@@ -252,14 +340,22 @@ export default function PortfolioPage() {
         setPrices(pricesData);
         setCached("portfolio", { rows: built, prices: pricesData });
 
-        // Fetch setup from latest_verdict for each ticker
+        // Fetch setup + urgency from latest_verdict for each ticker
         const setupResults = await Promise.all(
           built.map(async (row) => {
             const data = await loadStockData(row.ticker).catch(() => null);
-            return [row.ticker, (data as Record<string, Record<string, string>> | null)?.latest_verdict?.setup ?? ""] as [string, string];
+            const verdict = (data as Record<string, Record<string, string>> | null)?.latest_verdict;
+            return [row.ticker, verdict?.setup ?? "", verdict?.urgency ?? ""] as [string, string, string];
           })
         );
-        setSetups(Object.fromEntries(setupResults));
+        setSetups(Object.fromEntries(setupResults.map(([t, s]) => [t, s])));
+        setUrgencies(Object.fromEntries(setupResults.map(([t, , u]) => [t, u])));
+
+        // Fundamentals/valuation data (roe, eps, trailing_pe, ps, pb, ev/rev, ev/fcf, p/fcf, etc.)
+        fetch(`/api/funddata?tickers=${tickers}`)
+          .then((r) => r.json())
+          .then((d) => setFundData(d ?? {}))
+          .catch(() => {});
 
         // EMA20 fetch separately (slower — weekly chart data)
         setEmaLoading(true);
@@ -271,6 +367,10 @@ export default function PortfolioPage() {
             setAtrPcts(d.atrPct ?? {});
             setAths(d.ath ?? {});
             setSupportLows(d.supportLow ?? {});
+            setRsis(d.rsi ?? {});
+            setDiPluses(d.diPlus ?? {});
+            setDiMinuses(d.diMinus ?? {});
+            setCmfs(d.cmf ?? {});
             // Auto-save EMA20 as stop for any position where stop is still 0
             built.forEach((row) => {
               const ema = d.ema20?.[row.ticker];
@@ -294,6 +394,38 @@ export default function PortfolioPage() {
 
   useEffect(() => { load(); }, [load]);
   useEffect(() => { getMarkedTickers().then(setMarkedSet).catch(() => {}); }, []);
+
+  // Merge in fetched fundData (roe, eps, trailing_pe, ps/pb, ev/rev, ev/fcf, p/fcf, etc.)
+  useEffect(() => {
+    if (Object.keys(fundData).length === 0) return;
+    setRows((prev) => prev.map((r) => {
+      const fd = fundData[r.ticker];
+      if (!fd) return r;
+      return {
+        ...r,
+        roe: fd.roe ?? r.roe,
+        debt_to_equity: fd.debt_to_equity ?? r.debt_to_equity,
+        eps_ttm: fd.eps_ttm ?? r.eps_ttm,
+        eps_fwd: fd.eps_fwd ?? r.eps_fwd,
+        eps_past_5y: fd.eps_past_5y ?? r.eps_past_5y,
+        eps_next_5y: fd.eps_next_5y ?? r.eps_next_5y,
+        short_float: fd.short_float ?? r.short_float,
+        trailing_pe: fd.trailing_pe ?? r.trailing_pe,
+        ps_ratio: fd.ps_ratio ?? r.ps_ratio,
+        pb_ratio: fd.pb_ratio ?? r.pb_ratio,
+        ev_revenue: fd.ev_revenue ?? r.ev_revenue,
+        p_fcf: fd.p_fcf ?? r.p_fcf,
+        fwd_pe: r.fwd_pe ?? fd.fwd_pe,
+        peg: r.peg ?? fd.peg,
+        ev_ebitda: r.ev_ebitda ?? fd.ev_ebitda,
+        ev_fcf: r.ev_fcf ?? fd.ev_fcf,
+        rev_growth: r.rev_growth ?? fd.rev_growth,
+        gross_margin: r.gross_margin ?? fd.gross_margin,
+        op_margin: r.op_margin ?? fd.op_margin,
+        fcf_margin: r.fcf_margin ?? fd.fcf_margin,
+      };
+    }));
+  }, [fundData]);
 
   async function updateField(ticker: string, field: string, value: unknown) {
     const row = rows.find((r) => r.ticker === ticker);
@@ -334,7 +466,12 @@ export default function PortfolioPage() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => {
-                const headers = ["Ticker", "Setup", "Shares", "Entry Price", "Cost Basis", "Market Value", "P&L $", "P&L %", "Stop Level", "Stop Dist %", "EMA20w", "EMA50w", "ATR%", "Rev Gr%", "Gross%", "Op%", "Net%", "FCF%", "Fwd PE", "PEG", "EV/EBITDA", "Notes", "Date Entered"];
+                const headers = ["Ticker", "Setup", "Shares", "Entry Price", "Cost Basis", "Market Value", "P&L $", "P&L %", "Stop Level", "Stop Dist %", "EMA20w", "EMA50w",
+                  "Score", "Val", "Fund", "ATR%", "Urgency", "Dist EMA20%", "Dist EMA50%", "RSI", "DI+", "DI-", "CMF",
+                  "Rev Gr%", "Gross%", "Op%", "Net%", "FCF%", "ROE%", "D/E",
+                  "EPS TTM", "EPS Fwd", "EPS Past 5Y%", "EPS Next 5Y%", "Short Float%",
+                  "Fwd PE", "Trail PE", "PEG", "P/S", "P/B", "EV/EBITDA", "EV/Rev", "EV/FCF", "P/FCF",
+                  "Notes", "Date Entered"];
                 const data = rows.map((r) => {
                   const cur = prices[r.ticker] ?? null;
                   const cost = r.entry_price * r.shares;
@@ -342,20 +479,35 @@ export default function PortfolioPage() {
                   const plDollar = mktVal != null ? mktVal - cost : null;
                   const plPct = plDollar != null && cost > 0 ? plDollar / cost * 100 : null;
                   const stopDist = cur != null && r.stop_level > 0 ? (cur - r.stop_level) / cur * 100 : null;
+                  const ema20 = ema20s[r.ticker] ?? null;
+                  const ema50 = ema50s[r.ticker] ?? null;
+                  const distEma20 = cur != null && ema20 != null ? ((cur - ema20) / ema20) * 100 : null;
+                  const distEma50 = cur != null && ema50 != null ? ((cur - ema50) / ema50) * 100 : null;
                   return [
                     r.ticker, setups[r.ticker] ?? "", r.shares, r.entry_price,
                     cost.toFixed(2), mktVal?.toFixed(2) ?? "",
                     plDollar?.toFixed(2) ?? "", plPct?.toFixed(1) ?? "",
                     r.stop_level > 0 ? r.stop_level : "", stopDist?.toFixed(1) ?? "",
-                    ema20s[r.ticker]?.toFixed(2) ?? "", ema50s[r.ticker]?.toFixed(2) ?? "",
-                    atrPcts[r.ticker]?.toFixed(1) ?? "",
+                    ema20?.toFixed(2) ?? "", ema50?.toFixed(2) ?? "",
+                    r.combined?.toFixed(1) ?? "", r.val?.toFixed(1) ?? "", r.fund?.toFixed(1) ?? "",
+                    atrPcts[r.ticker]?.toFixed(1) ?? "", urgencies[r.ticker] ?? "",
+                    distEma20?.toFixed(1) ?? "", distEma50?.toFixed(1) ?? "",
+                    rsis[r.ticker]?.toFixed(1) ?? "", diPluses[r.ticker]?.toFixed(1) ?? "", diMinuses[r.ticker]?.toFixed(1) ?? "", cmfs[r.ticker]?.toFixed(3) ?? "",
                     r.rev_growth != null ? (r.rev_growth * 100).toFixed(1) : "",
                     r.gross_margin != null ? (r.gross_margin * 100).toFixed(1) : "",
                     r.op_margin != null ? (r.op_margin * 100).toFixed(1) : "",
                     r.net_margin != null ? (r.net_margin * 100).toFixed(1) : "",
                     r.fcf_margin != null ? (r.fcf_margin * 100).toFixed(1) : "",
-                    r.fwd_pe?.toFixed(2) ?? "", r.peg?.toFixed(2) ?? "",
-                    r.ev_ebitda?.toFixed(1) ?? "",
+                    r.roe != null ? (r.roe * 100).toFixed(1) : "",
+                    r.debt_to_equity?.toFixed(2) ?? "",
+                    r.eps_ttm?.toFixed(2) ?? "", r.eps_fwd?.toFixed(2) ?? "",
+                    r.eps_past_5y != null ? (r.eps_past_5y * 100).toFixed(1) : "",
+                    r.eps_next_5y != null ? (r.eps_next_5y * 100).toFixed(1) : "",
+                    r.short_float != null ? (r.short_float * 100).toFixed(1) : "",
+                    r.fwd_pe?.toFixed(2) ?? "", r.trailing_pe?.toFixed(2) ?? "", r.peg?.toFixed(2) ?? "",
+                    r.ps_ratio?.toFixed(2) ?? "", r.pb_ratio?.toFixed(2) ?? "",
+                    r.ev_ebitda?.toFixed(1) ?? "", r.ev_revenue?.toFixed(2) ?? "",
+                    r.ev_fcf?.toFixed(1) ?? "", r.p_fcf?.toFixed(1) ?? "",
                     r.notes, r.date_entered,
                   ];
                 });
@@ -416,10 +568,26 @@ export default function PortfolioPage() {
                       {sortKey === key && <span className="ml-1">{sortDir === 1 ? "↑" : "↓"}</span>}
                     </th>
                   ))}
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Weekly ATR% — volatility as % of price">ATR%</th>
+                  {([
+                    ["combined", "Score"], ["val", "Val"], ["fund", "Fund"], ["atr", "ATR%"], ["urgency", "Urgency"],
+                    ["dist_ema20", "Dist EMA20"], ["dist_ema50", "Dist EMA50"],
+                    ["rsi", "RSI"], ["di_plus", "DI+"], ["di_minus", "DI-"], ["cmf", "CMF"],
+                  ] as [SortKey, string][]).map(([key, label]) => (
+                    <th
+                      key={key}
+                      onClick={() => handleSort(key)}
+                      className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap cursor-pointer select-none hover:text-gray-800 hover:bg-gray-200 transition-colors"
+                    >
+                      {label}
+                      {sortKey === key && <span className="ml-1">{sortDir === 1 ? "↑" : "↓"}</span>}
+                    </th>
+                  ))}
                   {([
                     ["rev_growth", "Rev Gr"], ["gross_margin", "Gross%"], ["op_margin", "Op%"], ["net_margin", "Net%"], ["fcf_margin", "FCF%"],
-                    ["fwd_pe", "Fwd PE"], ["peg", "PEG"], ["ev_ebitda", "EV/EBITDA"],
+                    ["roe", "ROE%"], ["debt_to_equity", "D/E"],
+                    ["eps_ttm", "EPS TTM"], ["eps_fwd", "EPS Fwd"], ["eps_past_5y", "EPS P5Y"], ["eps_next_5y", "EPS N5Y"], ["short_float", "Short%"],
+                    ["fwd_pe", "Fwd PE"], ["trailing_pe", "Trail PE"], ["peg", "PEG"], ["ps_ratio", "P/S"], ["pb_ratio", "P/B"],
+                    ["ev_ebitda", "EV/EBITDA"], ["ev_revenue", "EV/Rev"], ["ev_fcf", "EV/FCF"], ["p_fcf", "P/FCF"],
                     ["notes", "Notes ✎"], ["date_entered", "Date"],
                   ] as [SortKey, string][]).map(([key, label]) => (
                     <th
@@ -536,6 +704,9 @@ export default function PortfolioPage() {
                           : (hardStopDist != null ? `${(hardStopDist * 100).toFixed(1)}%` : "—")
                         }
                       </td>
+                      <td className={`px-3 py-2 font-bold ${scoreColor(r.combined)}`}>{r.combined != null ? r.combined.toFixed(1) : <span className="text-gray-300">—</span>}</td>
+                      <td className={`px-3 py-2 ${scoreColor(r.val)}`}>{r.val != null ? r.val.toFixed(1) : <span className="text-gray-300">—</span>}</td>
+                      <td className={`px-3 py-2 ${scoreColor(r.fund)}`}>{r.fund != null ? r.fund.toFixed(1) : <span className="text-gray-300">—</span>}</td>
                       <td className="px-3 py-2 whitespace-nowrap">
                         {(() => {
                           const v = atrPcts[r.ticker];
@@ -549,14 +720,80 @@ export default function PortfolioPage() {
                           );
                         })()}
                       </td>
+                      <td className="px-3 py-2">
+                        {urgencies[r.ticker] ? (
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-semibold uppercase ${urgencyStyles[urgencies[r.ticker]] ?? ""}`}>
+                            {urgencies[r.ticker]}
+                          </span>
+                        ) : <span className="text-gray-400 text-xs">—</span>}
+                      </td>
+                      {(() => {
+                        const ema20v = ema20s[r.ticker] ?? null;
+                        const distEma20 = cur != null && ema20v != null ? ((cur - ema20v) / ema20v) * 100 : null;
+                        const distEma50 = hardStopDist != null ? hardStopDist * 100 : null;
+                        const distColor = (d: number | null) => {
+                          if (d == null) return "text-gray-400";
+                          if (d < -10) return "text-red-500";
+                          if (d < 0) return "text-orange-500";
+                          if (d < 10) return "text-green-600";
+                          return "text-blue-600";
+                        };
+                        const rsiColor = (v: number | null) => {
+                          if (v == null) return "text-gray-400";
+                          if (v > 70) return "text-red-500";
+                          if (v < 40) return "text-blue-500";
+                          return "text-gray-700";
+                        };
+                        const cmfColor = (v: number | null) => {
+                          if (v == null) return "text-gray-400";
+                          if (v > 0.05) return "text-green-600";
+                          if (v < -0.05) return "text-red-500";
+                          return "text-gray-500";
+                        };
+                        const rsi = rsis[r.ticker] ?? null;
+                        const diP = diPluses[r.ticker] ?? null;
+                        const diM = diMinuses[r.ticker] ?? null;
+                        const cmf = cmfs[r.ticker] ?? null;
+                        return (
+                          <>
+                            <td className={`px-3 py-2 font-semibold ${distColor(distEma20)}`}>
+                              {distEma20 != null ? `${distEma20 > 0 ? "+" : ""}${distEma20.toFixed(1)}%` : <span className="text-gray-400">—</span>}
+                            </td>
+                            <td className={`px-3 py-2 font-semibold ${distColor(distEma50)}`}>
+                              {distEma50 != null ? `${distEma50 > 0 ? "+" : ""}${distEma50.toFixed(1)}%` : <span className="text-gray-400">—</span>}
+                            </td>
+                            <td className={`px-3 py-2 font-semibold ${rsiColor(rsi)}`}>
+                              {rsi != null ? rsi.toFixed(1) : <span className="text-gray-400">—</span>}
+                            </td>
+                            <td className="px-3 py-2 text-gray-700">{diP != null ? diP.toFixed(1) : <span className="text-gray-400">—</span>}</td>
+                            <td className="px-3 py-2 text-gray-700">{diM != null ? diM.toFixed(1) : <span className="text-gray-400">—</span>}</td>
+                            <td className={`px-3 py-2 font-semibold ${cmfColor(cmf)}`}>
+                              {cmf != null ? cmf.toFixed(3) : <span className="text-gray-400">—</span>}
+                            </td>
+                          </>
+                        );
+                      })()}
                       <td className="px-3 py-2 text-gray-600">{pct(r.rev_growth)}</td>
                       <td className="px-3 py-2 text-gray-600">{pct(r.gross_margin)}</td>
                       <td className="px-3 py-2 text-gray-600">{pct(r.op_margin)}</td>
                       <td className="px-3 py-2 text-gray-600">{pct(r.net_margin)}</td>
                       <td className="px-3 py-2 text-gray-600">{pct(r.fcf_margin)}</td>
+                      <td className="px-3 py-2 text-gray-600">{pct(r.roe)}</td>
+                      <td className="px-3 py-2 text-gray-600">{num(r.debt_to_equity, 2)}</td>
+                      <td className="px-3 py-2 text-gray-600">{eps(r.eps_ttm)}</td>
+                      <td className="px-3 py-2 text-gray-600">{eps(r.eps_fwd)}</td>
+                      <td className="px-3 py-2 text-gray-600">{pct(r.eps_past_5y)}</td>
+                      <td className="px-3 py-2 text-gray-600">{pct(r.eps_next_5y)}</td>
+                      <td className="px-3 py-2 text-gray-600">{pct(r.short_float)}</td>
                       <td className="px-3 py-2 text-gray-600">{num(r.fwd_pe)}</td>
+                      <td className="px-3 py-2 text-gray-600">{num(r.trailing_pe)}</td>
                       <td className="px-3 py-2 text-gray-600">{num(r.peg, 2)}</td>
+                      <td className="px-3 py-2 text-gray-600">{num(r.ps_ratio, 2)}</td>
+                      <td className="px-3 py-2 text-gray-600">{num(r.pb_ratio, 2)}</td>
                       <td className="px-3 py-2 text-gray-600">{num(r.ev_ebitda)}</td>
+                      <td className="px-3 py-2 text-gray-600">{num(r.ev_revenue, 2)}</td>
+                      <td className="px-3 py-2 text-gray-600">{num(r.ev_fcf)}</td>
+                      <td className="px-3 py-2 text-gray-600">{num(r.p_fcf)}</td>
                       <td className="px-3 py-2">
                         <EditTextCell value={r.notes} onSave={(v) => updateField(r.ticker, "notes", v)} />
                       </td>
