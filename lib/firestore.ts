@@ -103,6 +103,30 @@ export async function updateWatchlistAlertState(ticker: string, data: { triggere
   await setDoc(doc(db, "watchlist", ticker), data, { merge: true });
 }
 
+// Standalone price alerts (any ticker, independent of watchlist/portfolio membership)
+export async function getPriceAlerts(): Promise<Record<string, object>> {
+  const snap = await getDocs(collection(db, "price_alerts"));
+  const result: Record<string, object> = {};
+  snap.forEach((d) => { result[d.id] = d.data(); });
+  return result;
+}
+
+export async function savePriceAlert(ticker: string, alertPrice: number) {
+  await setDoc(doc(db, "price_alerts", ticker), {
+    ticker,
+    alert_price: alertPrice,
+    created_at: new Date().toISOString(),
+  });
+}
+
+export async function removePriceAlert(ticker: string) {
+  await deleteDoc(doc(db, "price_alerts", ticker));
+}
+
+export async function updatePriceAlertState(ticker: string, data: { triggered?: boolean; last_price_side?: "above" | "below" }) {
+  await setDoc(doc(db, "price_alerts", ticker), data, { merge: true });
+}
+
 // Push subscriptions (for price alert notifications)
 export async function savePushSubscription(sub: { endpoint: string; keys: { p256dh: string; auth: string } }) {
   const id = encodeURIComponent(sub.endpoint);

@@ -106,6 +106,14 @@ export interface WatchlistEntry {
   last_price_side?: "above" | "below";
 }
 
+export interface PriceAlert {
+  ticker: string;
+  alert_price: number;
+  created_at: string;
+  triggered?: boolean;
+  last_price_side?: "above" | "below";
+}
+
 export interface PushSubscriptionDoc {
   endpoint: string;
   keys: { p256dh: string; auth: string };

@@ -34,6 +34,7 @@ export default function RootLayout({
           <Link href="/" className="text-gray-500 hover:text-gray-900">Master Table</Link>
           <Link href="/portfolio" className="text-gray-500 hover:text-gray-900">Portfolio</Link>
           <Link href="/watchlist" className="text-gray-500 hover:text-gray-900">Watchlist</Link>
+          <Link href="/alerts" className="text-gray-500 hover:text-gray-900">Price Alerts</Link>
         </nav>
         {children}
       </body>

@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchQuotes } from "@/lib/yahooServer";
-import { getWatchlist, getPushSubscriptions, updateWatchlistAlertState } from "@/lib/firestore";
+import {
+  getWatchlist, updateWatchlistAlertState,
+  getPriceAlerts, updatePriceAlertState,
+  getPushSubscriptions,
+} from "@/lib/firestore";
 import { sendPushToAll } from "@/lib/webpush";
-import type { WatchlistEntry } from "@/lib/types";
+import type { WatchlistEntry, PriceAlert } from "@/lib/types";
 
 function isMarketHoursET(): boolean {
   const now = new Date();
@@ -28,6 +32,13 @@ function isMarketHoursET(): boolean {
   return minutesSinceMidnight >= marketOpen && minutesSinceMidnight <= marketClose;
 }
 
+interface AlertLike {
+  ticker: string;
+  alert_price: number;
+  triggered?: boolean;
+  last_price_side?: "above" | "below";
+}
+
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("authorization");
   if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -38,44 +49,56 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ skipped: "outside market hours" });
   }
 
-  const watchlist = await getWatchlist();
-  const entries = Object.entries(watchlist) as [string, WatchlistEntry][];
-  const candidates = entries.filter(([, w]) => w.alert_price > 0 && !w.triggered);
+  const [watchlist, priceAlerts] = await Promise.all([getWatchlist(), getPriceAlerts()]);
 
-  if (candidates.length === 0) {
+  const watchlistCandidates: AlertLike[] = (Object.entries(watchlist) as [string, WatchlistEntry][])
+    .filter(([, w]) => w.alert_price > 0 && !w.triggered)
+    .map(([ticker, w]) => ({ ticker, alert_price: w.alert_price, triggered: w.triggered, last_price_side: w.last_price_side }));
+
+  const standaloneCandidates: AlertLike[] = (Object.entries(priceAlerts) as [string, PriceAlert][])
+    .filter(([, a]) => a.alert_price > 0 && !a.triggered)
+    .map(([ticker, a]) => ({ ticker, alert_price: a.alert_price, triggered: a.triggered, last_price_side: a.last_price_side }));
+
+  const allTickers = Array.from(new Set([...watchlistCandidates, ...standaloneCandidates].map((c) => c.ticker)));
+
+  if (allTickers.length === 0) {
     return NextResponse.json({ checked: 0, triggered: 0 });
   }
 
-  const tickers = candidates.map(([ticker]) => ticker);
-  const { prices } = await fetchQuotes(tickers);
-
+  const { prices } = await fetchQuotes(allTickers);
   const subscriptions = await getPushSubscriptions();
   const triggeredTickers: string[] = [];
 
-  await Promise.all(
-    candidates.map(async ([ticker, w]) => {
-      const price = prices[ticker];
-      if (price == null) return;
+  async function processCandidate(c: AlertLike, updateState: (ticker: string, data: { triggered?: boolean; last_price_side?: "above" | "below" }) => Promise<void>) {
+    const price = prices[c.ticker];
+    if (price == null) return;
 
-      const side: "above" | "below" = price >= w.alert_price ? "above" : "below";
+    const side: "above" | "below" = price >= c.alert_price ? "above" : "below";
 
-      if (w.last_price_side && w.last_price_side !== side) {
-        // Crossed the alert price since last check — fire once.
-        triggeredTickers.push(ticker);
-        await updateWatchlistAlertState(ticker, { triggered: true, last_price_side: side });
-        if (subscriptions.length > 0) {
-          await sendPushToAll(subscriptions, {
-            title: `${ticker} hit your alert price`,
-            body: `${ticker} is now $${price.toFixed(2)} (alert set at $${w.alert_price.toFixed(2)})`,
-            url: `/stock/${ticker}`,
-          });
-        }
-      } else if (!w.last_price_side) {
-        // First-ever check for this alert: just record the current side, don't fire.
-        await updateWatchlistAlertState(ticker, { last_price_side: side });
+    if (c.last_price_side && c.last_price_side !== side) {
+      triggeredTickers.push(c.ticker);
+      await updateState(c.ticker, { triggered: true, last_price_side: side });
+      if (subscriptions.length > 0) {
+        await sendPushToAll(subscriptions, {
+          title: `${c.ticker} hit your alert price`,
+          body: `${c.ticker} is now $${price.toFixed(2)} (alert set at $${c.alert_price.toFixed(2)})`,
+          url: `/stock/${c.ticker}`,
+        });
       }
-    })
-  );
+    } else if (!c.last_price_side) {
+      // First-ever check for this alert: just record the current side, don't fire.
+      await updateState(c.ticker, { last_price_side: side });
+    }
+  }
 
-  return NextResponse.json({ checked: candidates.length, triggered: triggeredTickers.length, triggeredTickers });
+  await Promise.all([
+    ...watchlistCandidates.map((c) => processCandidate(c, updateWatchlistAlertState)),
+    ...standaloneCandidates.map((c) => processCandidate(c, updatePriceAlertState)),
+  ]);
+
+  return NextResponse.json({
+    checked: watchlistCandidates.length + standaloneCandidates.length,
+    triggered: triggeredTickers.length,
+    triggeredTickers,
+  });
 }
