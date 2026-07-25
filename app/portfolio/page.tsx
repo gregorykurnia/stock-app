@@ -354,7 +354,7 @@ export default function PortfolioPage() {
         // Fundamentals/valuation data (roe, eps, trailing_pe, ps, pb, ev/rev, ev/fcf, p/fcf, etc.)
         fetch(`/api/funddata?tickers=${tickers}`)
           .then((r) => r.json())
-          .then((d) => setFundData(d ?? {}))
+          .then((d) => setFundData(d.data ?? {}))
           .catch(() => {});
 
         // EMA20 fetch separately (slower — weekly chart data)
