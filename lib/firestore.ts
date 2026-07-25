@@ -99,6 +99,29 @@ export async function removeWatchlistEntry(ticker: string) {
   await deleteDoc(doc(db, "watchlist", ticker));
 }
 
+export async function updateWatchlistAlertState(ticker: string, data: { triggered?: boolean; last_price_side?: "above" | "below" }) {
+  await setDoc(doc(db, "watchlist", ticker), data, { merge: true });
+}
+
+// Push subscriptions (for price alert notifications)
+export async function savePushSubscription(sub: { endpoint: string; keys: { p256dh: string; auth: string } }) {
+  const id = encodeURIComponent(sub.endpoint);
+  await setDoc(doc(db, "push_subscriptions", id), {
+    endpoint: sub.endpoint,
+    keys: sub.keys,
+    created_at: new Date().toISOString(),
+  });
+}
+
+export async function getPushSubscriptions(): Promise<{ endpoint: string; keys: { p256dh: string; auth: string } }[]> {
+  const snap = await getDocs(collection(db, "push_subscriptions"));
+  return snap.docs.map((d) => d.data() as { endpoint: string; keys: { p256dh: string; auth: string } });
+}
+
+export async function removePushSubscription(endpoint: string) {
+  await deleteDoc(doc(db, "push_subscriptions", encodeURIComponent(endpoint)));
+}
+
 // Marked stocks (danger zone)
 export async function getMarkedTickers(): Promise<Set<string>> {
   const snap = await getDocs(collection(db, "marked"));

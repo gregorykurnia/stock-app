@@ -5,6 +5,7 @@ import Link from "next/link";
 import { getWatchlist, saveWatchlistEntry, removeWatchlistEntry, getCustomStocks, loadStockData, getMarkedTickers } from "@/lib/firestore";
 import { downloadCsv } from "@/lib/exportCsv";
 import { getCached, setCached, invalidateCache } from "@/lib/pageCache";
+import { subscribeToPush } from "@/lib/push";
 import { SEED_STOCKS, FUNDAMENTALS_RAW, VALUATION_RAW } from "@/lib/seedData";
 import { atrLabel } from "@/lib/indicators";
 import type { CustomStock } from "@/lib/types";
@@ -36,6 +37,8 @@ interface WatchlistRow {
   verdict: string;
   notes: string;
   date_added: string;
+  triggered?: boolean;
+  last_price_side?: "above" | "below";
   gross_margin: number | null;
   op_margin: number | null;
   net_margin: number | null;
@@ -154,6 +157,17 @@ export default function WatchlistPage() {
   const [markedSet, setMarkedSet] = useState<Set<string>>(new Set());
   const [sortKey, setSortKey] = useState<SortKey>("ticker");
   const [sortDir, setSortDir] = useState<1 | -1>(1);
+  const [pushSubscribed, setPushSubscribed] = useState(
+    () => typeof window !== "undefined" && localStorage.getItem("push_subscribed") === "true"
+  );
+  const [pushStatus, setPushStatus] = useState<string | null>(null);
+
+  async function handleEnableAlerts() {
+    setPushStatus(null);
+    const result = await subscribeToPush();
+    setPushStatus(result.message);
+    setPushSubscribed(result.ok);
+  }
 
   function handleSort(key: SortKey) {
     setSortKey((prev) => {
@@ -227,6 +241,8 @@ export default function WatchlistPage() {
           verdict: String(w.verdict ?? "watch"),
           notes: String(w.notes ?? ""),
           date_added: String(w.date_added ?? ""),
+          triggered: Boolean(w.triggered ?? false),
+          last_price_side: w.last_price_side as "above" | "below" | undefined,
           gross_margin: fr?.gross_margin ?? custom?.gross_margin ?? null,
           op_margin: fr?.op_margin ?? custom?.op_margin ?? null,
           net_margin: custom?.net_margin ?? null,
@@ -281,13 +297,17 @@ export default function WatchlistPage() {
   async function updateField(ticker: string, field: string, value: unknown) {
     const row = rows.find((r) => r.ticker === ticker);
     if (!row) return;
+    // Changing alert_price re-arms the alert (clears triggered/last_price_side);
+    // any other field edit preserves the current alert-fired state.
+    const alertState = field === "alert_price" ? {} : { triggered: row.triggered, last_price_side: row.last_price_side };
     const updated = {
       alert_price: row.alert_price, entry_zone: row.entry_zone,
       verdict: row.verdict, notes: row.notes, date_added: row.date_added,
+      ...alertState,
       [field]: value,
     };
     await saveWatchlistEntry(ticker, updated);
-    setRows((prev) => prev.map((r) => r.ticker === ticker ? { ...r, [field]: value } : r));
+    setRows((prev) => prev.map((r) => r.ticker === ticker ? { ...r, [field]: value, ...(field === "alert_price" ? { triggered: false, last_price_side: undefined } : {}) } : r));
   }
 
   async function handleRemove(ticker: string) {
@@ -326,6 +346,15 @@ export default function WatchlistPage() {
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <div className="flex flex-col items-end">
+              <button
+                onClick={handleEnableAlerts}
+                className={`text-xs px-3 py-1.5 rounded border ${pushSubscribed ? "border-green-300 text-green-700 bg-green-50" : "border-gray-300 text-gray-600 hover:border-gray-400 hover:text-gray-800 bg-white"}`}
+              >
+                {pushSubscribed ? "🔔 Price Alerts Enabled" : "Enable Price Alerts"}
+              </button>
+              {pushStatus && <span className="text-xs text-gray-400 mt-0.5">{pushStatus}</span>}
+            </div>
             <button
               onClick={() => {
                 const headers = ["Ticker", "Setup", "Price", "EMA20w", "Dist 20w%", "EMA50w", "Dist 50w%", "ATR%", "Alert Price", "Verdict", "Rev Gr%", "Gross%", "Op%", "Net%", "FCF%", "Fwd PE", "PEG", "EV/EBITDA", "Notes", "Date Added"];

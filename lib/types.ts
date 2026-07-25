@@ -102,6 +102,14 @@ export interface WatchlistEntry {
   verdict: string;
   date_added: string;
   notes?: string;
+  triggered?: boolean;
+  last_price_side?: "above" | "below";
+}
+
+export interface PushSubscriptionDoc {
+  endpoint: string;
+  keys: { p256dh: string; auth: string };
+  created_at: string;
 }
 
 export interface Verdict {
