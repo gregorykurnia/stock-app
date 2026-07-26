@@ -181,6 +181,7 @@ export default function AlertsPage() {
                             value={priceDraft[a.ticker] ?? a.alert_price.toFixed(2)}
                             onChange={(e) => setPriceDraft((prev) => ({ ...prev, [a.ticker]: e.target.value }))}
                             onBlur={(e) => handlePriceBlur(a.ticker, e.target.value)}
+                            onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
                             className="w-20 border border-transparent hover:border-gray-200 focus:border-blue-400 rounded px-1.5 py-1 text-xs text-gray-700 focus:outline-none bg-transparent focus:bg-white"
                           />
                         </div>
@@ -199,6 +200,7 @@ export default function AlertsPage() {
                           value={notesDraft[a.ticker] ?? a.notes ?? ""}
                           onChange={(e) => setNotesDraft((prev) => ({ ...prev, [a.ticker]: e.target.value }))}
                           onBlur={(e) => handleNotesBlur(a.ticker, e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
                           placeholder="What to do…"
                           className="w-48 border border-transparent hover:border-gray-200 focus:border-blue-400 rounded px-2 py-1 text-xs text-gray-700 focus:outline-none bg-transparent focus:bg-white"
                         />
