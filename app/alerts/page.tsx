@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { getPriceAlerts, savePriceAlert, removePriceAlert, updatePriceAlertState } from "@/lib/firestore";
+import { getPriceAlerts, savePriceAlert, removePriceAlert, updatePriceAlertState, updatePriceAlertNotes } from "@/lib/firestore";
 import { subscribeToPush } from "@/lib/push";
 import type { PriceAlert } from "@/lib/types";
 
@@ -17,6 +17,7 @@ export default function AlertsPage() {
     () => typeof window !== "undefined" && localStorage.getItem("push_subscribed") === "true"
   );
   const [pushStatus, setPushStatus] = useState<string | null>(null);
+  const [notesDraft, setNotesDraft] = useState<Record<string, string>>({});
 
   const load = useCallback(async (showLoading = false) => {
     if (showLoading) setLoading(true);
@@ -74,6 +75,13 @@ export default function AlertsPage() {
   async function handleReset(ticker: string) {
     await updatePriceAlertState(ticker, { triggered: false, last_price_side: undefined });
     await load();
+  }
+
+  async function handleNotesBlur(ticker: string, value: string) {
+    const current = alerts.find((a) => a.ticker === ticker)?.notes ?? "";
+    if (value === current) return;
+    await updatePriceAlertNotes(ticker, value);
+    setAlerts((prev) => prev.map((a) => (a.ticker === ticker ? { ...a, notes: value } : a)));
   }
 
   return (
@@ -135,6 +143,7 @@ export default function AlertsPage() {
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Current Price</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Alert Price</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Notes</th>
                   <th className="px-3 py-2" />
                 </tr>
               </thead>
@@ -154,6 +163,16 @@ export default function AlertsPage() {
                         {a.triggered
                           ? <span className="text-xs px-2 py-0.5 rounded-full font-semibold uppercase bg-green-100 text-green-700 border border-green-300">Triggered</span>
                           : <span className="text-xs px-2 py-0.5 rounded-full font-semibold uppercase bg-blue-100 text-blue-700 border border-blue-300">Active</span>}
+                      </td>
+                      <td className="px-3 py-2">
+                        <input
+                          type="text"
+                          value={notesDraft[a.ticker] ?? a.notes ?? ""}
+                          onChange={(e) => setNotesDraft((prev) => ({ ...prev, [a.ticker]: e.target.value }))}
+                          onBlur={(e) => handleNotesBlur(a.ticker, e.target.value)}
+                          placeholder="What to do…"
+                          className="w-48 border border-transparent hover:border-gray-200 focus:border-blue-400 rounded px-2 py-1 text-xs text-gray-700 focus:outline-none bg-transparent focus:bg-white"
+                        />
                       </td>
                       <td className="px-3 py-2 text-right whitespace-nowrap">
                         {a.triggered && (

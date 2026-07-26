@@ -112,6 +112,7 @@ export interface PriceAlert {
   created_at: string;
   triggered?: boolean;
   last_price_side?: "above" | "below";
+  notes?: string;
 }
 
 export interface PushSubscriptionDoc {

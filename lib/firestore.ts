@@ -127,6 +127,10 @@ export async function updatePriceAlertState(ticker: string, data: { triggered?: 
   await setDoc(doc(db, "price_alerts", ticker), data, { merge: true });
 }
 
+export async function updatePriceAlertNotes(ticker: string, notes: string) {
+  await setDoc(doc(db, "price_alerts", ticker), { notes }, { merge: true });
+}
+
 // Push subscriptions (for price alert notifications)
 export async function savePushSubscription(sub: { endpoint: string; keys: { p256dh: string; auth: string } }) {
   const id = encodeURIComponent(sub.endpoint);

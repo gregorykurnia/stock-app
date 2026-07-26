@@ -37,6 +37,7 @@ interface AlertLike {
   alert_price: number;
   triggered?: boolean;
   last_price_side?: "above" | "below";
+  notes?: string;
 }
 
 export async function GET(req: NextRequest) {
@@ -57,7 +58,7 @@ export async function GET(req: NextRequest) {
 
   const standaloneCandidates: AlertLike[] = (Object.entries(priceAlerts) as [string, PriceAlert][])
     .filter(([, a]) => a.alert_price > 0 && !a.triggered)
-    .map(([ticker, a]) => ({ ticker, alert_price: a.alert_price, triggered: a.triggered, last_price_side: a.last_price_side }));
+    .map(([ticker, a]) => ({ ticker, alert_price: a.alert_price, triggered: a.triggered, last_price_side: a.last_price_side, notes: a.notes }));
 
   const allTickers = Array.from(new Set([...watchlistCandidates, ...standaloneCandidates].map((c) => c.ticker)));
 
@@ -79,9 +80,10 @@ export async function GET(req: NextRequest) {
       triggeredTickers.push(c.ticker);
       await updateState(c.ticker, { triggered: true, last_price_side: side });
       if (subscriptions.length > 0) {
+        const priceLine = `${c.ticker} is now $${price.toFixed(2)} (alert set at $${c.alert_price.toFixed(2)})`;
         await sendPushToAll(subscriptions, {
           title: `${c.ticker} hit your alert price`,
-          body: `${c.ticker} is now $${price.toFixed(2)} (alert set at $${c.alert_price.toFixed(2)})`,
+          body: c.notes ? `${priceLine}\n${c.notes}` : priceLine,
           url: `/stock/${c.ticker}`,
         });
       }
