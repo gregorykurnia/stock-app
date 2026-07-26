@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc, collection, addDoc, getDocs, deleteDoc } from "firebase/firestore";
+import { doc, getDoc, setDoc, collection, addDoc, getDocs, deleteDoc, deleteField } from "firebase/firestore";
 import { db } from "./firebase";
 
 export async function loadStockData(ticker: string) {
@@ -124,7 +124,12 @@ export async function removePriceAlert(ticker: string) {
 }
 
 export async function updatePriceAlertState(ticker: string, data: { triggered?: boolean; last_price_side?: "above" | "below" }) {
-  await setDoc(doc(db, "price_alerts", ticker), data, { merge: true });
+  const { last_price_side, ...rest } = data;
+  await setDoc(
+    doc(db, "price_alerts", ticker),
+    { ...rest, last_price_side: last_price_side ?? deleteField() },
+    { merge: true }
+  );
 }
 
 export async function updatePriceAlertNotes(ticker: string, notes: string) {
@@ -134,7 +139,7 @@ export async function updatePriceAlertNotes(ticker: string, notes: string) {
 export async function updatePriceAlertPrice(ticker: string, alertPrice: number) {
   await setDoc(
     doc(db, "price_alerts", ticker),
-    { alert_price: alertPrice, triggered: false, last_price_side: undefined },
+    { alert_price: alertPrice, triggered: false, last_price_side: deleteField() },
     { merge: true }
   );
 }
