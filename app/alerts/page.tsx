@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { getPriceAlerts, savePriceAlert, removePriceAlert, updatePriceAlertState, updatePriceAlertNotes } from "@/lib/firestore";
+import { getPriceAlerts, savePriceAlert, removePriceAlert, updatePriceAlertState, updatePriceAlertNotes, updatePriceAlertPrice } from "@/lib/firestore";
 import { subscribeToPush } from "@/lib/push";
 import type { PriceAlert } from "@/lib/types";
 
@@ -18,6 +18,7 @@ export default function AlertsPage() {
   );
   const [pushStatus, setPushStatus] = useState<string | null>(null);
   const [notesDraft, setNotesDraft] = useState<Record<string, string>>({});
+  const [priceDraft, setPriceDraft] = useState<Record<string, string>>({});
 
   const load = useCallback(async (showLoading = false) => {
     if (showLoading) setLoading(true);
@@ -84,6 +85,18 @@ export default function AlertsPage() {
     setAlerts((prev) => prev.map((a) => (a.ticker === ticker ? { ...a, notes: value } : a)));
   }
 
+  async function handlePriceBlur(ticker: string, value: string) {
+    const current = alerts.find((a) => a.ticker === ticker)?.alert_price;
+    const price = parseFloat(value);
+    if (isNaN(price) || price <= 0 || price === current) {
+      setPriceDraft((prev) => { const next = { ...prev }; delete next[ticker]; return next; });
+      return;
+    }
+    await updatePriceAlertPrice(ticker, price);
+    setAlerts((prev) => prev.map((a) => (a.ticker === ticker ? { ...a, alert_price: price, triggered: false, last_price_side: undefined } : a)));
+    setPriceDraft((prev) => { const next = { ...prev }; delete next[ticker]; return next; });
+  }
+
   return (
     <main className="min-h-screen bg-gray-50 text-gray-900 p-6">
       <div className="max-w-screen-md mx-auto space-y-6">
@@ -142,6 +155,7 @@ export default function AlertsPage() {
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Ticker</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Current Price</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Alert Price</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">% Distance</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Notes</th>
                   <th className="px-3 py-2" />
@@ -150,6 +164,7 @@ export default function AlertsPage() {
               <tbody className="divide-y divide-gray-100">
                 {alerts.map((a) => {
                   const cur = prices[a.ticker] ?? null;
+                  const pctDistance = cur != null && a.alert_price > 0 ? ((cur - a.alert_price) / a.alert_price) * 100 : null;
                   return (
                     <tr key={a.ticker} className="hover:bg-gray-50">
                       <td className="px-3 py-2 font-semibold">
@@ -158,7 +173,21 @@ export default function AlertsPage() {
                       <td className="px-3 py-2 text-gray-900 font-medium">
                         {cur != null ? `$${cur.toFixed(2)}` : <span className="text-gray-400">—</span>}
                       </td>
-                      <td className="px-3 py-2 text-gray-600">${a.alert_price.toFixed(2)}</td>
+                      <td className="px-3 py-2 text-gray-600">
+                        <div className="flex items-center gap-1">
+                          <span>$</span>
+                          <input
+                            type="number" step="0.01"
+                            value={priceDraft[a.ticker] ?? a.alert_price.toFixed(2)}
+                            onChange={(e) => setPriceDraft((prev) => ({ ...prev, [a.ticker]: e.target.value }))}
+                            onBlur={(e) => handlePriceBlur(a.ticker, e.target.value)}
+                            className="w-20 border border-transparent hover:border-gray-200 focus:border-blue-400 rounded px-1.5 py-1 text-xs text-gray-700 focus:outline-none bg-transparent focus:bg-white"
+                          />
+                        </div>
+                      </td>
+                      <td className={`px-3 py-2 font-medium ${pctDistance == null ? "text-gray-400" : pctDistance >= 0 ? "text-green-600" : "text-red-500"}`}>
+                        {pctDistance != null ? `${pctDistance >= 0 ? "+" : ""}${pctDistance.toFixed(1)}%` : "—"}
+                      </td>
                       <td className="px-3 py-2">
                         {a.triggered
                           ? <span className="text-xs px-2 py-0.5 rounded-full font-semibold uppercase bg-green-100 text-green-700 border border-green-300">Triggered</span>
