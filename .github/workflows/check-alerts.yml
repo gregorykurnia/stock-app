@@ -1,0 +1,16 @@
+name: Check price alerts
+
+on:
+  schedule:
+    # every 5 minutes, 13:00-21:59 UTC, Mon-Fri (US market hours)
+    - cron: "*/5 13-21 * * 1-5"
+  workflow_dispatch: {}
+
+jobs:
+  check-alerts:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call check-alerts endpoint
+        run: |
+          curl -sf -X GET "https://stock-app-five-sable.vercel.app/api/cron/check-alerts" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
