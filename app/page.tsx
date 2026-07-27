@@ -8,6 +8,7 @@ import { IHSG_STOCKS } from "@/lib/ihsgSeedData";
 import {
   loadStockData, getCustomStocks, saveCustomStock, removeCustomStock,
   getIhsgCustomStocks, saveIhsgCustomStock, removeIhsgCustomStock,
+  getIhsgSwingStocks, saveIhsgSwingStock, removeIhsgSwingStock,
   getPortfolioTickers, getWatchlistTickers,
   savePortfolioEntry, removePortfolioEntry,
   saveWatchlistEntry, removeWatchlistEntry,
@@ -60,14 +61,21 @@ export default function Home() {
   const [ihsgFundData, setIhsgFundData] = useState<Record<string, FundData>>({});
   const [ihsgPricesLoading, setIhsgPricesLoading] = useState(false);
 
-  // IHSG daily indicators (Midterm/Swing subtab)
-  const [ihsgDailyEma20s, setIhsgDailyEma20s] = useState<Record<string, number | null>>({});
-  const [ihsgDailyEma50s, setIhsgDailyEma50s] = useState<Record<string, number | null>>({});
-  const [ihsgDailyAtrs, setIhsgDailyAtrs] = useState<Record<string, number | null>>({});
-  const [ihsgDailyRsis, setIhsgDailyRsis] = useState<Record<string, number | null>>({});
-  const [ihsgEmaCrossAbove, setIhsgEmaCrossAbove] = useState<Record<string, boolean | null>>({});
-  const [ihsgCrossPrice, setIhsgCrossPrice] = useState<Record<string, number | null>>({});
-  const [ihsgCrossDate, setIhsgCrossDate] = useState<Record<string, string | null>>({});
+  // IHSG "Midterm or Swing" subtab — separate, manually-managed ticker list
+  interface SwingStock { ticker: string; name: string | null; industry: string | null }
+  const [swingStocks, setSwingStocks] = useState<SwingStock[]>([]);
+  const [swingPrices, setSwingPrices] = useState<Record<string, number | null>>({});
+  const [swingDailyEma20s, setSwingDailyEma20s] = useState<Record<string, number | null>>({});
+  const [swingDailyEma50s, setSwingDailyEma50s] = useState<Record<string, number | null>>({});
+  const [swingDailyAtrs, setSwingDailyAtrs] = useState<Record<string, number | null>>({});
+  const [swingDailyRsis, setSwingDailyRsis] = useState<Record<string, number | null>>({});
+  const [swingEmaCrossAbove, setSwingEmaCrossAbove] = useState<Record<string, boolean | null>>({});
+  const [swingCrossPrice, setSwingCrossPrice] = useState<Record<string, number | null>>({});
+  const [swingCrossDate, setSwingCrossDate] = useState<Record<string, string | null>>({});
+  const [swingLoading, setSwingLoading] = useState(false);
+  const [swingAddTicker, setSwingAddTicker] = useState("");
+  const [swingAddLoading, setSwingAddLoading] = useState(false);
+  const [swingAddError, setSwingAddError] = useState("");
 
   // Add stock modal
   const [showAdd, setShowAdd] = useState(false);
@@ -295,24 +303,6 @@ export default function Home() {
       })
       .catch(() => {});
 
-    fetch(`/api/ema-daily?tickers=${jkTickers}`)
-      .then((r) => r.json())
-      .then((d) => {
-        const remap = <T,>(obj: Record<string, T>) => {
-          const out: Record<string, T> = {};
-          for (const [k, v] of Object.entries(obj)) out[k.replace(".JK", "")] = v;
-          return out;
-        };
-        setIhsgDailyEma20s((p) => ({ ...p, ...remap(d.ema20 ?? {}) }));
-        setIhsgDailyEma50s((p) => ({ ...p, ...remap(d.ema50 ?? {}) }));
-        setIhsgDailyAtrs((p) => ({ ...p, ...remap(d.atrPct ?? {}) }));
-        setIhsgDailyRsis((p) => ({ ...p, ...remap(d.rsi ?? {}) }));
-        setIhsgEmaCrossAbove((p) => ({ ...p, ...remap(d.emaCrossAbove ?? {}) }));
-        setIhsgCrossPrice((p) => ({ ...p, ...remap(d.crossPrice ?? {}) }));
-        setIhsgCrossDate((p) => ({ ...p, ...remap(d.crossDate ?? {}) }));
-      })
-      .catch(() => {});
-
     Promise.all(
       tickers.map(async (ticker) => {
         const data = await loadStockData(`${ticker}.JK`).catch(() => null);
@@ -327,6 +317,91 @@ export default function Home() {
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [market]);
+
+  // Fetch daily indicators (EMA20D/50D, ATR, RSI, cross info) for a batch of swing tickers (no .JK suffix)
+  function fetchSwingDaily(tickersNoSuffix: string[]) {
+    if (tickersNoSuffix.length === 0) return;
+    const jkTickers = tickersNoSuffix.map((t) => `${t}.JK`).join(",");
+    fetch(`/api/ema-daily?tickers=${jkTickers}`)
+      .then((r) => r.json())
+      .then((d) => {
+        const remap = <T,>(obj: Record<string, T>) => {
+          const out: Record<string, T> = {};
+          for (const [k, v] of Object.entries(obj)) out[k.replace(".JK", "")] = v;
+          return out;
+        };
+        setSwingDailyEma20s((p) => ({ ...p, ...remap(d.ema20 ?? {}) }));
+        setSwingDailyEma50s((p) => ({ ...p, ...remap(d.ema50 ?? {}) }));
+        setSwingDailyAtrs((p) => ({ ...p, ...remap(d.atrPct ?? {}) }));
+        setSwingDailyRsis((p) => ({ ...p, ...remap(d.rsi ?? {}) }));
+        setSwingEmaCrossAbove((p) => ({ ...p, ...remap(d.emaCrossAbove ?? {}) }));
+        setSwingCrossPrice((p) => ({ ...p, ...remap(d.crossPrice ?? {}) }));
+        setSwingCrossDate((p) => ({ ...p, ...remap(d.crossDate ?? {}) }));
+      })
+      .catch(() => {});
+  }
+
+  async function loadSwingStocks() {
+    const data = await getIhsgSwingStocks().catch(() => ({}));
+    const list = Object.entries(data).map(([ticker, d]) => ({ ticker, ...(d as object) } as SwingStock));
+    list.sort((a, b) => a.ticker.localeCompare(b.ticker));
+    setSwingStocks(list);
+    return list;
+  }
+
+  // Load the Midterm/Swing list lazily when switching to the IHSG tab
+  useEffect(() => {
+    if (market !== "ihsg") return;
+    setSwingLoading(true);
+    loadSwingStocks().then((list) => {
+      setSwingLoading(false);
+      if (list.length === 0) return;
+      const tickers = list.map((s) => s.ticker);
+      const jkTickers = tickers.map((t) => `${t}.JK`).join(",");
+      fetch(`/api/prices?tickers=${jkTickers}`)
+        .then((r) => r.json())
+        .then((d) => {
+          const prices: Record<string, number | null> = {};
+          for (const [k, v] of Object.entries(d.prices ?? {})) prices[k.replace(".JK", "")] = v as number | null;
+          setSwingPrices((p) => ({ ...p, ...prices }));
+        }).catch(() => {});
+      fetchSwingDaily(tickers);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [market]);
+
+  async function handleAddSwingTicker(e: React.FormEvent) {
+    e.preventDefault();
+    const sym = swingAddTicker.trim().toUpperCase();
+    if (!sym) return;
+    if (swingStocks.some((s) => s.ticker === sym)) {
+      setSwingAddError(`${sym} is already in the Midterm/Swing list.`);
+      return;
+    }
+    setSwingAddLoading(true);
+    setSwingAddError("");
+    try {
+      const res = await fetch(`/api/fundamentals?ticker=${sym}.JK`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to fetch data");
+
+      const entry: SwingStock = { ticker: sym, name: data.name ?? null, industry: data.industry ?? data.sector ?? null };
+      await saveIhsgSwingStock(sym, { name: entry.name, industry: entry.industry, added_at: new Date().toISOString() });
+      setSwingStocks((prev) => [...prev.filter((s) => s.ticker !== sym), entry].sort((a, b) => a.ticker.localeCompare(b.ticker)));
+      if (data.price != null) setSwingPrices((p) => ({ ...p, [sym]: data.price }));
+      fetchSwingDaily([sym]);
+      setSwingAddTicker("");
+    } catch (err) {
+      setSwingAddError(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setSwingAddLoading(false);
+    }
+  }
+
+  async function handleRemoveSwingTicker(ticker: string) {
+    await removeIhsgSwingStock(ticker);
+    setSwingStocks((prev) => prev.filter((s) => s.ticker !== ticker));
+  }
 
   async function handleSetStatus(ticker: string, status: "portfolio" | "watchlist" | null) {
     const inPortfolio = portfolioSet.has(ticker);
@@ -597,13 +672,22 @@ export default function Home() {
             onRemoveCustom={handleRemoveCustom}
             onToggleMark={handleToggleMark}
             ihsgStocks={IHSG_STOCKS}
-            dailyEma20s={ihsgDailyEma20s}
-            dailyEma50s={ihsgDailyEma50s}
-            dailyAtrs={ihsgDailyAtrs}
-            dailyRsis={ihsgDailyRsis}
-            emaCrossAbove={ihsgEmaCrossAbove}
-            crossPrice={ihsgCrossPrice}
-            crossDate={ihsgCrossDate}
+            swingStocks={swingStocks}
+            swingPrices={swingPrices}
+            swingDailyEma20s={swingDailyEma20s}
+            swingDailyEma50s={swingDailyEma50s}
+            swingDailyAtrs={swingDailyAtrs}
+            swingDailyRsis={swingDailyRsis}
+            swingEmaCrossAbove={swingEmaCrossAbove}
+            swingCrossPrice={swingCrossPrice}
+            swingCrossDate={swingCrossDate}
+            swingLoading={swingLoading}
+            swingAddTicker={swingAddTicker}
+            swingAddLoading={swingAddLoading}
+            swingAddError={swingAddError}
+            onSwingAddTickerChange={setSwingAddTicker}
+            onSwingAdd={handleAddSwingTicker}
+            onSwingRemove={handleRemoveSwingTicker}
           />
         ) : (
           <MasterTable

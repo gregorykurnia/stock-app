@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef } from "react";
+import { useState, useMemo, useRef, type FormEvent } from "react";
 import Link from "next/link";
 import { SEED_STOCKS, FUNDAMENTALS_RAW, VALUATION_RAW } from "@/lib/seedData";
 import { IHSG_STOCKS, type IhsgStock } from "@/lib/ihsgSeedData";
@@ -78,17 +78,28 @@ interface TableRow {
   isCustom: boolean;
 }
 
+interface SwingStock { ticker: string; name: string | null; industry: string | null }
+
 interface Props {
   market?: "us" | "ihsg";
   ihsgStocks?: IhsgStock[];
-  // Daily indicators for the IHSG "Midterm or Swing" subtab
-  dailyEma20s?: Record<string, number | null>;
-  dailyEma50s?: Record<string, number | null>;
-  dailyAtrs?: Record<string, number | null>;
-  dailyRsis?: Record<string, number | null>;
-  emaCrossAbove?: Record<string, boolean | null>;
-  crossPrice?: Record<string, number | null>;
-  crossDate?: Record<string, string | null>;
+  // Independent, manually-managed ticker list for the IHSG "Midterm or Swing" subtab
+  swingStocks?: SwingStock[];
+  swingPrices?: Record<string, number | null>;
+  swingDailyEma20s?: Record<string, number | null>;
+  swingDailyEma50s?: Record<string, number | null>;
+  swingDailyAtrs?: Record<string, number | null>;
+  swingDailyRsis?: Record<string, number | null>;
+  swingEmaCrossAbove?: Record<string, boolean | null>;
+  swingCrossPrice?: Record<string, number | null>;
+  swingCrossDate?: Record<string, string | null>;
+  swingLoading?: boolean;
+  swingAddTicker?: string;
+  swingAddLoading?: boolean;
+  swingAddError?: string;
+  onSwingAddTickerChange?: (v: string) => void;
+  onSwingAdd?: (e: FormEvent) => void;
+  onSwingRemove?: (ticker: string) => void;
   prices: Record<string, number | null>;
   preMarketPrices: Record<string, number | null>;
   verdicts: Record<string, { urgency: string; setup: string } | null>;
@@ -142,7 +153,11 @@ function EarningsBadge({ dateStr }: { dateStr: string | null | undefined }) {
   );
 }
 
-export default function MasterTable({ market = "us", ihsgStocks, prices, preMarketPrices, verdicts, atrs, ema20s, ema50s, supportLows, rsis, diPluses, diMinuses, cmfs, earnings, fundData, loading, customStocks, portfolioSet, watchlistSet, markedSet, onSetStatus, onRemoveCustom, onToggleMark, dailyEma20s = {}, dailyEma50s = {}, dailyAtrs = {}, dailyRsis = {}, emaCrossAbove = {}, crossPrice = {}, crossDate = {} }: Props) {
+export default function MasterTable({
+  market = "us", ihsgStocks, prices, preMarketPrices, verdicts, atrs, ema20s, ema50s, supportLows, rsis, diPluses, diMinuses, cmfs, earnings, fundData, loading, customStocks, portfolioSet, watchlistSet, markedSet, onSetStatus, onRemoveCustom, onToggleMark,
+  swingStocks = [], swingPrices = {}, swingDailyEma20s = {}, swingDailyEma50s = {}, swingDailyAtrs = {}, swingDailyRsis = {}, swingEmaCrossAbove = {}, swingCrossPrice = {}, swingCrossDate = {},
+  swingLoading = false, swingAddTicker = "", swingAddLoading = false, swingAddError = "", onSwingAddTickerChange, onSwingAdd, onSwingRemove,
+}: Props) {
   const isIhsg = market === "ihsg";
   // Currency prefix and price formatter
   const fmtPrice = (v: number) => isIhsg ? `Rp${Math.round(v).toLocaleString("id-ID")}` : `$${v.toFixed(2)}`;
@@ -1292,17 +1307,37 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
       </>
       )}
 
-      {/* MIDTERM / SWING TAB (IHSG only) */}
+      {/* MIDTERM / SWING TAB (IHSG only) — separate, manually-managed ticker list */}
       {isIhsg && mainTab === "midterm" && (
         <div className="space-y-3">
-          <Filters />
+          <div className="flex flex-wrap items-center gap-2">
+            <form onSubmit={onSwingAdd} className="flex gap-2">
+              <input
+                type="text"
+                placeholder="e.g. BBCA"
+                value={swingAddTicker}
+                onChange={(e) => onSwingAddTickerChange?.(e.target.value.toUpperCase())}
+                className="bg-white border border-gray-300 rounded px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 w-32"
+              />
+              <button
+                type="submit"
+                disabled={swingAddLoading}
+                className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-3 py-1.5 rounded text-sm font-semibold"
+              >
+                {swingAddLoading ? "Adding…" : "+ Add"}
+              </button>
+            </form>
+            {swingAddError && <span className="text-xs text-red-500">{swingAddError}</span>}
+            {swingLoading && <span className="text-xs text-gray-400 animate-pulse">Loading…</span>}
+            <span className="text-xs text-gray-400 ml-auto">{swingStocks.length} stocks · independent from List</span>
+          </div>
           <div className="overflow-x-auto overflow-y-auto max-h-[72vh] rounded-lg border border-gray-200">
             <table className="w-full text-sm">
               <thead className="bg-gray-100 border-b border-gray-200 sticky top-0 z-30">
                 <tr>
-                  <Th label="Ticker"   k="ticker" sticky />
-                  <Th label="Price"    k="price" />
-                  <Th label="Industry" k="industry" />
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap sticky left-0 z-20 bg-gray-100 after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-gray-300 after:content-['']">Ticker</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Price</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Industry</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">ATR%</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">EMA20D</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">EMA50D</th>
@@ -1310,19 +1345,22 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Distance from EMA20D">Dist EMA20D</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Distance from EMA50D">Dist EMA50D</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">RSI</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Status</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Remove</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {rows.map((r) => {
-                  const price = r.price;
-                  const de20 = dailyEma20s[r.ticker] ?? null;
-                  const de50 = dailyEma50s[r.ticker] ?? null;
-                  const atrV = dailyAtrs[r.ticker] ?? null;
-                  const rsi = dailyRsis[r.ticker] ?? null;
-                  const crossAbove = emaCrossAbove[r.ticker] ?? null;
-                  const cPrice = crossPrice[r.ticker] ?? null;
-                  const cDate = crossDate[r.ticker] ?? null;
+                {swingStocks.length === 0 && (
+                  <tr><td colSpan={11} className="px-3 py-6 text-center text-gray-400 text-sm">No tickers yet — add one above.</td></tr>
+                )}
+                {swingStocks.map((s) => {
+                  const price = swingPrices[s.ticker] ?? null;
+                  const de20 = swingDailyEma20s[s.ticker] ?? null;
+                  const de50 = swingDailyEma50s[s.ticker] ?? null;
+                  const atrV = swingDailyAtrs[s.ticker] ?? null;
+                  const rsi = swingDailyRsis[s.ticker] ?? null;
+                  const crossAbove = swingEmaCrossAbove[s.ticker] ?? null;
+                  const cPrice = swingCrossPrice[s.ticker] ?? null;
+                  const cDate = swingCrossDate[s.ticker] ?? null;
                   const distEma20 = price != null && de20 != null ? ((price - de20) / de20) * 100 : null;
                   const distEma50 = price != null && de50 != null ? ((price - de50) / de50) * 100 : null;
 
@@ -1341,12 +1379,15 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
                   };
 
                   return (
-                    <tr key={r.ticker} className={`group transition-colors ${markedSet.has(r.ticker) ? "bg-red-50 hover:bg-red-100" : r.isCustom ? "bg-blue-50/30 hover:bg-gray-50" : "hover:bg-gray-50"}`}>
-                      <TickerCell r={r} />
+                    <tr key={s.ticker} className="group transition-colors hover:bg-gray-50">
+                      <td className="px-3 py-2 font-semibold whitespace-nowrap sticky left-0 z-10 bg-white group-hover:bg-gray-50 after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-gray-200 after:content-['']">
+                        <Link href={`/stock/${s.ticker}.JK`} className="text-blue-600 hover:text-blue-800">{s.ticker}</Link>
+                        {s.name && <span className="block text-xs text-gray-400 font-normal leading-tight">{s.name}</span>}
+                      </td>
                       <td className="px-3 py-2 text-gray-900 whitespace-nowrap">
                         {price != null ? fmtPrice(price) : <span className="text-gray-400">—</span>}
                       </td>
-                      <td className="px-3 py-2 text-gray-500 text-xs whitespace-nowrap">{r.industry}</td>
+                      <td className="px-3 py-2 text-gray-500 text-xs whitespace-nowrap">{s.industry ?? "—"}</td>
                       <td className="px-3 py-2 whitespace-nowrap">
                         {atrV == null ? <span className="text-gray-300">—</span> : (() => {
                           const al = atrLabel(atrV);
@@ -1385,7 +1426,15 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
                       <td className={`px-3 py-2 font-semibold ${rsiColor(rsi)}`}>
                         {rsi != null ? rsi.toFixed(1) : <span className="text-gray-400">—</span>}
                       </td>
-                      <StatusCell r={r} />
+                      <td className="px-3 py-2">
+                        <button
+                          onClick={() => onSwingRemove?.(s.ticker)}
+                          className="text-red-300 hover:text-red-500 text-xs"
+                          title="Remove from Midterm/Swing list"
+                        >
+                          ✕
+                        </button>
+                      </td>
                     </tr>
                   );
                 })}

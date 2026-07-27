@@ -67,6 +67,23 @@ export async function removeIhsgCustomStock(ticker: string) {
   await deleteDoc(doc(db, "custom_stocks_ihsg", ticker));
 }
 
+// IHSG Midterm/Swing watchlist — a separate, manually-managed ticker list
+// independent from the IHSG "List" tab entries (stored without .JK suffix as document ID)
+export async function getIhsgSwingStocks(): Promise<Record<string, object>> {
+  const snap = await getDocs(collection(db, "ihsg_swing_stocks"));
+  const result: Record<string, object> = {};
+  snap.forEach((d) => { result[d.id] = d.data(); });
+  return result;
+}
+
+export async function saveIhsgSwingStock(ticker: string, data: object) {
+  await setDoc(doc(db, "ihsg_swing_stocks", ticker), data);
+}
+
+export async function removeIhsgSwingStock(ticker: string) {
+  await deleteDoc(doc(db, "ihsg_swing_stocks", ticker));
+}
+
 // Portfolio
 export async function getPortfolio(): Promise<Record<string, object>> {
   const snap = await getDocs(collection(db, "portfolio"));
