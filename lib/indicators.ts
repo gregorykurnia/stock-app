@@ -215,6 +215,49 @@ export function getHistoricalArrays(bars: OHLCVBar[], ind: Indicators, n = 20): 
   };
 }
 
+export interface MACDResult {
+  macd: number;
+  signal: number;
+  histogram: number;
+  histDirection: "up" | "down" | "flat";
+}
+
+function emaSeries(data: number[], period: number): number[] {
+  const k = 2 / (period + 1);
+  let emaVal = data[0];
+  return data.map((price, i) => {
+    if (i === 0) return emaVal;
+    emaVal = price * k + emaVal * (1 - k);
+    return emaVal;
+  });
+}
+
+export function calculateMACD(closes: number[]): MACDResult | null {
+  const valid = closes.filter((c) => c != null && !isNaN(c));
+  if (valid.length < 35) return null;
+
+  const ema12 = emaSeries(valid, 12);
+  const ema26 = emaSeries(valid, 26);
+  const macdLine = ema12.map((val, i) => val - ema26[i]);
+
+  // Signal line: EMA9 of MACD line, starting after index 25 (EMA26 warm-up)
+  const macdSliced = macdLine.slice(25);
+  const signalLine = emaSeries(macdSliced, 9);
+  const histogram = macdSliced.map((val, i) => val - signalLine[i]);
+
+  if (histogram.length < 2) return null;
+
+  const latestMACD = macdLine[macdLine.length - 1];
+  const latestSignal = signalLine[signalLine.length - 1];
+  const latestHistogram = histogram[histogram.length - 1];
+  const prevHistogram = histogram[histogram.length - 2];
+
+  const diff = latestHistogram - prevHistogram;
+  const histDirection: "up" | "down" | "flat" = Math.abs(diff) < 0.001 ? "flat" : diff > 0 ? "up" : "down";
+
+  return { macd: latestMACD, signal: latestSignal, histogram: latestHistogram, histDirection };
+}
+
 export function getLatest(bars: OHLCVBar[], ind: Indicators): LatestIndicators {
   const last = (arr: number[]) => {
     for (let i = arr.length - 1; i >= 0; i--) {

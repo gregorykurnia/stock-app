@@ -37,6 +37,10 @@ export default function Home() {
   const [diPluses, setDiPluses] = useState<Record<string, number | null>>({});
   const [diMinuses, setDiMinuses] = useState<Record<string, number | null>>({});
   const [cmfs, setCmfs] = useState<Record<string, number | null>>({});
+  const [macds, setMacds] = useState<Record<string, number | null>>({});
+  const [macdSignals, setMacdSignals] = useState<Record<string, number | null>>({});
+  const [macdHists, setMacdHists] = useState<Record<string, number | null>>({});
+  const [macdHistDirs, setMacdHistDirs] = useState<Record<string, "up" | "down" | "flat" | null>>({});
   const [earnings, setEarnings] = useState<Record<string, string | null>>({});
   const [pricesLoading, setPricesLoading] = useState(true);
   const [customStocks, setCustomStocks] = useState<CustomStock[]>([]);
@@ -142,6 +146,16 @@ export default function Home() {
       })
       .catch(() => {});
 
+    fetch(`/api/macd?tickers=${seedTickers}`)
+      .then((r) => r.json())
+      .then((d) => {
+        setMacds((prev) => ({ ...prev, ...(d.macd ?? {}) }));
+        setMacdSignals((prev) => ({ ...prev, ...(d.signal ?? {}) }));
+        setMacdHists((prev) => ({ ...prev, ...(d.histogram ?? {}) }));
+        setMacdHistDirs((prev) => ({ ...prev, ...(d.histDirection ?? {}) }));
+      })
+      .catch(() => {});
+
     fetch(`/api/funddata?tickers=${seedTickers}`)
       .then((r) => r.json())
       .then((d) => setFundData((prev) => ({ ...prev, ...(d.data ?? {}) })))
@@ -194,6 +208,15 @@ export default function Home() {
             setDiPluses((prev) => ({ ...prev, ...(d.diPlus ?? {}) }));
             setDiMinuses((prev) => ({ ...prev, ...(d.diMinus ?? {}) }));
             setCmfs((prev) => ({ ...prev, ...(d.cmf ?? {}) }));
+          })
+          .catch(() => {});
+        fetch(`/api/macd?tickers=${tickers}`)
+          .then((r) => r.json())
+          .then((d) => {
+            setMacds((prev) => ({ ...prev, ...(d.macd ?? {}) }));
+            setMacdSignals((prev) => ({ ...prev, ...(d.signal ?? {}) }));
+            setMacdHists((prev) => ({ ...prev, ...(d.histogram ?? {}) }));
+            setMacdHistDirs((prev) => ({ ...prev, ...(d.histDirection ?? {}) }));
           })
           .catch(() => {});
       }
@@ -703,6 +726,10 @@ export default function Home() {
             diPluses={diPluses}
             diMinuses={diMinuses}
             cmfs={cmfs}
+            macds={macds}
+            macdSignals={macdSignals}
+            macdHists={macdHists}
+            macdHistDirs={macdHistDirs}
             earnings={earnings}
             fundData={fundData}
             loading={pricesLoading}
