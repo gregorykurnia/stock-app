@@ -551,6 +551,67 @@ export default function MasterTable({
     downloadCsv(`master-table-${date}.csv`, headers, data);
   }
 
+  function exportSwingCsv() {
+    const date = new Date().toISOString().slice(0, 10);
+    const headers = ["Ticker", "Price", "Industry", "Entry Price", "ATR%",
+      "EMA20D", "EMA50D", "EMA Cross", "Cross Price", "Cross Date",
+      "Dist EMA20D%", "Dist EMA50D%", "RSI", "MACD", "Signal", "Hist",
+      "ATR (14)", "Stop Loss",
+      "Bandar", "Liquidity (B)", "Dist?", "Vol CV", "Effic.", "UWick", "Spike",
+      "PVDiv", "Max Move%", "Gap Days", "Reversal", "Trend R2"];
+    const data = (swingStocks ?? []).map((s) => {
+      const price = swingPrices?.[s.ticker] ?? null;
+      const de20 = swingDailyEma20s?.[s.ticker] ?? null;
+      const de50 = swingDailyEma50s?.[s.ticker] ?? null;
+      const atrPct = swingDailyAtrs?.[s.ticker] ?? null;
+      const rsi = swingDailyRsis?.[s.ticker] ?? null;
+      const crossAbove = swingEmaCrossAbove?.[s.ticker] ?? null;
+      const cPrice = swingCrossPrice?.[s.ticker] ?? null;
+      const cDate = swingCrossDate?.[s.ticker] ?? null;
+      const distEma20 = price != null && de20 != null ? ((price - de20) / de20) * 100 : null;
+      const distEma50 = price != null && de50 != null ? ((price - de50) / de50) * 100 : null;
+      const atr14 = swingAtr14?.[s.ticker] ?? null;
+      const entryPrice = s.entryPrice ?? null;
+      const stopBase = entryPrice ?? price;
+      const stopLoss = atr14 != null && stopBase != null ? stopBase - 1.5 * atr14 : null;
+      const bandar = swingBandar?.[s.ticker] ?? null;
+
+      return [
+        s.ticker,
+        price?.toFixed(2) ?? "",
+        s.industry ?? "",
+        entryPrice?.toFixed(2) ?? "",
+        atrPct?.toFixed(1) ?? "",
+        de20?.toFixed(2) ?? "",
+        de50?.toFixed(2) ?? "",
+        crossAbove == null ? "" : crossAbove ? "Yes" : "No",
+        cPrice?.toFixed(2) ?? "",
+        cDate ?? "",
+        distEma20?.toFixed(1) ?? "",
+        distEma50?.toFixed(1) ?? "",
+        rsi?.toFixed(1) ?? "",
+        swingMacds?.[s.ticker]?.toFixed(2) ?? "",
+        swingMacdSignals?.[s.ticker]?.toFixed(2) ?? "",
+        swingMacdHists?.[s.ticker]?.toFixed(2) ?? "",
+        atr14?.toFixed(2) ?? "",
+        stopLoss?.toFixed(2) ?? "",
+        bandar ? String(bandar.score) : "",
+        bandar ? (bandar.avgValueTraded / 1_000_000_000).toFixed(1) : "",
+        bandar && bandar.volDirRatio !== 0.5 ? (bandar.volDirRatio * 100).toFixed(0) : "",
+        bandar ? bandar.cv.toFixed(2) : "",
+        bandar ? bandar.efficiency.toFixed(2) : "",
+        bandar ? bandar.upperWick.toFixed(2) : "",
+        bandar ? bandar.maxSpike.toFixed(1) : "",
+        bandar ? bandar.pvDiv.toFixed(2) : "",
+        bandar && Number.isFinite(bandar.maxDayMove) ? (bandar.maxDayMove * 100).toFixed(1) : "",
+        bandar && Number.isFinite(bandar.largeGapDays) ? String(bandar.largeGapDays) : "",
+        bandar && Number.isFinite(bandar.reversalRate) ? bandar.reversalRate.toFixed(2) : "",
+        bandar && Number.isFinite(bandar.rSquared) ? bandar.rSquared.toFixed(2) : "",
+      ];
+    });
+    downloadCsv(`midterm-swing-${date}.csv`, headers, data);
+  }
+
   function toggleSort(key: SortKey) {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     else { setSortKey(key); setSortDir("desc"); }
@@ -1659,6 +1720,12 @@ export default function MasterTable({
             {swingAddError && <span className="text-xs text-red-500">{swingAddError}</span>}
             {swingLoading && <span className="text-xs text-gray-400 animate-pulse">Loading…</span>}
             <span className="text-xs text-gray-400 ml-auto">{swingStocks.length} stocks · independent from List</span>
+            <button
+              onClick={exportSwingCsv}
+              className="text-xs px-3 py-1.5 rounded border border-gray-300 text-gray-600 hover:border-gray-400 hover:text-gray-800 bg-white"
+            >
+              Export CSV
+            </button>
           </div>
           <div className="overflow-x-auto overflow-y-auto max-h-[72vh] rounded-lg border border-gray-200">
             <table className="w-full text-sm">
