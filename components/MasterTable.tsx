@@ -93,6 +93,10 @@ interface Props {
   swingEmaCrossAbove?: Record<string, boolean | null>;
   swingCrossPrice?: Record<string, number | null>;
   swingCrossDate?: Record<string, string | null>;
+  swingMacds?: Record<string, number | null>;
+  swingMacdSignals?: Record<string, number | null>;
+  swingMacdHists?: Record<string, number | null>;
+  swingMacdHistDirs?: Record<string, "up" | "down" | "flat" | null>;
   swingLoading?: boolean;
   swingAddTicker?: string;
   swingAddLoading?: boolean;
@@ -160,6 +164,7 @@ function EarningsBadge({ dateStr }: { dateStr: string | null | undefined }) {
 export default function MasterTable({
   market = "us", ihsgStocks, prices, preMarketPrices, verdicts, atrs, ema20s, ema50s, supportLows, rsis, diPluses, diMinuses, cmfs, macds = {}, macdSignals = {}, macdHists = {}, macdHistDirs = {}, earnings, fundData, loading, customStocks, portfolioSet, watchlistSet, markedSet, onSetStatus, onRemoveCustom, onToggleMark,
   swingStocks = [], swingPrices = {}, swingDailyEma20s = {}, swingDailyEma50s = {}, swingDailyAtrs = {}, swingDailyRsis = {}, swingEmaCrossAbove = {}, swingCrossPrice = {}, swingCrossDate = {},
+  swingMacds = {}, swingMacdSignals = {}, swingMacdHists = {}, swingMacdHistDirs = {},
   swingLoading = false, swingAddTicker = "", swingAddLoading = false, swingAddError = "", onSwingAddTickerChange, onSwingAdd, onSwingRemove,
 }: Props) {
   const isIhsg = market === "ihsg";
@@ -905,13 +910,9 @@ export default function MasterTable({
                   <Th label="DI+"        k="di_plus" />
                   <Th label="DI-"        k="di_minus" />
                   <Th label="CMF"        k="cmf" />
-                  {!isIhsg && (
-                    <>
-                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="MACD line (12, 26) — daily closes">MACD</th>
-                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="MACD signal line (EMA9 of MACD) — daily closes">Signal</th>
-                      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="MACD histogram (MACD − Signal) — daily closes">Hist</th>
-                    </>
-                  )}
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="MACD line (12, 26) — daily closes">MACD</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="MACD signal line (EMA9 of MACD) — daily closes">Signal</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="MACD histogram (MACD − Signal) — daily closes">Hist</th>
                   <Th label="Rev Gr"    k="rev_growth"   title="Revenue Growth YoY" />
                   <Th label="Gross%"    k="gross_margin" title="Gross Margin" />
                   <Th label="Op%"       k="op_margin"    title="Operating Margin" />
@@ -1044,13 +1045,9 @@ export default function MasterTable({
                         </>
                       );
                     })()}
-                    {!isIhsg && (
-                      <>
-                        <MacdCell v={macds[r.ticker] ?? null} />
-                        <MacdCell v={macdSignals[r.ticker] ?? null} />
-                        <MacdHistCell ticker={r.ticker} />
-                      </>
-                    )}
+                    <MacdCell v={macds[r.ticker] ?? null} />
+                    <MacdCell v={macdSignals[r.ticker] ?? null} />
+                    <MacdHistCell ticker={r.ticker} />
                     <td className="px-3 py-2 text-gray-700">{pct(r.rev_growth)}</td>
                     <td className="px-3 py-2 text-gray-700">{pct(r.gross_margin)}</td>
                     <td className="px-3 py-2 text-gray-700">{pct(r.op_margin)}</td>
@@ -1384,12 +1381,15 @@ export default function MasterTable({
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Distance from EMA20D">Dist EMA20D</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Distance from EMA50D">Dist EMA50D</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">RSI</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="MACD line (12, 26) — daily closes">MACD</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="MACD signal line (EMA9 of MACD) — daily closes">Signal</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="MACD histogram (MACD − Signal) — daily closes">Hist</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Remove</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {swingStocks.length === 0 && (
-                  <tr><td colSpan={11} className="px-3 py-6 text-center text-gray-400 text-sm">No tickers yet — add one above.</td></tr>
+                  <tr><td colSpan={14} className="px-3 py-6 text-center text-gray-400 text-sm">No tickers yet — add one above.</td></tr>
                 )}
                 {swingStocks.map((s) => {
                   const price = swingPrices[s.ticker] ?? null;
@@ -1465,6 +1465,19 @@ export default function MasterTable({
                       <td className={`px-3 py-2 font-semibold ${rsiColor(rsi)}`}>
                         {rsi != null ? rsi.toFixed(1) : <span className="text-gray-400">—</span>}
                       </td>
+                      <MacdCell v={swingMacds[s.ticker] ?? null} />
+                      <MacdCell v={swingMacdSignals[s.ticker] ?? null} />
+                      {(() => {
+                        const hist = swingMacdHists[s.ticker] ?? null;
+                        const dir = swingMacdHistDirs[s.ticker] ?? null;
+                        if (hist == null) return <td className="px-3 py-2 whitespace-nowrap text-gray-300">—</td>;
+                        const arrow = hist > 0 && dir === "up" ? " ▲" : hist < 0 && dir === "down" ? " ▼" : "";
+                        return (
+                          <td className={`px-3 py-2 whitespace-nowrap font-bold ${valColorCls(hist)}`}>
+                            {hist.toFixed(2)}{arrow}
+                          </td>
+                        );
+                      })()}
                       <td className="px-3 py-2">
                         <button
                           onClick={() => onSwingRemove?.(s.ticker)}

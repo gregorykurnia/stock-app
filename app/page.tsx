@@ -60,6 +60,10 @@ export default function Home() {
   const [ihsgDiPluses, setIhsgDiPluses] = useState<Record<string, number | null>>({});
   const [ihsgDiMinuses, setIhsgDiMinuses] = useState<Record<string, number | null>>({});
   const [ihsgCmfs, setIhsgCmfs] = useState<Record<string, number | null>>({});
+  const [ihsgMacds, setIhsgMacds] = useState<Record<string, number | null>>({});
+  const [ihsgMacdSignals, setIhsgMacdSignals] = useState<Record<string, number | null>>({});
+  const [ihsgMacdHists, setIhsgMacdHists] = useState<Record<string, number | null>>({});
+  const [ihsgMacdHistDirs, setIhsgMacdHistDirs] = useState<Record<string, "up" | "down" | "flat" | null>>({});
   const [ihsgEarnings, setIhsgEarnings] = useState<Record<string, string | null>>({});
   const [ihsgVerdicts, setIhsgVerdicts] = useState<Record<string, { urgency: string; setup: string } | null>>({});
   const [ihsgFundData, setIhsgFundData] = useState<Record<string, FundData>>({});
@@ -70,6 +74,10 @@ export default function Home() {
   const [swingStocks, setSwingStocks] = useState<SwingStock[]>([]);
   const [swingPrices, setSwingPrices] = useState<Record<string, number | null>>({});
   const [swingDailyEma20s, setSwingDailyEma20s] = useState<Record<string, number | null>>({});
+  const [swingMacds, setSwingMacds] = useState<Record<string, number | null>>({});
+  const [swingMacdSignals, setSwingMacdSignals] = useState<Record<string, number | null>>({});
+  const [swingMacdHists, setSwingMacdHists] = useState<Record<string, number | null>>({});
+  const [swingMacdHistDirs, setSwingMacdHistDirs] = useState<Record<string, "up" | "down" | "flat" | null>>({});
   const [swingDailyEma50s, setSwingDailyEma50s] = useState<Record<string, number | null>>({});
   const [swingDailyAtrs, setSwingDailyAtrs] = useState<Record<string, number | null>>({});
   const [swingDailyRsis, setSwingDailyRsis] = useState<Record<string, number | null>>({});
@@ -251,6 +259,16 @@ export default function Home() {
           setIhsgDiMinuses((p) => ({ ...p, ...remap(d.diMinus ?? {}) }));
           setIhsgCmfs((p) => ({ ...p, ...remap(d.cmf ?? {}) }));
         }).catch(() => {});
+      fetch(`/api/macd?tickers=${jkTickers}`)
+        .then((r) => r.json())
+        .then((d) => {
+          setIhsgMacds((p) => ({ ...p, ...remap(d.macd ?? {}) }));
+          setIhsgMacdSignals((p) => ({ ...p, ...remap(d.signal ?? {}) }));
+          setIhsgMacdHists((p) => ({ ...p, ...remap(d.histogram ?? {}) }));
+          const dirOut: Record<string, "up" | "down" | "flat" | null> = {};
+          for (const [k, v] of Object.entries(d.histDirection ?? {})) dirOut[k.replace(".JK", "")] = v as "up" | "down" | "flat" | null;
+          setIhsgMacdHistDirs((p) => ({ ...p, ...dirOut }));
+        }).catch(() => {});
       fetch(`/api/funddata?tickers=${jkTickers}`)
         .then((r) => r.json())
         .then((d) => {
@@ -308,6 +326,23 @@ export default function Home() {
       })
       .catch(() => {});
 
+    fetch(`/api/macd?tickers=${jkTickers}`)
+      .then((r) => r.json())
+      .then((d) => {
+        const remap = (obj: Record<string, unknown>) => {
+          const out: Record<string, number | null> = {};
+          for (const [k, v] of Object.entries(obj)) out[k.replace(".JK", "")] = v as number | null;
+          return out;
+        };
+        setIhsgMacds((p) => ({ ...p, ...remap(d.macd ?? {}) }));
+        setIhsgMacdSignals((p) => ({ ...p, ...remap(d.signal ?? {}) }));
+        setIhsgMacdHists((p) => ({ ...p, ...remap(d.histogram ?? {}) }));
+        const dirOut: Record<string, "up" | "down" | "flat" | null> = {};
+        for (const [k, v] of Object.entries(d.histDirection ?? {})) dirOut[k.replace(".JK", "")] = v as "up" | "down" | "flat" | null;
+        setIhsgMacdHistDirs((p) => ({ ...p, ...dirOut }));
+      })
+      .catch(() => {});
+
     fetch(`/api/funddata?tickers=${jkTickers}`)
       .then((r) => r.json())
       .then((d) => {
@@ -360,6 +395,20 @@ export default function Home() {
         setSwingEmaCrossAbove((p) => ({ ...p, ...remap(d.emaCrossAbove ?? {}) }));
         setSwingCrossPrice((p) => ({ ...p, ...remap(d.crossPrice ?? {}) }));
         setSwingCrossDate((p) => ({ ...p, ...remap(d.crossDate ?? {}) }));
+      })
+      .catch(() => {});
+    fetch(`/api/macd?tickers=${jkTickers}`)
+      .then((r) => r.json())
+      .then((d) => {
+        const remap = <T,>(obj: Record<string, T>) => {
+          const out: Record<string, T> = {};
+          for (const [k, v] of Object.entries(obj)) out[k.replace(".JK", "")] = v;
+          return out;
+        };
+        setSwingMacds((p) => ({ ...p, ...remap(d.macd ?? {}) }));
+        setSwingMacdSignals((p) => ({ ...p, ...remap(d.signal ?? {}) }));
+        setSwingMacdHists((p) => ({ ...p, ...remap(d.histogram ?? {}) }));
+        setSwingMacdHistDirs((p) => ({ ...p, ...remap(d.histDirection ?? {}) }));
       })
       .catch(() => {});
   }
@@ -684,6 +733,10 @@ export default function Home() {
             diPluses={ihsgDiPluses}
             diMinuses={ihsgDiMinuses}
             cmfs={ihsgCmfs}
+            macds={ihsgMacds}
+            macdSignals={ihsgMacdSignals}
+            macdHists={ihsgMacdHists}
+            macdHistDirs={ihsgMacdHistDirs}
             earnings={ihsgEarnings}
             fundData={ihsgFundData}
             loading={ihsgPricesLoading}
@@ -704,6 +757,10 @@ export default function Home() {
             swingEmaCrossAbove={swingEmaCrossAbove}
             swingCrossPrice={swingCrossPrice}
             swingCrossDate={swingCrossDate}
+            swingMacds={swingMacds}
+            swingMacdSignals={swingMacdSignals}
+            swingMacdHists={swingMacdHists}
+            swingMacdHistDirs={swingMacdHistDirs}
             swingLoading={swingLoading}
             swingAddTicker={swingAddTicker}
             swingAddLoading={swingAddLoading}
