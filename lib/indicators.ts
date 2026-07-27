@@ -322,6 +322,10 @@ export interface BandarScoreResult {
   score: number;
   avgValueTraded: number;
   volDirRatio: number;
+  maxDayMove: number;
+  largeGapDays: number;
+  reversalRate: number;
+  rSquared: number;
 }
 
 function avg(arr: number[]): number {
@@ -386,6 +390,48 @@ export function calculateBandarScore(ohlcvData: BandarBar[]): BandarScoreResult 
   const totalDirVol = upDayVol + downDayVol;
   const volDirRatio = totalDirVol > 0 ? upDayVol / totalDirVol : 0.5;
 
+  const maxDayMove = safeScore(
+    Math.max(
+      ...last20
+        .filter((d) => d.open)
+        .map((d) => Math.abs(d.close - d.open) / d.open)
+    )
+  );
+
+  let largeGapDays = 0;
+  for (let i = 1; i < last20.length; i++) {
+    const prevClose = last20[i - 1].close;
+    if (!prevClose) continue;
+    const gap = Math.abs(last20[i].open - prevClose) / prevClose;
+    if (gap > 0.02) largeGapDays++;
+  }
+
+  let reversals = 0;
+  for (let i = 1; i < last20.length; i++) {
+    const prev = last20[i - 1];
+    const curr = last20[i];
+    const prevUp = prev.close > prev.open;
+    const todayDown = curr.close < curr.open;
+    const prevBigMove = prev.open ? Math.abs(prev.close - prev.open) / prev.open > 0.02 : false;
+    if (prevBigMove && prevUp && todayDown) reversals++;
+  }
+  const reversalRate = last20.length < 2 ? 0 : safeScore(reversals / (last20.length - 1));
+
+  const closes = last20.map((d) => d.close);
+  const n = closes.length;
+  const xMean = (n - 1) / 2;
+  const yMean = avg(closes);
+  const numerator = closes.reduce((sum, y, i) => sum + (i - xMean) * (y - yMean), 0);
+  const denomX = closes.reduce((sum, _, i) => sum + (i - xMean) ** 2, 0);
+  const slope = denomX > 0 ? numerator / denomX : 0;
+  const intercept = yMean - slope * xMean;
+  const ssTot = closes.reduce((sum, y) => sum + (y - yMean) ** 2, 0);
+  const ssRes = closes.reduce((sum, y, i) => {
+    const yPred = slope * i + intercept;
+    return sum + (y - yPred) ** 2;
+  }, 0);
+  const rSquared = ssTot === 0 ? 0 : safeScore(1 - ssRes / ssTot);
+
   return {
     cv: safeScore(cv),
     efficiency: safeScore(avgEfficiency),
@@ -395,6 +441,10 @@ export function calculateBandarScore(ohlcvData: BandarBar[]): BandarScoreResult 
     score: Math.round(totalScore),
     avgValueTraded: safeScore(avgValue20),
     volDirRatio: safeScore(volDirRatio),
+    maxDayMove,
+    largeGapDays,
+    reversalRate,
+    rSquared,
   };
 }
 

@@ -794,6 +794,38 @@ export default function MasterTable({
         { range: "56–100",label: "🔴 High risk", meaning: "Multiple red flags firing together — treat any breakout/breakdown with heavy skepticism" },
       ],
     },
+    maxMove: {
+      definition: "Largest single day body move (open→close) in last 20 days — above 10% in one session is a strong bandar signal.",
+      ranges: [
+        { range: "<5%",   label: "✅ Normal",   meaning: "No abnormal single-day moves" },
+        { range: "5–10%", label: "⚠️ Elevated", meaning: "One notably large day — check what happened" },
+        { range: ">10%",  label: "🚨 Extreme",  meaning: "Very unusual single-day move — possible manipulation" },
+      ],
+    },
+    gapDays: {
+      definition: "Number of days in last 20 where open gapped >2% vs previous close — frequent gaps = bandar marking up the open.",
+      ranges: [
+        { range: "<2d",  label: "✅ Normal",   meaning: "Few or no large opening gaps" },
+        { range: "2–4d", label: "⚠️ Elevated", meaning: "Several gap days — worth a second look" },
+        { range: ">4d",  label: "🚨 Frequent", meaning: "Frequent gapping — consistent with marked-up opens" },
+      ],
+    },
+    reversal: {
+      definition: "Rate of big up days immediately followed by down days — high rate = pump and dump pattern.",
+      ranges: [
+        { range: "<0.15",   label: "✅ Low",   meaning: "Big up moves tend to hold" },
+        { range: "0.15–0.30",label: "⚠️ Some",  meaning: "Some up moves getting reversed — mild caution" },
+        { range: ">0.30",   label: "🚨 High",  meaning: "Big up moves frequently reversed — pump and dump pattern" },
+      ],
+    },
+    trendR2: {
+      definition: "How well price fits a straight trendline over 20 days — below 0.4 means price is zigzagging with no real direction.",
+      ranges: [
+        { range: ">0.7",   label: "✅ Clean trend", meaning: "Price follows a consistent directional trend" },
+        { range: "0.4–0.7",label: "⚠️ Choppy",      meaning: "Some trend but with meaningful noise" },
+        { range: "<0.4",   label: "🚨 No trend",    meaning: "Zigzag noise — no reliable direction" },
+      ],
+    },
   };
 
   function BandarTh({ label, tipKey }: { label: string; tipKey: string }) {
@@ -876,10 +908,14 @@ export default function MasterTable({
           <td className="px-3 py-2 whitespace-nowrap text-gray-300">—</td>
           <td className="px-3 py-2 whitespace-nowrap text-gray-300">—</td>
           <td className="px-3 py-2 whitespace-nowrap text-gray-300">—</td>
+          <td className="px-3 py-2 whitespace-nowrap text-gray-300">—</td>
+          <td className="px-3 py-2 whitespace-nowrap text-gray-300">—</td>
+          <td className="px-3 py-2 whitespace-nowrap text-gray-300">—</td>
+          <td className="px-3 py-2 whitespace-nowrap text-gray-300">—</td>
         </>
       );
     }
-    const { cv, efficiency, upperWick, maxSpike, pvDiv, score, avgValueTraded, volDirRatio } = bandar;
+    const { cv, efficiency, upperWick, maxSpike, pvDiv, score, avgValueTraded, volDirRatio, maxDayMove, largeGapDays, reversalRate, rSquared } = bandar;
     const cvFlag = cv < 0.8 ? "✅" : cv <= 1.5 ? "⚠️" : "🚨";
     const effFlag = efficiency > 0.5 ? "✅" : efficiency >= 0.3 ? "⚠️" : "🚨";
     const wickFlag = upperWick < 0.25 ? "✅" : upperWick <= 0.4 ? "⚠️" : "🚨";
@@ -895,6 +931,12 @@ export default function MasterTable({
     const volDirPct = volDirRatio * 100;
     const volDirFlag = isDoji ? "" : volDirPct > 60 ? "✅" : volDirPct >= 40 ? "⚠️" : "🚨";
 
+    const maxMovePct = maxDayMove * 100;
+    const maxMoveFlag = !Number.isFinite(maxMovePct) ? null : maxMovePct < 5 ? "✅" : maxMovePct <= 10 ? "⚠️" : "🚨";
+    const gapFlag = !Number.isFinite(largeGapDays) ? null : largeGapDays < 2 ? "✅" : largeGapDays <= 4 ? "⚠️" : "🚨";
+    const reversalFlag = !Number.isFinite(reversalRate) ? null : reversalRate < 0.15 ? "✅" : reversalRate <= 0.30 ? "⚠️" : "🚨";
+    const trendFlag = !Number.isFinite(rSquared) ? null : rSquared > 0.7 ? "✅" : rSquared >= 0.4 ? "⚠️" : "🚨";
+
     return (
       <>
         <td className="px-3 py-2 whitespace-nowrap text-gray-700">{valueB.toFixed(1)}B {liquidityFlag}</td>
@@ -905,6 +947,10 @@ export default function MasterTable({
         <td className="px-3 py-2 whitespace-nowrap text-gray-700">{maxSpike.toFixed(1)}× {spikeFlag}</td>
         <td className="px-3 py-2 whitespace-nowrap text-gray-700">{pvDiv.toFixed(2)} {pvFlag}</td>
         <td className={`px-3 py-2 whitespace-nowrap font-bold rounded ${scoreCls}`}>{scoreLabel} {score}</td>
+        <td className="px-3 py-2 whitespace-nowrap text-gray-700">{maxMoveFlag == null ? "—" : `${maxMovePct.toFixed(1)}% ${maxMoveFlag}`}</td>
+        <td className="px-3 py-2 whitespace-nowrap text-gray-700">{gapFlag == null ? "—" : `${largeGapDays}d ${gapFlag}`}</td>
+        <td className="px-3 py-2 whitespace-nowrap text-gray-700">{reversalFlag == null ? "—" : `${reversalRate.toFixed(2)} ${reversalFlag}`}</td>
+        <td className="px-3 py-2 whitespace-nowrap text-gray-700">{trendFlag == null ? "—" : `${rSquared.toFixed(2)} ${trendFlag}`}</td>
       </>
     );
   };
@@ -1629,6 +1675,10 @@ export default function MasterTable({
                   <BandarTh label="Spike" tipKey="maxSpike" />
                   <BandarTh label="PVDiv" tipKey="pvDiv" />
                   <BandarTh label="Bandar" tipKey="bandar" />
+                  <BandarTh label="Max Move" tipKey="maxMove" />
+                  <BandarTh label="Gap Days" tipKey="gapDays" />
+                  <BandarTh label="Reversal" tipKey="reversal" />
+                  <BandarTh label="Trend R²" tipKey="trendR2" />
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Remove</th>
                 </tr>
               </thead>
