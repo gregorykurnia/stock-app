@@ -896,6 +896,24 @@ export default function MasterTable({
     );
   }
 
+  const BandarScoreCell = ({ bandar }: { bandar: BandarScoreResult | null }) => {
+    if (bandar == null) {
+      return <td className="px-3 py-2 whitespace-nowrap text-gray-300">—</td>;
+    }
+    const { score, scoreBreakdown } = bandar;
+    const scoreCls =
+      score <= 30 ? "bg-green-100 text-green-800" : score <= 55 ? "bg-yellow-100 text-yellow-800" : "bg-red-100 text-red-800";
+    const scoreLabel = score <= 30 ? "🟢" : score <= 55 ? "🟡" : "🔴";
+    const tooltip = scoreBreakdown
+      ? `Tier 1 (manipulation): ${scoreBreakdown.tier1}pts / 65\nTier 2 (volatility): ${scoreBreakdown.tier2}pts / 25\nTier 3 (context): ${scoreBreakdown.tier3}pts / 10`
+      : undefined;
+    return (
+      <td className={`px-3 py-2 whitespace-nowrap font-bold rounded ${scoreCls}`} title={tooltip}>
+        {scoreLabel} {score}
+      </td>
+    );
+  };
+
   const BandarCells = ({ bandar }: { bandar: BandarScoreResult | null }) => {
     if (bandar == null) {
       return (
@@ -911,19 +929,15 @@ export default function MasterTable({
           <td className="px-3 py-2 whitespace-nowrap text-gray-300">—</td>
           <td className="px-3 py-2 whitespace-nowrap text-gray-300">—</td>
           <td className="px-3 py-2 whitespace-nowrap text-gray-300">—</td>
-          <td className="px-3 py-2 whitespace-nowrap text-gray-300">—</td>
         </>
       );
     }
-    const { cv, efficiency, upperWick, maxSpike, pvDiv, score, avgValueTraded, volDirRatio, maxDayMove, largeGapDays, reversalRate, rSquared } = bandar;
+    const { cv, efficiency, upperWick, maxSpike, pvDiv, avgValueTraded, volDirRatio, maxDayMove, largeGapDays, reversalRate, rSquared } = bandar;
     const cvFlag = cv < 0.8 ? "✅" : cv <= 1.5 ? "⚠️" : "🚨";
     const effFlag = efficiency > 0.5 ? "✅" : efficiency >= 0.3 ? "⚠️" : "🚨";
     const wickFlag = upperWick < 0.25 ? "✅" : upperWick <= 0.4 ? "⚠️" : "🚨";
     const spikeFlag = maxSpike < 3 ? "✅" : maxSpike <= 5 ? "⚠️" : "🚨";
     const pvFlag = pvDiv < 0.3 ? "✅" : pvDiv <= 0.6 ? "⚠️" : "🚨";
-    const scoreCls =
-      score <= 30 ? "bg-green-100 text-green-800" : score <= 55 ? "bg-yellow-100 text-yellow-800" : "bg-red-100 text-red-800";
-    const scoreLabel = score <= 30 ? "🟢" : score <= 55 ? "🟡" : "🔴";
 
     const valueB = avgValueTraded / 1_000_000_000;
     const liquidityFlag = valueB > 20 ? "✅" : valueB >= 5 ? "⚠️" : "🚨";
@@ -946,7 +960,6 @@ export default function MasterTable({
         <td className="px-3 py-2 whitespace-nowrap text-gray-700">{upperWick.toFixed(2)} {wickFlag}</td>
         <td className="px-3 py-2 whitespace-nowrap text-gray-700">{maxSpike.toFixed(1)}× {spikeFlag}</td>
         <td className="px-3 py-2 whitespace-nowrap text-gray-700">{pvDiv.toFixed(2)} {pvFlag}</td>
-        <td className={`px-3 py-2 whitespace-nowrap font-bold rounded ${scoreCls}`}>{scoreLabel} {score}</td>
         <td className="px-3 py-2 whitespace-nowrap text-gray-700">{maxMoveFlag == null ? "—" : `${maxMovePct.toFixed(1)}% ${maxMoveFlag}`}</td>
         <td className="px-3 py-2 whitespace-nowrap text-gray-700">{gapFlag == null ? "—" : `${largeGapDays}d ${gapFlag}`}</td>
         <td className="px-3 py-2 whitespace-nowrap text-gray-700">{reversalFlag == null ? "—" : `${reversalRate.toFixed(2)} ${reversalFlag}`}</td>
@@ -1667,6 +1680,7 @@ export default function MasterTable({
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="MACD histogram (MACD − Signal) — daily closes">Hist</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Average True Range (14, daily) — volatility range">ATR (14)</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="1.5× ATR below your entry price (falls back to current price if entry is blank)">Stop Loss</th>
+                  <BandarTh label="Bandar" tipKey="bandar" />
                   <BandarTh label="Liquidity" tipKey="liquidity" />
                   <BandarTh label="Dist?" tipKey="volDirRatio" />
                   <BandarTh label="Vol CV" tipKey="cv" />
@@ -1674,7 +1688,6 @@ export default function MasterTable({
                   <BandarTh label="UWick" tipKey="upperWick" />
                   <BandarTh label="Spike" tipKey="maxSpike" />
                   <BandarTh label="PVDiv" tipKey="pvDiv" />
-                  <BandarTh label="Bandar" tipKey="bandar" />
                   <BandarTh label="Max Move" tipKey="maxMove" />
                   <BandarTh label="Gap Days" tipKey="gapDays" />
                   <BandarTh label="Reversal" tipKey="reversal" />
@@ -1776,6 +1789,7 @@ export default function MasterTable({
                       })()}
                       <AtrCell v={swingAtr14[s.ticker] ?? null} />
                       <StopLossCell atr={swingAtr14[s.ticker] ?? null} entryPrice={s.entryPrice} currentPrice={price} />
+                      <BandarScoreCell bandar={swingBandar[s.ticker] ?? null} />
                       <BandarCells bandar={swingBandar[s.ticker] ?? null} />
                       <td className="px-3 py-2">
                         <button

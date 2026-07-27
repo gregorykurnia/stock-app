@@ -326,6 +326,11 @@ export interface BandarScoreResult {
   largeGapDays: number;
   reversalRate: number;
   rSquared: number;
+  scoreBreakdown: {
+    tier1: number;
+    tier2: number;
+    tier3: number;
+  };
 }
 
 function avg(arr: number[]): number {
@@ -353,19 +358,15 @@ export function calculateBandarScore(ohlcvData: BandarBar[]): BandarScoreResult 
   const meanVol = avg(volumes);
 
   const cv = meanVol > 0 ? stdDev(volumes) / meanVol : NaN;
-  const score1 = safeScore(Math.min(cv / 2, 1) * 20);
 
   const efficiencies = validCandles.map((d) => Math.abs(d.close - d.open) / (d.high - d.low));
   const avgEfficiency = avg(efficiencies);
-  const score2 = safeScore((1 - avgEfficiency) * 20);
 
   const upperWicks = validCandles.map((d) => (d.high - Math.max(d.close, d.open)) / (d.high - d.low));
   const avgUpperWick = avg(upperWicks);
-  const score3 = safeScore(avgUpperWick * 20);
 
   const avgVol20 = meanVol;
   const maxSpike = avgVol20 > 0 ? Math.max(...volumes) / avgVol20 : NaN;
-  const score4 = safeScore(Math.min((maxSpike - 1) / 9, 1) * 20);
 
   const valueTraded = last20.map((d) => d.close * d.volume);
   const avgValue20 = avg(valueTraded);
@@ -377,9 +378,10 @@ export function calculateBandarScore(ohlcvData: BandarBar[]): BandarScoreResult 
     return priceChange / relativeValue;
   });
   const pvRatio = avg(pvRatios);
-  const score5 = safeScore(Math.min(pvRatio * 10, 1) * 20);
 
-  const totalScore = score1 + score2 + score3 + score4 + score5;
+  const deadDays = avgVol20 > 0
+    ? last20.filter((d) => !d.volume || d.volume < avgVol20 * 0.1).length
+    : 0;
 
   const upDayVol = last20
     .filter((d) => d.close > d.open)
@@ -432,6 +434,39 @@ export function calculateBandarScore(ohlcvData: BandarBar[]): BandarScoreResult 
   }, 0);
   const rSquared = ssTot === 0 ? 0 : safeScore(1 - ssRes / ssTot);
 
+  // TIER 1 — Direct manipulation signals (65pts)
+  const s_upperWick = avgUpperWick > 0.4 ? 15 : avgUpperWick > 0.25 ? 8 : 0;
+
+  const s_reversal = reversalRate > 0.30 ? 15 : reversalRate > 0.15 ? 8 : 0;
+
+  const s_pvDiv = pvRatio > 0.6 ? 12 : pvRatio > 0.3 ? 6 : 0;
+
+  const s_volCV = cv > 1.5 ? 10 : cv > 0.8 ? 5 : 0;
+
+  const s_efficiency = avgEfficiency < 0.3 ? 8 : avgEfficiency < 0.5 ? 4 : 0;
+
+  const s_gapDays = largeGapDays > 4 ? 5 : largeGapDays > 2 ? 2 : 0;
+
+  // TIER 2 — Supporting signals (25pts)
+  const s_volSpike = maxSpike > 5 ? 8 : maxSpike > 3 ? 4 : 0;
+
+  const s_maxMove = maxDayMove > 0.10 ? 7 : maxDayMove > 0.05 ? 3 : 0;
+
+  const s_volDir = volDirRatio < 0.40 ? 5 : volDirRatio < 0.60 ? 2 : 0;
+
+  const s_rSquared = rSquared < 0.4 ? 5 : rSquared < 0.7 ? 2 : 0;
+
+  // TIER 3 — Context signals (10pts)
+  const s_liquidity = avgValue20 < 5_000_000_000 ? 7 : avgValue20 < 20_000_000_000 ? 3 : 0;
+
+  const s_deadDays = deadDays > 4 ? 3 : deadDays > 2 ? 1 : 0;
+
+  const totalScore = safeScore(
+    s_upperWick + s_reversal + s_pvDiv + s_volCV +
+    s_efficiency + s_gapDays + s_volSpike + s_maxMove +
+    s_volDir + s_rSquared + s_liquidity + s_deadDays
+  );
+
   return {
     cv: safeScore(cv),
     efficiency: safeScore(avgEfficiency),
@@ -445,6 +480,11 @@ export function calculateBandarScore(ohlcvData: BandarBar[]): BandarScoreResult 
     largeGapDays,
     reversalRate,
     rSquared,
+    scoreBreakdown: {
+      tier1: s_upperWick + s_reversal + s_pvDiv + s_volCV + s_efficiency + s_gapDays,
+      tier2: s_volSpike + s_maxMove + s_volDir + s_rSquared,
+      tier3: s_liquidity + s_deadDays,
+    },
   };
 }
 
