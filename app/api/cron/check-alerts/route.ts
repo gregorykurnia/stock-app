@@ -122,8 +122,8 @@ export async function GET(req: NextRequest) {
     .map(([ticker, w]) => ({ ticker, alert_price: w.alert_price, triggered: w.triggered, last_price_side: w.last_price_side }));
 
   const standaloneCandidates: AlertLike[] = (Object.entries(priceAlerts) as [string, PriceAlert][])
-    .filter(([, a]) => a.alert_price > 0 && !a.triggered)
-    .map(([ticker, a]) => ({ ticker, alert_price: a.alert_price, triggered: a.triggered, last_price_side: a.last_price_side, notes: a.notes }));
+    .filter(([, a]) => (a.alert_price ?? 0) > 0 && !a.triggered)
+    .map(([ticker, a]) => ({ ticker, alert_price: a.alert_price as number, triggered: a.triggered, last_price_side: a.last_price_side, notes: a.notes }));
 
   const allTickers = Array.from(new Set([...watchlistCandidates, ...standaloneCandidates].map((c) => c.ticker)));
 
