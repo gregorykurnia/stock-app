@@ -966,7 +966,7 @@ export default function MasterTable({
       score <= 30 ? "bg-green-100 text-green-800" : score <= 55 ? "bg-yellow-100 text-yellow-800" : "bg-red-100 text-red-800";
     const scoreLabel = score <= 30 ? "🟢" : score <= 55 ? "🟡" : "🔴";
     const tooltip = scoreBreakdown
-      ? `Tier 1 (manipulation): ${scoreBreakdown.tier1}pts / 65\nTier 2 (volatility): ${scoreBreakdown.tier2}pts / 25\nTier 3 (context): ${scoreBreakdown.tier3}pts / 10`
+      ? `Tier 1 (manipulation): ${scoreBreakdown.tier1}pts / 65\nTier 2 (volatility): ${scoreBreakdown.tier2}pts / 25\nTier 3 (context): ${scoreBreakdown.tier3}pts / 10\nRaw score: ${scoreBreakdown.rawScore}\nLiquidity multiplier: ${scoreBreakdown.liquidityMultiplier.toFixed(1)}x\nFinal score: ${score}`
       : undefined;
     return (
       <td className={`px-3 py-2 whitespace-nowrap font-bold rounded ${scoreCls}`} title={tooltip}>

@@ -330,6 +330,8 @@ export interface BandarScoreResult {
     tier1: number;
     tier2: number;
     tier3: number;
+    rawScore: number;
+    liquidityMultiplier: number;
   };
 }
 
@@ -450,7 +452,7 @@ export function calculateBandarScore(ohlcvData: BandarBar[]): BandarScoreResult 
   // TIER 2 — Supporting signals (25pts)
   const s_volSpike = maxSpike > 5 ? 8 : maxSpike > 3 ? 4 : 0;
 
-  const s_maxMove = maxDayMove > 0.10 ? 7 : maxDayMove > 0.05 ? 3 : 0;
+  const s_maxMove = maxDayMove > 0.20 ? 12 : maxDayMove > 0.10 ? 7 : maxDayMove > 0.05 ? 3 : 0;
 
   const s_volDir = volDirRatio < 0.40 ? 5 : volDirRatio < 0.60 ? 2 : 0;
 
@@ -461,11 +463,28 @@ export function calculateBandarScore(ohlcvData: BandarBar[]): BandarScoreResult 
 
   const s_deadDays = deadDays > 4 ? 3 : deadDays > 2 ? 1 : 0;
 
-  const totalScore = safeScore(
+  // Raw score before liquidity adjustment
+  const rawScore = safeScore(
     s_upperWick + s_reversal + s_pvDiv + s_volCV +
     s_efficiency + s_gapDays + s_volSpike + s_maxMove +
     s_volDir + s_rSquared + s_liquidity + s_deadDays
   );
+
+  // Liquidity multiplier — illiquid stocks get a penalty
+  // multiplier on top of their raw score because thin markets
+  // are structurally easier to manipulate regardless of other signals
+  const liquidityMultiplier =
+    avgValue20 < 1_000_000_000 ? 1.4
+    : avgValue20 < 5_000_000_000 ? 1.2
+    : avgValue20 < 20_000_000_000 ? 1.1
+    : 1.0;
+
+  let totalScore = Math.min(rawScore * liquidityMultiplier, 100);
+  let finalLiquidityMultiplier = liquidityMultiplier;
+  if (isNaN(totalScore) || !isFinite(totalScore)) {
+    totalScore = rawScore;
+    finalLiquidityMultiplier = 1.0;
+  }
 
   return {
     cv: safeScore(cv),
@@ -484,6 +503,8 @@ export function calculateBandarScore(ohlcvData: BandarBar[]): BandarScoreResult 
       tier1: s_upperWick + s_reversal + s_pvDiv + s_volCV + s_efficiency + s_gapDays,
       tier2: s_volSpike + s_maxMove + s_volDir + s_rSquared,
       tier3: s_liquidity + s_deadDays,
+      rawScore: Math.round(rawScore),
+      liquidityMultiplier: finalLiquidityMultiplier,
     },
   };
 }
