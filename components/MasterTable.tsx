@@ -729,14 +729,124 @@ export default function MasterTable({
     </td>
   );
 
-  const BandarTh = ({ label, desc }: { label: string; desc: string }) => (
-    <th className="group relative px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap cursor-help">
-      <span className="border-b border-dotted border-gray-400">{label}</span>
-      <span className="pointer-events-none absolute left-0 top-full z-40 mt-1 hidden w-56 whitespace-normal rounded-md bg-gray-900 px-2 py-1.5 text-[11px] font-normal normal-case leading-snug text-white shadow-lg group-hover:block">
-        {desc}
-      </span>
-    </th>
-  );
+  const BANDAR_TOOLTIPS: Record<string, ValTooltipDef> = {
+    cv: {
+      definition: "Coefficient of variation of daily volume over the last 20 sessions (std dev ÷ mean). Measures how consistent trading volume is day to day. Erratic volume — quiet stretches punctuated by huge spikes — is a classic footprint of accumulation/distribution by a single large player rather than organic broad-based interest.",
+      ranges: [
+        { range: "<0.8",   label: "✅ Consistent", meaning: "Volume flows steadily — normal, broad-based participation" },
+        { range: "0.8–1.5",label: "⚠️ Uneven",      meaning: "Some irregular days — worth a second look but not alarming alone" },
+        { range: ">1.5",   label: "🚨 Erratic",     meaning: "Highly inconsistent volume — consistent with one player dominating flow" },
+      ],
+    },
+    efficiency: {
+      definition: "Average of |close − open| ÷ (high − low) over the last 20 candles. Measures how much of each day's traded range turned into real net price movement. Low efficiency means price got pushed around intraday (lots of wick) without actually going anywhere — often a sign of absorption, where a large player is quietly buying or selling into the move without letting price run.",
+      ranges: [
+        { range: ">0.5",   label: "✅ Directional", meaning: "Most of the day's range converts to real movement — clean, healthy price action" },
+        { range: "0.3–0.5",label: "⚠️ Choppy",      meaning: "Meaningful wick relative to the move — some intraday fighting" },
+        { range: "<0.3",   label: "🚨 Absorbed",    meaning: "Range dominated by wicks — price is being pushed around without progress" },
+      ],
+    },
+    upperWick: {
+      definition: "Average of (high − max(close, open)) ÷ (high − low) over the last 20 candles. Measures how much of each candle is upper wick — price rallying intraday then getting sold back down before the close. Persistently high upper wicks suggest supply capping every rally, i.e. someone selling into strength.",
+      ranges: [
+        { range: "<0.25",  label: "✅ Clean",       meaning: "Rallies mostly hold into the close — no persistent overhead selling" },
+        { range: "0.25–0.4",label: "⚠️ Some capping",meaning: "Rallies partly sold off intraday — watch for repeated rejection" },
+        { range: ">0.4",   label: "🚨 Heavy selling",meaning: "Rallies consistently sold into — strong sign of distribution at highs" },
+      ],
+    },
+    maxSpike: {
+      definition: "The single largest volume day in the last 20 sessions, expressed as a multiple of the 20-day average volume. Flags abnormal one-off volume days — could be a news/earnings reaction, or could be a pump/dump or a large player's single big print.",
+      ranges: [
+        { range: "<3×",  label: "✅ Normal",   meaning: "No abnormal volume days — typical trading pattern" },
+        { range: "3–5×", label: "⚠️ Elevated", meaning: "One notably heavy day — check what happened, could be news-driven or a signal" },
+        { range: ">5×",  label: "🚨 Extreme",  meaning: "Very unusual single-day volume — possible pump day or major player footprint" },
+      ],
+    },
+    pvDiv: {
+      definition: "Compares each day's price move (|close − open| ÷ open) against how much money actually traded that day (close × volume, relative to the 20-day average). A high ratio means price moved a lot on relatively thin money — the move wasn't backed by real capital, which is easy for a small player to manufacture and easy to reverse.",
+      ranges: [
+        { range: "<0.3",   label: "✅ Well supported", meaning: "Price moves are backed by proportionate money flow — healthy" },
+        { range: "0.3–0.6",label: "⚠️ Thin support",   meaning: "Some moves happening on lighter-than-expected money — mild caution" },
+        { range: ">0.6",   label: "🚨 Unsupported",    meaning: "Price moving far more than the money behind it justifies — fragile, reversal-prone" },
+      ],
+    },
+    bandar: {
+      definition: "Composite 0–100 score combining all five signals above (Vol CV, Efficiency, Upper Wick, Vol Spike, PV Divergence) into a single manipulation-risk read. Higher score = more of these individual red flags are firing together, consistent with a large player ('bandar') accumulating, distributing, or manipulating the stock rather than organic market activity.",
+      ranges: [
+        { range: "0–30",  label: "🟢 Clean",     meaning: "Little to no sign of manipulation — trade the technicals normally" },
+        { range: "31–55", label: "🟡 Caution",   meaning: "Some red flags present — size down or wait for confirmation before entry" },
+        { range: "56–100",label: "🔴 High risk", meaning: "Multiple red flags firing together — treat any breakout/breakdown with heavy skepticism" },
+      ],
+    },
+  };
+
+  function BandarTh({ label, tipKey }: { label: string; tipKey: string }) {
+    const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+    const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const iconRef = useRef<HTMLSpanElement>(null);
+    const tip = BANDAR_TOOLTIPS[tipKey];
+
+    function show() {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      if (iconRef.current) {
+        const r = iconRef.current.getBoundingClientRect();
+        setPos({ top: r.bottom + 6, left: Math.min(r.left, window.innerWidth - 348) });
+      }
+    }
+    function hide() {
+      timerRef.current = setTimeout(() => setPos(null), 120);
+    }
+
+    return (
+      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap select-none">
+        <span className="inline-flex items-center gap-1">
+          {label}
+          {tip && (
+            <span
+              ref={iconRef}
+              className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-gray-300 text-gray-600 text-[9px] font-bold cursor-default leading-none"
+              onClick={(e) => { e.stopPropagation(); pos ? setPos(null) : show(); }}
+              onMouseEnter={show}
+              onMouseLeave={hide}
+            >i</span>
+          )}
+        </span>
+        {pos && tip && (
+          <div
+            className="fixed z-[9999] w-[340px] bg-white border border-gray-200 rounded-lg shadow-xl p-3 text-left normal-case tracking-normal font-normal"
+            style={{ top: pos.top, left: pos.left }}
+            onMouseEnter={() => { if (timerRef.current) clearTimeout(timerRef.current); }}
+            onMouseLeave={hide}
+          >
+            <p className="text-[11px] text-gray-500 leading-snug mb-2 whitespace-normal">{tip.definition}</p>
+            <table className="w-full text-[11px] border-collapse table-fixed">
+              <colgroup>
+                <col className="w-14" />
+                <col className="w-24" />
+                <col />
+              </colgroup>
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="text-left py-0.5 pr-2 text-gray-400 font-semibold">Range</th>
+                  <th className="text-left py-0.5 pr-2 text-gray-400 font-semibold">Label</th>
+                  <th className="text-left py-0.5 text-gray-400 font-semibold">Meaning</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tip.ranges.map((row, i) => (
+                  <tr key={i} className="border-b border-gray-100 last:border-0">
+                    <td className="py-0.5 pr-2 text-gray-700 font-mono whitespace-nowrap align-top">{row.range}</td>
+                    <td className="py-0.5 pr-2 text-gray-700 whitespace-nowrap align-top">{row.label}</td>
+                    <td className="py-0.5 text-gray-500 leading-snug whitespace-normal break-words align-top">{row.meaning}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </th>
+    );
+  }
 
   const BandarCells = ({ bandar }: { bandar: BandarScoreResult | null }) => {
     if (bandar == null) {
@@ -1484,12 +1594,12 @@ export default function MasterTable({
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="MACD histogram (MACD − Signal) — daily closes">Hist</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Average True Range (14, daily) — volatility range">ATR (14)</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="1.5× ATR below your entry price (falls back to current price if entry is blank)">Stop Loss</th>
-                  <BandarTh label="Vol CV" desc="Volume consistency — high = erratic trading pattern" />
-                  <BandarTh label="Effic." desc="Range efficiency — low = lots of wicks, little direction" />
-                  <BandarTh label="UWick" desc="Upper wick ratio — high = selling into rallies" />
-                  <BandarTh label="Spike" desc="Max volume spike vs 20d avg — high = possible pump day" />
-                  <BandarTh label="PVDiv" desc="Price move vs value traded — high = price moved on thin money" />
-                  <BandarTh label="Bandar" desc="Composite bandar risk score — higher = more manipulation risk" />
+                  <BandarTh label="Vol CV" tipKey="cv" />
+                  <BandarTh label="Effic." tipKey="efficiency" />
+                  <BandarTh label="UWick" tipKey="upperWick" />
+                  <BandarTh label="Spike" tipKey="maxSpike" />
+                  <BandarTh label="PVDiv" tipKey="pvDiv" />
+                  <BandarTh label="Bandar" tipKey="bandar" />
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Remove</th>
                 </tr>
               </thead>
