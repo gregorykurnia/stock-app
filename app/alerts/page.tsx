@@ -129,6 +129,39 @@ export default function AlertsPage() {
     setAlerts((prev) => prev.map((a) => (a.id === id ? { ...a, notes: value } : a)));
   }
 
+  function handleExportCsv() {
+    const headers = ["Ticker", "Current Price", "Alert Price", "% Distance", "Status", "Earnings Alert", "Earnings Date", "Notes"];
+    const rows = alerts.map((a) => {
+      const cur = prices[a.ticker] ?? null;
+      const hasAlertPrice = !!a.alert_price && a.alert_price > 0;
+      const pctDistance = cur != null && hasAlertPrice ? ((cur - a.alert_price!) / a.alert_price!) * 100 : null;
+      const status = !hasAlertPrice ? "Post-Earnings" : a.triggered ? "Triggered" : "Active";
+      return [
+        a.ticker,
+        cur != null ? cur.toFixed(2) : "",
+        hasAlertPrice ? a.alert_price!.toFixed(2) : "",
+        pctDistance != null ? pctDistance.toFixed(1) : "",
+        status,
+        a.earnings_alert ? "Yes" : "No",
+        a.earnings_alert ? (earningsDates[a.ticker] ?? "") : "",
+        a.notes ?? "",
+      ];
+    });
+
+    const escapeCell = (cell: string) => (/[",\n]/.test(cell) ? `"${cell.replace(/"/g, '""')}"` : cell);
+    const csv = [headers, ...rows].map((row) => row.map(escapeCell).join(",")).join("\n");
+
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `price-alerts-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }
+
   async function handlePriceBlur(id: string, value: string) {
     const current = alerts.find((a) => a.id === id)?.alert_price;
     const price = parseFloat(value);
@@ -149,13 +182,22 @@ export default function AlertsPage() {
             <h1 className="text-2xl font-bold text-gray-900">Price Alerts</h1>
             <p className="text-gray-500 text-sm mt-0.5">Set a price alert for any ticker — checked every 5 min during market hours.</p>
           </div>
-          <div className="flex flex-col items-end">
-            <button
-              onClick={handleEnableAlerts}
-              className={`text-xs px-3 py-1.5 rounded border ${pushSubscribed ? "border-green-300 text-green-700 bg-green-50" : "border-gray-300 text-gray-600 hover:border-gray-400 hover:text-gray-800 bg-white"}`}
-            >
-              {pushSubscribed ? "🔔 Notifications Enabled" : "Enable Notifications"}
-            </button>
+          <div className="flex flex-col items-end gap-2">
+            <div className="flex gap-2">
+              <button
+                onClick={handleExportCsv}
+                disabled={alerts.length === 0}
+                className="text-xs px-3 py-1.5 rounded border border-gray-300 text-gray-600 hover:border-gray-400 hover:text-gray-800 bg-white disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Export CSV
+              </button>
+              <button
+                onClick={handleEnableAlerts}
+                className={`text-xs px-3 py-1.5 rounded border ${pushSubscribed ? "border-green-300 text-green-700 bg-green-50" : "border-gray-300 text-gray-600 hover:border-gray-400 hover:text-gray-800 bg-white"}`}
+              >
+                {pushSubscribed ? "🔔 Notifications Enabled" : "Enable Notifications"}
+              </button>
+            </div>
             {pushStatus && <span className="text-xs text-gray-400 mt-0.5">{pushStatus}</span>}
           </div>
         </div>
