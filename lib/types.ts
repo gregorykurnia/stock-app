@@ -110,6 +110,8 @@ export interface WatchlistEntry {
 }
 
 export interface PriceAlert {
+  // Firestore doc id — distinct from ticker so the same ticker can have multiple alerts (e.g. installment buys).
+  id: string;
   ticker: string;
   // Post-earnings alerts have no known target price yet — omitted (or 0) until the user sets one after the report.
   alert_price?: number;

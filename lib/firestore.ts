@@ -107,16 +107,17 @@ export async function updateWatchlistEarningsAlert(ticker: string, data: { earni
   await setDoc(doc(db, "watchlist", ticker), data, { merge: true });
 }
 
-// Standalone price alerts (any ticker, independent of watchlist/portfolio membership)
+// Standalone price alerts (any ticker, independent of watchlist/portfolio membership).
+// Docs use auto-generated ids (not the ticker) so a ticker can have multiple alerts — e.g. installment buys at different prices.
 export async function getPriceAlerts(): Promise<Record<string, object>> {
   const snap = await getDocs(collection(db, "price_alerts"));
   const result: Record<string, object> = {};
-  snap.forEach((d) => { result[d.id] = d.data(); });
+  snap.forEach((d) => { result[d.id] = { id: d.id, ...d.data() }; });
   return result;
 }
 
 export async function savePriceAlert(ticker: string, alertPrice: number) {
-  await setDoc(doc(db, "price_alerts", ticker), {
+  await addDoc(collection(db, "price_alerts"), {
     ticker,
     alert_price: alertPrice,
     created_at: new Date().toISOString(),
@@ -125,7 +126,7 @@ export async function savePriceAlert(ticker: string, alertPrice: number) {
 
 // No target price yet — just ping once earnings is reported, notes carries the $ amount to deploy.
 export async function savePostEarningsAlert(ticker: string, notes: string) {
-  await setDoc(doc(db, "price_alerts", ticker), {
+  await addDoc(collection(db, "price_alerts"), {
     ticker,
     created_at: new Date().toISOString(),
     earnings_alert: true,
@@ -133,30 +134,30 @@ export async function savePostEarningsAlert(ticker: string, notes: string) {
   });
 }
 
-export async function removePriceAlert(ticker: string) {
-  await deleteDoc(doc(db, "price_alerts", ticker));
+export async function removePriceAlert(id: string) {
+  await deleteDoc(doc(db, "price_alerts", id));
 }
 
-export async function updatePriceAlertState(ticker: string, data: { triggered?: boolean; last_price_side?: "above" | "below" }) {
+export async function updatePriceAlertState(id: string, data: { triggered?: boolean; last_price_side?: "above" | "below" }) {
   const { last_price_side, ...rest } = data;
   await setDoc(
-    doc(db, "price_alerts", ticker),
+    doc(db, "price_alerts", id),
     { ...rest, last_price_side: last_price_side ?? deleteField() },
     { merge: true }
   );
 }
 
-export async function updatePriceAlertEarnings(ticker: string, data: { earnings_alert?: boolean; earnings_date?: string | null; earnings_alert_fired?: boolean }) {
-  await setDoc(doc(db, "price_alerts", ticker), data, { merge: true });
+export async function updatePriceAlertEarnings(id: string, data: { earnings_alert?: boolean; earnings_date?: string | null; earnings_alert_fired?: boolean }) {
+  await setDoc(doc(db, "price_alerts", id), data, { merge: true });
 }
 
-export async function updatePriceAlertNotes(ticker: string, notes: string) {
-  await setDoc(doc(db, "price_alerts", ticker), { notes }, { merge: true });
+export async function updatePriceAlertNotes(id: string, notes: string) {
+  await setDoc(doc(db, "price_alerts", id), { notes }, { merge: true });
 }
 
-export async function updatePriceAlertPrice(ticker: string, alertPrice: number) {
+export async function updatePriceAlertPrice(id: string, alertPrice: number) {
   await setDoc(
-    doc(db, "price_alerts", ticker),
+    doc(db, "price_alerts", id),
     { alert_price: alertPrice, triggered: false, last_price_side: deleteField() },
     { merge: true }
   );

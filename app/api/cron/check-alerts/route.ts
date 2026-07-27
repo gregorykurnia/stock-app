@@ -40,6 +40,7 @@ function todayET(): string {
 }
 
 interface AlertLike {
+  id: string;
   ticker: string;
   alert_price: number;
   triggered?: boolean;
@@ -48,6 +49,7 @@ interface AlertLike {
 }
 
 interface EarningsAlertLike {
+  id: string;
   ticker: string;
   earnings_date?: string | null;
   earnings_alert_fired?: boolean;
@@ -66,11 +68,11 @@ export async function GET(req: NextRequest) {
   // --- Earnings-triggered alerts: checked every run, regardless of market hours ---
   const watchlistEarningsCandidates: EarningsAlertLike[] = (Object.entries(watchlist) as [string, WatchlistEntry][])
     .filter(([, w]) => w.earnings_alert)
-    .map(([ticker, w]) => ({ ticker, earnings_date: w.earnings_date, earnings_alert_fired: w.earnings_alert_fired, notes: w.notes }));
+    .map(([ticker, w]) => ({ id: ticker, ticker, earnings_date: w.earnings_date, earnings_alert_fired: w.earnings_alert_fired, notes: w.notes }));
 
   const standaloneEarningsCandidates: EarningsAlertLike[] = (Object.entries(priceAlerts) as [string, PriceAlert][])
     .filter(([, a]) => a.earnings_alert)
-    .map(([ticker, a]) => ({ ticker, earnings_date: a.earnings_date, earnings_alert_fired: a.earnings_alert_fired, notes: a.notes }));
+    .map(([id, a]) => ({ id, ticker: a.ticker, earnings_date: a.earnings_date, earnings_alert_fired: a.earnings_alert_fired, notes: a.notes }));
 
   const earningsTickers = Array.from(new Set([...watchlistEarningsCandidates, ...standaloneEarningsCandidates].map((c) => c.ticker)));
   const earningsFiredTickers: string[] = [];
@@ -79,19 +81,19 @@ export async function GET(req: NextRequest) {
     const freshDates = await fetchEarningsDates(earningsTickers);
     const today = todayET();
 
-    async function processEarningsCandidate(c: EarningsAlertLike, updateState: (ticker: string, data: { earnings_alert?: boolean; earnings_date?: string | null; earnings_alert_fired?: boolean }) => Promise<void>) {
+    async function processEarningsCandidate(c: EarningsAlertLike, updateState: (id: string, data: { earnings_alert?: boolean; earnings_date?: string | null; earnings_alert_fired?: boolean }) => Promise<void>) {
       const freshDate = freshDates[c.ticker] ?? null;
 
       if (!c.earnings_date) {
         // First time arming: just record the known upcoming earnings date.
-        if (freshDate) await updateState(c.ticker, { earnings_date: freshDate, earnings_alert_fired: false });
+        if (freshDate) await updateState(c.id, { earnings_date: freshDate, earnings_alert_fired: false });
         return;
       }
 
       if (!c.earnings_alert_fired && c.earnings_date < today) {
         // Stored earnings date has passed and we haven't notified yet — fire once.
         earningsFiredTickers.push(c.ticker);
-        await updateState(c.ticker, { earnings_alert_fired: true });
+        await updateState(c.id, { earnings_alert_fired: true });
         if (subscriptions.length > 0) {
           const line = `${c.ticker} reported earnings on ${c.earnings_date} — check for entry`;
           await sendPushToAll(subscriptions, {
@@ -102,7 +104,7 @@ export async function GET(req: NextRequest) {
         }
       } else if (c.earnings_alert_fired && freshDate && freshDate !== c.earnings_date) {
         // Yahoo rolled to the next quarter's date — re-arm automatically.
-        await updateState(c.ticker, { earnings_date: freshDate, earnings_alert_fired: false });
+        await updateState(c.id, { earnings_date: freshDate, earnings_alert_fired: false });
       }
     }
 
@@ -119,11 +121,11 @@ export async function GET(req: NextRequest) {
 
   const watchlistCandidates: AlertLike[] = (Object.entries(watchlist) as [string, WatchlistEntry][])
     .filter(([, w]) => w.alert_price > 0 && !w.triggered)
-    .map(([ticker, w]) => ({ ticker, alert_price: w.alert_price, triggered: w.triggered, last_price_side: w.last_price_side }));
+    .map(([ticker, w]) => ({ id: ticker, ticker, alert_price: w.alert_price, triggered: w.triggered, last_price_side: w.last_price_side }));
 
   const standaloneCandidates: AlertLike[] = (Object.entries(priceAlerts) as [string, PriceAlert][])
     .filter(([, a]) => (a.alert_price ?? 0) > 0 && !a.triggered)
-    .map(([ticker, a]) => ({ ticker, alert_price: a.alert_price as number, triggered: a.triggered, last_price_side: a.last_price_side, notes: a.notes }));
+    .map(([id, a]) => ({ id, ticker: a.ticker, alert_price: a.alert_price as number, triggered: a.triggered, last_price_side: a.last_price_side, notes: a.notes }));
 
   const allTickers = Array.from(new Set([...watchlistCandidates, ...standaloneCandidates].map((c) => c.ticker)));
 
@@ -134,7 +136,7 @@ export async function GET(req: NextRequest) {
   const { prices } = await fetchQuotes(allTickers);
   const triggeredTickers: string[] = [];
 
-  async function processCandidate(c: AlertLike, updateState: (ticker: string, data: { triggered?: boolean; last_price_side?: "above" | "below" }) => Promise<void>) {
+  async function processCandidate(c: AlertLike, updateState: (id: string, data: { triggered?: boolean; last_price_side?: "above" | "below" }) => Promise<void>) {
     const price = prices[c.ticker];
     if (price == null) return;
 
@@ -142,7 +144,7 @@ export async function GET(req: NextRequest) {
 
     if (c.last_price_side && c.last_price_side !== side) {
       triggeredTickers.push(c.ticker);
-      await updateState(c.ticker, { triggered: true, last_price_side: side });
+      await updateState(c.id, { triggered: true, last_price_side: side });
       if (subscriptions.length > 0) {
         const priceLine = `${c.ticker} is now $${price.toFixed(2)} (alert set at $${c.alert_price.toFixed(2)})`;
         await sendPushToAll(subscriptions, {
@@ -153,7 +155,7 @@ export async function GET(req: NextRequest) {
       }
     } else if (!c.last_price_side) {
       // First-ever check for this alert: just record the current side, don't fire.
-      await updateState(c.ticker, { last_price_side: side });
+      await updateState(c.id, { last_price_side: side });
     }
   }
 

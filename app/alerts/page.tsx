@@ -97,48 +97,48 @@ export default function AlertsPage() {
     await load();
   }
 
-  async function handleRemove(ticker: string) {
-    if (!confirm(`Remove price alert for ${ticker}?`)) return;
-    await removePriceAlert(ticker);
+  async function handleRemove(id: string, ticker: string) {
+    if (!confirm(`Remove this alert for ${ticker}?`)) return;
+    await removePriceAlert(id);
     await load();
   }
 
-  async function handleReset(ticker: string) {
-    await updatePriceAlertState(ticker, { triggered: false, last_price_side: undefined });
+  async function handleReset(id: string) {
+    await updatePriceAlertState(id, { triggered: false, last_price_side: undefined });
     await load();
   }
 
-  async function handleToggleEarningsAlert(ticker: string, enabled: boolean) {
-    await updatePriceAlertEarnings(ticker, { earnings_alert: enabled, ...(enabled ? { earnings_alert_fired: false } : {}) });
-    setAlerts((prev) => prev.map((a) => (a.ticker === ticker ? { ...a, earnings_alert: enabled } : a)));
+  async function handleToggleEarningsAlert(id: string, ticker: string, enabled: boolean) {
+    await updatePriceAlertEarnings(id, { earnings_alert: enabled, ...(enabled ? { earnings_alert_fired: false } : {}) });
+    setAlerts((prev) => prev.map((a) => (a.id === id ? { ...a, earnings_alert: enabled } : a)));
 
     if (enabled) {
       const res = await fetch(`/api/earnings?tickers=${ticker}`);
       const d = await res.json();
       const dateStr: string | null = d.earnings?.[ticker] ?? null;
       setEarningsDates((prev) => ({ ...prev, [ticker]: dateStr }));
-      await updatePriceAlertEarnings(ticker, { earnings_date: dateStr });
-      setAlerts((prev) => prev.map((a) => (a.ticker === ticker ? { ...a, earnings_date: dateStr } : a)));
+      await updatePriceAlertEarnings(id, { earnings_date: dateStr });
+      setAlerts((prev) => prev.map((a) => (a.id === id ? { ...a, earnings_date: dateStr } : a)));
     }
   }
 
-  async function handleNotesBlur(ticker: string, value: string) {
-    const current = alerts.find((a) => a.ticker === ticker)?.notes ?? "";
+  async function handleNotesBlur(id: string, value: string) {
+    const current = alerts.find((a) => a.id === id)?.notes ?? "";
     if (value === current) return;
-    await updatePriceAlertNotes(ticker, value);
-    setAlerts((prev) => prev.map((a) => (a.ticker === ticker ? { ...a, notes: value } : a)));
+    await updatePriceAlertNotes(id, value);
+    setAlerts((prev) => prev.map((a) => (a.id === id ? { ...a, notes: value } : a)));
   }
 
-  async function handlePriceBlur(ticker: string, value: string) {
-    const current = alerts.find((a) => a.ticker === ticker)?.alert_price;
+  async function handlePriceBlur(id: string, value: string) {
+    const current = alerts.find((a) => a.id === id)?.alert_price;
     const price = parseFloat(value);
     if (isNaN(price) || price <= 0 || price === current) {
-      setPriceDraft((prev) => { const next = { ...prev }; delete next[ticker]; return next; });
+      setPriceDraft((prev) => { const next = { ...prev }; delete next[id]; return next; });
       return;
     }
-    await updatePriceAlertPrice(ticker, price);
-    setAlerts((prev) => prev.map((a) => (a.ticker === ticker ? { ...a, alert_price: price, triggered: false, last_price_side: undefined } : a)));
-    setPriceDraft((prev) => { const next = { ...prev }; delete next[ticker]; return next; });
+    await updatePriceAlertPrice(id, price);
+    setAlerts((prev) => prev.map((a) => (a.id === id ? { ...a, alert_price: price, triggered: false, last_price_side: undefined } : a)));
+    setPriceDraft((prev) => { const next = { ...prev }; delete next[id]; return next; });
   }
 
   return (
@@ -245,7 +245,7 @@ export default function AlertsPage() {
                   const hasAlertPrice = !!a.alert_price && a.alert_price > 0;
                   const pctDistance = cur != null && hasAlertPrice ? ((cur - a.alert_price!) / a.alert_price!) * 100 : null;
                   return (
-                    <tr key={a.ticker} className="hover:bg-gray-50">
+                    <tr key={a.id} className="hover:bg-gray-50">
                       <td className="px-3 py-2 font-semibold">
                         <Link href={`/stock/${a.ticker}`} className="text-blue-600 hover:text-blue-800">{a.ticker}</Link>
                       </td>
@@ -257,9 +257,9 @@ export default function AlertsPage() {
                           <span>$</span>
                           <input
                             type="number" step="0.01"
-                            value={priceDraft[a.ticker] ?? (hasAlertPrice ? a.alert_price!.toFixed(2) : "")}
-                            onChange={(e) => setPriceDraft((prev) => ({ ...prev, [a.ticker]: e.target.value }))}
-                            onBlur={(e) => handlePriceBlur(a.ticker, e.target.value)}
+                            value={priceDraft[a.id] ?? (hasAlertPrice ? a.alert_price!.toFixed(2) : "")}
+                            onChange={(e) => setPriceDraft((prev) => ({ ...prev, [a.id]: e.target.value }))}
+                            onBlur={(e) => handlePriceBlur(a.id, e.target.value)}
                             onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
                             placeholder="set after earnings"
                             className="w-24 border border-transparent hover:border-gray-200 focus:border-blue-400 rounded px-1.5 py-1 text-xs text-gray-700 focus:outline-none bg-transparent focus:bg-white placeholder:text-gray-300"
@@ -281,7 +281,7 @@ export default function AlertsPage() {
                           <input
                             type="checkbox"
                             checked={!!a.earnings_alert}
-                            onChange={(e) => handleToggleEarningsAlert(a.ticker, e.target.checked)}
+                            onChange={(e) => handleToggleEarningsAlert(a.id, a.ticker, e.target.checked)}
                             className="rounded border-gray-300"
                           />
                           {a.earnings_alert && <EarningsBadge dateStr={earningsDates[a.ticker]} fired={a.earnings_alert_fired} />}
@@ -290,9 +290,9 @@ export default function AlertsPage() {
                       <td className="px-3 py-2">
                         <input
                           type="text"
-                          value={notesDraft[a.ticker] ?? a.notes ?? ""}
-                          onChange={(e) => setNotesDraft((prev) => ({ ...prev, [a.ticker]: e.target.value }))}
-                          onBlur={(e) => handleNotesBlur(a.ticker, e.target.value)}
+                          value={notesDraft[a.id] ?? a.notes ?? ""}
+                          onChange={(e) => setNotesDraft((prev) => ({ ...prev, [a.id]: e.target.value }))}
+                          onBlur={(e) => handleNotesBlur(a.id, e.target.value)}
                           onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
                           placeholder="What to do…"
                           className="w-48 border border-transparent hover:border-gray-200 focus:border-blue-400 rounded px-2 py-1 text-xs text-gray-700 focus:outline-none bg-transparent focus:bg-white"
@@ -300,9 +300,9 @@ export default function AlertsPage() {
                       </td>
                       <td className="px-3 py-2 text-right whitespace-nowrap">
                         {a.triggered && (
-                          <button onClick={() => handleReset(a.ticker)} className="text-blue-500 hover:text-blue-700 text-xs mr-3">Re-arm</button>
+                          <button onClick={() => handleReset(a.id)} className="text-blue-500 hover:text-blue-700 text-xs mr-3">Re-arm</button>
                         )}
-                        <button onClick={() => handleRemove(a.ticker)} className="text-red-300 hover:text-red-500 text-xs">Remove</button>
+                        <button onClick={() => handleRemove(a.id, a.ticker)} className="text-red-300 hover:text-red-500 text-xs">Remove</button>
                       </td>
                     </tr>
                   );
