@@ -111,7 +111,8 @@ export interface WatchlistEntry {
 
 export interface PriceAlert {
   ticker: string;
-  alert_price: number;
+  // Post-earnings alerts have no known target price yet — omitted (or 0) until the user sets one after the report.
+  alert_price?: number;
   created_at: string;
   triggered?: boolean;
   last_price_side?: "above" | "below";

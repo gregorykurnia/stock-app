@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { getPriceAlerts, savePriceAlert, removePriceAlert, updatePriceAlertState, updatePriceAlertNotes, updatePriceAlertPrice, updatePriceAlertEarnings } from "@/lib/firestore";
+import { getPriceAlerts, savePriceAlert, savePostEarningsAlert, removePriceAlert, updatePriceAlertState, updatePriceAlertNotes, updatePriceAlertPrice, updatePriceAlertEarnings } from "@/lib/firestore";
 import { subscribeToPush } from "@/lib/push";
 import type { PriceAlert } from "@/lib/types";
 
@@ -23,8 +23,10 @@ export default function AlertsPage() {
   const [prices, setPrices] = useState<Record<string, number | null>>({});
   const [earningsDates, setEarningsDates] = useState<Record<string, string | null>>({});
   const [loading, setLoading] = useState(true);
+  const [alertMode, setAlertMode] = useState<"price" | "post_earnings">("price");
   const [tickerInput, setTickerInput] = useState("");
   const [priceInput, setPriceInput] = useState("");
+  const [notesInput, setNotesInput] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [pushSubscribed, setPushSubscribed] = useState(
     () => typeof window !== "undefined" && localStorage.getItem("push_subscribed") === "true"
@@ -77,14 +79,21 @@ export default function AlertsPage() {
     setFormError(null);
 
     const ticker = tickerInput.trim().toUpperCase();
-    const price = parseFloat(priceInput);
 
     if (!ticker) { setFormError("Enter a ticker."); return; }
-    if (isNaN(price) || price <= 0) { setFormError("Enter a valid price."); return; }
 
-    await savePriceAlert(ticker, price);
+    if (alertMode === "post_earnings") {
+      if (!notesInput.trim()) { setFormError("Enter how much you want to put in (e.g. \"$2000 after earnings\")."); return; }
+      await savePostEarningsAlert(ticker, notesInput.trim());
+    } else {
+      const price = parseFloat(priceInput);
+      if (isNaN(price) || price <= 0) { setFormError("Enter a valid price."); return; }
+      await savePriceAlert(ticker, price);
+    }
+
     setTickerInput("");
     setPriceInput("");
+    setNotesInput("");
     await load();
   }
 
@@ -151,29 +160,62 @@ export default function AlertsPage() {
           </div>
         </div>
 
-        <form onSubmit={handleAdd} className="bg-white border border-gray-200 rounded-lg p-4 flex items-end gap-3 flex-wrap">
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Ticker</label>
-            <input
-              type="text" value={tickerInput}
-              onChange={(e) => setTickerInput(e.target.value)}
-              placeholder="e.g. AAPL"
-              className="w-32 border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-blue-400"
-            />
+        <form onSubmit={handleAdd} className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setAlertMode("price")}
+              className={`text-xs px-3 py-1 rounded-full font-medium border ${alertMode === "price" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-500 border-gray-300 hover:border-gray-400"}`}
+            >
+              Price Alert
+            </button>
+            <button
+              type="button"
+              onClick={() => setAlertMode("post_earnings")}
+              className={`text-xs px-3 py-1 rounded-full font-medium border ${alertMode === "post_earnings" ? "bg-blue-600 text-white border-blue-600" : "bg-white text-gray-500 border-gray-300 hover:border-gray-400"}`}
+            >
+              Post-Earnings Entry
+            </button>
           </div>
-          <div>
-            <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Alert Price</label>
-            <input
-              type="number" step="0.01" value={priceInput}
-              onChange={(e) => setPriceInput(e.target.value)}
-              placeholder="0.00"
-              className="w-32 border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-blue-400"
-            />
+          <div className="flex items-end gap-3 flex-wrap">
+            <div>
+              <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Ticker</label>
+              <input
+                type="text" value={tickerInput}
+                onChange={(e) => setTickerInput(e.target.value)}
+                placeholder="e.g. AAPL"
+                className="w-32 border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+              />
+            </div>
+            {alertMode === "price" ? (
+              <div>
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Alert Price</label>
+                <input
+                  type="number" step="0.01" value={priceInput}
+                  onChange={(e) => setPriceInput(e.target.value)}
+                  placeholder="0.00"
+                  className="w-32 border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+                />
+              </div>
+            ) : (
+              <div className="flex-1 min-w-[220px]">
+                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Notes ($ to put in)</label>
+                <input
+                  type="text" value={notesInput}
+                  onChange={(e) => setNotesInput(e.target.value)}
+                  placeholder='e.g. "$2000 after earnings if reaction is good"'
+                  className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:border-blue-400"
+                />
+              </div>
+            )}
+            <button type="submit" className="px-4 py-1.5 rounded bg-blue-600 text-white text-sm font-medium hover:bg-blue-700">
+              Add Alert
+            </button>
+            {formError && <span className="text-xs text-red-500">{formError}</span>}
           </div>
-          <button type="submit" className="px-4 py-1.5 rounded bg-blue-600 text-white text-sm font-medium hover:bg-blue-700">
-            Add Alert
-          </button>
-          {formError && <span className="text-xs text-red-500">{formError}</span>}
+          {alertMode === "post_earnings" && (
+            <p className="text-xs text-gray-400">No target price needed — you&apos;ll get pinged the moment earnings is reported, then you can decide the entry and set a price alert if you want one.</p>
+          )}
         </form>
 
         {loading ? (
@@ -200,7 +242,8 @@ export default function AlertsPage() {
               <tbody className="divide-y divide-gray-100">
                 {alerts.map((a) => {
                   const cur = prices[a.ticker] ?? null;
-                  const pctDistance = cur != null && a.alert_price > 0 ? ((cur - a.alert_price) / a.alert_price) * 100 : null;
+                  const hasAlertPrice = !!a.alert_price && a.alert_price > 0;
+                  const pctDistance = cur != null && hasAlertPrice ? ((cur - a.alert_price!) / a.alert_price!) * 100 : null;
                   return (
                     <tr key={a.ticker} className="hover:bg-gray-50">
                       <td className="px-3 py-2 font-semibold">
@@ -214,11 +257,12 @@ export default function AlertsPage() {
                           <span>$</span>
                           <input
                             type="number" step="0.01"
-                            value={priceDraft[a.ticker] ?? a.alert_price.toFixed(2)}
+                            value={priceDraft[a.ticker] ?? (hasAlertPrice ? a.alert_price!.toFixed(2) : "")}
                             onChange={(e) => setPriceDraft((prev) => ({ ...prev, [a.ticker]: e.target.value }))}
                             onBlur={(e) => handlePriceBlur(a.ticker, e.target.value)}
                             onKeyDown={(e) => { if (e.key === "Enter") e.currentTarget.blur(); }}
-                            className="w-20 border border-transparent hover:border-gray-200 focus:border-blue-400 rounded px-1.5 py-1 text-xs text-gray-700 focus:outline-none bg-transparent focus:bg-white"
+                            placeholder="set after earnings"
+                            className="w-24 border border-transparent hover:border-gray-200 focus:border-blue-400 rounded px-1.5 py-1 text-xs text-gray-700 focus:outline-none bg-transparent focus:bg-white placeholder:text-gray-300"
                           />
                         </div>
                       </td>
@@ -226,7 +270,9 @@ export default function AlertsPage() {
                         {pctDistance != null ? `${pctDistance >= 0 ? "+" : ""}${pctDistance.toFixed(1)}%` : "—"}
                       </td>
                       <td className="px-3 py-2">
-                        {a.triggered
+                        {!hasAlertPrice
+                          ? <span className="text-xs px-2 py-0.5 rounded-full font-semibold uppercase bg-purple-100 text-purple-700 border border-purple-300">Post-Earnings</span>
+                          : a.triggered
                           ? <span className="text-xs px-2 py-0.5 rounded-full font-semibold uppercase bg-green-100 text-green-700 border border-green-300">Triggered</span>
                           : <span className="text-xs px-2 py-0.5 rounded-full font-semibold uppercase bg-blue-100 text-blue-700 border border-blue-300">Active</span>}
                       </td>

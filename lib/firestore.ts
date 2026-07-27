@@ -123,6 +123,16 @@ export async function savePriceAlert(ticker: string, alertPrice: number) {
   });
 }
 
+// No target price yet — just ping once earnings is reported, notes carries the $ amount to deploy.
+export async function savePostEarningsAlert(ticker: string, notes: string) {
+  await setDoc(doc(db, "price_alerts", ticker), {
+    ticker,
+    created_at: new Date().toISOString(),
+    earnings_alert: true,
+    notes,
+  });
+}
+
 export async function removePriceAlert(ticker: string) {
   await deleteDoc(doc(db, "price_alerts", ticker));
 }
