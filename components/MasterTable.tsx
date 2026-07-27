@@ -97,6 +97,9 @@ interface Props {
   swingMacdSignals?: Record<string, number | null>;
   swingMacdHists?: Record<string, number | null>;
   swingMacdHistDirs?: Record<string, "up" | "down" | "flat" | null>;
+  swingAtr14?: Record<string, number | null>;
+  swingStopLoss?: Record<string, number | null>;
+  swingStopLossPercent?: Record<string, number | null>;
   swingLoading?: boolean;
   swingAddTicker?: string;
   swingAddLoading?: boolean;
@@ -166,6 +169,7 @@ export default function MasterTable({
   market = "us", ihsgStocks, prices, preMarketPrices, verdicts, atrs, ema20s, ema50s, supportLows, rsis, diPluses, diMinuses, cmfs, macds = {}, macdSignals = {}, macdHists = {}, macdHistDirs = {}, earnings, fundData, loading, customStocks, portfolioSet, watchlistSet, markedSet, onSetStatus, onRemoveCustom, onToggleMark,
   swingStocks = [], swingPrices = {}, swingDailyEma20s = {}, swingDailyEma50s = {}, swingDailyAtrs = {}, swingDailyRsis = {}, swingEmaCrossAbove = {}, swingCrossPrice = {}, swingCrossDate = {},
   swingMacds = {}, swingMacdSignals = {}, swingMacdHists = {}, swingMacdHistDirs = {},
+  swingAtr14 = {}, swingStopLoss = {}, swingStopLossPercent = {},
   swingLoading = false, swingAddTicker = "", swingAddLoading = false, swingAddError = "", onSwingAddTickerChange, onSwingAdd, onSwingRemove, onSwingEntryPriceChange,
 }: Props) {
   const isIhsg = market === "ihsg";
@@ -715,6 +719,25 @@ export default function MasterTable({
     return (
       <td className={`px-3 py-2 whitespace-nowrap font-bold ${valColorCls(hist)}`}>
         {hist.toFixed(2)}{arrow}
+      </td>
+    );
+  };
+
+  const AtrCell = ({ v }: { v: number | null }) => (
+    <td className="px-3 py-2 whitespace-nowrap text-gray-700">
+      {v != null ? `±${v.toFixed(2)}` : <span className="text-gray-300">—</span>}
+    </td>
+  );
+
+  const StopLossCell = ({ stopLoss, stopLossPercent }: { stopLoss: number | null; stopLossPercent: number | null }) => {
+    if (stopLoss == null) return <td className="px-3 py-2 whitespace-nowrap text-gray-300">—</td>;
+    const wide = stopLossPercent != null && stopLossPercent > 8;
+    const title = stopLossPercent != null
+      ? `1.5× ATR below current price. Risk: ${stopLossPercent.toFixed(1)}% from entry.`
+      : undefined;
+    return (
+      <td className="px-3 py-2 whitespace-nowrap font-semibold text-red-600" title={title}>
+        {stopLoss.toFixed(2)}{wide ? " ⚠️" : ""}
       </td>
     );
   };
@@ -1413,12 +1436,14 @@ export default function MasterTable({
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="MACD line (12, 26) — daily closes">MACD</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="MACD signal line (EMA9 of MACD) — daily closes">Signal</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="MACD histogram (MACD − Signal) — daily closes">Hist</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Average True Range (14, daily) — volatility range">ATR (14)</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="1.5× ATR below current price">Stop Loss</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Remove</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {swingStocks.length === 0 && (
-                  <tr><td colSpan={15} className="px-3 py-6 text-center text-gray-400 text-sm">No tickers yet — add one above.</td></tr>
+                  <tr><td colSpan={17} className="px-3 py-6 text-center text-gray-400 text-sm">No tickers yet — add one above.</td></tr>
                 )}
                 {swingStocks.map((s) => {
                   const price = swingPrices[s.ticker] ?? null;
@@ -1508,6 +1533,8 @@ export default function MasterTable({
                           </td>
                         );
                       })()}
+                      <AtrCell v={swingAtr14[s.ticker] ?? null} />
+                      <StopLossCell stopLoss={swingStopLoss[s.ticker] ?? null} stopLossPercent={swingStopLossPercent[s.ticker] ?? null} />
                       <td className="px-3 py-2">
                         <button
                           onClick={() => onSwingRemove?.(s.ticker)}

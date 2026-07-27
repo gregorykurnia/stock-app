@@ -215,6 +215,53 @@ export function getHistoricalArrays(bars: OHLCVBar[], ind: Indicators, n = 20): 
   };
 }
 
+export interface ATRStopResult {
+  atr: number;
+  stopLoss: number;
+  stopLossPercent: number;
+}
+
+interface ATRBar {
+  high: number;
+  low: number;
+  close: number;
+}
+
+// Daily-OHLCV ATR(14) + 1.5x-ATR stop loss — Wilder's smoothing (RMA), not EMA/SMA
+export function calculateATR(ohlcvData: ATRBar[], period = 14): ATRStopResult | null {
+  if (ohlcvData.length < period + 1) return null;
+
+  const clean = ohlcvData.filter(
+    (d) => d.high != null && d.low != null && d.close != null &&
+      !isNaN(d.high) && !isNaN(d.low) && !isNaN(d.close)
+  );
+
+  if (clean.length < period + 1) return null;
+
+  const trValues = clean.slice(1).map((d, i) => {
+    const prevClose = clean[i].close;
+    return Math.max(
+      d.high - d.low,
+      Math.abs(d.high - prevClose),
+      Math.abs(d.low - prevClose)
+    );
+  });
+
+  let atr = trValues.slice(0, period).reduce((a, b) => a + b, 0) / period;
+  for (let i = period; i < trValues.length; i++) {
+    atr = (atr * (period - 1) + trValues[i]) / period;
+  }
+
+  const latestClose = clean[clean.length - 1].close;
+  const stopLoss = latestClose - 1.5 * atr;
+
+  return {
+    atr,
+    stopLoss,
+    stopLossPercent: ((latestClose - stopLoss) / latestClose) * 100,
+  };
+}
+
 export interface MACDResult {
   macd: number;
   signal: number;
