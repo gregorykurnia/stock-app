@@ -730,6 +730,22 @@ export default function MasterTable({
   );
 
   const BANDAR_TOOLTIPS: Record<string, ValTooltipDef> = {
+    liquidity: {
+      definition: "Avg daily value traded (IDR) over last 20 days — below 5B means too illiquid for swing trading.",
+      ranges: [
+        { range: ">20B",  label: "✅ Liquid",   meaning: "Enough daily turnover for swing-size entries/exits without much slippage" },
+        { range: "5–20B", label: "⚠️ Thin",     meaning: "Tradable but size and exits need care" },
+        { range: "<5B",   label: "🚨 Illiquid", meaning: "Too thin for swing trading — hard to enter/exit without moving price" },
+      ],
+    },
+    volDirRatio: {
+      definition: "% of volume on up-days vs down-days over last 20 days — below 40% means big volume days are down days = distribution signal.",
+      ranges: [
+        { range: ">60%",  label: "✅ Accumulation", meaning: "Volume skewed to up days — buying pressure dominant" },
+        { range: "40–60%",label: "⚠️ Neutral",      meaning: "No clear bias between up and down day volume" },
+        { range: "<40%",  label: "🚨 Distribution",  meaning: "Volume skewed to down days — selling pressure dominant" },
+      ],
+    },
     cv: {
       definition: "Coefficient of variation of daily volume over the last 20 sessions (std dev ÷ mean). Measures how consistent trading volume is day to day. Erratic volume — quiet stretches punctuated by huge spikes — is a classic footprint of accumulation/distribution by a single large player rather than organic broad-based interest.",
       ranges: [
@@ -858,10 +874,12 @@ export default function MasterTable({
           <td className="px-3 py-2 whitespace-nowrap text-gray-300">—</td>
           <td className="px-3 py-2 whitespace-nowrap text-gray-300">—</td>
           <td className="px-3 py-2 whitespace-nowrap text-gray-300">—</td>
+          <td className="px-3 py-2 whitespace-nowrap text-gray-300">—</td>
+          <td className="px-3 py-2 whitespace-nowrap text-gray-300">—</td>
         </>
       );
     }
-    const { cv, efficiency, upperWick, maxSpike, pvDiv, score } = bandar;
+    const { cv, efficiency, upperWick, maxSpike, pvDiv, score, avgValueTraded, volDirRatio } = bandar;
     const cvFlag = cv < 0.8 ? "✅" : cv <= 1.5 ? "⚠️" : "🚨";
     const effFlag = efficiency > 0.5 ? "✅" : efficiency >= 0.3 ? "⚠️" : "🚨";
     const wickFlag = upperWick < 0.25 ? "✅" : upperWick <= 0.4 ? "⚠️" : "🚨";
@@ -870,8 +888,17 @@ export default function MasterTable({
     const scoreCls =
       score <= 30 ? "bg-green-100 text-green-800" : score <= 55 ? "bg-yellow-100 text-yellow-800" : "bg-red-100 text-red-800";
     const scoreLabel = score <= 30 ? "🟢" : score <= 55 ? "🟡" : "🔴";
+
+    const valueB = avgValueTraded / 1_000_000_000;
+    const liquidityFlag = valueB > 20 ? "✅" : valueB >= 5 ? "⚠️" : "🚨";
+    const isDoji = volDirRatio === 0.5;
+    const volDirPct = volDirRatio * 100;
+    const volDirFlag = isDoji ? "" : volDirPct > 60 ? "✅" : volDirPct >= 40 ? "⚠️" : "🚨";
+
     return (
       <>
+        <td className="px-3 py-2 whitespace-nowrap text-gray-700">{valueB.toFixed(1)}B {liquidityFlag}</td>
+        <td className="px-3 py-2 whitespace-nowrap text-gray-700">{isDoji ? "—" : `${volDirPct.toFixed(0)}% ${volDirFlag}`}</td>
         <td className="px-3 py-2 whitespace-nowrap text-gray-700">{cv.toFixed(2)} {cvFlag}</td>
         <td className="px-3 py-2 whitespace-nowrap text-gray-700">{efficiency.toFixed(2)} {effFlag}</td>
         <td className="px-3 py-2 whitespace-nowrap text-gray-700">{upperWick.toFixed(2)} {wickFlag}</td>
@@ -1594,6 +1621,8 @@ export default function MasterTable({
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="MACD histogram (MACD − Signal) — daily closes">Hist</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Average True Range (14, daily) — volatility range">ATR (14)</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="1.5× ATR below your entry price (falls back to current price if entry is blank)">Stop Loss</th>
+                  <BandarTh label="Liquidity" tipKey="liquidity" />
+                  <BandarTh label="Dist?" tipKey="volDirRatio" />
                   <BandarTh label="Vol CV" tipKey="cv" />
                   <BandarTh label="Effic." tipKey="efficiency" />
                   <BandarTh label="UWick" tipKey="upperWick" />

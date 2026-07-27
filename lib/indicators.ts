@@ -320,6 +320,8 @@ export interface BandarScoreResult {
   maxSpike: number;
   pvDiv: number;
   score: number;
+  avgValueTraded: number;
+  volDirRatio: number;
 }
 
 function avg(arr: number[]): number {
@@ -375,6 +377,15 @@ export function calculateBandarScore(ohlcvData: BandarBar[]): BandarScoreResult 
 
   const totalScore = score1 + score2 + score3 + score4 + score5;
 
+  const upDayVol = last20
+    .filter((d) => d.close > d.open)
+    .reduce((sum, d) => sum + d.volume, 0);
+  const downDayVol = last20
+    .filter((d) => d.close < d.open)
+    .reduce((sum, d) => sum + d.volume, 0);
+  const totalDirVol = upDayVol + downDayVol;
+  const volDirRatio = totalDirVol > 0 ? upDayVol / totalDirVol : 0.5;
+
   return {
     cv: safeScore(cv),
     efficiency: safeScore(avgEfficiency),
@@ -382,6 +393,8 @@ export function calculateBandarScore(ohlcvData: BandarBar[]): BandarScoreResult 
     maxSpike: safeScore(maxSpike),
     pvDiv: safeScore(pvRatio),
     score: Math.round(totalScore),
+    avgValueTraded: safeScore(avgValue20),
+    volDirRatio: safeScore(volDirRatio),
   };
 }
 
