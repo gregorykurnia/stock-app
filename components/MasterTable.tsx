@@ -15,7 +15,7 @@ type SortKey =
   | "fwd_pe" | "peg" | "ev_ebitda" | "ev_fcf"
   | "trailing_pe" | "ps_ratio" | "pb_ratio" | "ev_revenue" | "p_fcf" | "dividend_yield"
   | "roe" | "debt_to_equity" | "eps_ttm" | "eps_fwd" | "eps_past_5y" | "eps_next_5y" | "short_float"
-  | "ema20" | "dist_ema20" | "ema50" | "dist_ema50" | "rsi" | "di_plus" | "di_minus" | "cmf";
+  | "ema20" | "dist_ema20" | "ema50" | "dist_ema50" | "rsi" | "di_plus" | "di_minus" | "cmf" | "earnings";
 type SortDir = "asc" | "desc";
 type SubTab = "all" | "fundamental" | "valuation" | "technical";
 
@@ -333,6 +333,12 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
         di_plus:  (r) => diPluses[r.ticker] ?? null,
         di_minus: (r) => diMinuses[r.ticker] ?? null,
         cmf:      (r) => cmfs[r.ticker] ?? null,
+        earnings: (r) => {
+          const d = earnings[r.ticker];
+          if (!d) return null;
+          const today = new Date().toISOString().slice(0, 10);
+          return Math.round((new Date(d + "T00:00:00Z").getTime() - new Date(today + "T00:00:00Z").getTime()) / 86400000);
+        },
         rev_growth:    (r) => r.rev_growth,
         gross_margin:  (r) => r.gross_margin,
         op_margin:     (r) => r.op_margin,
@@ -811,7 +817,7 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
                   <Th label="Price"     k="price" />
                   <Th label="ATR%" k="atr" title="Weekly ATR% — volatility as % of price" />
                   <Th label="Urgency"   k="urgency" />
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Next/last reported earnings date">Earnings</th>
+                  <Th label="Earnings" k="earnings" title="Next/last reported earnings date" />
                   <Th label="EMA20W"     k="ema20"      title="EMA20 Weekly" />
                   <Th label="Dist EMA20" k="dist_ema20"  title="Distance from EMA20W" />
                   <Th label="EMA50W"     k="ema50"      title="EMA50 Weekly" />
