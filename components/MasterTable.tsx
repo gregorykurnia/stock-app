@@ -81,6 +81,14 @@ interface TableRow {
 interface Props {
   market?: "us" | "ihsg";
   ihsgStocks?: IhsgStock[];
+  // Daily indicators for the IHSG "Midterm or Swing" subtab
+  dailyEma20s?: Record<string, number | null>;
+  dailyEma50s?: Record<string, number | null>;
+  dailyAtrs?: Record<string, number | null>;
+  dailyRsis?: Record<string, number | null>;
+  emaCrossAbove?: Record<string, boolean | null>;
+  crossPrice?: Record<string, number | null>;
+  crossDate?: Record<string, string | null>;
   prices: Record<string, number | null>;
   preMarketPrices: Record<string, number | null>;
   verdicts: Record<string, { urgency: string; setup: string } | null>;
@@ -134,10 +142,12 @@ function EarningsBadge({ dateStr }: { dateStr: string | null | undefined }) {
   );
 }
 
-export default function MasterTable({ market = "us", ihsgStocks, prices, preMarketPrices, verdicts, atrs, ema20s, ema50s, supportLows, rsis, diPluses, diMinuses, cmfs, earnings, fundData, loading, customStocks, portfolioSet, watchlistSet, markedSet, onSetStatus, onRemoveCustom, onToggleMark }: Props) {
+export default function MasterTable({ market = "us", ihsgStocks, prices, preMarketPrices, verdicts, atrs, ema20s, ema50s, supportLows, rsis, diPluses, diMinuses, cmfs, earnings, fundData, loading, customStocks, portfolioSet, watchlistSet, markedSet, onSetStatus, onRemoveCustom, onToggleMark, dailyEma20s = {}, dailyEma50s = {}, dailyAtrs = {}, dailyRsis = {}, emaCrossAbove = {}, crossPrice = {}, crossDate = {} }: Props) {
   const isIhsg = market === "ihsg";
   // Currency prefix and price formatter
   const fmtPrice = (v: number) => isIhsg ? `Rp${Math.round(v).toLocaleString("id-ID")}` : `$${v.toFixed(2)}`;
+  type MainTab = "list" | "midterm";
+  const [mainTab, setMainTab] = useState<MainTab>("list");
   const [activeTab, setActiveTab] = useState<SubTab>("all");
   const [sortKey, setSortKey] = useState<SortKey>("combined");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
@@ -784,6 +794,34 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
 
   return (
     <div className="space-y-3">
+      {/* Main tabs (IHSG only): List vs Midterm/Swing */}
+      {isIhsg && (
+        <div className="flex gap-1 border-b-2 border-gray-200">
+          <button
+            onClick={() => setMainTab("list")}
+            className={`px-4 py-2 text-sm font-semibold transition-colors border-b-2 -mb-px ${
+              mainTab === "list"
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300"
+            }`}
+          >
+            List
+          </button>
+          <button
+            onClick={() => setMainTab("midterm")}
+            className={`px-4 py-2 text-sm font-semibold transition-colors border-b-2 -mb-px ${
+              mainTab === "midterm"
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300"
+            }`}
+          >
+            Midterm or Swing
+          </button>
+        </div>
+      )}
+
+      {(!isIhsg || mainTab === "list") && (
+      <>
       {/* Subtabs */}
       <div className="flex gap-1 border-b border-gray-200">
         {tabs.map((t) => (
@@ -1241,6 +1279,111 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
                             </div>
                           );
                         })()}
+                      </td>
+                      <StatusCell r={r} />
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+      </>
+      )}
+
+      {/* MIDTERM / SWING TAB (IHSG only) */}
+      {isIhsg && mainTab === "midterm" && (
+        <div className="space-y-3">
+          <Filters />
+          <div className="overflow-x-auto overflow-y-auto max-h-[72vh] rounded-lg border border-gray-200">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-100 border-b border-gray-200 sticky top-0 z-30">
+                <tr>
+                  <Th label="Ticker"   k="ticker" sticky />
+                  <Th label="Price"    k="price" />
+                  <Th label="Industry" k="industry" />
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">ATR%</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">EMA20D</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">EMA50D</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Yes if EMA20D is above EMA50D. Shows the price + date of the most recent crossover.">EMA Cross</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Distance from EMA20D">Dist EMA20D</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Distance from EMA50D">Dist EMA50D</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">RSI</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {rows.map((r) => {
+                  const price = r.price;
+                  const de20 = dailyEma20s[r.ticker] ?? null;
+                  const de50 = dailyEma50s[r.ticker] ?? null;
+                  const atrV = dailyAtrs[r.ticker] ?? null;
+                  const rsi = dailyRsis[r.ticker] ?? null;
+                  const crossAbove = emaCrossAbove[r.ticker] ?? null;
+                  const cPrice = crossPrice[r.ticker] ?? null;
+                  const cDate = crossDate[r.ticker] ?? null;
+                  const distEma20 = price != null && de20 != null ? ((price - de20) / de20) * 100 : null;
+                  const distEma50 = price != null && de50 != null ? ((price - de50) / de50) * 100 : null;
+
+                  const distColor = (d: number | null) => {
+                    if (d == null) return "text-gray-400";
+                    if (d < -10) return "text-red-500";
+                    if (d < 0) return "text-orange-500";
+                    if (d < 10) return "text-green-600";
+                    return "text-blue-600";
+                  };
+                  const rsiColor = (v: number | null) => {
+                    if (v == null) return "text-gray-400";
+                    if (v > 70) return "text-red-500";
+                    if (v < 40) return "text-blue-500";
+                    return "text-gray-700";
+                  };
+
+                  return (
+                    <tr key={r.ticker} className={`group transition-colors ${markedSet.has(r.ticker) ? "bg-red-50 hover:bg-red-100" : r.isCustom ? "bg-blue-50/30 hover:bg-gray-50" : "hover:bg-gray-50"}`}>
+                      <TickerCell r={r} />
+                      <td className="px-3 py-2 text-gray-900 whitespace-nowrap">
+                        {price != null ? fmtPrice(price) : <span className="text-gray-400">—</span>}
+                      </td>
+                      <td className="px-3 py-2 text-gray-500 text-xs whitespace-nowrap">{r.industry}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        {atrV == null ? <span className="text-gray-300">—</span> : (() => {
+                          const al = atrLabel(atrV);
+                          return (
+                            <div>
+                              <span className={`font-semibold ${al.color}`}>{atrV.toFixed(1)}%</span>
+                              <span className={`block text-xs leading-tight ${al.color} opacity-80`}>{al.label}</span>
+                            </div>
+                          );
+                        })()}
+                      </td>
+                      <td className="px-3 py-2 text-gray-700">{de20 != null ? fmtPrice(de20) : <span className="text-gray-400">—</span>}</td>
+                      <td className="px-3 py-2 text-gray-700">{de50 != null ? fmtPrice(de50) : <span className="text-gray-400">—</span>}</td>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        {crossAbove == null ? (
+                          <span className="text-gray-300">—</span>
+                        ) : (
+                          <div>
+                            <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${crossAbove ? "bg-green-100 text-green-700 border border-green-300" : "bg-red-100 text-red-700 border border-red-300"}`}>
+                              {crossAbove ? "Yes" : "No"}
+                            </span>
+                            {cPrice != null && cDate != null && (
+                              <span className="block text-[11px] text-gray-400 mt-0.5">
+                                @ {fmtPrice(cPrice)} on {cDate}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                      <td className={`px-3 py-2 font-semibold ${distColor(distEma20)}`}>
+                        {distEma20 != null ? `${distEma20 > 0 ? "+" : ""}${distEma20.toFixed(1)}%` : <span className="text-gray-400">—</span>}
+                      </td>
+                      <td className={`px-3 py-2 font-semibold ${distColor(distEma50)}`}>
+                        {distEma50 != null ? `${distEma50 > 0 ? "+" : ""}${distEma50.toFixed(1)}%` : <span className="text-gray-400">—</span>}
+                      </td>
+                      <td className={`px-3 py-2 font-semibold ${rsiColor(rsi)}`}>
+                        {rsi != null ? rsi.toFixed(1) : <span className="text-gray-400">—</span>}
                       </td>
                       <StatusCell r={r} />
                     </tr>

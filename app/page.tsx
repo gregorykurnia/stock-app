@@ -60,6 +60,15 @@ export default function Home() {
   const [ihsgFundData, setIhsgFundData] = useState<Record<string, FundData>>({});
   const [ihsgPricesLoading, setIhsgPricesLoading] = useState(false);
 
+  // IHSG daily indicators (Midterm/Swing subtab)
+  const [ihsgDailyEma20s, setIhsgDailyEma20s] = useState<Record<string, number | null>>({});
+  const [ihsgDailyEma50s, setIhsgDailyEma50s] = useState<Record<string, number | null>>({});
+  const [ihsgDailyAtrs, setIhsgDailyAtrs] = useState<Record<string, number | null>>({});
+  const [ihsgDailyRsis, setIhsgDailyRsis] = useState<Record<string, number | null>>({});
+  const [ihsgEmaCrossAbove, setIhsgEmaCrossAbove] = useState<Record<string, boolean | null>>({});
+  const [ihsgCrossPrice, setIhsgCrossPrice] = useState<Record<string, number | null>>({});
+  const [ihsgCrossDate, setIhsgCrossDate] = useState<Record<string, string | null>>({});
+
   // Add stock modal
   const [showAdd, setShowAdd] = useState(false);
   const [addTicker, setAddTicker] = useState("");
@@ -283,6 +292,24 @@ export default function Home() {
         const out: Record<string, string | null> = {};
         for (const [k, v] of Object.entries(d.earnings ?? {})) out[k.replace(".JK", "")] = v as string | null;
         setIhsgEarnings((p) => ({ ...p, ...out }));
+      })
+      .catch(() => {});
+
+    fetch(`/api/ema-daily?tickers=${jkTickers}`)
+      .then((r) => r.json())
+      .then((d) => {
+        const remap = <T,>(obj: Record<string, T>) => {
+          const out: Record<string, T> = {};
+          for (const [k, v] of Object.entries(obj)) out[k.replace(".JK", "")] = v;
+          return out;
+        };
+        setIhsgDailyEma20s((p) => ({ ...p, ...remap(d.ema20 ?? {}) }));
+        setIhsgDailyEma50s((p) => ({ ...p, ...remap(d.ema50 ?? {}) }));
+        setIhsgDailyAtrs((p) => ({ ...p, ...remap(d.atrPct ?? {}) }));
+        setIhsgDailyRsis((p) => ({ ...p, ...remap(d.rsi ?? {}) }));
+        setIhsgEmaCrossAbove((p) => ({ ...p, ...remap(d.emaCrossAbove ?? {}) }));
+        setIhsgCrossPrice((p) => ({ ...p, ...remap(d.crossPrice ?? {}) }));
+        setIhsgCrossDate((p) => ({ ...p, ...remap(d.crossDate ?? {}) }));
       })
       .catch(() => {});
 
@@ -570,6 +597,13 @@ export default function Home() {
             onRemoveCustom={handleRemoveCustom}
             onToggleMark={handleToggleMark}
             ihsgStocks={IHSG_STOCKS}
+            dailyEma20s={ihsgDailyEma20s}
+            dailyEma50s={ihsgDailyEma50s}
+            dailyAtrs={ihsgDailyAtrs}
+            dailyRsis={ihsgDailyRsis}
+            emaCrossAbove={ihsgEmaCrossAbove}
+            crossPrice={ihsgCrossPrice}
+            crossDate={ihsgCrossDate}
           />
         ) : (
           <MasterTable
