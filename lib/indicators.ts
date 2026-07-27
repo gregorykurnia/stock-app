@@ -305,6 +305,86 @@ export function calculateMACD(closes: number[]): MACDResult | null {
   return { macd: latestMACD, signal: latestSignal, histogram: latestHistogram, histDirection };
 }
 
+export interface BandarBar {
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume: number;
+}
+
+export interface BandarScoreResult {
+  cv: number;
+  efficiency: number;
+  upperWick: number;
+  maxSpike: number;
+  pvDiv: number;
+  score: number;
+}
+
+function avg(arr: number[]): number {
+  return arr.reduce((a, b) => a + b, 0) / arr.length;
+}
+
+function stdDev(arr: number[]): number {
+  const m = avg(arr);
+  return Math.sqrt(avg(arr.map((v) => (v - m) ** 2)));
+}
+
+function safeScore(val: number): number {
+  return isNaN(val) || !isFinite(val) ? 0 : val;
+}
+
+export function calculateBandarScore(ohlcvData: BandarBar[]): BandarScoreResult | null {
+  const last20 = ohlcvData.slice(-20);
+  const nullVolumeDays = last20.filter((d) => !d.volume || d.volume === 0).length;
+  if (nullVolumeDays > 3) return null;
+
+  const validCandles = last20.filter((d) => d.high - d.low > 0);
+  const volumes = last20.map((d) => d.volume).filter(Boolean);
+  if (volumes.length === 0 || validCandles.length === 0) return null;
+
+  const meanVol = avg(volumes);
+
+  const cv = meanVol > 0 ? stdDev(volumes) / meanVol : NaN;
+  const score1 = safeScore(Math.min(cv / 2, 1) * 20);
+
+  const efficiencies = validCandles.map((d) => Math.abs(d.close - d.open) / (d.high - d.low));
+  const avgEfficiency = avg(efficiencies);
+  const score2 = safeScore((1 - avgEfficiency) * 20);
+
+  const upperWicks = validCandles.map((d) => (d.high - Math.max(d.close, d.open)) / (d.high - d.low));
+  const avgUpperWick = avg(upperWicks);
+  const score3 = safeScore(avgUpperWick * 20);
+
+  const avgVol20 = meanVol;
+  const maxSpike = avgVol20 > 0 ? Math.max(...volumes) / avgVol20 : NaN;
+  const score4 = safeScore(Math.min((maxSpike - 1) / 9, 1) * 20);
+
+  const valueTraded = last20.map((d) => d.close * d.volume);
+  const avgValue20 = avg(valueTraded);
+  const pvRatios = last20.map((d) => {
+    if (!d.open) return 0;
+    const priceChange = Math.abs(d.close - d.open) / d.open;
+    const relativeValue = avgValue20 > 0 ? (d.close * d.volume) / avgValue20 : 0;
+    if (relativeValue === 0) return 0;
+    return priceChange / relativeValue;
+  });
+  const pvRatio = avg(pvRatios);
+  const score5 = safeScore(Math.min(pvRatio * 10, 1) * 20);
+
+  const totalScore = score1 + score2 + score3 + score4 + score5;
+
+  return {
+    cv: safeScore(cv),
+    efficiency: safeScore(avgEfficiency),
+    upperWick: safeScore(avgUpperWick),
+    maxSpike: safeScore(maxSpike),
+    pvDiv: safeScore(pvRatio),
+    score: Math.round(totalScore),
+  };
+}
+
 export function getLatest(bars: OHLCVBar[], ind: Indicators): LatestIndicators {
   const last = (arr: number[]) => {
     for (let i = arr.length - 1; i >= 0; i--) {

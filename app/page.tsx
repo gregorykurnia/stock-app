@@ -15,6 +15,7 @@ import {
   getMarkedTickers, markTicker, unmarkTicker,
 } from "@/lib/firestore";
 import type { CustomStock } from "@/lib/types";
+import type { BandarScoreResult } from "@/lib/indicators";
 import type { FundData } from "@/app/api/funddata/route";
 
 const SEED_TICKERS = new Set(SEED_STOCKS.map((s) => s.ticker));
@@ -85,6 +86,7 @@ export default function Home() {
   const [swingEmaCrossAbove, setSwingEmaCrossAbove] = useState<Record<string, boolean | null>>({});
   const [swingCrossPrice, setSwingCrossPrice] = useState<Record<string, number | null>>({});
   const [swingCrossDate, setSwingCrossDate] = useState<Record<string, string | null>>({});
+  const [swingBandar, setSwingBandar] = useState<Record<string, BandarScoreResult | null>>({});
   const [swingLoading, setSwingLoading] = useState(false);
   const [swingAddTicker, setSwingAddTicker] = useState("");
   const [swingAddLoading, setSwingAddLoading] = useState(false);
@@ -421,6 +423,17 @@ export default function Home() {
           return out;
         };
         setSwingAtr14((p) => ({ ...p, ...remap(d.atr ?? {}) }));
+      })
+      .catch(() => {});
+    fetch(`/api/bandar?tickers=${jkTickers}`)
+      .then((r) => r.json())
+      .then((d) => {
+        const remap = <T,>(obj: Record<string, T>) => {
+          const out: Record<string, T> = {};
+          for (const [k, v] of Object.entries(obj)) out[k.replace(".JK", "")] = v;
+          return out;
+        };
+        setSwingBandar((p) => ({ ...p, ...remap(d.bandar ?? {}) }));
       })
       .catch(() => {});
   }
@@ -782,6 +795,7 @@ export default function Home() {
             swingMacdHists={swingMacdHists}
             swingMacdHistDirs={swingMacdHistDirs}
             swingAtr14={swingAtr14}
+            swingBandar={swingBandar}
             swingLoading={swingLoading}
             swingAddTicker={swingAddTicker}
             swingAddLoading={swingAddLoading}

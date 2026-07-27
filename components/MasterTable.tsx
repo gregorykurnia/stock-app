@@ -4,7 +4,7 @@ import { useState, useMemo, useRef, useEffect, type FormEvent } from "react";
 import Link from "next/link";
 import { SEED_STOCKS, FUNDAMENTALS_RAW, VALUATION_RAW } from "@/lib/seedData";
 import { IHSG_STOCKS, type IhsgStock } from "@/lib/ihsgSeedData";
-import { atrLabel } from "@/lib/indicators";
+import { atrLabel, type BandarScoreResult } from "@/lib/indicators";
 import { downloadCsv } from "@/lib/exportCsv";
 import type { CustomStock } from "@/lib/types";
 import type { FundData } from "@/app/api/funddata/route";
@@ -98,6 +98,7 @@ interface Props {
   swingMacdHists?: Record<string, number | null>;
   swingMacdHistDirs?: Record<string, "up" | "down" | "flat" | null>;
   swingAtr14?: Record<string, number | null>;
+  swingBandar?: Record<string, BandarScoreResult | null>;
   swingLoading?: boolean;
   swingAddTicker?: string;
   swingAddLoading?: boolean;
@@ -168,6 +169,7 @@ export default function MasterTable({
   swingStocks = [], swingPrices = {}, swingDailyEma20s = {}, swingDailyEma50s = {}, swingDailyAtrs = {}, swingDailyRsis = {}, swingEmaCrossAbove = {}, swingCrossPrice = {}, swingCrossDate = {},
   swingMacds = {}, swingMacdSignals = {}, swingMacdHists = {}, swingMacdHistDirs = {},
   swingAtr14 = {},
+  swingBandar = {},
   swingLoading = false, swingAddTicker = "", swingAddLoading = false, swingAddError = "", onSwingAddTickerChange, onSwingAdd, onSwingRemove, onSwingEntryPriceChange,
 }: Props) {
   const isIhsg = market === "ihsg";
@@ -726,6 +728,40 @@ export default function MasterTable({
       {v != null ? `±${v.toFixed(2)}` : <span className="text-gray-300">—</span>}
     </td>
   );
+
+  const BandarCells = ({ bandar }: { bandar: BandarScoreResult | null }) => {
+    if (bandar == null) {
+      return (
+        <>
+          <td className="px-3 py-2 whitespace-nowrap text-gray-300">—</td>
+          <td className="px-3 py-2 whitespace-nowrap text-gray-300">—</td>
+          <td className="px-3 py-2 whitespace-nowrap text-gray-300">—</td>
+          <td className="px-3 py-2 whitespace-nowrap text-gray-300">—</td>
+          <td className="px-3 py-2 whitespace-nowrap text-gray-300">—</td>
+          <td className="px-3 py-2 whitespace-nowrap text-gray-300">—</td>
+        </>
+      );
+    }
+    const { cv, efficiency, upperWick, maxSpike, pvDiv, score } = bandar;
+    const cvFlag = cv < 0.8 ? "✅" : cv <= 1.5 ? "⚠️" : "🚨";
+    const effFlag = efficiency > 0.5 ? "✅" : efficiency >= 0.3 ? "⚠️" : "🚨";
+    const wickFlag = upperWick < 0.25 ? "✅" : upperWick <= 0.4 ? "⚠️" : "🚨";
+    const spikeFlag = maxSpike < 3 ? "✅" : maxSpike <= 5 ? "⚠️" : "🚨";
+    const pvFlag = pvDiv < 0.3 ? "✅" : pvDiv <= 0.6 ? "⚠️" : "🚨";
+    const scoreCls =
+      score <= 30 ? "bg-green-100 text-green-800" : score <= 55 ? "bg-yellow-100 text-yellow-800" : "bg-red-100 text-red-800";
+    const scoreLabel = score <= 30 ? "🟢" : score <= 55 ? "🟡" : "🔴";
+    return (
+      <>
+        <td className="px-3 py-2 whitespace-nowrap text-gray-700">{cv.toFixed(2)} {cvFlag}</td>
+        <td className="px-3 py-2 whitespace-nowrap text-gray-700">{efficiency.toFixed(2)} {effFlag}</td>
+        <td className="px-3 py-2 whitespace-nowrap text-gray-700">{upperWick.toFixed(2)} {wickFlag}</td>
+        <td className="px-3 py-2 whitespace-nowrap text-gray-700">{maxSpike.toFixed(1)}× {spikeFlag}</td>
+        <td className="px-3 py-2 whitespace-nowrap text-gray-700">{pvDiv.toFixed(2)} {pvFlag}</td>
+        <td className={`px-3 py-2 whitespace-nowrap font-bold rounded ${scoreCls}`}>{scoreLabel} {score}</td>
+      </>
+    );
+  };
 
   // Stop = reference price (manual entry if set, else live price) minus 1.5x ATR — recomputes as entry price changes
   const StopLossCell = ({ atr, entryPrice, currentPrice }: { atr: number | null; entryPrice: number | null | undefined; currentPrice: number | null }) => {
@@ -1439,12 +1475,18 @@ export default function MasterTable({
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="MACD histogram (MACD − Signal) — daily closes">Hist</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Average True Range (14, daily) — volatility range">ATR (14)</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="1.5× ATR below your entry price (falls back to current price if entry is blank)">Stop Loss</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Volume consistency — high = erratic trading pattern">Vol CV</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Range efficiency — low = lots of wicks, little direction">Effic.</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Upper wick ratio — high = selling into rallies">UWick</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Max volume spike vs 20d avg — high = possible pump day">Spike</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Price move vs value traded — high = price moved on thin money">PVDiv</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Composite bandar risk score — higher = more manipulation risk">Bandar</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Remove</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {swingStocks.length === 0 && (
-                  <tr><td colSpan={17} className="px-3 py-6 text-center text-gray-400 text-sm">No tickers yet — add one above.</td></tr>
+                  <tr><td colSpan={23} className="px-3 py-6 text-center text-gray-400 text-sm">No tickers yet — add one above.</td></tr>
                 )}
                 {swingStocks.map((s) => {
                   const price = swingPrices[s.ticker] ?? null;
@@ -1536,6 +1578,7 @@ export default function MasterTable({
                       })()}
                       <AtrCell v={swingAtr14[s.ticker] ?? null} />
                       <StopLossCell atr={swingAtr14[s.ticker] ?? null} entryPrice={s.entryPrice} currentPrice={price} />
+                      <BandarCells bandar={swingBandar[s.ticker] ?? null} />
                       <td className="px-3 py-2">
                         <button
                           onClick={() => onSwingRemove?.(s.ticker)}
