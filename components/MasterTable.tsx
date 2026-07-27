@@ -98,8 +98,6 @@ interface Props {
   swingMacdHists?: Record<string, number | null>;
   swingMacdHistDirs?: Record<string, "up" | "down" | "flat" | null>;
   swingAtr14?: Record<string, number | null>;
-  swingStopLoss?: Record<string, number | null>;
-  swingStopLossPercent?: Record<string, number | null>;
   swingLoading?: boolean;
   swingAddTicker?: string;
   swingAddLoading?: boolean;
@@ -169,7 +167,7 @@ export default function MasterTable({
   market = "us", ihsgStocks, prices, preMarketPrices, verdicts, atrs, ema20s, ema50s, supportLows, rsis, diPluses, diMinuses, cmfs, macds = {}, macdSignals = {}, macdHists = {}, macdHistDirs = {}, earnings, fundData, loading, customStocks, portfolioSet, watchlistSet, markedSet, onSetStatus, onRemoveCustom, onToggleMark,
   swingStocks = [], swingPrices = {}, swingDailyEma20s = {}, swingDailyEma50s = {}, swingDailyAtrs = {}, swingDailyRsis = {}, swingEmaCrossAbove = {}, swingCrossPrice = {}, swingCrossDate = {},
   swingMacds = {}, swingMacdSignals = {}, swingMacdHists = {}, swingMacdHistDirs = {},
-  swingAtr14 = {}, swingStopLoss = {}, swingStopLossPercent = {},
+  swingAtr14 = {},
   swingLoading = false, swingAddTicker = "", swingAddLoading = false, swingAddError = "", onSwingAddTickerChange, onSwingAdd, onSwingRemove, onSwingEntryPriceChange,
 }: Props) {
   const isIhsg = market === "ihsg";
@@ -729,12 +727,15 @@ export default function MasterTable({
     </td>
   );
 
-  const StopLossCell = ({ stopLoss, stopLossPercent }: { stopLoss: number | null; stopLossPercent: number | null }) => {
-    if (stopLoss == null) return <td className="px-3 py-2 whitespace-nowrap text-gray-300">—</td>;
-    const wide = stopLossPercent != null && stopLossPercent > 8;
-    const title = stopLossPercent != null
-      ? `1.5× ATR below current price. Risk: ${stopLossPercent.toFixed(1)}% from entry.`
-      : undefined;
+  // Stop = reference price (manual entry if set, else live price) minus 1.5x ATR — recomputes as entry price changes
+  const StopLossCell = ({ atr, entryPrice, currentPrice }: { atr: number | null; entryPrice: number | null | undefined; currentPrice: number | null }) => {
+    const refPrice = entryPrice ?? currentPrice;
+    if (atr == null || refPrice == null) return <td className="px-3 py-2 whitespace-nowrap text-gray-300">—</td>;
+    const stopLoss = refPrice - 1.5 * atr;
+    const stopLossPercent = ((refPrice - stopLoss) / refPrice) * 100;
+    const wide = stopLossPercent > 8;
+    const basis = entryPrice != null ? "entry price" : "current price";
+    const title = `1.5× ATR below ${basis}. Risk: ${stopLossPercent.toFixed(1)}% from ${basis}.`;
     return (
       <td className="px-3 py-2 whitespace-nowrap font-semibold text-red-600" title={title}>
         {stopLoss.toFixed(2)}{wide ? " ⚠️" : ""}
@@ -1437,7 +1438,7 @@ export default function MasterTable({
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="MACD signal line (EMA9 of MACD) — daily closes">Signal</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="MACD histogram (MACD − Signal) — daily closes">Hist</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Average True Range (14, daily) — volatility range">ATR (14)</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="1.5× ATR below current price">Stop Loss</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="1.5× ATR below your entry price (falls back to current price if entry is blank)">Stop Loss</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Remove</th>
                 </tr>
               </thead>
@@ -1534,7 +1535,7 @@ export default function MasterTable({
                         );
                       })()}
                       <AtrCell v={swingAtr14[s.ticker] ?? null} />
-                      <StopLossCell stopLoss={swingStopLoss[s.ticker] ?? null} stopLossPercent={swingStopLossPercent[s.ticker] ?? null} />
+                      <StopLossCell atr={swingAtr14[s.ticker] ?? null} entryPrice={s.entryPrice} currentPrice={price} />
                       <td className="px-3 py-2">
                         <button
                           onClick={() => onSwingRemove?.(s.ticker)}

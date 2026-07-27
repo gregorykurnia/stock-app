@@ -79,8 +79,6 @@ export default function Home() {
   const [swingMacdHists, setSwingMacdHists] = useState<Record<string, number | null>>({});
   const [swingMacdHistDirs, setSwingMacdHistDirs] = useState<Record<string, "up" | "down" | "flat" | null>>({});
   const [swingAtr14, setSwingAtr14] = useState<Record<string, number | null>>({});
-  const [swingStopLoss, setSwingStopLoss] = useState<Record<string, number | null>>({});
-  const [swingStopLossPercent, setSwingStopLossPercent] = useState<Record<string, number | null>>({});
   const [swingDailyEma50s, setSwingDailyEma50s] = useState<Record<string, number | null>>({});
   const [swingDailyAtrs, setSwingDailyAtrs] = useState<Record<string, number | null>>({});
   const [swingDailyRsis, setSwingDailyRsis] = useState<Record<string, number | null>>({});
@@ -423,8 +421,6 @@ export default function Home() {
           return out;
         };
         setSwingAtr14((p) => ({ ...p, ...remap(d.atr ?? {}) }));
-        setSwingStopLoss((p) => ({ ...p, ...remap(d.stopLoss ?? {}) }));
-        setSwingStopLossPercent((p) => ({ ...p, ...remap(d.stopLossPercent ?? {}) }));
       })
       .catch(() => {});
   }
@@ -786,8 +782,6 @@ export default function Home() {
             swingMacdHists={swingMacdHists}
             swingMacdHistDirs={swingMacdHistDirs}
             swingAtr14={swingAtr14}
-            swingStopLoss={swingStopLoss}
-            swingStopLossPercent={swingStopLossPercent}
             swingLoading={swingLoading}
             swingAddTicker={swingAddTicker}
             swingAddLoading={swingAddLoading}
