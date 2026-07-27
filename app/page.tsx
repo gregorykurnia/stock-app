@@ -8,7 +8,7 @@ import { IHSG_STOCKS } from "@/lib/ihsgSeedData";
 import {
   loadStockData, getCustomStocks, saveCustomStock, removeCustomStock,
   getIhsgCustomStocks, saveIhsgCustomStock, removeIhsgCustomStock,
-  getIhsgSwingStocks, saveIhsgSwingStock, removeIhsgSwingStock,
+  getIhsgSwingStocks, saveIhsgSwingStock, removeIhsgSwingStock, updateIhsgSwingEntryPrice,
   getPortfolioTickers, getWatchlistTickers,
   savePortfolioEntry, removePortfolioEntry,
   saveWatchlistEntry, removeWatchlistEntry,
@@ -70,7 +70,7 @@ export default function Home() {
   const [ihsgPricesLoading, setIhsgPricesLoading] = useState(false);
 
   // IHSG "Midterm or Swing" subtab — separate, manually-managed ticker list
-  interface SwingStock { ticker: string; name: string | null; industry: string | null }
+  interface SwingStock { ticker: string; name: string | null; industry: string | null; entryPrice?: number | null }
   const [swingStocks, setSwingStocks] = useState<SwingStock[]>([]);
   const [swingPrices, setSwingPrices] = useState<Record<string, number | null>>({});
   const [swingDailyEma20s, setSwingDailyEma20s] = useState<Record<string, number | null>>({});
@@ -415,7 +415,10 @@ export default function Home() {
 
   async function loadSwingStocks() {
     const data = await getIhsgSwingStocks().catch(() => ({}));
-    const list = Object.entries(data).map(([ticker, d]) => ({ ticker, ...(d as object) } as SwingStock));
+    const list = Object.entries(data).map(([ticker, d]) => {
+      const raw = d as { name?: string | null; industry?: string | null; entry_price?: number | null };
+      return { ticker, name: raw.name ?? null, industry: raw.industry ?? null, entryPrice: raw.entry_price ?? null } as SwingStock;
+    });
     list.sort((a, b) => a.ticker.localeCompare(b.ticker));
     setSwingStocks(list);
     return list;
@@ -473,6 +476,11 @@ export default function Home() {
   async function handleRemoveSwingTicker(ticker: string) {
     await removeIhsgSwingStock(ticker);
     setSwingStocks((prev) => prev.filter((s) => s.ticker !== ticker));
+  }
+
+  async function handleSwingEntryPriceChange(ticker: string, value: number | null) {
+    setSwingStocks((prev) => prev.map((s) => (s.ticker === ticker ? { ...s, entryPrice: value } : s)));
+    await updateIhsgSwingEntryPrice(ticker, value).catch(() => {});
   }
 
   async function handleSetStatus(ticker: string, status: "portfolio" | "watchlist" | null) {
@@ -768,6 +776,7 @@ export default function Home() {
             onSwingAddTickerChange={setSwingAddTicker}
             onSwingAdd={handleAddSwingTicker}
             onSwingRemove={handleRemoveSwingTicker}
+            onSwingEntryPriceChange={handleSwingEntryPriceChange}
           />
         ) : (
           <MasterTable

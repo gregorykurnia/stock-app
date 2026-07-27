@@ -80,6 +80,10 @@ export async function saveIhsgSwingStock(ticker: string, data: object) {
   await setDoc(doc(db, "ihsg_swing_stocks", ticker), data);
 }
 
+export async function updateIhsgSwingEntryPrice(ticker: string, entryPrice: number | null) {
+  await setDoc(doc(db, "ihsg_swing_stocks", ticker), { entry_price: entryPrice }, { merge: true });
+}
+
 export async function removeIhsgSwingStock(ticker: string) {
   await deleteDoc(doc(db, "ihsg_swing_stocks", ticker));
 }

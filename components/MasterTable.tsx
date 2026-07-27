@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef, type FormEvent } from "react";
+import { useState, useMemo, useRef, useEffect, type FormEvent } from "react";
 import Link from "next/link";
 import { SEED_STOCKS, FUNDAMENTALS_RAW, VALUATION_RAW } from "@/lib/seedData";
 import { IHSG_STOCKS, type IhsgStock } from "@/lib/ihsgSeedData";
@@ -78,7 +78,7 @@ interface TableRow {
   isCustom: boolean;
 }
 
-interface SwingStock { ticker: string; name: string | null; industry: string | null }
+interface SwingStock { ticker: string; name: string | null; industry: string | null; entryPrice?: number | null }
 
 interface Props {
   market?: "us" | "ihsg";
@@ -104,6 +104,7 @@ interface Props {
   onSwingAddTickerChange?: (v: string) => void;
   onSwingAdd?: (e: FormEvent) => void;
   onSwingRemove?: (ticker: string) => void;
+  onSwingEntryPriceChange?: (ticker: string, value: number | null) => void;
   prices: Record<string, number | null>;
   preMarketPrices: Record<string, number | null>;
   verdicts: Record<string, { urgency: string; setup: string } | null>;
@@ -165,7 +166,7 @@ export default function MasterTable({
   market = "us", ihsgStocks, prices, preMarketPrices, verdicts, atrs, ema20s, ema50s, supportLows, rsis, diPluses, diMinuses, cmfs, macds = {}, macdSignals = {}, macdHists = {}, macdHistDirs = {}, earnings, fundData, loading, customStocks, portfolioSet, watchlistSet, markedSet, onSetStatus, onRemoveCustom, onToggleMark,
   swingStocks = [], swingPrices = {}, swingDailyEma20s = {}, swingDailyEma50s = {}, swingDailyAtrs = {}, swingDailyRsis = {}, swingEmaCrossAbove = {}, swingCrossPrice = {}, swingCrossDate = {},
   swingMacds = {}, swingMacdSignals = {}, swingMacdHists = {}, swingMacdHistDirs = {},
-  swingLoading = false, swingAddTicker = "", swingAddLoading = false, swingAddError = "", onSwingAddTickerChange, onSwingAdd, onSwingRemove,
+  swingLoading = false, swingAddTicker = "", swingAddLoading = false, swingAddError = "", onSwingAddTickerChange, onSwingAdd, onSwingRemove, onSwingEntryPriceChange,
 }: Props) {
   const isIhsg = market === "ihsg";
   // Currency prefix and price formatter
@@ -714,6 +715,33 @@ export default function MasterTable({
     return (
       <td className={`px-3 py-2 whitespace-nowrap font-bold ${valColorCls(hist)}`}>
         {hist.toFixed(2)}{arrow}
+      </td>
+    );
+  };
+
+  const EntryPriceCell = ({ ticker, value }: { ticker: string; value: number | null | undefined }) => {
+    const [draft, setDraft] = useState(value != null ? String(value) : "");
+    useEffect(() => { setDraft(value != null ? String(value) : ""); }, [value]);
+
+    function commit() {
+      const trimmed = draft.trim();
+      const parsed = trimmed === "" ? null : Number(trimmed);
+      const next = parsed != null && isNaN(parsed) ? null : parsed;
+      if (next !== (value ?? null)) onSwingEntryPriceChange?.(ticker, next);
+    }
+
+    return (
+      <td className="px-3 py-2 whitespace-nowrap">
+        <input
+          type="number"
+          step="any"
+          value={draft}
+          placeholder="—"
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
+          className="w-24 bg-white border border-gray-300 rounded px-2 py-1 text-sm text-gray-900 placeholder-gray-400"
+        />
       </td>
     );
   };
@@ -1374,6 +1402,7 @@ export default function MasterTable({
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap sticky left-0 z-20 bg-gray-100 after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-gray-300 after:content-['']">Ticker</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Price</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Industry</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Entry Price</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">ATR%</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">EMA20D</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">EMA50D</th>
@@ -1389,7 +1418,7 @@ export default function MasterTable({
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {swingStocks.length === 0 && (
-                  <tr><td colSpan={14} className="px-3 py-6 text-center text-gray-400 text-sm">No tickers yet — add one above.</td></tr>
+                  <tr><td colSpan={15} className="px-3 py-6 text-center text-gray-400 text-sm">No tickers yet — add one above.</td></tr>
                 )}
                 {swingStocks.map((s) => {
                   const price = swingPrices[s.ticker] ?? null;
@@ -1427,6 +1456,7 @@ export default function MasterTable({
                         {price != null ? fmtPrice(price) : <span className="text-gray-400">—</span>}
                       </td>
                       <td className="px-3 py-2 text-gray-500 text-xs whitespace-nowrap">{s.industry ?? "—"}</td>
+                      <EntryPriceCell ticker={s.ticker} value={s.entryPrice} />
                       <td className="px-3 py-2 whitespace-nowrap">
                         {atrV == null ? <span className="text-gray-300">—</span> : (() => {
                           const al = atrLabel(atrV);
