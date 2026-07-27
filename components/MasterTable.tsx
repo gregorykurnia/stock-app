@@ -729,6 +729,15 @@ export default function MasterTable({
     </td>
   );
 
+  const BandarTh = ({ label, desc }: { label: string; desc: string }) => (
+    <th className="group relative px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap cursor-help">
+      <span className="border-b border-dotted border-gray-400">{label}</span>
+      <span className="pointer-events-none absolute left-0 top-full z-40 mt-1 hidden w-56 whitespace-normal rounded-md bg-gray-900 px-2 py-1.5 text-[11px] font-normal normal-case leading-snug text-white shadow-lg group-hover:block">
+        {desc}
+      </span>
+    </th>
+  );
+
   const BandarCells = ({ bandar }: { bandar: BandarScoreResult | null }) => {
     if (bandar == null) {
       return (
@@ -1475,12 +1484,12 @@ export default function MasterTable({
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="MACD histogram (MACD − Signal) — daily closes">Hist</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Average True Range (14, daily) — volatility range">ATR (14)</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="1.5× ATR below your entry price (falls back to current price if entry is blank)">Stop Loss</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Volume consistency — high = erratic trading pattern">Vol CV</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Range efficiency — low = lots of wicks, little direction">Effic.</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Upper wick ratio — high = selling into rallies">UWick</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Max volume spike vs 20d avg — high = possible pump day">Spike</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Price move vs value traded — high = price moved on thin money">PVDiv</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Composite bandar risk score — higher = more manipulation risk">Bandar</th>
+                  <BandarTh label="Vol CV" desc="Volume consistency — high = erratic trading pattern" />
+                  <BandarTh label="Effic." desc="Range efficiency — low = lots of wicks, little direction" />
+                  <BandarTh label="UWick" desc="Upper wick ratio — high = selling into rallies" />
+                  <BandarTh label="Spike" desc="Max volume spike vs 20d avg — high = possible pump day" />
+                  <BandarTh label="PVDiv" desc="Price move vs value traded — high = price moved on thin money" />
+                  <BandarTh label="Bandar" desc="Composite bandar risk score — higher = more manipulation risk" />
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Remove</th>
                 </tr>
               </thead>
