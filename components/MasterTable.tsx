@@ -92,6 +92,7 @@ interface Props {
   diPluses: Record<string, number | null>;
   diMinuses: Record<string, number | null>;
   cmfs: Record<string, number | null>;
+  earnings: Record<string, string | null>;
   fundData: Record<string, FundData>;
   loading: boolean;
   customStocks: CustomStock[];
@@ -103,7 +104,37 @@ interface Props {
   onToggleMark: (ticker: string) => void;
 }
 
-export default function MasterTable({ market = "us", ihsgStocks, prices, preMarketPrices, verdicts, atrs, ema20s, ema50s, supportLows, rsis, diPluses, diMinuses, cmfs, fundData, loading, customStocks, portfolioSet, watchlistSet, markedSet, onSetStatus, onRemoveCustom, onToggleMark }: Props) {
+function EarningsBadge({ dateStr }: { dateStr: string | null | undefined }) {
+  if (!dateStr) return <span className="text-gray-300 text-xs">—</span>;
+  const today = new Date();
+  const todayStr = today.toISOString().slice(0, 10);
+  const daysUntil = Math.round((new Date(dateStr + "T00:00:00Z").getTime() - new Date(todayStr + "T00:00:00Z").getTime()) / 86400000);
+
+  let label: string;
+  let cls: string;
+  if (daysUntil < 0) {
+    label = "Reported";
+    cls = "bg-gray-100 text-gray-500 border border-gray-200";
+  } else if (daysUntil === 0) {
+    label = "Today";
+    cls = "bg-red-100 text-red-700 border border-red-300";
+  } else if (daysUntil <= 7) {
+    label = `In ${daysUntil}d`;
+    cls = "bg-yellow-100 text-yellow-700 border border-yellow-300";
+  } else {
+    label = dateStr;
+    cls = "bg-gray-50 text-gray-500 border border-gray-200";
+  }
+
+  return (
+    <div className="whitespace-nowrap">
+      <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${cls}`}>{label}</span>
+      {daysUntil <= 7 && daysUntil >= 0 && <span className="block text-[10px] text-gray-400 mt-0.5">{dateStr}</span>}
+    </div>
+  );
+}
+
+export default function MasterTable({ market = "us", ihsgStocks, prices, preMarketPrices, verdicts, atrs, ema20s, ema50s, supportLows, rsis, diPluses, diMinuses, cmfs, earnings, fundData, loading, customStocks, portfolioSet, watchlistSet, markedSet, onSetStatus, onRemoveCustom, onToggleMark }: Props) {
   const isIhsg = market === "ihsg";
   // Currency prefix and price formatter
   const fmtPrice = (v: number) => isIhsg ? `Rp${Math.round(v).toLocaleString("id-ID")}` : `$${v.toFixed(2)}`;
@@ -780,6 +811,7 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
                   <Th label="Price"     k="price" />
                   <Th label="ATR%" k="atr" title="Weekly ATR% — volatility as % of price" />
                   <Th label="Urgency"   k="urgency" />
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Next/last reported earnings date">Earnings</th>
                   <Th label="EMA20W"     k="ema20"      title="EMA20 Weekly" />
                   <Th label="Dist EMA20" k="dist_ema20"  title="Distance from EMA20W" />
                   <Th label="EMA50W"     k="ema50"      title="EMA50 Weekly" />
@@ -863,6 +895,7 @@ export default function MasterTable({ market = "us", ihsgStocks, prices, preMark
                         </span>
                       ) : <span className="text-gray-400 text-xs">—</span>}
                     </td>
+                    <td className="px-3 py-2"><EarningsBadge dateStr={earnings[r.ticker]} /></td>
                     {(() => {
                       const price = r.price;
                       const ema20 = ema20s[r.ticker] ?? null;

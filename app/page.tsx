@@ -36,6 +36,7 @@ export default function Home() {
   const [diPluses, setDiPluses] = useState<Record<string, number | null>>({});
   const [diMinuses, setDiMinuses] = useState<Record<string, number | null>>({});
   const [cmfs, setCmfs] = useState<Record<string, number | null>>({});
+  const [earnings, setEarnings] = useState<Record<string, string | null>>({});
   const [pricesLoading, setPricesLoading] = useState(true);
   const [customStocks, setCustomStocks] = useState<CustomStock[]>([]);
   const [fundData, setFundData] = useState<Record<string, FundData>>({});
@@ -54,6 +55,7 @@ export default function Home() {
   const [ihsgDiPluses, setIhsgDiPluses] = useState<Record<string, number | null>>({});
   const [ihsgDiMinuses, setIhsgDiMinuses] = useState<Record<string, number | null>>({});
   const [ihsgCmfs, setIhsgCmfs] = useState<Record<string, number | null>>({});
+  const [ihsgEarnings, setIhsgEarnings] = useState<Record<string, string | null>>({});
   const [ihsgVerdicts, setIhsgVerdicts] = useState<Record<string, { urgency: string; setup: string } | null>>({});
   const [ihsgFundData, setIhsgFundData] = useState<Record<string, FundData>>({});
   const [ihsgPricesLoading, setIhsgPricesLoading] = useState(false);
@@ -128,6 +130,11 @@ export default function Home() {
       .then((d) => setFundData((prev) => ({ ...prev, ...(d.data ?? {}) })))
       .catch(() => {});
 
+    fetch(`/api/earnings?tickers=${seedTickers}`)
+      .then((r) => r.json())
+      .then((d) => setEarnings((prev) => ({ ...prev, ...(d.earnings ?? {}) })))
+      .catch(() => {});
+
     Promise.all(
       SEED_STOCKS.map(async (s) => {
         const data = await loadStockData(s.ticker).catch(() => null);
@@ -154,6 +161,10 @@ export default function Home() {
         fetch(`/api/funddata?tickers=${tickers}`)
           .then((r) => r.json())
           .then((d) => setFundData((prev) => ({ ...prev, ...(d.data ?? {}) })))
+          .catch(() => {});
+        fetch(`/api/earnings?tickers=${tickers}`)
+          .then((r) => r.json())
+          .then((d) => setEarnings((prev) => ({ ...prev, ...(d.earnings ?? {}) })))
           .catch(() => {});
         fetch(`/api/ema?tickers=${tickers}`)
           .then((r) => r.json())
@@ -207,6 +218,13 @@ export default function Home() {
           for (const [k, v] of Object.entries(d.data ?? {})) out[k.replace(".JK", "")] = v as FundData;
           setIhsgFundData((p) => ({ ...p, ...out }));
         }).catch(() => {});
+      fetch(`/api/earnings?tickers=${jkTickers}`)
+        .then((r) => r.json())
+        .then((d) => {
+          const out: Record<string, string | null> = {};
+          for (const [k, v] of Object.entries(d.earnings ?? {})) out[k.replace(".JK", "")] = v as string | null;
+          setIhsgEarnings((p) => ({ ...p, ...out }));
+        }).catch(() => {});
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -256,6 +274,15 @@ export default function Home() {
         const out: Record<string, FundData> = {};
         for (const [k, v] of Object.entries(d.data ?? {})) out[k.replace(".JK", "")] = v as FundData;
         setIhsgFundData((p) => ({ ...p, ...out }));
+      })
+      .catch(() => {});
+
+    fetch(`/api/earnings?tickers=${jkTickers}`)
+      .then((r) => r.json())
+      .then((d) => {
+        const out: Record<string, string | null> = {};
+        for (const [k, v] of Object.entries(d.earnings ?? {})) out[k.replace(".JK", "")] = v as string | null;
+        setIhsgEarnings((p) => ({ ...p, ...out }));
       })
       .catch(() => {});
 
@@ -532,6 +559,7 @@ export default function Home() {
             diPluses={ihsgDiPluses}
             diMinuses={ihsgDiMinuses}
             cmfs={ihsgCmfs}
+            earnings={ihsgEarnings}
             fundData={ihsgFundData}
             loading={ihsgPricesLoading}
             customStocks={ihsgCustomStocks}
@@ -557,6 +585,7 @@ export default function Home() {
             diPluses={diPluses}
             diMinuses={diMinuses}
             cmfs={cmfs}
+            earnings={earnings}
             fundData={fundData}
             loading={pricesLoading}
             customStocks={customStocks}

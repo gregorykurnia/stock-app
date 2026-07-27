@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { getWatchlist, saveWatchlistEntry, removeWatchlistEntry, getCustomStocks, loadStockData, getMarkedTickers } from "@/lib/firestore";
+import { getWatchlist, saveWatchlistEntry, removeWatchlistEntry, getCustomStocks, loadStockData, getMarkedTickers, updateWatchlistEarningsAlert } from "@/lib/firestore";
 import { downloadCsv } from "@/lib/exportCsv";
 import { getCached, setCached, invalidateCache } from "@/lib/pageCache";
 import { subscribeToPush } from "@/lib/push";
@@ -22,6 +22,18 @@ const urgencyStyles: Record<string, string> = {
   avoid:  "bg-red-100 text-red-700 border border-red-300",
 };
 
+function EarningsBadge({ dateStr, fired }: { dateStr: string | null | undefined; fired?: boolean }) {
+  if (!dateStr) return <span className="text-gray-300 text-xs">Not armed yet</span>;
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const daysUntil = Math.round((new Date(dateStr + "T00:00:00Z").getTime() - new Date(todayStr + "T00:00:00Z").getTime()) / 86400000);
+
+  if (daysUntil < 0) {
+    return <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${fired ? "bg-green-100 text-green-700 border border-green-300" : "bg-gray-100 text-gray-500 border border-gray-200"}`}>{fired ? "Notified" : "Reported"}</span>;
+  }
+  if (daysUntil === 0) return <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-red-100 text-red-700 border border-red-300">Today</span>;
+  return <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-yellow-100 text-yellow-700 border border-yellow-300">{dateStr} ({daysUntil}d)</span>;
+}
+
 const setupCfg: Record<string, { label: string; cls: string }> = {
   beaten_down: { label: "Beaten Down", cls: "bg-orange-100 text-orange-700" },
   pullback:    { label: "Pullback",    cls: "bg-blue-100 text-blue-700"     },
@@ -39,6 +51,9 @@ interface WatchlistRow {
   date_added: string;
   triggered?: boolean;
   last_price_side?: "above" | "below";
+  earnings_alert?: boolean;
+  earnings_date?: string | null;
+  earnings_alert_fired?: boolean;
   gross_margin: number | null;
   op_margin: number | null;
   net_margin: number | null;
@@ -152,6 +167,7 @@ export default function WatchlistPage() {
   const [ema50s, setEma50s] = useState<Record<string, number | null>>({});
   const [atrPcts, setAtrPcts] = useState<Record<string, number | null>>({});
   const [setups, setSetups] = useState<Record<string, string>>({});
+  const [earningsDates, setEarningsDates] = useState<Record<string, string | null>>({});
   const [emaLoading, setEmaLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [markedSet, setMarkedSet] = useState<Set<string>>(new Set());
@@ -243,6 +259,9 @@ export default function WatchlistPage() {
           date_added: String(w.date_added ?? ""),
           triggered: Boolean(w.triggered ?? false),
           last_price_side: w.last_price_side as "above" | "below" | undefined,
+          earnings_alert: Boolean(w.earnings_alert ?? false),
+          earnings_date: (w.earnings_date as string | null | undefined) ?? null,
+          earnings_alert_fired: Boolean(w.earnings_alert_fired ?? false),
           gross_margin: fr?.gross_margin ?? custom?.gross_margin ?? null,
           op_margin: fr?.op_margin ?? custom?.op_margin ?? null,
           net_margin: custom?.net_margin ?? null,
@@ -275,6 +294,14 @@ export default function WatchlistPage() {
         );
         setSetups(Object.fromEntries(setupResults));
 
+        const earningsTickers = built.filter((r) => r.earnings_alert).map((r) => r.ticker);
+        if (earningsTickers.length > 0) {
+          fetch(`/api/earnings?tickers=${earningsTickers.join(",")}`)
+            .then((r) => r.json())
+            .then((d) => setEarningsDates(d.earnings ?? {}))
+            .catch(() => {});
+        }
+
         setEmaLoading(true);
         fetch(`/api/ema?tickers=${tickers}`)
           .then((r) => r.json())
@@ -303,11 +330,26 @@ export default function WatchlistPage() {
     const updated = {
       alert_price: row.alert_price, entry_zone: row.entry_zone,
       verdict: row.verdict, notes: row.notes, date_added: row.date_added,
+      earnings_alert: row.earnings_alert, earnings_date: row.earnings_date, earnings_alert_fired: row.earnings_alert_fired,
       ...alertState,
       [field]: value,
     };
     await saveWatchlistEntry(ticker, updated);
     setRows((prev) => prev.map((r) => r.ticker === ticker ? { ...r, [field]: value, ...(field === "alert_price" ? { triggered: false, last_price_side: undefined } : {}) } : r));
+  }
+
+  async function handleToggleEarningsAlert(ticker: string, enabled: boolean) {
+    await updateWatchlistEarningsAlert(ticker, { earnings_alert: enabled, ...(enabled ? { earnings_alert_fired: false } : {}) });
+    setRows((prev) => prev.map((r) => (r.ticker === ticker ? { ...r, earnings_alert: enabled } : r)));
+
+    if (enabled) {
+      const res = await fetch(`/api/earnings?tickers=${ticker}`);
+      const d = await res.json();
+      const dateStr: string | null = d.earnings?.[ticker] ?? null;
+      setEarningsDates((prev) => ({ ...prev, [ticker]: dateStr }));
+      await updateWatchlistEarningsAlert(ticker, { earnings_date: dateStr });
+      setRows((prev) => prev.map((r) => (r.ticker === ticker ? { ...r, earnings_date: dateStr } : r)));
+    }
   }
 
   async function handleRemove(ticker: string) {
@@ -425,6 +467,7 @@ export default function WatchlistPage() {
                       {sortKey === key && <span className="ml-1">{sortDir === 1 ? "↑" : "↓"}</span>}
                     </th>
                   ))}
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Ping once after earnings is reported">Earnings Alert</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Notes ✎</th>
                   <th className="px-3 py-2" />
                 </tr>
@@ -494,6 +537,17 @@ export default function WatchlistPage() {
                       <td className="px-3 py-2 text-gray-600">{num(r.peg, 2)}</td>
                       <td className="px-3 py-2 text-gray-600">{num(r.ev_ebitda)}</td>
                       <td className="px-3 py-2 text-gray-400 text-xs whitespace-nowrap">{r.date_added}</td>
+                      <td className="px-3 py-2">
+                        <label className="flex items-center gap-1.5 cursor-pointer whitespace-nowrap">
+                          <input
+                            type="checkbox"
+                            checked={!!r.earnings_alert}
+                            onChange={(e) => handleToggleEarningsAlert(r.ticker, e.target.checked)}
+                            className="rounded border-gray-300"
+                          />
+                          {r.earnings_alert && <EarningsBadge dateStr={earningsDates[r.ticker]} fired={r.earnings_alert_fired} />}
+                        </label>
+                      </td>
                       <td className="px-3 py-2">
                         <EditTextCell value={r.notes} placeholder="add notes" onSave={(v) => updateField(r.ticker, "notes", v)} />
                       </td>

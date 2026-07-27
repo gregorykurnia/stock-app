@@ -2,13 +2,26 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { getPriceAlerts, savePriceAlert, removePriceAlert, updatePriceAlertState, updatePriceAlertNotes, updatePriceAlertPrice } from "@/lib/firestore";
+import { getPriceAlerts, savePriceAlert, removePriceAlert, updatePriceAlertState, updatePriceAlertNotes, updatePriceAlertPrice, updatePriceAlertEarnings } from "@/lib/firestore";
 import { subscribeToPush } from "@/lib/push";
 import type { PriceAlert } from "@/lib/types";
+
+function EarningsBadge({ dateStr, fired }: { dateStr: string | null | undefined; fired?: boolean }) {
+  if (!dateStr) return <span className="text-gray-300 text-xs">Not armed yet</span>;
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const daysUntil = Math.round((new Date(dateStr + "T00:00:00Z").getTime() - new Date(todayStr + "T00:00:00Z").getTime()) / 86400000);
+
+  if (daysUntil < 0) {
+    return <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${fired ? "bg-green-100 text-green-700 border border-green-300" : "bg-gray-100 text-gray-500 border border-gray-200"}`}>{fired ? "Notified" : "Reported"}</span>;
+  }
+  if (daysUntil === 0) return <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-red-100 text-red-700 border border-red-300">Today</span>;
+  return <span className="text-xs px-2 py-0.5 rounded-full font-semibold bg-yellow-100 text-yellow-700 border border-yellow-300">{dateStr} ({daysUntil}d)</span>;
+}
 
 export default function AlertsPage() {
   const [alerts, setAlerts] = useState<PriceAlert[]>([]);
   const [prices, setPrices] = useState<Record<string, number | null>>({});
+  const [earningsDates, setEarningsDates] = useState<Record<string, string | null>>({});
   const [loading, setLoading] = useState(true);
   const [tickerInput, setTickerInput] = useState("");
   const [priceInput, setPriceInput] = useState("");
@@ -33,6 +46,14 @@ export default function AlertsPage() {
         const res = await fetch(`/api/prices?tickers=${tickers}`);
         const json = await res.json();
         setPrices(json.prices ?? {});
+
+        const earningsTickers = list.filter((a) => a.earnings_alert).map((a) => a.ticker);
+        if (earningsTickers.length > 0) {
+          fetch(`/api/earnings?tickers=${earningsTickers.join(",")}`)
+            .then((r) => r.json())
+            .then((d) => setEarningsDates(d.earnings ?? {}))
+            .catch(() => {});
+        }
       } else {
         setPrices({});
       }
@@ -76,6 +97,20 @@ export default function AlertsPage() {
   async function handleReset(ticker: string) {
     await updatePriceAlertState(ticker, { triggered: false, last_price_side: undefined });
     await load();
+  }
+
+  async function handleToggleEarningsAlert(ticker: string, enabled: boolean) {
+    await updatePriceAlertEarnings(ticker, { earnings_alert: enabled, ...(enabled ? { earnings_alert_fired: false } : {}) });
+    setAlerts((prev) => prev.map((a) => (a.ticker === ticker ? { ...a, earnings_alert: enabled } : a)));
+
+    if (enabled) {
+      const res = await fetch(`/api/earnings?tickers=${ticker}`);
+      const d = await res.json();
+      const dateStr: string | null = d.earnings?.[ticker] ?? null;
+      setEarningsDates((prev) => ({ ...prev, [ticker]: dateStr }));
+      await updatePriceAlertEarnings(ticker, { earnings_date: dateStr });
+      setAlerts((prev) => prev.map((a) => (a.ticker === ticker ? { ...a, earnings_date: dateStr } : a)));
+    }
   }
 
   async function handleNotesBlur(ticker: string, value: string) {
@@ -157,6 +192,7 @@ export default function AlertsPage() {
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Alert Price</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">% Distance</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide" title="Ping once after earnings is reported">Earnings Alert</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Notes</th>
                   <th className="px-3 py-2" />
                 </tr>
@@ -193,6 +229,17 @@ export default function AlertsPage() {
                         {a.triggered
                           ? <span className="text-xs px-2 py-0.5 rounded-full font-semibold uppercase bg-green-100 text-green-700 border border-green-300">Triggered</span>
                           : <span className="text-xs px-2 py-0.5 rounded-full font-semibold uppercase bg-blue-100 text-blue-700 border border-blue-300">Active</span>}
+                      </td>
+                      <td className="px-3 py-2">
+                        <label className="flex items-center gap-1.5 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={!!a.earnings_alert}
+                            onChange={(e) => handleToggleEarningsAlert(a.ticker, e.target.checked)}
+                            className="rounded border-gray-300"
+                          />
+                          {a.earnings_alert && <EarningsBadge dateStr={earningsDates[a.ticker]} fired={a.earnings_alert_fired} />}
+                        </label>
                       </td>
                       <td className="px-3 py-2">
                         <input

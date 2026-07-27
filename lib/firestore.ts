@@ -103,6 +103,10 @@ export async function updateWatchlistAlertState(ticker: string, data: { triggere
   await setDoc(doc(db, "watchlist", ticker), data, { merge: true });
 }
 
+export async function updateWatchlistEarningsAlert(ticker: string, data: { earnings_alert?: boolean; earnings_date?: string | null; earnings_alert_fired?: boolean }) {
+  await setDoc(doc(db, "watchlist", ticker), data, { merge: true });
+}
+
 // Standalone price alerts (any ticker, independent of watchlist/portfolio membership)
 export async function getPriceAlerts(): Promise<Record<string, object>> {
   const snap = await getDocs(collection(db, "price_alerts"));
@@ -130,6 +134,10 @@ export async function updatePriceAlertState(ticker: string, data: { triggered?: 
     { ...rest, last_price_side: last_price_side ?? deleteField() },
     { merge: true }
   );
+}
+
+export async function updatePriceAlertEarnings(ticker: string, data: { earnings_alert?: boolean; earnings_date?: string | null; earnings_alert_fired?: boolean }) {
+  await setDoc(doc(db, "price_alerts", ticker), data, { merge: true });
 }
 
 export async function updatePriceAlertNotes(ticker: string, notes: string) {

@@ -104,6 +104,9 @@ export interface WatchlistEntry {
   notes?: string;
   triggered?: boolean;
   last_price_side?: "above" | "below";
+  earnings_alert?: boolean;
+  earnings_date?: string | null;
+  earnings_alert_fired?: boolean;
 }
 
 export interface PriceAlert {
@@ -113,6 +116,9 @@ export interface PriceAlert {
   triggered?: boolean;
   last_price_side?: "above" | "below";
   notes?: string;
+  earnings_alert?: boolean;
+  earnings_date?: string | null;
+  earnings_alert_fired?: boolean;
 }
 
 export interface PushSubscriptionDoc {
