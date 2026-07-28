@@ -34,7 +34,7 @@ export default function AlertsPage() {
   const [pushStatus, setPushStatus] = useState<string | null>(null);
   const [notesDraft, setNotesDraft] = useState<Record<string, string>>({});
   const [priceDraft, setPriceDraft] = useState<Record<string, string>>({});
-  const [sortKey, setSortKey] = useState<"price" | "distance" | null>(null);
+  const [sortKey, setSortKey] = useState<"ticker" | "price" | "distance" | null>(null);
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
   const load = useCallback(async (showLoading = false) => {
@@ -164,12 +164,12 @@ export default function AlertsPage() {
     URL.revokeObjectURL(url);
   }
 
-  function handleSort(key: "price" | "distance") {
+  function handleSort(key: "ticker" | "price" | "distance") {
     if (sortKey === key) {
       setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
     } else {
       setSortKey(key);
-      setSortDir("desc");
+      setSortDir(key === "ticker" ? "asc" : "desc");
     }
   }
 
@@ -181,6 +181,11 @@ export default function AlertsPage() {
 
   const sortedAlerts = (() => {
     if (!sortKey) return alerts;
+    if (sortKey === "ticker") {
+      const sorted = [...alerts].sort((x, y) => x.ticker.localeCompare(y.ticker));
+      if (sortDir === "desc") sorted.reverse();
+      return sorted;
+    }
     const withValues = alerts.map((a) => ({
       a,
       value: sortKey === "price" ? prices[a.ticker] ?? null : getPctDistance(a),
@@ -303,7 +308,12 @@ export default function AlertsPage() {
             <table className="w-full text-sm bg-white">
               <thead className="bg-gray-100 border-b border-gray-200">
                 <tr>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Ticker</th>
+                  <th
+                    className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide cursor-pointer select-none hover:text-gray-700"
+                    onClick={() => handleSort("ticker")}
+                  >
+                    Ticker{sortKey === "ticker" ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
+                  </th>
                   <th
                     className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide cursor-pointer select-none hover:text-gray-700"
                     onClick={() => handleSort("price")}
