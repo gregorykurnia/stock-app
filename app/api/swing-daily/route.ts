@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { calcIndicators } from "@/lib/indicators";
+import { calcIndicators, calculateMACD, calculateATR, calculateBandarScore, type BandarScoreResult } from "@/lib/indicators";
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const YahooFinance = require("yahoo-finance2").default;
 const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
@@ -21,29 +21,47 @@ function calcATRPct(quotes: { high: number; low: number; close: number }[], peri
   return lastClose > 0 ? (atr / lastClose) * 100 : null;
 }
 
-interface EMADailyResult {
+interface SwingDailyResult {
   ema20: number | null;
   ema50: number | null;
   atrPct: number | null;
   rsi: number | null;
-  emaCrossAbove: boolean | null; // true if EMA20 currently above EMA50
-  crossPrice: number | null;     // close price on the day the most recent cross happened
-  crossDate: string | null;      // date (YYYY-MM-DD) of the most recent cross
+  emaCrossAbove: boolean | null;
+  crossPrice: number | null;
+  crossDate: string | null;
+  macd: number | null;
+  signal: number | null;
+  histogram: number | null;
+  histDirection: "up" | "down" | "flat" | null;
+  atr: number | null;
+  stopLoss: number | null;
+  stopLossPercent: number | null;
+  bandar: BandarScoreResult | null;
 }
 
-async function fetchDailyIndicators(ticker: string): Promise<EMADailyResult> {
+const EMPTY: SwingDailyResult = {
+  ema20: null, ema50: null, atrPct: null, rsi: null,
+  emaCrossAbove: null, crossPrice: null, crossDate: null,
+  macd: null, signal: null, histogram: null, histDirection: null,
+  atr: null, stopLoss: null, stopLossPercent: null, bandar: null,
+};
+
+// Single 1-year daily chart fetch per ticker, powering every "Midterm/Swing" indicator
+// (EMA20/50D, RSI, ATR%, EMA cross, MACD, ATR(14)+stop, Bandar score) instead of the
+// 4 separate chart fetches this used to require.
+async function fetchSwingDaily(ticker: string): Promise<SwingDailyResult> {
   const now = new Date();
   const oneYearAgo = new Date(now.getTime() - 365 * 24 * 3600 * 1000);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const result: any = await yf.chart(ticker, { period1: oneYearAgo, period2: now, interval: "1d" });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const quotes = (result?.quotes ?? []).filter((q: any) => q.open != null && q.high != null && q.low != null && q.close != null && q.volume != null);
-  if (quotes.length === 0) {
-    return { ema20: null, ema50: null, atrPct: null, rsi: null, emaCrossAbove: null, crossPrice: null, crossDate: null };
-  }
+  if (quotes.length === 0) return EMPTY;
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const bars = quotes.map((q: any) => ({ open: q.open, high: q.high, low: q.low, close: q.close, volume: q.volume }));
+  const closes = bars.map((b: { close: number }) => b.close);
+
   const ind = calcIndicators(bars);
   const atrPct = calcATRPct(bars, 14);
 
@@ -62,7 +80,6 @@ async function fetchDailyIndicators(ticker: string): Promise<EMADailyResult> {
   if (ema20 != null && ema50 != null) {
     emaCrossAbove = ema20 > ema50;
 
-    // Walk forward to find the most recent flip in sign of (ema20 - ema50)
     let prevSign: number | null = null;
     for (let i = 0; i < ind.ema20.length; i++) {
       const e20 = ind.ema20[i];
@@ -80,7 +97,21 @@ async function fetchDailyIndicators(ticker: string): Promise<EMADailyResult> {
     }
   }
 
-  return { ema20, ema50, atrPct, rsi, emaCrossAbove, crossPrice, crossDate };
+  const macdRes = calculateMACD(closes);
+  const atrRes = calculateATR(bars, 14);
+  const bandar = calculateBandarScore(bars.slice(-60));
+
+  return {
+    ema20, ema50, atrPct, rsi, emaCrossAbove, crossPrice, crossDate,
+    macd: macdRes?.macd ?? null,
+    signal: macdRes?.signal ?? null,
+    histogram: macdRes?.histogram ?? null,
+    histDirection: macdRes?.histDirection ?? null,
+    atr: atrRes?.atr ?? null,
+    stopLoss: atrRes?.stopLoss ?? null,
+    stopLossPercent: atrRes?.stopLossPercent ?? null,
+    bandar,
+  };
 }
 
 export async function GET(req: NextRequest) {
@@ -88,6 +119,7 @@ export async function GET(req: NextRequest) {
   if (!param) return NextResponse.json({ error: "tickers required" }, { status: 400 });
 
   const tickers = param.split(",").map((t) => t.trim().toUpperCase()).filter(Boolean);
+
   const ema20: Record<string, number | null> = {};
   const ema50: Record<string, number | null> = {};
   const atrPct: Record<string, number | null> = {};
@@ -95,31 +127,41 @@ export async function GET(req: NextRequest) {
   const emaCrossAbove: Record<string, boolean | null> = {};
   const crossPrice: Record<string, number | null> = {};
   const crossDate: Record<string, string | null> = {};
+  const macd: Record<string, number | null> = {};
+  const signal: Record<string, number | null> = {};
+  const histogram: Record<string, number | null> = {};
+  const histDirection: Record<string, "up" | "down" | "flat" | null> = {};
+  const atr: Record<string, number | null> = {};
+  const stopLoss: Record<string, number | null> = {};
+  const stopLossPercent: Record<string, number | null> = {};
+  const bandar: Record<string, BandarScoreResult | null> = {};
 
-  const chunkSize = 5;
+  const chunkSize = 8;
   for (let i = 0; i < tickers.length; i += chunkSize) {
     const chunk = tickers.slice(i, i + chunkSize);
     await Promise.all(chunk.map(async (ticker) => {
-      try {
-        const r = await fetchDailyIndicators(ticker);
-        ema20[ticker] = r.ema20;
-        ema50[ticker] = r.ema50;
-        atrPct[ticker] = r.atrPct;
-        rsi[ticker] = r.rsi;
-        emaCrossAbove[ticker] = r.emaCrossAbove;
-        crossPrice[ticker] = r.crossPrice;
-        crossDate[ticker] = r.crossDate;
-      } catch {
-        ema20[ticker] = null;
-        ema50[ticker] = null;
-        atrPct[ticker] = null;
-        rsi[ticker] = null;
-        emaCrossAbove[ticker] = null;
-        crossPrice[ticker] = null;
-        crossDate[ticker] = null;
-      }
+      const r = await fetchSwingDaily(ticker).catch(() => EMPTY);
+      ema20[ticker] = r.ema20;
+      ema50[ticker] = r.ema50;
+      atrPct[ticker] = r.atrPct;
+      rsi[ticker] = r.rsi;
+      emaCrossAbove[ticker] = r.emaCrossAbove;
+      crossPrice[ticker] = r.crossPrice;
+      crossDate[ticker] = r.crossDate;
+      macd[ticker] = r.macd;
+      signal[ticker] = r.signal;
+      histogram[ticker] = r.histogram;
+      histDirection[ticker] = r.histDirection;
+      atr[ticker] = r.atr;
+      stopLoss[ticker] = r.stopLoss;
+      stopLossPercent[ticker] = r.stopLossPercent;
+      bandar[ticker] = r.bandar;
     }));
   }
 
-  return NextResponse.json({ ema20, ema50, atrPct, rsi, emaCrossAbove, crossPrice, crossDate });
+  return NextResponse.json({
+    ema20, ema50, atrPct, rsi, emaCrossAbove, crossPrice, crossDate,
+    macd, signal, histogram, histDirection,
+    atr, stopLoss, stopLossPercent, bandar,
+  });
 }

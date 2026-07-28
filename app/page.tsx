@@ -379,11 +379,13 @@ export default function Home() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [market]);
 
-  // Fetch daily indicators (EMA20D/50D, ATR, RSI, cross info) for a batch of swing tickers (no .JK suffix)
+  // Fetch daily indicators (EMA20D/50D, ATR, RSI, cross info, MACD, ATR14, Bandar) for a batch
+  // of swing tickers (no .JK suffix) in a single round trip — one chart fetch per ticker
+  // server-side instead of four, which is what made this tab slow to (re)load.
   function fetchSwingDaily(tickersNoSuffix: string[]) {
     if (tickersNoSuffix.length === 0) return;
     const jkTickers = tickersNoSuffix.map((t) => `${t}.JK`).join(",");
-    fetch(`/api/ema-daily?tickers=${jkTickers}`)
+    fetch(`/api/swing-daily?tickers=${jkTickers}`)
       .then((r) => r.json())
       .then((d) => {
         const remap = <T,>(obj: Record<string, T>) => {
@@ -398,41 +400,11 @@ export default function Home() {
         setSwingEmaCrossAbove((p) => ({ ...p, ...remap(d.emaCrossAbove ?? {}) }));
         setSwingCrossPrice((p) => ({ ...p, ...remap(d.crossPrice ?? {}) }));
         setSwingCrossDate((p) => ({ ...p, ...remap(d.crossDate ?? {}) }));
-      })
-      .catch(() => {});
-    fetch(`/api/macd?tickers=${jkTickers}`)
-      .then((r) => r.json())
-      .then((d) => {
-        const remap = <T,>(obj: Record<string, T>) => {
-          const out: Record<string, T> = {};
-          for (const [k, v] of Object.entries(obj)) out[k.replace(".JK", "")] = v;
-          return out;
-        };
         setSwingMacds((p) => ({ ...p, ...remap(d.macd ?? {}) }));
         setSwingMacdSignals((p) => ({ ...p, ...remap(d.signal ?? {}) }));
         setSwingMacdHists((p) => ({ ...p, ...remap(d.histogram ?? {}) }));
         setSwingMacdHistDirs((p) => ({ ...p, ...remap(d.histDirection ?? {}) }));
-      })
-      .catch(() => {});
-    fetch(`/api/atr?tickers=${jkTickers}`)
-      .then((r) => r.json())
-      .then((d) => {
-        const remap = <T,>(obj: Record<string, T>) => {
-          const out: Record<string, T> = {};
-          for (const [k, v] of Object.entries(obj)) out[k.replace(".JK", "")] = v;
-          return out;
-        };
         setSwingAtr14((p) => ({ ...p, ...remap(d.atr ?? {}) }));
-      })
-      .catch(() => {});
-    fetch(`/api/bandar?tickers=${jkTickers}`)
-      .then((r) => r.json())
-      .then((d) => {
-        const remap = <T,>(obj: Record<string, T>) => {
-          const out: Record<string, T> = {};
-          for (const [k, v] of Object.entries(obj)) out[k.replace(".JK", "")] = v;
-          return out;
-        };
         setSwingBandar((p) => ({ ...p, ...remap(d.bandar ?? {}) }));
       })
       .catch(() => {});
