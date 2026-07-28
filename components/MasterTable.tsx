@@ -1081,11 +1081,15 @@ export default function MasterTable({
 
   // Shared ticker sticky cell
   const TickerCell = ({ r }: { r: TableRow }) => (
-    <td className={`px-3 py-2 font-semibold whitespace-nowrap sticky left-0 z-10 after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-gray-200 after:content-[''] group-hover:bg-red-50 ${markedSet.has(r.ticker) ? "bg-red-50" : r.isCustom ? "bg-blue-50/30 group-hover:bg-blue-100/40" : "bg-white group-hover:bg-gray-50"}`}>
+    <td className={`px-3 py-2 font-semibold whitespace-nowrap sticky left-0 z-10 max-w-[92px] sm:max-w-none after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-gray-200 after:content-[''] group-hover:bg-red-50 ${markedSet.has(r.ticker) ? "bg-red-50" : r.isCustom ? "bg-blue-50/30 group-hover:bg-blue-100/40" : "bg-white group-hover:bg-gray-50"}`}>
       <Link href={`/stock/${isIhsg ? `${r.ticker}.JK` : r.ticker}`} className="text-blue-600 hover:text-blue-800">
         {r.ticker}
       </Link>
-      {r.name && <span className="block text-xs text-gray-400 font-normal leading-tight">{r.name}</span>}
+      {r.name && (
+        <span className="hidden sm:block text-xs text-gray-400 font-normal leading-tight truncate max-w-[160px]">
+          {r.name}
+        </span>
+      )}
     </td>
   );
 
@@ -1794,9 +1798,13 @@ export default function MasterTable({
 
                   return (
                     <tr key={s.ticker} className="group transition-colors hover:bg-gray-50">
-                      <td className="px-3 py-2 font-semibold whitespace-nowrap sticky left-0 z-10 bg-white group-hover:bg-gray-50 after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-gray-200 after:content-['']">
+                      <td className="px-3 py-2 font-semibold whitespace-nowrap sticky left-0 z-10 max-w-[92px] sm:max-w-none bg-white group-hover:bg-gray-50 after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-gray-200 after:content-['']">
                         <Link href={`/stock/${s.ticker}.JK`} className="text-blue-600 hover:text-blue-800">{s.ticker}</Link>
-                        {s.name && <span className="block text-xs text-gray-400 font-normal leading-tight">{s.name}</span>}
+                        {s.name && (
+                          <span className="hidden sm:block text-xs text-gray-400 font-normal leading-tight truncate max-w-[160px]">
+                            {s.name}
+                          </span>
+                        )}
                       </td>
                       <td className="px-3 py-2 text-gray-900 whitespace-nowrap">
                         {price != null ? fmtPrice(price) : <span className="text-gray-400">—</span>}
