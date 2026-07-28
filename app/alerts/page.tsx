@@ -339,7 +339,10 @@ export default function AlertsPage() {
                   const hasAlertPrice = !!a.alert_price && a.alert_price > 0;
                   const pctDistance = getPctDistance(a);
                   return (
-                    <tr key={a.id} className="hover:bg-gray-50">
+                    <tr
+                      key={a.id}
+                      className={a.triggered ? "bg-rose-50 border-l-2 border-rose-300 hover:bg-rose-100" : "hover:bg-gray-50"}
+                    >
                       <td className="px-3 py-2 font-semibold">
                         <Link href={`/stock/${a.ticker}`} className="text-blue-600 hover:text-blue-800">{a.ticker}</Link>
                       </td>
