@@ -117,7 +117,7 @@ export default function Home() {
 
   async function loadCustomStocks() {
     const data = await getCustomStocks().catch(() => ({}));
-    const list = Object.entries(data).map(([ticker, d]) => ({ ticker, ...(d as object) } as CustomStock));
+    const list = Object.entries(data).map(([ticker, d]) => ({ ...(d as object), ticker } as CustomStock));
     list.sort((a, b) => a.ticker.localeCompare(b.ticker));
     setCustomStocks(list);
     return list;
@@ -125,7 +125,7 @@ export default function Home() {
 
   async function loadIhsgCustomStocks() {
     const data = await getIhsgCustomStocks().catch(() => ({}));
-    const list = Object.entries(data).map(([ticker, d]) => ({ ticker, ...(d as object) } as CustomStock));
+    const list = Object.entries(data).map(([ticker, d]) => ({ ...(d as object), ticker } as CustomStock));
     list.sort((a, b) => a.ticker.localeCompare(b.ticker));
     setIhsgCustomStocks(list);
     return list;
@@ -626,15 +626,21 @@ export default function Home() {
 
   async function handleRemoveCustom(ticker: string) {
     if (!confirm(`Remove ${ticker} from the master table?`)) return;
-    if (isIhsg) {
-      await removeIhsgCustomStock(ticker);
-      setIhsgCustomStocks((prev) => prev.filter((s) => s.ticker !== ticker));
-    } else {
-      await removeCustomStock(ticker);
-      setCustomStocks((prev) => prev.filter((s) => s.ticker !== ticker));
+    try {
+      if (isIhsg) {
+        await removeIhsgCustomStock(ticker);
+        setIhsgCustomStocks((prev) => prev.filter((s) => s.ticker !== ticker));
+      } else {
+        await removeCustomStock(ticker);
+        setCustomStocks((prev) => prev.filter((s) => s.ticker !== ticker));
+      }
+    } catch (err) {
+      console.error(`Failed to remove ${ticker}:`, err);
+      alert(`Failed to remove ${ticker}: ${err instanceof Error ? err.message : "Unknown error"}`);
+      return;
     }
-    await removePortfolioEntry(ticker).catch(() => {});
-    await removeWatchlistEntry(ticker).catch(() => {});
+    await removePortfolioEntry(ticker).catch((err) => console.error(`Failed to remove ${ticker} from portfolio:`, err));
+    await removeWatchlistEntry(ticker).catch((err) => console.error(`Failed to remove ${ticker} from watchlist:`, err));
     await loadSets();
   }
 
