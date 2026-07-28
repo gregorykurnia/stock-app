@@ -34,6 +34,8 @@ export default function AlertsPage() {
   const [pushStatus, setPushStatus] = useState<string | null>(null);
   const [notesDraft, setNotesDraft] = useState<Record<string, string>>({});
   const [priceDraft, setPriceDraft] = useState<Record<string, string>>({});
+  const [sortKey, setSortKey] = useState<"price" | "distance" | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
 
   const load = useCallback(async (showLoading = false) => {
     if (showLoading) setLoading(true);
@@ -162,6 +164,36 @@ export default function AlertsPage() {
     URL.revokeObjectURL(url);
   }
 
+  function handleSort(key: "price" | "distance") {
+    if (sortKey === key) {
+      setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("desc");
+    }
+  }
+
+  function getPctDistance(a: PriceAlert): number | null {
+    const cur = prices[a.ticker] ?? null;
+    const hasAlertPrice = !!a.alert_price && a.alert_price > 0;
+    return cur != null && hasAlertPrice ? ((cur - a.alert_price!) / a.alert_price!) * 100 : null;
+  }
+
+  const sortedAlerts = (() => {
+    if (!sortKey) return alerts;
+    const withValues = alerts.map((a) => ({
+      a,
+      value: sortKey === "price" ? prices[a.ticker] ?? null : getPctDistance(a),
+    }));
+    withValues.sort((x, y) => {
+      if (x.value == null && y.value == null) return 0;
+      if (x.value == null) return 1;
+      if (y.value == null) return -1;
+      return sortDir === "asc" ? x.value - y.value : y.value - x.value;
+    });
+    return withValues.map((w) => w.a);
+  })();
+
   async function handlePriceBlur(id: string, value: string) {
     const current = alerts.find((a) => a.id === id)?.alert_price;
     const price = parseFloat(value);
@@ -272,9 +304,19 @@ export default function AlertsPage() {
               <thead className="bg-gray-100 border-b border-gray-200">
                 <tr>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Ticker</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Current Price</th>
+                  <th
+                    className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide cursor-pointer select-none hover:text-gray-700"
+                    onClick={() => handleSort("price")}
+                  >
+                    Current Price{sortKey === "price" ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
+                  </th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Alert Price</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">% Distance</th>
+                  <th
+                    className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide cursor-pointer select-none hover:text-gray-700"
+                    onClick={() => handleSort("distance")}
+                  >
+                    % Distance{sortKey === "distance" ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
+                  </th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide" title="Ping once after earnings is reported">Earnings Alert</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Notes</th>
@@ -282,10 +324,10 @@ export default function AlertsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {alerts.map((a) => {
+                {sortedAlerts.map((a) => {
                   const cur = prices[a.ticker] ?? null;
                   const hasAlertPrice = !!a.alert_price && a.alert_price > 0;
-                  const pctDistance = cur != null && hasAlertPrice ? ((cur - a.alert_price!) / a.alert_price!) * 100 : null;
+                  const pctDistance = getPctDistance(a);
                   return (
                     <tr key={a.id} className="hover:bg-gray-50">
                       <td className="px-3 py-2 font-semibold">
