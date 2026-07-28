@@ -1799,8 +1799,12 @@ export default function MasterTable({
                 type="text"
                 placeholder="e.g. BBCA"
                 value={swingAddTicker}
-                onChange={(e) => onSwingAddTickerChange?.(e.target.value.toUpperCase())}
-                className="bg-white border border-gray-300 rounded px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 w-32"
+                onChange={(e) => onSwingAddTickerChange?.(e.target.value)}
+                autoCapitalize="characters"
+                autoCorrect="off"
+                autoComplete="off"
+                spellCheck={false}
+                className="bg-white border border-gray-300 rounded px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 w-32 uppercase"
               />
               <button
                 type="submit"

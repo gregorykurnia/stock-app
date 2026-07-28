@@ -673,9 +673,13 @@ export default function Home() {
               <input
                 type="text"
                 value={inputTicker}
-                onChange={(e) => setInputTicker(e.target.value.toUpperCase())}
+                onChange={(e) => setInputTicker(e.target.value)}
                 placeholder={isIhsg ? "e.g. BBCA" : "Analyze ticker…"}
-                className="bg-white border border-gray-300 rounded-lg px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 w-40 text-sm"
+                autoCapitalize="characters"
+                autoCorrect="off"
+                autoComplete="off"
+                spellCheck={false}
+                className="bg-white border border-gray-300 rounded-lg px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 w-40 text-sm uppercase"
               />
               <button
                 type="submit"
@@ -703,9 +707,13 @@ export default function Home() {
                   required
                   autoFocus
                   value={addTicker}
-                  onChange={(e) => { setAddTicker(e.target.value.toUpperCase()); setAddError(""); }}
+                  onChange={(e) => { setAddTicker(e.target.value); setAddError(""); }}
                   placeholder="e.g. TSLA"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono tracking-wider"
+                  autoCapitalize="characters"
+                  autoCorrect="off"
+                  autoComplete="off"
+                  spellCheck={false}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono tracking-wider uppercase"
                 />
               </div>
               {addError && <p className="text-red-500 text-xs">{addError}</p>}
