@@ -19,6 +19,13 @@ type SortKey =
 type SortDir = "asc" | "desc";
 type SubTab = "all" | "fundamental" | "valuation" | "technical";
 
+type SwingSortKey =
+  | "ticker" | "price" | "industry" | "entryPrice" | "atr"
+  | "ema20d" | "ema50d" | "cross" | "distEma20d" | "distEma50d"
+  | "rsi" | "macd" | "signal" | "hist" | "atr14" | "stopLoss"
+  | "bandar" | "liquidity" | "distRatio" | "cv" | "efficiency"
+  | "upperWick" | "maxSpike" | "pvDiv" | "maxMove" | "gapDays" | "reversal" | "trendR2";
+
 const pct = (v: number | null | undefined) =>
   v == null ? <span className="text-gray-400">—</span> : `${(v * 100).toFixed(1)}%`;
 
@@ -183,6 +190,8 @@ export default function MasterTable({
   const [industryFilter, setIndustryFilter] = useState("all");
   const [urgencyFilter, setUrgencyFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const [swingSortKey, setSwingSortKey] = useState<SwingSortKey>("ticker");
+  const [swingSortDir, setSwingSortDir] = useState<SortDir>("asc");
   const allRows = useMemo((): TableRow[] => {
     if (isIhsg) {
       const seedStocks = ihsgStocks ?? IHSG_STOCKS;
@@ -617,6 +626,83 @@ export default function MasterTable({
     else { setSortKey(key); setSortDir("desc"); }
   }
 
+  function toggleSwingSort(key: SwingSortKey) {
+    if (swingSortKey === key) setSwingSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSwingSortKey(key); setSwingSortDir(key === "ticker" || key === "industry" ? "asc" : "desc"); }
+  }
+
+  const sortedSwingStocks = useMemo(() => {
+    const getVal = (s: SwingStock): number | string | null => {
+      const price = swingPrices[s.ticker] ?? null;
+      const de20 = swingDailyEma20s[s.ticker] ?? null;
+      const de50 = swingDailyEma50s[s.ticker] ?? null;
+      const crossAbove = swingEmaCrossAbove[s.ticker] ?? null;
+      const distEma20 = price != null && de20 != null ? ((price - de20) / de20) * 100 : null;
+      const distEma50 = price != null && de50 != null ? ((price - de50) / de50) * 100 : null;
+      const atr14 = swingAtr14[s.ticker] ?? null;
+      const entryPrice = s.entryPrice ?? null;
+      const stopBase = entryPrice ?? price;
+      const stopLoss = atr14 != null && stopBase != null ? stopBase - 1.5 * atr14 : null;
+      const bandar = swingBandar[s.ticker] ?? null;
+
+      switch (swingSortKey) {
+        case "ticker": return s.ticker;
+        case "industry": return s.industry ?? "";
+        case "price": return price;
+        case "entryPrice": return entryPrice;
+        case "atr": return swingDailyAtrs[s.ticker] ?? null;
+        case "ema20d": return de20;
+        case "ema50d": return de50;
+        case "cross": return crossAbove == null ? null : crossAbove ? 1 : 0;
+        case "distEma20d": return distEma20;
+        case "distEma50d": return distEma50;
+        case "rsi": return swingDailyRsis[s.ticker] ?? null;
+        case "macd": return swingMacds[s.ticker] ?? null;
+        case "signal": return swingMacdSignals[s.ticker] ?? null;
+        case "hist": return swingMacdHists[s.ticker] ?? null;
+        case "atr14": return atr14;
+        case "stopLoss": return stopLoss;
+        case "bandar": return bandar?.score ?? null;
+        case "liquidity": return bandar?.avgValueTraded ?? null;
+        case "distRatio": return bandar?.volDirRatio ?? null;
+        case "cv": return bandar?.cv ?? null;
+        case "efficiency": return bandar?.efficiency ?? null;
+        case "upperWick": return bandar?.upperWick ?? null;
+        case "maxSpike": return bandar?.maxSpike ?? null;
+        case "pvDiv": return bandar?.pvDiv ?? null;
+        case "maxMove": return bandar && Number.isFinite(bandar.maxDayMove) ? bandar.maxDayMove : null;
+        case "gapDays": return bandar && Number.isFinite(bandar.largeGapDays) ? bandar.largeGapDays : null;
+        case "reversal": return bandar && Number.isFinite(bandar.reversalRate) ? bandar.reversalRate : null;
+        case "trendR2": return bandar && Number.isFinite(bandar.rSquared) ? bandar.rSquared : null;
+        default: return null;
+      }
+    };
+
+    const data = [...swingStocks];
+    data.sort((a, b) => {
+      const av = getVal(a);
+      const bv = getVal(b);
+      if (av == null && bv == null) return 0;
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      if (typeof av === "string" && typeof bv === "string") {
+        return swingSortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+      }
+      return swingSortDir === "asc" ? (av as number) - (bv as number) : (bv as number) - (av as number);
+    });
+    return data;
+  }, [swingStocks, swingSortKey, swingSortDir, swingPrices, swingDailyEma20s, swingDailyEma50s, swingDailyAtrs, swingDailyRsis, swingEmaCrossAbove, swingMacds, swingMacdSignals, swingMacdHists, swingAtr14, swingBandar]);
+
+  const SwingTh = ({ label, k, title, sticky }: { label: string; k: SwingSortKey; title?: string; sticky?: boolean }) => (
+    <th
+      title={title}
+      className={`px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide cursor-pointer hover:text-gray-900 whitespace-nowrap select-none${sticky ? " sticky left-0 z-20 bg-gray-100 after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-gray-300 after:content-['']" : ""}`}
+      onClick={() => toggleSwingSort(k)}
+    >
+      {label}{swingSortKey === k ? (swingSortDir === "desc" ? " ↓" : " ↑") : ""}
+    </th>
+  );
+
   const Th = ({ label, k, title, sticky }: { label: string; k: SortKey; title?: string; sticky?: boolean }) => (
     <th
       title={title}
@@ -889,7 +975,7 @@ export default function MasterTable({
     },
   };
 
-  function BandarTh({ label, tipKey }: { label: string; tipKey: string }) {
+  function BandarTh({ label, tipKey, sortKey }: { label: string; tipKey: string; sortKey?: SwingSortKey }) {
     const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const iconRef = useRef<HTMLSpanElement>(null);
@@ -907,9 +993,12 @@ export default function MasterTable({
     }
 
     return (
-      <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap select-none">
+      <th
+        className={`px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap select-none${sortKey ? " cursor-pointer hover:text-gray-900" : ""}`}
+        onClick={sortKey ? () => toggleSwingSort(sortKey) : undefined}
+      >
         <span className="inline-flex items-center gap-1">
-          {label}
+          {label}{sortKey && swingSortKey === sortKey ? (swingSortDir === "desc" ? " ↓" : " ↑") : ""}
           {tip && (
             <span
               ref={iconRef}
@@ -1735,34 +1824,34 @@ export default function MasterTable({
             <table className="w-full text-sm">
               <thead className="bg-gray-100 border-b border-gray-200 sticky top-0 z-30">
                 <tr>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap sticky left-0 z-20 bg-gray-100 after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-gray-300 after:content-['']">Ticker</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Price</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Industry</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Entry Price</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">ATR%</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">EMA20D</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">EMA50D</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Yes if EMA20D is above EMA50D. Shows the price + date of the most recent crossover.">EMA Cross</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Distance from EMA20D">Dist EMA20D</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Distance from EMA50D">Dist EMA50D</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">RSI</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="MACD line (12, 26) — daily closes">MACD</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="MACD signal line (EMA9 of MACD) — daily closes">Signal</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="MACD histogram (MACD − Signal) — daily closes">Hist</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Average True Range (14, daily) — volatility range">ATR (14)</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="1.5× ATR below your entry price (falls back to current price if entry is blank)">Stop Loss</th>
-                  <BandarTh label="Bandar" tipKey="bandar" />
-                  <BandarTh label="Liquidity" tipKey="liquidity" />
-                  <BandarTh label="Dist?" tipKey="volDirRatio" />
-                  <BandarTh label="Vol CV" tipKey="cv" />
-                  <BandarTh label="Effic." tipKey="efficiency" />
-                  <BandarTh label="UWick" tipKey="upperWick" />
-                  <BandarTh label="Spike" tipKey="maxSpike" />
-                  <BandarTh label="PVDiv" tipKey="pvDiv" />
-                  <BandarTh label="Max Move" tipKey="maxMove" />
-                  <BandarTh label="Gap Days" tipKey="gapDays" />
-                  <BandarTh label="Reversal" tipKey="reversal" />
-                  <BandarTh label="Trend R²" tipKey="trendR2" />
+                  <SwingTh label="Ticker" k="ticker" sticky />
+                  <SwingTh label="Price" k="price" />
+                  <SwingTh label="Industry" k="industry" />
+                  <SwingTh label="Entry Price" k="entryPrice" />
+                  <SwingTh label="ATR%" k="atr" />
+                  <SwingTh label="EMA20D" k="ema20d" />
+                  <SwingTh label="EMA50D" k="ema50d" />
+                  <SwingTh label="EMA Cross" k="cross" title="Yes if EMA20D is above EMA50D. Shows the price + date of the most recent crossover." />
+                  <SwingTh label="Dist EMA20D" k="distEma20d" title="Distance from EMA20D" />
+                  <SwingTh label="Dist EMA50D" k="distEma50d" title="Distance from EMA50D" />
+                  <SwingTh label="RSI" k="rsi" />
+                  <SwingTh label="MACD" k="macd" title="MACD line (12, 26) — daily closes" />
+                  <SwingTh label="Signal" k="signal" title="MACD signal line (EMA9 of MACD) — daily closes" />
+                  <SwingTh label="Hist" k="hist" title="MACD histogram (MACD − Signal) — daily closes" />
+                  <SwingTh label="ATR (14)" k="atr14" title="Average True Range (14, daily) — volatility range" />
+                  <SwingTh label="Stop Loss" k="stopLoss" title="1.5× ATR below your entry price (falls back to current price if entry is blank)" />
+                  <BandarTh label="Bandar" tipKey="bandar" sortKey="bandar" />
+                  <BandarTh label="Liquidity" tipKey="liquidity" sortKey="liquidity" />
+                  <BandarTh label="Dist?" tipKey="volDirRatio" sortKey="distRatio" />
+                  <BandarTh label="Vol CV" tipKey="cv" sortKey="cv" />
+                  <BandarTh label="Effic." tipKey="efficiency" sortKey="efficiency" />
+                  <BandarTh label="UWick" tipKey="upperWick" sortKey="upperWick" />
+                  <BandarTh label="Spike" tipKey="maxSpike" sortKey="maxSpike" />
+                  <BandarTh label="PVDiv" tipKey="pvDiv" sortKey="pvDiv" />
+                  <BandarTh label="Max Move" tipKey="maxMove" sortKey="maxMove" />
+                  <BandarTh label="Gap Days" tipKey="gapDays" sortKey="gapDays" />
+                  <BandarTh label="Reversal" tipKey="reversal" sortKey="reversal" />
+                  <BandarTh label="Trend R²" tipKey="trendR2" sortKey="trendR2" />
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Remove</th>
                 </tr>
               </thead>
@@ -1770,7 +1859,7 @@ export default function MasterTable({
                 {swingStocks.length === 0 && (
                   <tr><td colSpan={23} className="px-3 py-6 text-center text-gray-400 text-sm">No tickers yet — add one above.</td></tr>
                 )}
-                {swingStocks.map((s) => {
+                {sortedSwingStocks.map((s) => {
                   const price = swingPrices[s.ticker] ?? null;
                   const de20 = swingDailyEma20s[s.ticker] ?? null;
                   const de50 = swingDailyEma50s[s.ticker] ?? null;
