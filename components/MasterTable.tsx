@@ -6,7 +6,7 @@ import { SEED_STOCKS, FUNDAMENTALS_RAW, VALUATION_RAW } from "@/lib/seedData";
 import { IHSG_STOCKS, type IhsgStock } from "@/lib/ihsgSeedData";
 import { atrLabel, type BandarScoreResult } from "@/lib/indicators";
 import { downloadCsv } from "@/lib/exportCsv";
-import type { CustomStock } from "@/lib/types";
+import type { CustomStock, PeStats } from "@/lib/types";
 import type { FundData } from "@/app/api/funddata/route";
 
 type SortKey =
@@ -15,7 +15,8 @@ type SortKey =
   | "fwd_pe" | "peg" | "ev_ebitda" | "ev_fcf"
   | "trailing_pe" | "ps_ratio" | "pb_ratio" | "ev_revenue" | "p_fcf" | "dividend_yield"
   | "roe" | "debt_to_equity" | "eps_ttm" | "eps_fwd" | "eps_past_5y" | "eps_next_5y" | "short_float"
-  | "ema20" | "dist_ema20" | "ema50" | "dist_ema50" | "rsi" | "di_plus" | "di_minus" | "cmf" | "earnings";
+  | "ema20" | "dist_ema20" | "ema50" | "dist_ema50" | "rsi" | "di_plus" | "di_minus" | "cmf" | "earnings"
+  | "pe_zscore";
 type SortDir = "asc" | "desc";
 type SubTab = "all" | "fundamental" | "valuation" | "technical";
 
@@ -83,6 +84,8 @@ interface TableRow {
   price: number | null;
   verdict: { urgency: string; setup: string } | null;
   isCustom: boolean;
+  peZScore: number | null;
+  peStats: PeStats | null;
 }
 
 interface SwingStock { ticker: string; name: string | null; industry: string | null; entryPrice?: number | null }
@@ -131,6 +134,7 @@ interface Props {
   macdHistDirs?: Record<string, "up" | "down" | "flat" | null>;
   earnings: Record<string, string | null>;
   fundData: Record<string, FundData>;
+  peStats?: Record<string, PeStats>;
   loading: boolean;
   customStocks: CustomStock[];
   portfolioSet: Set<string>;
@@ -172,7 +176,7 @@ function EarningsBadge({ dateStr }: { dateStr: string | null | undefined }) {
 }
 
 export default function MasterTable({
-  market = "us", ihsgStocks, prices, preMarketPrices, verdicts, atrs, ema20s, ema50s, supportLows, rsis, diPluses, diMinuses, cmfs, macds = {}, macdSignals = {}, macdHists = {}, macdHistDirs = {}, earnings, fundData, loading, customStocks, portfolioSet, watchlistSet, markedSet, onSetStatus, onRemoveCustom, onToggleMark,
+  market = "us", ihsgStocks, prices, preMarketPrices, verdicts, atrs, ema20s, ema50s, supportLows, rsis, diPluses, diMinuses, cmfs, macds = {}, macdSignals = {}, macdHists = {}, macdHistDirs = {}, earnings, fundData, peStats = {}, loading, customStocks, portfolioSet, watchlistSet, markedSet, onSetStatus, onRemoveCustom, onToggleMark,
   swingStocks = [], swingPrices = {}, swingDailyEma20s = {}, swingDailyEma50s = {}, swingDailyAtrs = {}, swingDailyRsis = {}, swingEmaCrossAbove = {}, swingCrossPrice = {}, swingCrossDate = {},
   swingMacds = {}, swingMacdSignals = {}, swingMacdHists = {}, swingMacdHistDirs = {},
   swingAtr14 = {},
@@ -229,6 +233,8 @@ export default function MasterTable({
           price: prices[s.ticker] ?? null,
           verdict: verdicts[s.ticker] ?? null,
           isCustom: false,
+          peZScore: null,
+          peStats: null,
         } as TableRow;
       });
       const customRows: TableRow[] = customStocks.map((c) => {
@@ -251,6 +257,8 @@ export default function MasterTable({
           price: prices[c.ticker] ?? null,
           verdict: verdicts[c.ticker] ?? null,
           isCustom: true,
+          peZScore: null,
+          peStats: null,
         };
       });
       return [...seedRows, ...customRows];
@@ -292,6 +300,8 @@ export default function MasterTable({
         price: prices[s.ticker] ?? null,
         verdict: verdicts[s.ticker] ?? null,
         isCustom: false,
+        peZScore: peStats[s.ticker]?.zScore ?? null,
+        peStats: peStats[s.ticker] ?? null,
       };
     });
 
@@ -329,11 +339,13 @@ export default function MasterTable({
         price: prices[c.ticker] ?? null,
         verdict: verdicts[c.ticker] ?? null,
         isCustom: true,
+        peZScore: peStats[c.ticker]?.zScore ?? null,
+        peStats: peStats[c.ticker] ?? null,
       };
     });
 
     return [...seedRows, ...customRows];
-  }, [prices, verdicts, customStocks, fundData]);
+  }, [prices, verdicts, customStocks, fundData, peStats]);
 
   const industries = useMemo(() => {
     const set = new Set(allRows.map((r) => r.industry));
@@ -403,6 +415,7 @@ export default function MasterTable({
         peg:       (r) => r.peg,
         ev_ebitda: (r) => r.ev_ebitda,
         ev_fcf:    (r) => r.ev_fcf,
+        pe_zscore: (r) => r.peZScore,
         trailing_pe:    (r) => r.trailing_pe,
         ps_ratio:       (r) => r.ps_ratio,
         pb_ratio:       (r) => r.pb_ratio,
@@ -461,13 +474,14 @@ export default function MasterTable({
         return downloadCsv(`valuation-ihsg-${date}.csv`, headers, data);
       }
       const headers = ["Ticker", "Industry", "Fwd PE", "Trail PE", "PEG",
-        "P/S", "P/B", "EV/EBITDA", "EV/Rev", "EV/FCF", "P/FCF", "Portfolio", "Watchlist", "Marked"];
+        "P/S", "P/B", "EV/EBITDA", "EV/Rev", "EV/FCF", "P/FCF", "5Y PE Z", "Portfolio", "Watchlist", "Marked"];
       const data = rows.map((r) => [
         r.ticker, r.industry,
         r.fwd_pe?.toFixed(2) ?? "", r.trailing_pe?.toFixed(2) ?? "", r.peg?.toFixed(2) ?? "",
         r.ps_ratio?.toFixed(2) ?? "", r.pb_ratio?.toFixed(2) ?? "",
         r.ev_ebitda?.toFixed(1) ?? "", r.ev_revenue?.toFixed(2) ?? "",
         r.ev_fcf?.toFixed(1) ?? "", r.p_fcf?.toFixed(1) ?? "",
+        r.peZScore != null ? r.peZScore.toFixed(2) : "",
         portfolio(r), watchlist(r), marked(r),
       ]);
       return downloadCsv(`valuation-${date}.csv`, headers, data);
@@ -716,6 +730,16 @@ export default function MasterTable({
   type TooltipRange = { range: string; label: string; meaning: string };
   type ValTooltipDef = { definition: string; ranges: TooltipRange[] };
   const VAL_TOOLTIPS: Record<string, ValTooltipDef> = {
+    pe_zscore: {
+      definition: "How many standard deviations the current trailing P/E is above or below the stock's own 5-year average trailing P/E. Built from SEC EDGAR quarterly EPS (rolling TTM) and Yahoo daily prices. Cheap/expensive relative to the stock's OWN valuation history, not the market or peers — a stock can be at a negative z-score and still be objectively expensive if its whole history has been expensive.",
+      ranges: [
+        { range: "< -1.5", label: "Very cheap vs. history",  meaning: "Trading well below its own 5Y valuation norm" },
+        { range: "-1.5–-0.5", label: "Cheap vs. history",     meaning: "Below its typical multiple — worth a look" },
+        { range: "-0.5–0.5",  label: "In line",               meaning: "Trading around its normal historical multiple" },
+        { range: "0.5–1.5",   label: "Rich vs. history",      meaning: "Above its typical multiple — market pricing in more" },
+        { range: "> 1.5",     label: "Very rich vs. history", meaning: "Stretched relative to its own 5Y norm — check why" },
+      ],
+    },
     fwd_pe: {
       definition: "Stock price divided by estimated earnings per share for the next 12 months. Tells you how much you're paying today for future profits. Pure forward-looking — based on analyst estimates so can be wrong if growth disappoints.",
       ranges: [
@@ -866,6 +890,27 @@ export default function MasterTable({
     return (
       <td className={`px-3 py-2 whitespace-nowrap font-bold ${valColorCls(hist)}`}>
         {hist.toFixed(2)}{arrow}
+      </td>
+    );
+  };
+
+  const PeZScoreCell = ({ r }: { r: TableRow }) => {
+    const z = r.peZScore;
+    const stats = r.peStats;
+    if (z == null) {
+      const reason = stats?.error === "insufficient_data" ? "Not enough EPS history"
+        : stats?.error === "negative_eps" ? "Negative earnings"
+        : stats?.error === "no_cik" ? "No SEC filer match"
+        : stats ? "No data" : "Not computed yet";
+      return <td className="px-3 py-2 whitespace-nowrap text-gray-300 text-xs" title={reason}>—</td>;
+    }
+    const cls = z <= -1.5 ? "text-green-700" : z <= -0.5 ? "text-green-600" : z < 0.5 ? "text-gray-600" : z < 1.5 ? "text-red-500" : "text-red-700";
+    const title = stats
+      ? `Current P/E ${stats.currentPe?.toFixed(1) ?? "—"} vs. 5Y mean ${stats.meanPe5y?.toFixed(1) ?? "—"} (±${stats.stdDevPe5y?.toFixed(1) ?? "—"}), n=${stats.sampleSize} quarters, as of ${stats.asOfDate}`
+      : undefined;
+    return (
+      <td className={`px-3 py-2 whitespace-nowrap font-semibold ${cls}`} title={title}>
+        {z >= 0 ? "+" : ""}{z.toFixed(1)}σ
       </td>
     );
   };
@@ -1383,6 +1428,7 @@ export default function MasterTable({
                       <Th label="EV/Rev"    k="ev_revenue" title="EV/Revenue (live)" />
                       <Th label="EV/FCF"    k="ev_fcf" />
                       <ValTooltipTh label="P/FCF"     k="p_fcf" />
+                      <ValTooltipTh label="5Y PE Z"   k="pe_zscore" />
                     </>
                   )}
                   {isIhsg && (
@@ -1518,6 +1564,7 @@ export default function MasterTable({
                         <td className="px-3 py-2 text-gray-700">{num(r.ev_revenue, 1)}</td>
                         <td className="px-3 py-2 text-gray-700">{num(r.ev_fcf)}</td>
                         <td className="px-3 py-2 text-gray-700">{num(r.p_fcf, 1)}</td>
+                        <PeZScoreCell r={r} />
                       </>
                     )}
                     {isIhsg && (
@@ -1629,6 +1676,7 @@ export default function MasterTable({
                       <Th label="EV/Rev"    k="ev_revenue"  title="EV/Revenue (live)" />
                       <Th label="EV/FCF"    k="ev_fcf"      title="EV/Free Cash Flow (seed data)" />
                       <ValTooltipTh label="P/FCF"     k="p_fcf" />
+                      <ValTooltipTh label="5Y PE Z"   k="pe_zscore" />
                     </>
                   )}
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Status</th>
@@ -1660,6 +1708,7 @@ export default function MasterTable({
                         <td className="px-3 py-2 text-gray-700">{num(r.ev_revenue, 1)}</td>
                         <td className="px-3 py-2 text-gray-700">{num(r.ev_fcf, 1)}</td>
                         <td className="px-3 py-2 text-gray-700">{num(r.p_fcf, 1)}</td>
+                        <PeZScoreCell r={r} />
                       </>
                     )}
                     <StatusCell r={r} />

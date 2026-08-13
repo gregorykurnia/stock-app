@@ -203,6 +203,22 @@ export async function removePushSubscription(endpoint: string) {
   await deleteDoc(doc(db, "push_subscriptions", encodeURIComponent(endpoint)));
 }
 
+// 5Y P/E z-score stats — cached under stocks/{ticker}.pe_stats since it's derived,
+// slow-to-compute data (SEC EDGAR + Yahoo), not something we recompute on every page load.
+export async function getPeStatsMap(): Promise<Record<string, object>> {
+  const snap = await getDocs(collection(db, "stocks"));
+  const result: Record<string, object> = {};
+  snap.forEach((d) => {
+    const data = d.data();
+    if (data.pe_stats) result[d.id] = data.pe_stats;
+  });
+  return result;
+}
+
+export async function savePeStats(ticker: string, stats: object) {
+  await setDoc(doc(db, "stocks", ticker), { pe_stats: stats }, { merge: true });
+}
+
 // Marked stocks (danger zone)
 export async function getMarkedTickers(): Promise<Set<string>> {
   const snap = await getDocs(collection(db, "marked"));

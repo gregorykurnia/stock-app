@@ -86,6 +86,20 @@ export interface CustomStock {
   last_fetched: string;
 }
 
+export interface PeStats {
+  ticker: string;
+  currentPe: number | null;
+  currentEpsTtm: number | null;
+  currentPrice: number | null;
+  meanPe5y: number | null;
+  stdDevPe5y: number | null;
+  zScore: number | null;
+  sampleSize: number;
+  asOfDate: string;
+  lastUpdated: string;
+  error?: string;
+}
+
 export interface PortfolioEntry {
   ticker: string;
   entry_price: number;

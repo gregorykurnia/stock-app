@@ -13,8 +13,9 @@ import {
   savePortfolioEntry, removePortfolioEntry,
   saveWatchlistEntry, removeWatchlistEntry,
   getMarkedTickers, markTicker, unmarkTicker,
+  getPeStatsMap,
 } from "@/lib/firestore";
-import type { CustomStock } from "@/lib/types";
+import type { CustomStock, PeStats } from "@/lib/types";
 import type { BandarScoreResult } from "@/lib/indicators";
 import type { FundData } from "@/app/api/funddata/route";
 
@@ -49,6 +50,9 @@ export default function Home() {
   const [portfolioSet, setPortfolioSet] = useState<Set<string>>(new Set());
   const [watchlistSet, setWatchlistSet] = useState<Set<string>>(new Set());
   const [markedSet, setMarkedSet] = useState<Set<string>>(new Set());
+  const [peStats, setPeStats] = useState<Record<string, PeStats>>({});
+  const [peRefreshing, setPeRefreshing] = useState(false);
+  const [peProgress, setPeProgress] = useState("");
 
   // IHSG state (mirrors US state, tickers stored without .JK)
   const [ihsgCustomStocks, setIhsgCustomStocks] = useState<CustomStock[]>([]);
@@ -103,6 +107,32 @@ export default function Home() {
     setPortfolioSet(p);
     setWatchlistSet(w);
     setMarkedSet(m);
+  }
+
+  async function loadPeStats() {
+    const data = await getPeStatsMap().catch(() => ({}));
+    setPeStats(data as Record<string, PeStats>);
+  }
+
+  // Recomputes 5Y P/E z-score for every US ticker (seed + custom) from SEC EDGAR + Yahoo.
+  // Slow (SEC/Yahoo rate limits) so it's a manual, on-demand refresh — not run on every page load.
+  async function handleRefreshPeStats() {
+    const tickers = [...SEED_STOCKS.map((s) => s.ticker), ...customStocks.map((s) => s.ticker)];
+    setPeRefreshing(true);
+    const batchSize = 8;
+    for (let i = 0; i < tickers.length; i += batchSize) {
+      const batch = tickers.slice(i, i + batchSize);
+      setPeProgress(`${Math.min(i + batchSize, tickers.length)}/${tickers.length}`);
+      try {
+        const res = await fetch(`/api/pe-stats?tickers=${batch.join(",")}`);
+        const d = await res.json();
+        setPeStats((prev) => ({ ...prev, ...(d.data ?? {}) }));
+      } catch {
+        // continue with the next batch even if one fails
+      }
+    }
+    setPeRefreshing(false);
+    setPeProgress("");
   }
 
   async function handleToggleMark(ticker: string) {
@@ -234,6 +264,7 @@ export default function Home() {
     });
 
     loadSets();
+    loadPeStats();
 
     loadIhsgCustomStocks().then((list) => {
       if (list.length === 0) return;
@@ -663,6 +694,16 @@ export default function Home() {
             </p>
           </div>
           <div className="flex gap-2 flex-wrap">
+            {!isIhsg && (
+              <button
+                onClick={handleRefreshPeStats}
+                disabled={peRefreshing}
+                className="bg-white border border-gray-300 hover:bg-gray-50 disabled:opacity-50 text-gray-700 px-4 py-2 rounded-lg font-semibold text-sm transition-colors"
+                title="Recompute 5Y P/E z-score for all stocks from SEC EDGAR + Yahoo Finance"
+              >
+                {peRefreshing ? `Refreshing P/E… ${peProgress}` : "Refresh P/E Z-Scores"}
+              </button>
+            )}
             <button
               onClick={() => { setShowAdd(true); setAddError(""); }}
               className="bg-gray-800 hover:bg-gray-900 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-colors"
@@ -811,6 +852,7 @@ export default function Home() {
             macdHistDirs={macdHistDirs}
             earnings={earnings}
             fundData={fundData}
+            peStats={peStats}
             loading={pricesLoading}
             customStocks={customStocks}
             portfolioSet={portfolioSet}
