@@ -9,9 +9,16 @@ export async function GET(req: NextRequest) {
   const tickers = tickersParam.split(",").map((t) => t.trim().toUpperCase()).filter(Boolean);
   const data = await computePeStatsBatch(tickers);
 
+  const errorCount = Object.values(data).filter((s) => s.error).length;
+  if (errorCount > 0) {
+    console.warn(`[pe-stats] batch of ${tickers.length}: ${errorCount} failed`,
+      Object.entries(data).filter(([, s]) => s.error).map(([t, s]) => `${t}:${s.error}`).join(", "));
+  }
+
   // Cache results so the Master Table can read them without recomputing on every load.
   await Promise.all(
-    Object.entries(data).map(([ticker, stats]) => savePeStats(ticker, stats).catch(() => {}))
+    Object.entries(data).map(([ticker, stats]) =>
+      savePeStats(ticker, stats).catch((e) => console.error(`[pe-stats] savePeStats failed for ${ticker}`, e)))
   );
 
   return NextResponse.json({ data });

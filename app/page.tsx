@@ -125,9 +125,14 @@ export default function Home() {
       setPeProgress(`${Math.min(i + batchSize, tickers.length)}/${tickers.length}`);
       try {
         const res = await fetch(`/api/pe-stats?tickers=${batch.join(",")}`);
+        if (!res.ok) {
+          console.error(`[pe-stats] batch fetch failed for ${batch.join(",")}: HTTP ${res.status}`);
+          continue;
+        }
         const d = await res.json();
         setPeStats((prev) => ({ ...prev, ...(d.data ?? {}) }));
-      } catch {
+      } catch (e) {
+        console.error(`[pe-stats] batch fetch threw for ${batch.join(",")}`, e);
         // continue with the next batch even if one fails
       }
     }

@@ -901,8 +901,18 @@ export default function MasterTable({
       const reason = stats?.error === "insufficient_data" ? "Not enough EPS history"
         : stats?.error === "negative_eps" ? "Negative earnings"
         : stats?.error === "no_cik" ? "No SEC filer match"
+        : stats?.error === "fetch_failed" ? "Fetch failed"
         : stats ? "No data" : "Not computed yet";
-      return <td className="px-3 py-2 whitespace-nowrap text-gray-300 text-xs" title={reason}>—</td>;
+      const shortLabel = stats?.error === "insufficient_data" ? "insuff. data"
+        : stats?.error === "negative_eps" ? "neg. EPS"
+        : stats?.error === "no_cik" ? "no filer match"
+        : stats?.error === "fetch_failed" ? "fetch failed"
+        : stats ? "no data" : "not computed";
+      return (
+        <td className="px-3 py-2 whitespace-nowrap text-gray-400 text-xs" title={reason}>
+          — <span className="text-gray-300">({shortLabel})</span>
+        </td>
+      );
     }
     const cls = z <= -1.5 ? "text-green-700" : z <= -0.5 ? "text-green-600" : z < 0.5 ? "text-gray-600" : z < 1.5 ? "text-red-500" : "text-red-700";
     const title = stats

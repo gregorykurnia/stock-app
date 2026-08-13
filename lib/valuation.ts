@@ -33,7 +33,10 @@ async function getCikMap(): Promise<Map<string, string>> {
       const res = await fetch("https://www.sec.gov/files/company_tickers.json", {
         headers: { "User-Agent": SEC_USER_AGENT },
       });
-      if (!res.ok) throw new Error(`SEC ticker map fetch failed: ${res.status}`);
+      if (!res.ok) {
+        console.error(`[pe-stats] SEC company_tickers.json fetch failed: ${res.status}`);
+        throw new Error(`SEC ticker map fetch failed: ${res.status}`);
+      }
       const data = await res.json() as Record<string, { cik_str: number; ticker: string; title: string }>;
       const map = new Map<string, string>();
       for (const entry of Object.values(data)) {
@@ -195,14 +198,23 @@ export async function computePeStats(ticker: string): Promise<PeStats> {
 
   try {
     const quarters = await getQuarterlyEpsHistory(ticker);
-    if (!quarters) return { ...base, error: "no_cik" };
+    if (!quarters) {
+      console.warn(`[pe-stats] ${ticker}: no_cik (no SEC CIK match or no EPS units returned)`);
+      return { ...base, error: "no_cik" };
+    }
 
     const ttmSeries = buildTtmSeries(quarters);
-    if (ttmSeries.length === 0) return { ...base, error: "insufficient_data" };
+    if (ttmSeries.length === 0) {
+      console.warn(`[pe-stats] ${ticker}: insufficient_data (${quarters.length} raw quarters, 0 TTM points)`);
+      return { ...base, error: "insufficient_data" };
+    }
 
     const fromDate = new Date(now.getTime() - (LOOKBACK_YEARS + 0.3) * 365 * 86_400_000);
     const priceByDate = await getPriceByDate(ticker, fromDate, now);
-    if (priceByDate.size === 0) return { ...base, error: "fetch_failed" };
+    if (priceByDate.size === 0) {
+      console.warn(`[pe-stats] ${ticker}: fetch_failed (Yahoo returned 0 price points)`);
+      return { ...base, error: "fetch_failed" };
+    }
 
     const cutoff = new Date(now.getTime() - LOOKBACK_YEARS * 365 * 86_400_000);
     const windowed = ttmSeries.filter((t) => new Date(t.end) >= cutoff);
@@ -226,12 +238,14 @@ export async function computePeStats(ticker: string): Promise<PeStats> {
       : null;
 
     if (pePoints.length < MIN_SAMPLE_SIZE) {
+      const err = currentPe == null ? "negative_eps" : "insufficient_data";
+      console.warn(`[pe-stats] ${ticker}: ${err} (only ${pePoints.length}/${MIN_SAMPLE_SIZE} valid P/E points from ${windowed.length} TTM candidates in window)`);
       return {
         ...base,
         currentPrice, currentEpsTtm, currentPe,
         asOfDate: latestPriceDate ?? base.asOfDate,
         sampleSize: pePoints.length,
-        error: currentPe == null ? "negative_eps" : "insufficient_data",
+        error: err,
       };
     }
 
@@ -248,7 +262,8 @@ export async function computePeStats(ticker: string): Promise<PeStats> {
       zScore,
       sampleSize: pePoints.length,
     };
-  } catch {
+  } catch (e) {
+    console.error(`[pe-stats] ${ticker}: fetch_failed (exception)`, e);
     return { ...base, error: "fetch_failed" };
   }
 }
