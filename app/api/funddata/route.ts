@@ -27,6 +27,8 @@ export interface FundData {
   ev_ebitda: number | null;
   ev_fcf: number | null;
   dividend_yield: number | null;
+  current_ratio: number | null;
+  beta: number | null;
 }
 
 // Cache exchange rates for 1 hour to avoid hammering Yahoo on every batch
@@ -121,9 +123,11 @@ async function fetchOne(ticker: string): Promise<FundData> {
       ev_ebitda: cap(evEbitda, 2000),
       ev_fcf: cap(evFcf, 2000),
       dividend_yield: sd.dividendYield ?? null,
+      current_ratio: fd.currentRatio ?? null,
+      beta: sd.beta ?? ks.beta ?? null,
     };
   } catch {
-    return { roe: null, debt_to_equity: null, eps_ttm: null, eps_fwd: null, eps_past_5y: null, eps_next_5y: null, short_float: null, trailing_pe: null, ps_ratio: null, pb_ratio: null, ev_revenue: null, p_fcf: null, rev_growth: null, gross_margin: null, op_margin: null, fcf_margin: null, fwd_pe: null, peg: null, ev_ebitda: null, ev_fcf: null, dividend_yield: null };
+    return { roe: null, debt_to_equity: null, eps_ttm: null, eps_fwd: null, eps_past_5y: null, eps_next_5y: null, short_float: null, trailing_pe: null, ps_ratio: null, pb_ratio: null, ev_revenue: null, p_fcf: null, rev_growth: null, gross_margin: null, op_margin: null, fcf_margin: null, fwd_pe: null, peg: null, ev_ebitda: null, ev_fcf: null, dividend_yield: null, current_ratio: null, beta: null };
   }
 }
 

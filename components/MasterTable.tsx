@@ -14,7 +14,7 @@ type SortKey =
   | "rev_growth" | "gross_margin" | "op_margin" | "net_margin" | "fcf_margin"
   | "fwd_pe" | "peg" | "ev_ebitda" | "ev_fcf"
   | "trailing_pe" | "ps_ratio" | "pb_ratio" | "ev_revenue" | "p_fcf" | "dividend_yield"
-  | "roe" | "debt_to_equity" | "eps_ttm" | "eps_fwd" | "eps_past_5y" | "eps_next_5y" | "short_float"
+  | "roe" | "roic" | "current_ratio" | "beta" | "debt_to_equity" | "eps_ttm" | "eps_fwd" | "eps_past_5y" | "eps_next_5y" | "short_float"
   | "ema20" | "dist_ema20" | "ema50" | "dist_ema50" | "rsi" | "di_plus" | "di_minus" | "cmf" | "earnings"
   | "pe_zscore";
 type SortDir = "asc" | "desc";
@@ -62,6 +62,9 @@ interface TableRow {
   fcf_margin: number | null;
   // Fetched fundamentals
   roe: number | null;
+  roic: number | null;
+  current_ratio: number | null;
+  beta: number | null;
   debt_to_equity: number | null;
   eps_ttm: number | null;
   eps_fwd: number | null;
@@ -214,6 +217,9 @@ export default function MasterTable({
           net_margin: null,
           fcf_margin: fd.fcf_margin ?? null,
           roe: fd.roe ?? null,
+          roic: null,
+          current_ratio: null,
+          beta: null,
           debt_to_equity: fd.debt_to_equity ?? null,
           eps_ttm: fd.eps_ttm ?? null,
           eps_fwd: fd.eps_fwd ?? null,
@@ -246,7 +252,7 @@ export default function MasterTable({
           combined: null, val: null, fund: null,
           rev_growth: c.rev_growth, gross_margin: c.gross_margin,
           op_margin: c.op_margin, net_margin: c.net_margin, fcf_margin: c.fcf_margin,
-          roe: fd.roe ?? null, debt_to_equity: fd.debt_to_equity ?? null,
+          roe: fd.roe ?? null, roic: null, current_ratio: null, beta: null, debt_to_equity: fd.debt_to_equity ?? null,
           eps_ttm: fd.eps_ttm ?? null, eps_fwd: fd.eps_fwd ?? null,
           eps_past_5y: fd.eps_past_5y ?? null, eps_next_5y: fd.eps_next_5y ?? null,
           short_float: fd.short_float ?? null,
@@ -281,6 +287,9 @@ export default function MasterTable({
         net_margin: null,
         fcf_margin: fr?.fcf_margin ?? null,
         roe: fd.roe ?? null,
+        roic: fr?.roic ?? null,
+        current_ratio: fd.current_ratio ?? null,
+        beta: fd.beta ?? null,
         debt_to_equity: fd.debt_to_equity ?? null,
         eps_ttm: fd.eps_ttm ?? null,
         eps_fwd: fd.eps_fwd ?? null,
@@ -320,6 +329,9 @@ export default function MasterTable({
         net_margin: c.net_margin,
         fcf_margin: c.fcf_margin,
         roe: fd.roe ?? null,
+        roic: null,
+        current_ratio: fd.current_ratio ?? null,
+        beta: fd.beta ?? null,
         debt_to_equity: fd.debt_to_equity ?? null,
         eps_ttm: fd.eps_ttm ?? null,
         eps_fwd: fd.eps_fwd ?? null,
@@ -405,6 +417,9 @@ export default function MasterTable({
         net_margin:    (r) => r.net_margin,
         fcf_margin:    (r) => r.fcf_margin,
         roe:           (r) => r.roe,
+        roic:          (r) => r.roic,
+        current_ratio: (r) => r.current_ratio,
+        beta:          (r) => r.beta,
         debt_to_equity:(r) => r.debt_to_equity,
         eps_ttm:       (r) => r.eps_ttm,
         eps_fwd:       (r) => r.eps_fwd,
@@ -444,7 +459,7 @@ export default function MasterTable({
 
     if (activeTab === "fundamental") {
       const headers = ["Ticker", "Industry", "Rev Gr%", "Gross%", "Op%", "FCF%",
-        "ROE%", "D/E", "EPS TTM", "EPS Fwd", "EPS Past 5Y%", "EPS Next 5Y%", "Short Float%", "Portfolio", "Watchlist", "Marked"];
+        "ROE%", "ROIC%", "Current Ratio", "Beta", "D/E", "EPS TTM", "EPS Fwd", "EPS Past 5Y%", "EPS Next 5Y%", "Short Float%", "Portfolio", "Watchlist", "Marked"];
       const data = rows.map((r) => [
         r.ticker, r.industry,
         r.rev_growth != null ? (r.rev_growth * 100).toFixed(1) : "",
@@ -452,6 +467,9 @@ export default function MasterTable({
         r.op_margin != null ? (r.op_margin * 100).toFixed(1) : "",
         r.fcf_margin != null ? (r.fcf_margin * 100).toFixed(1) : "",
         r.roe != null ? (r.roe * 100).toFixed(1) : "",
+        r.roic != null ? (r.roic * 100).toFixed(1) : "",
+        r.current_ratio?.toFixed(2) ?? "",
+        r.beta?.toFixed(2) ?? "",
         r.debt_to_equity?.toFixed(2) ?? "",
         r.eps_ttm?.toFixed(2) ?? "", r.eps_fwd?.toFixed(2) ?? "",
         r.eps_past_5y != null ? (r.eps_past_5y * 100).toFixed(1) : "",
@@ -523,7 +541,9 @@ export default function MasterTable({
       : ["Fwd PE", "Trail PE", "PEG", "P/S", "P/B", "EV/EBITDA", "EV/Rev", "EV/FCF", "P/FCF"];
     const headers = ["Ticker", "Industry", "Price", "ATR%",
       "EMA20W", "Dist EMA20%", "EMA50W", "Dist EMA50%", "Prev Support", "RSI", "DI+", "DI-", "CMF",
-      "Rev Gr%", "Gross%", "Op%", "Net%", "FCF%", "ROE%", "D/E",
+      "Rev Gr%", "Gross%", "Op%", "Net%", "FCF%", "ROE%",
+      ...(isIhsg ? [] : ["ROIC%", "Current Ratio", "Beta"]),
+      "D/E",
       ...(isIhsg ? [] : ["EPS TTM", "EPS Fwd", "EPS Past 5Y%", "EPS Next 5Y%", "Short Float%"]),
       ...valHeaders, "Portfolio", "Watchlist", "Marked"];
     const data = rows.map((r) => {
@@ -551,6 +571,11 @@ export default function MasterTable({
       r.net_margin != null ? (r.net_margin * 100).toFixed(1) : "",
       r.fcf_margin != null ? (r.fcf_margin * 100).toFixed(1) : "",
       r.roe != null ? (r.roe * 100).toFixed(1) : "",
+      ...(isIhsg ? [] : [
+        r.roic != null ? (r.roic * 100).toFixed(1) : "",
+        r.current_ratio?.toFixed(2) ?? "",
+        r.beta?.toFixed(2) ?? "",
+      ]),
       r.debt_to_equity?.toFixed(2) ?? "",
       ...(isIhsg ? [] : [
         r.eps_ttm?.toFixed(2) ?? "",
@@ -1421,6 +1446,13 @@ export default function MasterTable({
                   <Th label="Net%"      k="net_margin"   title="Net/Profit Margin" />
                   <Th label="FCF%"      k="fcf_margin"   title="Free Cash Flow Margin" />
                   <Th label="ROE%"      k="roe"          title="Return on Equity" />
+                  {!isIhsg && (
+                    <>
+                      <Th label="ROIC%"        k="roic"          title="Return on Invested Capital" />
+                      <Th label="Current Ratio" k="current_ratio" title="Current Assets / Current Liabilities" />
+                      <Th label="Beta"          k="beta"          title="5Y monthly beta vs S&P 500" />
+                    </>
+                  )}
                   <Th label="D/E"       k="debt_to_equity" title="Debt to Equity ratio" />
                   {!isIhsg && (
                     <>
@@ -1557,6 +1589,13 @@ export default function MasterTable({
                     <td className="px-3 py-2 text-gray-700">{pct(r.net_margin)}</td>
                     <td className="px-3 py-2 text-gray-700">{pct(r.fcf_margin)}</td>
                     <td className="px-3 py-2 text-gray-700">{pct(r.roe)}</td>
+                    {!isIhsg && (
+                      <>
+                        <td className="px-3 py-2 text-gray-700">{pct(r.roic)}</td>
+                        <td className="px-3 py-2 text-gray-700">{num(r.current_ratio, 2)}</td>
+                        <td className="px-3 py-2 text-gray-700">{num(r.beta, 2)}</td>
+                      </>
+                    )}
                     <td className="px-3 py-2 text-gray-700">{num(r.debt_to_equity, 2)}</td>
                     {!isIhsg && (
                       <>
@@ -1638,6 +1677,13 @@ export default function MasterTable({
                     <td className="px-3 py-2 text-gray-700">{pct(r.net_margin)}</td>
                     <td className="px-3 py-2 text-gray-700">{pct(r.fcf_margin)}</td>
                     <td className="px-3 py-2 text-gray-700">{pct(r.roe)}</td>
+                    {!isIhsg && (
+                      <>
+                        <td className="px-3 py-2 text-gray-700">{pct(r.roic)}</td>
+                        <td className="px-3 py-2 text-gray-700">{num(r.current_ratio, 2)}</td>
+                        <td className="px-3 py-2 text-gray-700">{num(r.beta, 2)}</td>
+                      </>
+                    )}
                     <td className="px-3 py-2 text-gray-700">{num(r.debt_to_equity, 2)}</td>
                     {!isIhsg && (
                       <>
