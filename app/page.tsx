@@ -35,6 +35,7 @@ export default function Home() {
   const [atrs, setAtrs] = useState<Record<string, number | null>>({});
   const [ema20s, setEma20s] = useState<Record<string, number | null>>({});
   const [ema50s, setEma50s] = useState<Record<string, number | null>>({});
+  const [goldenCrossDates, setGoldenCrossDates] = useState<Record<string, string | null>>({});
   const [supportLows, setSupportLows] = useState<Record<string, number | null>>({});
   const [rsis, setRsis] = useState<Record<string, number | null>>({});
   const [diPluses, setDiPluses] = useState<Record<string, number | null>>({});
@@ -314,6 +315,7 @@ export default function Home() {
         setAtrs((prev) => ({ ...prev, ...(d.atrPct ?? {}) }));
         setEma20s((prev) => ({ ...prev, ...(d.ema20 ?? {}) }));
         setEma50s((prev) => ({ ...prev, ...(d.ema50 ?? {}) }));
+        setGoldenCrossDates((prev) => ({ ...prev, ...(d.goldenCrossDate ?? {}) }));
         setSupportLows((prev) => ({ ...prev, ...(d.supportLow ?? {}) }));
         setRsis((prev) => ({ ...prev, ...(d.rsi ?? {}) }));
         setDiPluses((prev) => ({ ...prev, ...(d.diPlus ?? {}) }));
@@ -379,6 +381,7 @@ export default function Home() {
             setAtrs((prev) => ({ ...prev, ...(d.atrPct ?? {}) }));
             setEma20s((prev) => ({ ...prev, ...(d.ema20 ?? {}) }));
             setEma50s((prev) => ({ ...prev, ...(d.ema50 ?? {}) }));
+            setGoldenCrossDates((prev) => ({ ...prev, ...(d.goldenCrossDate ?? {}) }));
             setSupportLows((prev) => ({ ...prev, ...(d.supportLow ?? {}) }));
             setRsis((prev) => ({ ...prev, ...(d.rsi ?? {}) }));
             setDiPluses((prev) => ({ ...prev, ...(d.diPlus ?? {}) }));
@@ -746,6 +749,7 @@ export default function Home() {
             setAtrs((prev) => ({ ...prev, ...(d.atrPct ?? {}) }));
             setEma20s((prev) => ({ ...prev, ...(d.ema20 ?? {}) }));
             setEma50s((prev) => ({ ...prev, ...(d.ema50 ?? {}) }));
+            setGoldenCrossDates((prev) => ({ ...prev, ...(d.goldenCrossDate ?? {}) }));
             setSupportLows((prev) => ({ ...prev, ...(d.supportLow ?? {}) }));
             setRsis((prev) => ({ ...prev, ...(d.rsi ?? {}) }));
             setDiPluses((prev) => ({ ...prev, ...(d.diPlus ?? {}) }));
@@ -976,6 +980,7 @@ export default function Home() {
             atrs={atrs}
             ema20s={ema20s}
             ema50s={ema50s}
+            goldenCrossDates={goldenCrossDates}
             supportLows={supportLows}
             rsis={rsis}
             diPluses={diPluses}

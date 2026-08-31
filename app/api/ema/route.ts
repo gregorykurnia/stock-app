@@ -24,6 +24,31 @@ interface EMAResult {
   diPlus: number | null;
   diMinus: number | null;
   cmf: number | null;
+  goldenCrossDate: string | null;
+}
+
+// Finds the most recent date the EMA20 crossed above the EMA50 (golden cross), scanning
+// full weekly EMA arrays rather than the single trailing value `calcEMA` returns.
+function findGoldenCrossDate(
+  ema20Arr: number[],
+  ema50Arr: number[],
+  quotes: { date: Date | string }[]
+): string | null {
+  let prevSign: number | null = null;
+  let goldenCrossDate: string | null = null;
+  for (let i = 0; i < ema20Arr.length; i++) {
+    const e20 = ema20Arr[i];
+    const e50 = ema50Arr[i];
+    if (isNaN(e20) || isNaN(e50)) continue;
+    const sign = e20 - e50 >= 0 ? 1 : -1;
+    if (prevSign !== null && sign === 1 && prevSign === -1) {
+      const q = quotes[i];
+      const d = q.date instanceof Date ? q.date : new Date(q.date);
+      goldenCrossDate = d.toISOString().slice(0, 10);
+    }
+    prevSign = sign;
+  }
+  return goldenCrossDate;
 }
 
 function calcATRPct(quotes: { high: number; low: number; close: number }[], period = 14): number | null {
@@ -67,8 +92,9 @@ async function fetchEMAs(ticker: string): Promise<EMAResult> {
   const diMinus = ind.diMinus[last] ?? null;
   const cmfArr = ind.cmf;
   const cmf = cmfArr[cmfArr.length - 1] ?? null;
+  const goldenCrossDate = findGoldenCrossDate(ind.ema20, ind.ema50, quotes);
 
-  return { ema20: calcEMA(closes, 20), ema50: calcEMA(closes, 50), ath, supportLow, atrPct, rsi, diPlus, diMinus, cmf };
+  return { ema20: calcEMA(closes, 20), ema50: calcEMA(closes, 50), ath, supportLow, atrPct, rsi, diPlus, diMinus, cmf, goldenCrossDate };
 }
 
 export async function GET(req: NextRequest) {
@@ -85,6 +111,7 @@ export async function GET(req: NextRequest) {
   const diPlus: Record<string, number | null> = {};
   const diMinus: Record<string, number | null> = {};
   const cmf: Record<string, number | null> = {};
+  const goldenCrossDate: Record<string, string | null> = {};
 
   const chunkSize = 5;
   for (let i = 0; i < tickers.length; i += chunkSize) {
@@ -101,6 +128,7 @@ export async function GET(req: NextRequest) {
         diPlus[ticker] = r.diPlus;
         diMinus[ticker] = r.diMinus;
         cmf[ticker] = r.cmf;
+        goldenCrossDate[ticker] = r.goldenCrossDate;
       } catch {
         ema20[ticker] = null;
         ema50[ticker] = null;
@@ -111,9 +139,10 @@ export async function GET(req: NextRequest) {
         diPlus[ticker] = null;
         diMinus[ticker] = null;
         cmf[ticker] = null;
+        goldenCrossDate[ticker] = null;
       }
     }));
   }
 
-  return NextResponse.json({ ema20, ema50, ath, supportLow, atrPct, rsi, diPlus, diMinus, cmf });
+  return NextResponse.json({ ema20, ema50, ath, supportLow, atrPct, rsi, diPlus, diMinus, cmf, goldenCrossDate });
 }

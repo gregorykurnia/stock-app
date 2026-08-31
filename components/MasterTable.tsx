@@ -17,7 +17,7 @@ type SortKey =
   | "trailing_pe" | "ps_ratio" | "pb_ratio" | "ev_revenue" | "p_fcf" | "dividend_yield"
   | "roe" | "roic" | "current_ratio" | "beta" | "debt_to_equity" | "eps_ttm" | "eps_fwd" | "eps_past_5y" | "eps_next_5y" | "short_float"
   | "ema20" | "dist_ema20" | "ema50" | "dist_ema50" | "rsi" | "di_plus" | "di_minus" | "cmf" | "earnings"
-  | "pe_zscore";
+  | "pe_zscore" | "golden_cross";
 type SortDir = "asc" | "desc";
 type SubTab = "all" | "fundamental" | "valuation" | "technical";
 
@@ -127,6 +127,7 @@ interface Props {
   atrs: Record<string, number | null>;
   ema20s: Record<string, number | null>;
   ema50s: Record<string, number | null>;
+  goldenCrossDates?: Record<string, string | null>;
   supportLows: Record<string, number | null>;
   rsis: Record<string, number | null>;
   diPluses: Record<string, number | null>;
@@ -203,7 +204,7 @@ function EarningsBadge({ dateStr }: { dateStr: string | null | undefined }) {
 }
 
 export default function MasterTable({
-  market = "us", ihsgStocks, prices, preMarketPrices, verdicts, atrs, ema20s, ema50s, supportLows, rsis, diPluses, diMinuses, cmfs, macds = {}, macdSignals = {}, macdHists = {}, macdHistDirs = {}, earnings, fundData, peStats = {}, loading, customStocks, portfolioSet, watchlistSet, markedSet, onSetStatus, onRemoveCustom, onToggleMark,
+  market = "us", ihsgStocks, prices, preMarketPrices, verdicts, atrs, ema20s, ema50s, goldenCrossDates = {}, supportLows, rsis, diPluses, diMinuses, cmfs, macds = {}, macdSignals = {}, macdHists = {}, macdHistDirs = {}, earnings, fundData, peStats = {}, loading, customStocks, portfolioSet, watchlistSet, markedSet, onSetStatus, onRemoveCustom, onToggleMark,
   swingStocks = [], swingPrices = {}, swingDailyEma20s = {}, swingDailyEma50s = {}, swingDailyAtrs = {}, swingDailyRsis = {}, swingEmaCrossAbove = {}, swingCrossPrice = {}, swingCrossDate = {},
   swingMacds = {}, swingMacdSignals = {}, swingMacdHists = {}, swingMacdHistDirs = {},
   swingAtr14 = {},
@@ -437,6 +438,12 @@ export default function MasterTable({
         di_plus:  (r) => diPluses[r.ticker] ?? null,
         di_minus: (r) => diMinuses[r.ticker] ?? null,
         cmf:      (r) => cmfs[r.ticker] ?? null,
+        golden_cross: (r) => {
+          const d = goldenCrossDates[r.ticker];
+          if (!d) return null;
+          const today = new Date().toISOString().slice(0, 10);
+          return Math.round((new Date(today + "T00:00:00Z").getTime() - new Date(d + "T00:00:00Z").getTime()) / 86400000);
+        },
         earnings: (r) => {
           const d = earnings[r.ticker];
           if (!d) return null;
@@ -537,9 +544,17 @@ export default function MasterTable({
       return downloadCsv(`valuation-${date}.csv`, headers, data);
     }
 
+    const fmtGoldenCrossCsv = (ticker: string) => {
+      const d = goldenCrossDates[ticker];
+      if (!d) return "";
+      const today = new Date().toISOString().slice(0, 10);
+      const days = Math.round((new Date(today + "T00:00:00Z").getTime() - new Date(d + "T00:00:00Z").getTime()) / 86400000);
+      return `${d} (${days}D)`;
+    };
+
     if (activeTab === "technical") {
       const headers = ["Ticker", "Industry", "Price", "Setup",
-        "EMA20W", "Dist EMA20%", "EMA50W", "Dist EMA50%", "Prev Support",
+        "EMA20W", "Dist EMA20%", "EMA50W", "Dist EMA50%", "Golden Cross", "Prev Support",
         "RSI", "DI+", "DI-", "CMF", "ATR%", "Portfolio", "Watchlist", "Marked"];
       const data = rows.map((r) => {
         const price = r.price;
@@ -555,6 +570,7 @@ export default function MasterTable({
           r.verdict?.setup ?? "",
           ema20?.toFixed(2) ?? "", distEma20?.toFixed(1) ?? "",
           ema50?.toFixed(2) ?? "", distEma50?.toFixed(1) ?? "",
+          fmtGoldenCrossCsv(r.ticker),
           isBeatenDown && support != null ? support.toFixed(2) : "",
           rsis[r.ticker]?.toFixed(1) ?? "",
           diPluses[r.ticker]?.toFixed(1) ?? "",
@@ -572,7 +588,7 @@ export default function MasterTable({
       ? ["Trail PE", "P/S", "P/B", "EV/Rev"]
       : ["Fwd PE", "Trail PE", "PEG", "P/S", "P/B", "EV/EBITDA", "EV/Rev", "EV/FCF", "P/FCF"];
     const headers = ["Ticker", "Industry", "Price", "ATR%",
-      "EMA20W", "Dist EMA20%", "EMA50W", "Dist EMA50%", "Prev Support", "RSI", "DI+", "DI-", "CMF",
+      "EMA20W", "Dist EMA20%", "EMA50W", "Dist EMA50%", "Golden Cross", "Prev Support", "RSI", "DI+", "DI-", "CMF",
       "Rev Gr%", "Gross%", "Op%", "Net%", "FCF%", "ROE%",
       ...(isIhsg ? [] : ["ROIC%", "Current Ratio", "Beta"]),
       "D/E",
@@ -592,6 +608,7 @@ export default function MasterTable({
       atrs[r.ticker]?.toFixed(1) ?? "",
       ema20?.toFixed(2) ?? "", distEma20?.toFixed(1) ?? "",
       ema50?.toFixed(2) ?? "", distEma50?.toFixed(1) ?? "",
+      fmtGoldenCrossCsv(r.ticker),
       isBeatenDown && support != null ? support.toFixed(2) : "",
       rsis[r.ticker]?.toFixed(1) ?? "",
       diPluses[r.ticker]?.toFixed(1) ?? "",
@@ -1462,6 +1479,7 @@ export default function MasterTable({
                   <Th label="Dist EMA20" k="dist_ema20"  title="Distance from EMA20W" />
                   <Th label="EMA50W"     k="ema50"      title="EMA50 Weekly" />
                   <Th label="Dist EMA50" k="dist_ema50"  title="Distance from EMA50W" />
+                  <Th label="Golden Cross" k="golden_cross" title="Most recent date EMA20W crossed above EMA50W, and days since" />
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Previous support low (beaten-down stocks only)">Prev Support</th>
                   <Th label="RSI"        k="rsi" />
                   <Th label="DI+"        k="di_plus" />
@@ -1565,6 +1583,10 @@ export default function MasterTable({
                       const diM = diMinuses[r.ticker] ?? null;
                       const cmf = cmfs[r.ticker] ?? null;
                       const isBeatenDown = r.verdict?.setup === "beaten_down";
+                      const goldenCrossDate = goldenCrossDates[r.ticker] ?? null;
+                      const goldenCrossDays = goldenCrossDate != null
+                        ? Math.round((new Date(new Date().toISOString().slice(0, 10) + "T00:00:00Z").getTime() - new Date(goldenCrossDate + "T00:00:00Z").getTime()) / 86400000)
+                        : null;
 
                       const distColor = (d: number | null) => {
                         if (d == null) return "text-gray-400";
@@ -1595,6 +1617,9 @@ export default function MasterTable({
                           <td className="px-3 py-2 text-gray-700">{ema50 != null ? fmtPrice(ema50) : <span className="text-gray-400">—</span>}</td>
                           <td className={`px-3 py-2 font-semibold ${distColor(distEma50)}`}>
                             {distEma50 != null ? `${distEma50 > 0 ? "+" : ""}${distEma50.toFixed(1)}%` : <span className="text-gray-400">—</span>}
+                          </td>
+                          <td className="px-3 py-2 text-gray-700 whitespace-nowrap">
+                            {goldenCrossDate != null ? <>{goldenCrossDate} <span className="text-gray-400">({goldenCrossDays}D)</span></> : <span className="text-gray-400">—</span>}
                           </td>
                           <td className="px-3 py-2 text-gray-700">
                             {isBeatenDown && support != null ? fmtPrice(support) : <span className="text-gray-300">—</span>}
@@ -1822,6 +1847,7 @@ export default function MasterTable({
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Distance from EMA20W">Dist EMA20</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">EMA50W</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Distance from EMA50W">Dist EMA50</th>
+                  <Th label="Golden Cross" k="golden_cross" title="Most recent date EMA20W crossed above EMA50W, and days since" />
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Previous support low (beaten-down stocks only)">Prev Support</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">RSI</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">DI+</th>
@@ -1846,6 +1872,10 @@ export default function MasterTable({
                   const cmf = cmfs[r.ticker] ?? null;
                   const atrV = atrs[r.ticker] ?? null;
                   const isBeatenDown = r.verdict?.setup === "beaten_down";
+                  const goldenCrossDate = goldenCrossDates[r.ticker] ?? null;
+                  const goldenCrossDays = goldenCrossDate != null
+                    ? Math.round((new Date(new Date().toISOString().slice(0, 10) + "T00:00:00Z").getTime() - new Date(goldenCrossDate + "T00:00:00Z").getTime()) / 86400000)
+                    : null;
 
                   const distColor = (d: number | null) => {
                     if (d == null) return "text-gray-400";
@@ -1889,6 +1919,9 @@ export default function MasterTable({
                       <td className="px-3 py-2 text-gray-700">{ema50 != null ? fmtPrice(ema50) : <span className="text-gray-400">—</span>}</td>
                       <td className={`px-3 py-2 font-semibold ${distColor(distEma50)}`}>
                         {distEma50 != null ? `${distEma50 > 0 ? "+" : ""}${distEma50.toFixed(1)}%` : <span className="text-gray-400">—</span>}
+                      </td>
+                      <td className="px-3 py-2 text-gray-700 whitespace-nowrap">
+                        {goldenCrossDate != null ? <>{goldenCrossDate} <span className="text-gray-400">({goldenCrossDays}D)</span></> : <span className="text-gray-400">—</span>}
                       </td>
                       <td className="px-3 py-2 text-gray-700">
                         {isBeatenDown && support != null ? fmtPrice(support) : <span className="text-gray-300">—</span>}
