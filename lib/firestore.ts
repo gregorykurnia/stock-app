@@ -105,6 +105,10 @@ export async function removeUsSwingStock(ticker: string) {
   await deleteDoc(doc(db, "us_swing_stocks", ticker));
 }
 
+export async function updateUsSwingStar(ticker: string, starred: boolean) {
+  await setDoc(doc(db, "us_swing_stocks", ticker), { starred }, { merge: true });
+}
+
 // Portfolio
 export async function getPortfolio(): Promise<Record<string, object>> {
   const snap = await getDocs(collection(db, "portfolio"));

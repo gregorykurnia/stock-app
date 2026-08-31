@@ -165,6 +165,7 @@ interface Props {
   onUsSwingAddTickerChange?: (v: string) => void;
   onUsSwingAdd?: (e: FormEvent) => void;
   onUsSwingRemove?: (ticker: string) => void;
+  onUsSwingToggleStar?: (ticker: string) => void;
 }
 
 function EarningsBadge({ dateStr }: { dateStr: string | null | undefined }) {
@@ -205,7 +206,7 @@ export default function MasterTable({
   swingBandar = {},
   swingLoading = false, swingAddTicker = "", swingAddLoading = false, swingAddError = "", onSwingAddTickerChange, onSwingAdd, onSwingRemove, onSwingEntryPriceChange,
   usSwingStocks = [], usSwingPrices = {}, usSwingAtrs = {}, usSwingEma20s = {}, usSwingEma50s = {}, usSwingMacds = {}, usSwingRsis = {}, usSwingLow6mos = {}, usSwingRelVolumes = {}, usSwingLoading = false, onUsSwingTabOpen,
-  usSwingAddTicker = "", usSwingAddLoading = false, usSwingAddError = "", onUsSwingAddTickerChange, onUsSwingAdd, onUsSwingRemove,
+  usSwingAddTicker = "", usSwingAddLoading = false, usSwingAddError = "", onUsSwingAddTickerChange, onUsSwingAdd, onUsSwingRemove, onUsSwingToggleStar,
 }: Props) {
   const isIhsg = market === "ihsg";
   // Currency prefix and price formatter
@@ -2125,6 +2126,7 @@ export default function MasterTable({
           onAddTickerChange={onUsSwingAddTickerChange}
           onAdd={onUsSwingAdd}
           onRemove={onUsSwingRemove}
+          onToggleStar={onUsSwingToggleStar}
         />
       )}
     </div>

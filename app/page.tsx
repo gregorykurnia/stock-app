@@ -9,7 +9,7 @@ import {
   loadStockData, getCustomStocks, saveCustomStock, removeCustomStock,
   getIhsgCustomStocks, saveIhsgCustomStock, removeIhsgCustomStock,
   getIhsgSwingStocks, saveIhsgSwingStock, removeIhsgSwingStock, updateIhsgSwingEntryPrice,
-  getUsSwingStocks, saveUsSwingStock, removeUsSwingStock,
+  getUsSwingStocks, saveUsSwingStock, removeUsSwingStock, updateUsSwingStar,
   getPortfolioTickers, getWatchlistTickers,
   savePortfolioEntry, removePortfolioEntry,
   saveWatchlistEntry, removeWatchlistEntry,
@@ -56,7 +56,7 @@ export default function Home() {
   const [peProgress, setPeProgress] = useState("");
 
   // US "Swing" tab — separate, manually-managed ticker list, independent from List. Starts empty.
-  interface UsSwingStock { ticker: string; name: string | null; industry: string | null }
+  interface UsSwingStock { ticker: string; name: string | null; industry: string | null; starred?: boolean }
   const [usSwingStocks, setUsSwingStocks] = useState<UsSwingStock[]>([]);
   const [usSwingPrices, setUsSwingPrices] = useState<Record<string, number | null>>({});
   const [usSwingAtrs, setUsSwingAtrs] = useState<Record<string, number | null>>({});
@@ -177,12 +177,19 @@ export default function Home() {
   async function loadUsSwingStocks() {
     const data = await getUsSwingStocks().catch(() => ({}));
     const list = Object.entries(data).map(([ticker, d]) => {
-      const raw = d as { name?: string | null; industry?: string | null };
-      return { ticker, name: raw.name ?? null, industry: raw.industry ?? null } as UsSwingStock;
+      const raw = d as { name?: string | null; industry?: string | null; starred?: boolean };
+      return { ticker, name: raw.name ?? null, industry: raw.industry ?? null, starred: raw.starred ?? false } as UsSwingStock;
     });
     list.sort((a, b) => a.ticker.localeCompare(b.ticker));
     setUsSwingStocks(list);
     return list;
+  }
+
+  async function handleToggleUsSwingStar(ticker: string) {
+    const current = usSwingStocks.find((s) => s.ticker === ticker)?.starred ?? false;
+    const next = !current;
+    setUsSwingStocks((prev) => prev.map((s) => (s.ticker === ticker ? { ...s, starred: next } : s)));
+    await updateUsSwingStar(ticker, next);
   }
 
   function handleUsSwingTabOpen() {
@@ -977,6 +984,7 @@ export default function Home() {
             onUsSwingAddTickerChange={setUsSwingAddTicker}
             onUsSwingAdd={handleAddUsSwingTicker}
             onUsSwingRemove={handleRemoveUsSwingTicker}
+            onUsSwingToggleStar={handleToggleUsSwingStar}
           />
         )}
       </div>

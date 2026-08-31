@@ -7,6 +7,7 @@ export interface USSwingStock {
   ticker: string;
   name: string | null;
   industry: string | null;
+  starred?: boolean;
 }
 
 type SortKey =
@@ -32,16 +33,18 @@ interface Props {
   onAddTickerChange?: (v: string) => void;
   onAdd?: (e: FormEvent) => void;
   onRemove?: (ticker: string) => void;
+  onToggleStar?: (ticker: string) => void;
 }
 
 const dash = <span className="text-gray-400">—</span>;
 
 export default function USSwingTable({
   stocks, prices, atrs, ema20s, ema50s, macds, rsis, low6mos, relVolumes, loading = false,
-  addTicker = "", addLoading = false, addError = "", onAddTickerChange, onAdd, onRemove,
+  addTicker = "", addLoading = false, addError = "", onAddTickerChange, onAdd, onRemove, onToggleStar,
 }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>("ticker");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [starredOnly, setStarredOnly] = useState(false);
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -71,6 +74,10 @@ export default function USSwingTable({
     });
   }, [stocks, prices, atrs, ema20s, ema50s, macds, rsis, low6mos, relVolumes]);
 
+  const filteredRows = useMemo(() => {
+    return starredOnly ? rows.filter((r) => r.starred) : rows;
+  }, [rows, starredOnly]);
+
   const sortedRows = useMemo(() => {
     const getVal = (r: (typeof rows)[number]): number | string | null => {
       switch (sortKey) {
@@ -90,7 +97,7 @@ export default function USSwingTable({
         default: return null;
       }
     };
-    const data = [...rows];
+    const data = [...filteredRows];
     data.sort((a, b) => {
       const av = getVal(a);
       const bv = getVal(b);
@@ -103,7 +110,7 @@ export default function USSwingTable({
       return sortDir === "asc" ? (av as number) - (bv as number) : (bv as number) - (av as number);
     });
     return data;
-  }, [rows, sortKey, sortDir]);
+  }, [filteredRows, sortKey, sortDir]);
 
   function exportCsv() {
     const date = new Date().toISOString().slice(0, 10);
@@ -164,7 +171,16 @@ export default function USSwingTable({
         </form>
         {addError && <span className="text-xs text-red-500">{addError}</span>}
         {loading && <span className="text-xs text-gray-400 animate-pulse">Loading daily indicators…</span>}
-        <span className="text-xs text-gray-400 ml-auto">{stocks.length} stocks · daily timeframe · independent from List</span>
+        <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={starredOnly}
+            onChange={(e) => setStarredOnly(e.target.checked)}
+            className="accent-yellow-500"
+          />
+          ★ Starred only
+        </label>
+        <span className="text-xs text-gray-400 ml-auto">{sortedRows.length} of {stocks.length} stocks · daily timeframe · independent from List</span>
         <button
           onClick={exportCsv}
           className="text-xs px-3 py-1.5 rounded border border-gray-300 text-gray-600 hover:border-gray-400 hover:text-gray-800 bg-white"
@@ -176,6 +192,7 @@ export default function USSwingTable({
         <table className="w-full text-sm">
           <thead className="bg-gray-100 border-b border-gray-200 sticky top-0 z-30">
             <tr>
+              <th className="px-2 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">★</th>
               <Th label="Ticker" k="ticker" sticky />
               <Th label="Industry" k="industry" />
               <Th label="Price" k="price" />
@@ -194,10 +211,19 @@ export default function USSwingTable({
           </thead>
           <tbody className="divide-y divide-gray-100">
             {sortedRows.length === 0 && (
-              <tr><td colSpan={14} className="px-3 py-6 text-center text-gray-400 text-sm">No tickers yet — add one above.</td></tr>
+              <tr><td colSpan={15} className="px-3 py-6 text-center text-gray-400 text-sm">{starredOnly ? "No starred tickers." : "No tickers yet — add one above."}</td></tr>
             )}
             {sortedRows.map((r) => (
               <tr key={r.ticker} className="hover:bg-gray-50">
+                <td className="px-2 py-2">
+                  <button
+                    onClick={() => onToggleStar?.(r.ticker)}
+                    aria-label={r.starred ? `Unstar ${r.ticker}` : `Star ${r.ticker}`}
+                    className={`text-base leading-none ${r.starred ? "text-yellow-500" : "text-gray-300 hover:text-gray-400"}`}
+                  >
+                    {r.starred ? "★" : "☆"}
+                  </button>
+                </td>
                 <td className="px-3 py-2 sticky left-0 z-10 bg-white after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-gray-200 after:content-['']">
                   <div className="font-semibold text-gray-900">{r.ticker}</div>
                   {r.name && <div className="text-xs text-gray-400">{r.name}</div>}
