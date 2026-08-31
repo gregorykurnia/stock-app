@@ -64,7 +64,7 @@ export default function Home() {
   const [usSwingEma50s, setUsSwingEma50s] = useState<Record<string, number | null>>({});
   const [usSwingMacds, setUsSwingMacds] = useState<Record<string, number | null>>({});
   const [usSwingRsis, setUsSwingRsis] = useState<Record<string, number | null>>({});
-  const [usSwingLow3mos, setUsSwingLow3mos] = useState<Record<string, number | null>>({});
+  const [usSwingLow6mos, setUsSwingLow6mos] = useState<Record<string, number | null>>({});
   const [usSwingRelVolumes, setUsSwingRelVolumes] = useState<Record<string, number | null>>({});
   const [usSwingLoading, setUsSwingLoading] = useState(false);
   const [usSwingLoaded, setUsSwingLoaded] = useState(false);
@@ -168,7 +168,7 @@ export default function Home() {
         setUsSwingAtrs((p) => ({ ...p, ...(d.atrPct ?? {}) }));
         setUsSwingRsis((p) => ({ ...p, ...(d.rsi ?? {}) }));
         setUsSwingMacds((p) => ({ ...p, ...(d.macd ?? {}) }));
-        setUsSwingLow3mos((p) => ({ ...p, ...(d.low3mo ?? {}) }));
+        setUsSwingLow6mos((p) => ({ ...p, ...(d.low6mo ?? {}) }));
         setUsSwingRelVolumes((p) => ({ ...p, ...(d.relVolume ?? {}) }));
       })
       .catch(() => {});
@@ -967,7 +967,7 @@ export default function Home() {
             usSwingEma50s={usSwingEma50s}
             usSwingMacds={usSwingMacds}
             usSwingRsis={usSwingRsis}
-            usSwingLow3mos={usSwingLow3mos}
+            usSwingLow6mos={usSwingLow6mos}
             usSwingRelVolumes={usSwingRelVolumes}
             usSwingLoading={usSwingLoading}
             onUsSwingTabOpen={handleUsSwingTabOpen}

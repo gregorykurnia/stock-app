@@ -155,7 +155,7 @@ interface Props {
   usSwingEma50s?: Record<string, number | null>;
   usSwingMacds?: Record<string, number | null>;
   usSwingRsis?: Record<string, number | null>;
-  usSwingLow3mos?: Record<string, number | null>;
+  usSwingLow6mos?: Record<string, number | null>;
   usSwingRelVolumes?: Record<string, number | null>;
   usSwingLoading?: boolean;
   onUsSwingTabOpen?: () => void;
@@ -204,7 +204,7 @@ export default function MasterTable({
   swingAtr14 = {},
   swingBandar = {},
   swingLoading = false, swingAddTicker = "", swingAddLoading = false, swingAddError = "", onSwingAddTickerChange, onSwingAdd, onSwingRemove, onSwingEntryPriceChange,
-  usSwingStocks = [], usSwingPrices = {}, usSwingAtrs = {}, usSwingEma20s = {}, usSwingEma50s = {}, usSwingMacds = {}, usSwingRsis = {}, usSwingLow3mos = {}, usSwingRelVolumes = {}, usSwingLoading = false, onUsSwingTabOpen,
+  usSwingStocks = [], usSwingPrices = {}, usSwingAtrs = {}, usSwingEma20s = {}, usSwingEma50s = {}, usSwingMacds = {}, usSwingRsis = {}, usSwingLow6mos = {}, usSwingRelVolumes = {}, usSwingLoading = false, onUsSwingTabOpen,
   usSwingAddTicker = "", usSwingAddLoading = false, usSwingAddError = "", onUsSwingAddTickerChange, onUsSwingAdd, onUsSwingRemove,
 }: Props) {
   const isIhsg = market === "ihsg";
@@ -2116,7 +2116,7 @@ export default function MasterTable({
           ema50s={usSwingEma50s}
           macds={usSwingMacds}
           rsis={usSwingRsis}
-          low3mos={usSwingLow3mos}
+          low6mos={usSwingLow6mos}
           relVolumes={usSwingRelVolumes}
           loading={usSwingLoading}
           addTicker={usSwingAddTicker}

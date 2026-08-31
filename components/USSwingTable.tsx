@@ -12,7 +12,7 @@ export interface USSwingStock {
 type SortKey =
   | "ticker" | "industry" | "price" | "atr"
   | "ema20d" | "distEma20d" | "ema50d" | "distEma50d"
-  | "macd" | "low3mo" | "distLow3mo" | "rsi" | "relVolume";
+  | "macd" | "low6mo" | "distLow6mo" | "rsi" | "relVolume";
 type SortDir = "asc" | "desc";
 
 interface Props {
@@ -23,7 +23,7 @@ interface Props {
   ema50s: Record<string, number | null>;
   macds: Record<string, number | null>;
   rsis: Record<string, number | null>;
-  low3mos: Record<string, number | null>;
+  low6mos: Record<string, number | null>;
   relVolumes: Record<string, number | null>;
   loading?: boolean;
   addTicker?: string;
@@ -37,7 +37,7 @@ interface Props {
 const dash = <span className="text-gray-400">—</span>;
 
 export default function USSwingTable({
-  stocks, prices, atrs, ema20s, ema50s, macds, rsis, low3mos, relVolumes, loading = false,
+  stocks, prices, atrs, ema20s, ema50s, macds, rsis, low6mos, relVolumes, loading = false,
   addTicker = "", addLoading = false, addError = "", onAddTickerChange, onAdd, onRemove,
 }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>("ticker");
@@ -53,7 +53,7 @@ export default function USSwingTable({
       const price = prices[s.ticker] ?? null;
       const ema20d = ema20s[s.ticker] ?? null;
       const ema50d = ema50s[s.ticker] ?? null;
-      const low3mo = low3mos[s.ticker] ?? null;
+      const low6mo = low6mos[s.ticker] ?? null;
       return {
         ...s,
         price,
@@ -63,13 +63,13 @@ export default function USSwingTable({
         ema50d,
         distEma50d: price != null && ema50d != null ? ((price - ema50d) / ema50d) * 100 : null,
         macd: macds[s.ticker] ?? null,
-        low3mo,
-        distLow3mo: price != null && low3mo != null && low3mo > 0 ? ((price - low3mo) / low3mo) * 100 : null,
+        low6mo,
+        distLow6mo: price != null && low6mo != null && low6mo > 0 ? ((price - low6mo) / low6mo) * 100 : null,
         rsi: rsis[s.ticker] ?? null,
         relVolume: relVolumes[s.ticker] ?? null,
       };
     });
-  }, [stocks, prices, atrs, ema20s, ema50s, macds, rsis, low3mos, relVolumes]);
+  }, [stocks, prices, atrs, ema20s, ema50s, macds, rsis, low6mos, relVolumes]);
 
   const sortedRows = useMemo(() => {
     const getVal = (r: (typeof rows)[number]): number | string | null => {
@@ -83,8 +83,8 @@ export default function USSwingTable({
         case "ema50d": return r.ema50d;
         case "distEma50d": return r.distEma50d;
         case "macd": return r.macd;
-        case "low3mo": return r.low3mo;
-        case "distLow3mo": return r.distLow3mo;
+        case "low6mo": return r.low6mo;
+        case "distLow6mo": return r.distLow6mo;
         case "rsi": return r.rsi;
         case "relVolume": return r.relVolume;
         default: return null;
@@ -108,13 +108,13 @@ export default function USSwingTable({
   function exportCsv() {
     const date = new Date().toISOString().slice(0, 10);
     const headers = ["Ticker", "Name", "Industry", "Price", "ATR%", "EMA20D", "Dist EMA20D%",
-      "EMA50D", "Dist EMA50D%", "MACD", "Low (3mo)", "Dist from Low%", "RSI", "Rel Volume"];
+      "EMA50D", "Dist EMA50D%", "MACD", "Low (6mo)", "Dist from Low%", "RSI", "Rel Volume"];
     const data = sortedRows.map((r) => [
       r.ticker, r.name ?? "", r.industry,
       r.price?.toFixed(2) ?? "", r.atr?.toFixed(1) ?? "",
       r.ema20d?.toFixed(2) ?? "", r.distEma20d?.toFixed(1) ?? "",
       r.ema50d?.toFixed(2) ?? "", r.distEma50d?.toFixed(1) ?? "",
-      r.macd?.toFixed(2) ?? "", r.low3mo?.toFixed(2) ?? "", r.distLow3mo?.toFixed(1) ?? "",
+      r.macd?.toFixed(2) ?? "", r.low6mo?.toFixed(2) ?? "", r.distLow6mo?.toFixed(1) ?? "",
       r.rsi?.toFixed(1) ?? "", r.relVolume?.toFixed(2) ?? "",
     ]);
     downloadCsv(`swing-${date}.csv`, headers, data);
@@ -185,8 +185,8 @@ export default function USSwingTable({
               <Th label="EMA50D" k="ema50d" title="EMA50, daily" />
               <Th label="Dist EMA50D" k="distEma50d" title="Price distance from EMA50 daily" />
               <Th label="MACD" k="macd" title="MACD line (12, 26) — daily closes" />
-              <Th label="Low (3mo)" k="low3mo" title="Lowest intraday low over the last ~3 months (63 sessions)" />
-              <Th label="Dist from Low" k="distLow3mo" title="Price distance from the 3-month low" />
+              <Th label="Low (6mo)" k="low6mo" title="Lowest intraday low over the last ~6 months (126 sessions)" />
+              <Th label="Dist from Low" k="distLow6mo" title="Price distance from the 6-month low" />
               <Th label="RSI" k="rsi" title="RSI(14), daily" />
               <Th label="Rel Volume" k="relVolume" title="Latest session volume vs its trailing 20-day average" />
               <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Remove</th>
@@ -210,8 +210,8 @@ export default function USSwingTable({
                 <td className="px-3 py-2 text-gray-700">{r.ema50d != null ? r.ema50d.toFixed(2) : dash}</td>
                 <td className={`px-3 py-2 font-medium ${distColor(r.distEma50d)}`}>{r.distEma50d != null ? `${r.distEma50d.toFixed(1)}%` : dash}</td>
                 <td className={`px-3 py-2 font-medium ${distColor(r.macd)}`}>{r.macd != null ? r.macd.toFixed(2) : dash}</td>
-                <td className="px-3 py-2 text-gray-700">{r.low3mo != null ? `$${r.low3mo.toFixed(2)}` : dash}</td>
-                <td className="px-3 py-2 font-medium text-gray-700">{r.distLow3mo != null ? `${r.distLow3mo.toFixed(1)}%` : dash}</td>
+                <td className="px-3 py-2 text-gray-700">{r.low6mo != null ? `$${r.low6mo.toFixed(2)}` : dash}</td>
+                <td className="px-3 py-2 font-medium text-gray-700">{r.distLow6mo != null ? `${r.distLow6mo.toFixed(1)}%` : dash}</td>
                 <td className={`px-3 py-2 font-medium ${rsiColor(r.rsi)}`}>{r.rsi != null ? r.rsi.toFixed(1) : dash}</td>
                 <td className={`px-3 py-2 ${relVolColor(r.relVolume)}`}>{r.relVolume != null ? `${r.relVolume.toFixed(2)}x` : dash}</td>
                 <td className="px-3 py-2">

@@ -37,8 +37,8 @@ interface SwingDailyResult {
   stopLoss: number | null;
   stopLossPercent: number | null;
   bandar: BandarScoreResult | null;
-  low3mo: number | null;
-  distFromLow3mo: number | null;
+  low6mo: number | null;
+  distFromLow6mo: number | null;
   relVolume: number | null;
 }
 
@@ -47,7 +47,7 @@ const EMPTY: SwingDailyResult = {
   emaCrossAbove: null, crossPrice: null, crossDate: null,
   macd: null, signal: null, histogram: null, histDirection: null,
   atr: null, stopLoss: null, stopLossPercent: null, bandar: null,
-  low3mo: null, distFromLow3mo: null, relVolume: null,
+  low6mo: null, distFromLow6mo: null, relVolume: null,
 };
 
 // Single 1-year daily chart fetch per ticker, powering every "Midterm/Swing" indicator
@@ -105,11 +105,11 @@ async function fetchSwingDaily(ticker: string): Promise<SwingDailyResult> {
   const atrRes = calculateATR(bars, 14);
   const bandar = calculateBandarScore(bars.slice(-60));
 
-  // "Lowest point" over the last ~3 months of trading (~63 sessions), using intraday lows.
-  const last63 = bars.slice(-63);
-  const low3mo = last63.length > 0 ? Math.min(...last63.map((b: { low: number }) => b.low)) : null;
+  // "Lowest point" over the last ~6 months of trading (~126 sessions), using intraday lows.
+  const last126 = bars.slice(-126);
+  const low6mo = last126.length > 0 ? Math.min(...last126.map((b: { low: number }) => b.low)) : null;
   const lastClose = bars[bars.length - 1].close;
-  const distFromLow3mo = low3mo != null && low3mo > 0 ? ((lastClose - low3mo) / low3mo) * 100 : null;
+  const distFromLow6mo = low6mo != null && low6mo > 0 ? ((lastClose - low6mo) / low6mo) * 100 : null;
 
   // Relative volume: most recent session's volume vs its trailing 20-day average.
   const volumes = bars.map((b: { volume: number }) => b.volume);
@@ -128,7 +128,7 @@ async function fetchSwingDaily(ticker: string): Promise<SwingDailyResult> {
     stopLoss: atrRes?.stopLoss ?? null,
     stopLossPercent: atrRes?.stopLossPercent ?? null,
     bandar,
-    low3mo, distFromLow3mo, relVolume,
+    low6mo, distFromLow6mo, relVolume,
   };
 }
 
@@ -153,8 +153,8 @@ export async function GET(req: NextRequest) {
   const stopLoss: Record<string, number | null> = {};
   const stopLossPercent: Record<string, number | null> = {};
   const bandar: Record<string, BandarScoreResult | null> = {};
-  const low3mo: Record<string, number | null> = {};
-  const distFromLow3mo: Record<string, number | null> = {};
+  const low6mo: Record<string, number | null> = {};
+  const distFromLow6mo: Record<string, number | null> = {};
   const relVolume: Record<string, number | null> = {};
 
   const chunkSize = 8;
@@ -177,8 +177,8 @@ export async function GET(req: NextRequest) {
       stopLoss[ticker] = r.stopLoss;
       stopLossPercent[ticker] = r.stopLossPercent;
       bandar[ticker] = r.bandar;
-      low3mo[ticker] = r.low3mo;
-      distFromLow3mo[ticker] = r.distFromLow3mo;
+      low6mo[ticker] = r.low6mo;
+      distFromLow6mo[ticker] = r.distFromLow6mo;
       relVolume[ticker] = r.relVolume;
     }));
   }
@@ -187,6 +187,6 @@ export async function GET(req: NextRequest) {
     ema20, ema50, atrPct, rsi, emaCrossAbove, crossPrice, crossDate,
     macd, signal, histogram, histDirection,
     atr, stopLoss, stopLossPercent, bandar,
-    low3mo, distFromLow3mo, relVolume,
+    low6mo, distFromLow6mo, relVolume,
   });
 }
