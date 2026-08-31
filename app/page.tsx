@@ -65,6 +65,7 @@ export default function Home() {
   const [usSwingMacds, setUsSwingMacds] = useState<Record<string, number | null>>({});
   const [usSwingRsis, setUsSwingRsis] = useState<Record<string, number | null>>({});
   const [usSwingLow6mos, setUsSwingLow6mos] = useState<Record<string, number | null>>({});
+  const [usSwingResistances, setUsSwingResistances] = useState<Record<string, number | null>>({});
   const [usSwingRelVolumes, setUsSwingRelVolumes] = useState<Record<string, number | null>>({});
   const [usSwingShortFloats, setUsSwingShortFloats] = useState<Record<string, number | null>>({});
   const [usSwingAdvs, setUsSwingAdvs] = useState<Record<string, number | null>>({});
@@ -172,6 +173,7 @@ export default function Home() {
         setUsSwingRsis((p) => ({ ...p, ...(d.rsi ?? {}) }));
         setUsSwingMacds((p) => ({ ...p, ...(d.macd ?? {}) }));
         setUsSwingLow6mos((p) => ({ ...p, ...(d.low6mo ?? {}) }));
+        setUsSwingResistances((p) => ({ ...p, ...(d.resistance ?? {}) }));
         setUsSwingRelVolumes((p) => ({ ...p, ...(d.relVolume ?? {}) }));
       })
       .catch(() => {});
@@ -1002,6 +1004,7 @@ export default function Home() {
             usSwingMacds={usSwingMacds}
             usSwingRsis={usSwingRsis}
             usSwingLow6mos={usSwingLow6mos}
+            usSwingResistances={usSwingResistances}
             usSwingRelVolumes={usSwingRelVolumes}
             usSwingShortFloats={usSwingShortFloats}
             usSwingAdvs={usSwingAdvs}

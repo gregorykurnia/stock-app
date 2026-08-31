@@ -39,6 +39,8 @@ interface SwingDailyResult {
   bandar: BandarScoreResult | null;
   low6mo: number | null;
   distFromLow6mo: number | null;
+  resistance: number | null;
+  distFromResistance: number | null;
   relVolume: number | null;
 }
 
@@ -47,17 +49,19 @@ const EMPTY: SwingDailyResult = {
   emaCrossAbove: null, crossPrice: null, crossDate: null,
   macd: null, signal: null, histogram: null, histDirection: null,
   atr: null, stopLoss: null, stopLossPercent: null, bandar: null,
-  low6mo: null, distFromLow6mo: null, relVolume: null,
+  low6mo: null, distFromLow6mo: null, resistance: null, distFromResistance: null, relVolume: null,
 };
 
-// Single 1-year daily chart fetch per ticker, powering every "Midterm/Swing" indicator
-// (EMA20/50D, RSI, ATR%, EMA cross, MACD, ATR(14)+stop, Bandar score) instead of the
-// 4 separate chart fetches this used to require.
+// Single 2-year daily chart fetch per ticker, powering every "Midterm/Swing" indicator
+// (EMA20/50D, RSI, ATR%, EMA cross, MACD, ATR(14)+stop, Bandar score, resistance) instead of the
+// several separate chart fetches this used to require. The extra history (vs. the 6mo/126-session
+// window used for support) is needed for resistance, since a meaningful "prior high" ceiling often
+// sits further back than 6 months.
 async function fetchSwingDaily(ticker: string): Promise<SwingDailyResult> {
   const now = new Date();
-  const oneYearAgo = new Date(now.getTime() - 365 * 24 * 3600 * 1000);
+  const twoYearsAgo = new Date(now.getTime() - 2 * 365 * 24 * 3600 * 1000);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const result: any = await yf.chart(ticker, { period1: oneYearAgo, period2: now, interval: "1d" });
+  const result: any = await yf.chart(ticker, { period1: twoYearsAgo, period2: now, interval: "1d" });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const quotes = (result?.quotes ?? []).filter((q: any) => q.open != null && q.high != null && q.low != null && q.close != null && q.volume != null);
   if (quotes.length === 0) return EMPTY;
@@ -111,6 +115,15 @@ async function fetchSwingDaily(ticker: string): Promise<SwingDailyResult> {
   const lastClose = bars[bars.length - 1].close;
   const distFromLow6mo = low6mo != null && low6mo > 0 ? ((lastClose - low6mo) / low6mo) * 100 : null;
 
+  // Resistance: the highest intraday high over the full ~2yr window, excluding the most recent
+  // ~15 sessions. Excluding the recent cooldown avoids "resistance" trivially tracking today's
+  // price when a stock is actively making new highs — this is meant to capture the last real
+  // ceiling the stock pulled back from, not the current candle.
+  const cooldown = 15;
+  const resistanceWindow = bars.slice(0, Math.max(0, bars.length - cooldown));
+  const resistance = resistanceWindow.length > 0 ? Math.max(...resistanceWindow.map((b: { high: number }) => b.high)) : null;
+  const distFromResistance = resistance != null && resistance > 0 ? ((lastClose - resistance) / resistance) * 100 : null;
+
   // Relative volume: most recent session's volume vs its trailing 20-day average.
   const volumes = bars.map((b: { volume: number }) => b.volume);
   const last20Vol = volumes.slice(-21, -1);
@@ -128,7 +141,7 @@ async function fetchSwingDaily(ticker: string): Promise<SwingDailyResult> {
     stopLoss: atrRes?.stopLoss ?? null,
     stopLossPercent: atrRes?.stopLossPercent ?? null,
     bandar,
-    low6mo, distFromLow6mo, relVolume,
+    low6mo, distFromLow6mo, resistance, distFromResistance, relVolume,
   };
 }
 
@@ -155,6 +168,8 @@ export async function GET(req: NextRequest) {
   const bandar: Record<string, BandarScoreResult | null> = {};
   const low6mo: Record<string, number | null> = {};
   const distFromLow6mo: Record<string, number | null> = {};
+  const resistance: Record<string, number | null> = {};
+  const distFromResistance: Record<string, number | null> = {};
   const relVolume: Record<string, number | null> = {};
 
   const chunkSize = 8;
@@ -179,6 +194,8 @@ export async function GET(req: NextRequest) {
       bandar[ticker] = r.bandar;
       low6mo[ticker] = r.low6mo;
       distFromLow6mo[ticker] = r.distFromLow6mo;
+      resistance[ticker] = r.resistance;
+      distFromResistance[ticker] = r.distFromResistance;
       relVolume[ticker] = r.relVolume;
     }));
   }
@@ -187,6 +204,6 @@ export async function GET(req: NextRequest) {
     ema20, ema50, atrPct, rsi, emaCrossAbove, crossPrice, crossDate,
     macd, signal, histogram, histDirection,
     atr, stopLoss, stopLossPercent, bandar,
-    low6mo, distFromLow6mo, relVolume,
+    low6mo, distFromLow6mo, resistance, distFromResistance, relVolume,
   });
 }
