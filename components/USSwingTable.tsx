@@ -135,7 +135,7 @@ export default function USSwingTable({
   function exportCsv() {
     const date = new Date().toISOString().slice(0, 10);
     const headers = ["Ticker", "Name", "Industry", "Price", "ATR%", "EMA20D", "Dist EMA20D%",
-      "EMA50D", "Dist EMA50D%", "MACD", "Low (6mo)", "Dist from Low%", "Resistance (2Y)", "Dist from Resistance%",
+      "EMA50D", "Dist EMA50D%", "MACD", "Low (6mo)", "Dist from Low%", "Resistance (1Y)", "Dist from Resistance%",
       "RSI", "Short Float%", "ADV",
       "Rel Volume", "Earnings Date", "Days to Earnings"];
     const data = sortedRows.map((r) => {
@@ -259,7 +259,7 @@ export default function USSwingTable({
               <Th label="MACD" k="macd" title="MACD line (12, 26) — daily closes" />
               <Th label="Low (6mo)" k="low6mo" title="Lowest intraday low over the last ~6 months (126 sessions)" />
               <Th label="Dist from Low" k="distLow6mo" title="Price distance from the 6-month low" />
-              <Th label="Resistance" k="resistance" title="Highest intraday high over the last ~2 years, excluding the most recent ~15 sessions — the last prior ceiling the stock pulled back from" />
+              <Th label="Resistance" k="resistance" title="Highest intraday high over the last ~1 year, excluding the most recent ~15 sessions — the last prior ceiling the stock pulled back from" />
               <Th label="Dist from Resistance" k="distResistance" title="Price distance from resistance — negative means below/approaching, positive means already broken above" />
               <Th label="RSI" k="rsi" title="RSI(14), daily" />
               <Th label="Short Float %" k="shortFloat" title="Short interest as a % of the public float" />

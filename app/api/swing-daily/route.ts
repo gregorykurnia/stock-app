@@ -52,16 +52,14 @@ const EMPTY: SwingDailyResult = {
   low6mo: null, distFromLow6mo: null, resistance: null, distFromResistance: null, relVolume: null,
 };
 
-// Single 2-year daily chart fetch per ticker, powering every "Midterm/Swing" indicator
+// Single 1-year daily chart fetch per ticker, powering every "Midterm/Swing" indicator
 // (EMA20/50D, RSI, ATR%, EMA cross, MACD, ATR(14)+stop, Bandar score, resistance) instead of the
-// several separate chart fetches this used to require. The extra history (vs. the 6mo/126-session
-// window used for support) is needed for resistance, since a meaningful "prior high" ceiling often
-// sits further back than 6 months.
+// several separate chart fetches this used to require.
 async function fetchSwingDaily(ticker: string): Promise<SwingDailyResult> {
   const now = new Date();
-  const twoYearsAgo = new Date(now.getTime() - 2 * 365 * 24 * 3600 * 1000);
+  const oneYearAgo = new Date(now.getTime() - 365 * 24 * 3600 * 1000);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const result: any = await yf.chart(ticker, { period1: twoYearsAgo, period2: now, interval: "1d" });
+  const result: any = await yf.chart(ticker, { period1: oneYearAgo, period2: now, interval: "1d" });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const quotes = (result?.quotes ?? []).filter((q: any) => q.open != null && q.high != null && q.low != null && q.close != null && q.volume != null);
   if (quotes.length === 0) return EMPTY;
@@ -115,7 +113,7 @@ async function fetchSwingDaily(ticker: string): Promise<SwingDailyResult> {
   const lastClose = bars[bars.length - 1].close;
   const distFromLow6mo = low6mo != null && low6mo > 0 ? ((lastClose - low6mo) / low6mo) * 100 : null;
 
-  // Resistance: the highest intraday high over the full ~2yr window, excluding the most recent
+  // Resistance: the highest intraday high over the full ~1yr window, excluding the most recent
   // ~15 sessions. Excluding the recent cooldown avoids "resistance" trivially tracking today's
   // price when a stock is actively making new highs — this is meant to capture the last real
   // ceiling the stock pulled back from, not the current candle.
