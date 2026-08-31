@@ -88,6 +88,23 @@ export async function removeIhsgSwingStock(ticker: string) {
   await deleteDoc(doc(db, "ihsg_swing_stocks", ticker));
 }
 
+// US Swing watchlist — a separate, manually-managed ticker list independent
+// from the US "List" tab entries (SEED_STOCKS + custom_stocks)
+export async function getUsSwingStocks(): Promise<Record<string, object>> {
+  const snap = await getDocs(collection(db, "us_swing_stocks"));
+  const result: Record<string, object> = {};
+  snap.forEach((d) => { result[d.id] = d.data(); });
+  return result;
+}
+
+export async function saveUsSwingStock(ticker: string, data: object) {
+  await setDoc(doc(db, "us_swing_stocks", ticker), data);
+}
+
+export async function removeUsSwingStock(ticker: string) {
+  await deleteDoc(doc(db, "us_swing_stocks", ticker));
+}
+
 // Portfolio
 export async function getPortfolio(): Promise<Record<string, object>> {
   const snap = await getDocs(collection(db, "portfolio"));

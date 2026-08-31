@@ -1,12 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type FormEvent } from "react";
 import { downloadCsv } from "@/lib/exportCsv";
 
 export interface USSwingStock {
   ticker: string;
   name: string | null;
-  industry: string;
+  industry: string | null;
 }
 
 type SortKey =
@@ -26,12 +26,19 @@ interface Props {
   low3mos: Record<string, number | null>;
   relVolumes: Record<string, number | null>;
   loading?: boolean;
+  addTicker?: string;
+  addLoading?: boolean;
+  addError?: string;
+  onAddTickerChange?: (v: string) => void;
+  onAdd?: (e: FormEvent) => void;
+  onRemove?: (ticker: string) => void;
 }
 
 const dash = <span className="text-gray-400">—</span>;
 
 export default function USSwingTable({
   stocks, prices, atrs, ema20s, ema50s, macds, rsis, low3mos, relVolumes, loading = false,
+  addTicker = "", addLoading = false, addError = "", onAddTickerChange, onAdd, onRemove,
 }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>("ticker");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -134,9 +141,30 @@ export default function USSwingTable({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <form onSubmit={onAdd} className="flex gap-2">
+          <input
+            type="text"
+            placeholder="e.g. TSLA"
+            value={addTicker}
+            onChange={(e) => onAddTickerChange?.(e.target.value)}
+            autoCapitalize="characters"
+            autoCorrect="off"
+            autoComplete="off"
+            spellCheck={false}
+            className="bg-white border border-gray-300 rounded px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 w-32 uppercase"
+          />
+          <button
+            type="submit"
+            disabled={addLoading}
+            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-3 py-1.5 rounded text-sm font-semibold"
+          >
+            {addLoading ? "Adding…" : "+ Add"}
+          </button>
+        </form>
+        {addError && <span className="text-xs text-red-500">{addError}</span>}
         {loading && <span className="text-xs text-gray-400 animate-pulse">Loading daily indicators…</span>}
-        <span className="text-xs text-gray-400 ml-auto">{stocks.length} stocks · daily timeframe</span>
+        <span className="text-xs text-gray-400 ml-auto">{stocks.length} stocks · daily timeframe · independent from List</span>
         <button
           onClick={exportCsv}
           className="text-xs px-3 py-1.5 rounded border border-gray-300 text-gray-600 hover:border-gray-400 hover:text-gray-800 bg-white"
@@ -161,11 +189,12 @@ export default function USSwingTable({
               <Th label="Dist from Low" k="distLow3mo" title="Price distance from the 3-month low" />
               <Th label="RSI" k="rsi" title="RSI(14), daily" />
               <Th label="Rel Volume" k="relVolume" title="Latest session volume vs its trailing 20-day average" />
+              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Remove</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {sortedRows.length === 0 && (
-              <tr><td colSpan={13} className="px-3 py-6 text-center text-gray-400 text-sm">No stocks to show.</td></tr>
+              <tr><td colSpan={14} className="px-3 py-6 text-center text-gray-400 text-sm">No tickers yet — add one above.</td></tr>
             )}
             {sortedRows.map((r) => (
               <tr key={r.ticker} className="hover:bg-gray-50">
@@ -185,6 +214,14 @@ export default function USSwingTable({
                 <td className="px-3 py-2 font-medium text-gray-700">{r.distLow3mo != null ? `${r.distLow3mo.toFixed(1)}%` : dash}</td>
                 <td className={`px-3 py-2 font-medium ${rsiColor(r.rsi)}`}>{r.rsi != null ? r.rsi.toFixed(1) : dash}</td>
                 <td className={`px-3 py-2 ${relVolColor(r.relVolume)}`}>{r.relVolume != null ? `${r.relVolume.toFixed(2)}x` : dash}</td>
+                <td className="px-3 py-2">
+                  <button
+                    onClick={() => onRemove?.(r.ticker)}
+                    className="text-xs text-red-500 hover:text-red-700"
+                  >
+                    Remove
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>

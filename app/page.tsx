@@ -9,6 +9,7 @@ import {
   loadStockData, getCustomStocks, saveCustomStock, removeCustomStock,
   getIhsgCustomStocks, saveIhsgCustomStock, removeIhsgCustomStock,
   getIhsgSwingStocks, saveIhsgSwingStock, removeIhsgSwingStock, updateIhsgSwingEntryPrice,
+  getUsSwingStocks, saveUsSwingStock, removeUsSwingStock,
   getPortfolioTickers, getWatchlistTickers,
   savePortfolioEntry, removePortfolioEntry,
   saveWatchlistEntry, removeWatchlistEntry,
@@ -54,7 +55,10 @@ export default function Home() {
   const [peRefreshing, setPeRefreshing] = useState(false);
   const [peProgress, setPeProgress] = useState("");
 
-  // US "Swing" tab — same stock universe as List, daily-timeframe indicators, lazy-loaded
+  // US "Swing" tab — separate, manually-managed ticker list, independent from List. Starts empty.
+  interface UsSwingStock { ticker: string; name: string | null; industry: string | null }
+  const [usSwingStocks, setUsSwingStocks] = useState<UsSwingStock[]>([]);
+  const [usSwingPrices, setUsSwingPrices] = useState<Record<string, number | null>>({});
   const [usSwingAtrs, setUsSwingAtrs] = useState<Record<string, number | null>>({});
   const [usSwingEma20s, setUsSwingEma20s] = useState<Record<string, number | null>>({});
   const [usSwingEma50s, setUsSwingEma50s] = useState<Record<string, number | null>>({});
@@ -64,6 +68,9 @@ export default function Home() {
   const [usSwingRelVolumes, setUsSwingRelVolumes] = useState<Record<string, number | null>>({});
   const [usSwingLoading, setUsSwingLoading] = useState(false);
   const [usSwingLoaded, setUsSwingLoaded] = useState(false);
+  const [usSwingAddTicker, setUsSwingAddTicker] = useState("");
+  const [usSwingAddLoading, setUsSwingAddLoading] = useState(false);
+  const [usSwingAddError, setUsSwingAddError] = useState("");
 
   // IHSG state (mirrors US state, tickers stored without .JK)
   const [ihsgCustomStocks, setIhsgCustomStocks] = useState<CustomStock[]>([]);
@@ -151,24 +158,80 @@ export default function Home() {
     setPeProgress("");
   }
 
+  function fetchUsSwingDaily(tickers: string[]) {
+    if (tickers.length === 0) return;
+    fetch(`/api/swing-daily?tickers=${tickers.join(",")}`)
+      .then((r) => r.json())
+      .then((d) => {
+        setUsSwingEma20s((p) => ({ ...p, ...(d.ema20 ?? {}) }));
+        setUsSwingEma50s((p) => ({ ...p, ...(d.ema50 ?? {}) }));
+        setUsSwingAtrs((p) => ({ ...p, ...(d.atrPct ?? {}) }));
+        setUsSwingRsis((p) => ({ ...p, ...(d.rsi ?? {}) }));
+        setUsSwingMacds((p) => ({ ...p, ...(d.macd ?? {}) }));
+        setUsSwingLow3mos((p) => ({ ...p, ...(d.low3mo ?? {}) }));
+        setUsSwingRelVolumes((p) => ({ ...p, ...(d.relVolume ?? {}) }));
+      })
+      .catch(() => {});
+  }
+
+  async function loadUsSwingStocks() {
+    const data = await getUsSwingStocks().catch(() => ({}));
+    const list = Object.entries(data).map(([ticker, d]) => {
+      const raw = d as { name?: string | null; industry?: string | null };
+      return { ticker, name: raw.name ?? null, industry: raw.industry ?? null } as UsSwingStock;
+    });
+    list.sort((a, b) => a.ticker.localeCompare(b.ticker));
+    setUsSwingStocks(list);
+    return list;
+  }
+
   function handleUsSwingTabOpen() {
     if (usSwingLoaded || market !== "us") return;
     setUsSwingLoaded(true);
     setUsSwingLoading(true);
-    const tickers = [...SEED_STOCKS.map((s) => s.ticker), ...customStocks.map((s) => s.ticker)];
-    fetch(`/api/swing-daily?tickers=${tickers.join(",")}`)
-      .then((r) => r.json())
-      .then((d) => {
-        setUsSwingEma20s(d.ema20 ?? {});
-        setUsSwingEma50s(d.ema50 ?? {});
-        setUsSwingAtrs(d.atrPct ?? {});
-        setUsSwingRsis(d.rsi ?? {});
-        setUsSwingMacds(d.macd ?? {});
-        setUsSwingLow3mos(d.low3mo ?? {});
-        setUsSwingRelVolumes(d.relVolume ?? {});
-      })
-      .catch(() => {})
-      .finally(() => setUsSwingLoading(false));
+    loadUsSwingStocks().then((list) => {
+      setUsSwingLoading(false);
+      if (list.length === 0) return;
+      const tickers = list.map((s) => s.ticker);
+      fetch(`/api/prices?tickers=${tickers.join(",")}`)
+        .then((r) => r.json())
+        .then((d) => setUsSwingPrices((p) => ({ ...p, ...(d.prices ?? {}) })))
+        .catch(() => {});
+      fetchUsSwingDaily(tickers);
+    });
+  }
+
+  async function handleAddUsSwingTicker(e: React.FormEvent) {
+    e.preventDefault();
+    const sym = usSwingAddTicker.trim().toUpperCase();
+    if (!sym) return;
+    if (usSwingStocks.some((s) => s.ticker === sym)) {
+      setUsSwingAddError(`${sym} is already in the Swing list.`);
+      return;
+    }
+    setUsSwingAddLoading(true);
+    setUsSwingAddError("");
+    try {
+      const res = await fetch(`/api/fundamentals?ticker=${sym}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to fetch data");
+
+      const entry: UsSwingStock = { ticker: sym, name: data.name ?? null, industry: data.industry ?? data.sector ?? null };
+      await saveUsSwingStock(sym, { name: entry.name, industry: entry.industry, added_at: new Date().toISOString() });
+      setUsSwingStocks((prev) => [...prev.filter((s) => s.ticker !== sym), entry].sort((a, b) => a.ticker.localeCompare(b.ticker)));
+      if (data.price != null) setUsSwingPrices((p) => ({ ...p, [sym]: data.price }));
+      fetchUsSwingDaily([sym]);
+      setUsSwingAddTicker("");
+    } catch (err) {
+      setUsSwingAddError(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setUsSwingAddLoading(false);
+    }
+  }
+
+  async function handleRemoveUsSwingTicker(ticker: string) {
+    await removeUsSwingStock(ticker);
+    setUsSwingStocks((prev) => prev.filter((s) => s.ticker !== ticker));
   }
 
   async function handleToggleMark(ticker: string) {
@@ -897,10 +960,8 @@ export default function Home() {
             onSetStatus={handleSetStatus}
             onRemoveCustom={handleRemoveCustom}
             onToggleMark={handleToggleMark}
-            usSwingStocks={[
-              ...SEED_STOCKS.map((s) => ({ ticker: s.ticker, name: null, industry: s.industry })),
-              ...customStocks.map((s) => ({ ticker: s.ticker, name: s.name, industry: s.industry ?? s.sector ?? "—" })),
-            ]}
+            usSwingStocks={usSwingStocks}
+            usSwingPrices={usSwingPrices}
             usSwingAtrs={usSwingAtrs}
             usSwingEma20s={usSwingEma20s}
             usSwingEma50s={usSwingEma50s}
@@ -910,6 +971,12 @@ export default function Home() {
             usSwingRelVolumes={usSwingRelVolumes}
             usSwingLoading={usSwingLoading}
             onUsSwingTabOpen={handleUsSwingTabOpen}
+            usSwingAddTicker={usSwingAddTicker}
+            usSwingAddLoading={usSwingAddLoading}
+            usSwingAddError={usSwingAddError}
+            onUsSwingAddTickerChange={setUsSwingAddTicker}
+            onUsSwingAdd={handleAddUsSwingTicker}
+            onUsSwingRemove={handleRemoveUsSwingTicker}
           />
         )}
       </div>

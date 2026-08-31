@@ -147,8 +147,9 @@ interface Props {
   onSetStatus: (ticker: string, status: "portfolio" | "watchlist") => void;
   onRemoveCustom: (ticker: string) => void;
   onToggleMark: (ticker: string) => void;
-  // US "Swing" tab — same 92-stock universe as List, different (daily) column set
+  // US "Swing" tab — separate, manually-managed ticker list independent from List
   usSwingStocks?: USSwingStock[];
+  usSwingPrices?: Record<string, number | null>;
   usSwingAtrs?: Record<string, number | null>;
   usSwingEma20s?: Record<string, number | null>;
   usSwingEma50s?: Record<string, number | null>;
@@ -158,6 +159,12 @@ interface Props {
   usSwingRelVolumes?: Record<string, number | null>;
   usSwingLoading?: boolean;
   onUsSwingTabOpen?: () => void;
+  usSwingAddTicker?: string;
+  usSwingAddLoading?: boolean;
+  usSwingAddError?: string;
+  onUsSwingAddTickerChange?: (v: string) => void;
+  onUsSwingAdd?: (e: FormEvent) => void;
+  onUsSwingRemove?: (ticker: string) => void;
 }
 
 function EarningsBadge({ dateStr }: { dateStr: string | null | undefined }) {
@@ -197,7 +204,8 @@ export default function MasterTable({
   swingAtr14 = {},
   swingBandar = {},
   swingLoading = false, swingAddTicker = "", swingAddLoading = false, swingAddError = "", onSwingAddTickerChange, onSwingAdd, onSwingRemove, onSwingEntryPriceChange,
-  usSwingStocks = [], usSwingAtrs = {}, usSwingEma20s = {}, usSwingEma50s = {}, usSwingMacds = {}, usSwingRsis = {}, usSwingLow3mos = {}, usSwingRelVolumes = {}, usSwingLoading = false, onUsSwingTabOpen,
+  usSwingStocks = [], usSwingPrices = {}, usSwingAtrs = {}, usSwingEma20s = {}, usSwingEma50s = {}, usSwingMacds = {}, usSwingRsis = {}, usSwingLow3mos = {}, usSwingRelVolumes = {}, usSwingLoading = false, onUsSwingTabOpen,
+  usSwingAddTicker = "", usSwingAddLoading = false, usSwingAddError = "", onUsSwingAddTickerChange, onUsSwingAdd, onUsSwingRemove,
 }: Props) {
   const isIhsg = market === "ihsg";
   // Currency prefix and price formatter
@@ -2098,11 +2106,11 @@ export default function MasterTable({
         </div>
       )}
 
-      {/* SWING TAB (US only) — same stock universe as List, daily-timeframe columns */}
+      {/* SWING TAB (US only) — separate, manually-managed ticker list independent from List */}
       {!isIhsg && mainTab === "swing" && (
         <USSwingTable
           stocks={usSwingStocks}
-          prices={prices}
+          prices={usSwingPrices}
           atrs={usSwingAtrs}
           ema20s={usSwingEma20s}
           ema50s={usSwingEma50s}
@@ -2111,6 +2119,12 @@ export default function MasterTable({
           low3mos={usSwingLow3mos}
           relVolumes={usSwingRelVolumes}
           loading={usSwingLoading}
+          addTicker={usSwingAddTicker}
+          addLoading={usSwingAddLoading}
+          addError={usSwingAddError}
+          onAddTickerChange={onUsSwingAddTickerChange}
+          onAdd={onUsSwingAdd}
+          onRemove={onUsSwingRemove}
         />
       )}
     </div>
