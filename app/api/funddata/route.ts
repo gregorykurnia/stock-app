@@ -11,6 +11,7 @@ export interface FundData {
   eps_past_5y: number | null;
   eps_next_5y: number | null;
   short_float: number | null;
+  average_volume: number | null;
   trailing_pe: number | null;
   ps_ratio: number | null;
   pb_ratio: number | null;
@@ -109,6 +110,7 @@ async function fetchOne(ticker: string): Promise<FundData> {
       eps_past_5y: findGrowth("-5y") ?? findGrowth("5y") ?? null,
       eps_next_5y: findGrowth("+5y") ?? null,
       short_float: ks.shortPercentOfFloat ?? null,
+      average_volume: sd.averageVolume ?? sd.averageDailyVolume10Day ?? null,
       trailing_pe: cap(sd.trailingPE ?? null, 2000),
       ps_ratio: cap((sd.priceToSalesTrailing12Months ?? null) != null ? (sd.priceToSalesTrailing12Months as number) / fxCorrection : null, 500),
       pb_ratio: cap((ks.priceToBook ?? null) != null ? (ks.priceToBook as number) / fxCorrection : null, 200),
@@ -127,7 +129,7 @@ async function fetchOne(ticker: string): Promise<FundData> {
       beta: sd.beta ?? ks.beta ?? null,
     };
   } catch {
-    return { roe: null, debt_to_equity: null, eps_ttm: null, eps_fwd: null, eps_past_5y: null, eps_next_5y: null, short_float: null, trailing_pe: null, ps_ratio: null, pb_ratio: null, ev_revenue: null, p_fcf: null, rev_growth: null, gross_margin: null, op_margin: null, fcf_margin: null, fwd_pe: null, peg: null, ev_ebitda: null, ev_fcf: null, dividend_yield: null, current_ratio: null, beta: null };
+    return { roe: null, debt_to_equity: null, eps_ttm: null, eps_fwd: null, eps_past_5y: null, eps_next_5y: null, short_float: null, average_volume: null, trailing_pe: null, ps_ratio: null, pb_ratio: null, ev_revenue: null, p_fcf: null, rev_growth: null, gross_margin: null, op_margin: null, fcf_margin: null, fwd_pe: null, peg: null, ev_ebitda: null, ev_fcf: null, dividend_yield: null, current_ratio: null, beta: null };
   }
 }
 

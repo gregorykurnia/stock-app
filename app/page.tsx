@@ -66,6 +66,9 @@ export default function Home() {
   const [usSwingRsis, setUsSwingRsis] = useState<Record<string, number | null>>({});
   const [usSwingLow6mos, setUsSwingLow6mos] = useState<Record<string, number | null>>({});
   const [usSwingRelVolumes, setUsSwingRelVolumes] = useState<Record<string, number | null>>({});
+  const [usSwingShortFloats, setUsSwingShortFloats] = useState<Record<string, number | null>>({});
+  const [usSwingAdvs, setUsSwingAdvs] = useState<Record<string, number | null>>({});
+  const [usSwingEarnings, setUsSwingEarnings] = useState<Record<string, string | null>>({});
   const [usSwingLoading, setUsSwingLoading] = useState(false);
   const [usSwingLoaded, setUsSwingLoaded] = useState(false);
   const [usSwingAddTicker, setUsSwingAddTicker] = useState("");
@@ -205,7 +208,30 @@ export default function Home() {
         .then((d) => setUsSwingPrices((p) => ({ ...p, ...(d.prices ?? {}) })))
         .catch(() => {});
       fetchUsSwingDaily(tickers);
+      fetchUsSwingFundAndEarnings(tickers);
     });
+  }
+
+  function fetchUsSwingFundAndEarnings(tickers: string[]) {
+    const joined = tickers.join(",");
+    fetch(`/api/funddata?tickers=${joined}`)
+      .then((r) => r.json())
+      .then((d) => {
+        const data = (d.data ?? {}) as Record<string, FundData>;
+        const shortFloat: Record<string, number | null> = {};
+        const adv: Record<string, number | null> = {};
+        for (const [k, v] of Object.entries(data)) {
+          shortFloat[k] = v.short_float ?? null;
+          adv[k] = v.average_volume ?? null;
+        }
+        setUsSwingShortFloats((p) => ({ ...p, ...shortFloat }));
+        setUsSwingAdvs((p) => ({ ...p, ...adv }));
+      })
+      .catch(() => {});
+    fetch(`/api/earnings?tickers=${joined}`)
+      .then((r) => r.json())
+      .then((d) => setUsSwingEarnings((p) => ({ ...p, ...(d.earnings ?? {}) })))
+      .catch(() => {});
   }
 
   async function handleAddUsSwingTicker(e: React.FormEvent) {
@@ -228,6 +254,7 @@ export default function Home() {
       setUsSwingStocks((prev) => [...prev.filter((s) => s.ticker !== sym), entry].sort((a, b) => a.ticker.localeCompare(b.ticker)));
       if (data.price != null) setUsSwingPrices((p) => ({ ...p, [sym]: data.price }));
       fetchUsSwingDaily([sym]);
+      fetchUsSwingFundAndEarnings([sym]);
       setUsSwingAddTicker("");
     } catch (err) {
       setUsSwingAddError(err instanceof Error ? err.message : "Unknown error");
@@ -976,6 +1003,9 @@ export default function Home() {
             usSwingRsis={usSwingRsis}
             usSwingLow6mos={usSwingLow6mos}
             usSwingRelVolumes={usSwingRelVolumes}
+            usSwingShortFloats={usSwingShortFloats}
+            usSwingAdvs={usSwingAdvs}
+            usSwingEarnings={usSwingEarnings}
             usSwingLoading={usSwingLoading}
             onUsSwingTabOpen={handleUsSwingTabOpen}
             usSwingAddTicker={usSwingAddTicker}

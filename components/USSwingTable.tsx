@@ -13,7 +13,7 @@ export interface USSwingStock {
 type SortKey =
   | "ticker" | "industry" | "price" | "atr"
   | "ema20d" | "distEma20d" | "ema50d" | "distEma50d"
-  | "macd" | "low6mo" | "distLow6mo" | "rsi" | "relVolume";
+  | "macd" | "low6mo" | "distLow6mo" | "rsi" | "shortFloat" | "adv" | "relVolume" | "earnings";
 type SortDir = "asc" | "desc";
 
 interface Props {
@@ -26,6 +26,9 @@ interface Props {
   rsis: Record<string, number | null>;
   low6mos: Record<string, number | null>;
   relVolumes: Record<string, number | null>;
+  shortFloats?: Record<string, number | null>;
+  advs?: Record<string, number | null>;
+  earnings?: Record<string, string | null>;
   loading?: boolean;
   addTicker?: string;
   addLoading?: boolean;
@@ -39,7 +42,8 @@ interface Props {
 const dash = <span className="text-gray-400">—</span>;
 
 export default function USSwingTable({
-  stocks, prices, atrs, ema20s, ema50s, macds, rsis, low6mos, relVolumes, loading = false,
+  stocks, prices, atrs, ema20s, ema50s, macds, rsis, low6mos, relVolumes,
+  shortFloats = {}, advs = {}, earnings = {}, loading = false,
   addTicker = "", addLoading = false, addError = "", onAddTickerChange, onAdd, onRemove, onToggleStar,
 }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>("ticker");
@@ -70,9 +74,12 @@ export default function USSwingTable({
         distLow6mo: price != null && low6mo != null && low6mo > 0 ? ((price - low6mo) / low6mo) * 100 : null,
         rsi: rsis[s.ticker] ?? null,
         relVolume: relVolumes[s.ticker] ?? null,
+        shortFloat: shortFloats[s.ticker] ?? null,
+        adv: advs[s.ticker] ?? null,
+        earnings: earnings[s.ticker] ?? null,
       };
     });
-  }, [stocks, prices, atrs, ema20s, ema50s, macds, rsis, low6mos, relVolumes]);
+  }, [stocks, prices, atrs, ema20s, ema50s, macds, rsis, low6mos, relVolumes, shortFloats, advs, earnings]);
 
   const filteredRows = useMemo(() => {
     return starredOnly ? rows.filter((r) => r.starred) : rows;
@@ -93,7 +100,14 @@ export default function USSwingTable({
         case "low6mo": return r.low6mo;
         case "distLow6mo": return r.distLow6mo;
         case "rsi": return r.rsi;
+        case "shortFloat": return r.shortFloat;
+        case "adv": return r.adv;
         case "relVolume": return r.relVolume;
+        case "earnings": {
+          if (!r.earnings) return null;
+          const today = new Date().toISOString().slice(0, 10);
+          return Math.round((new Date(r.earnings + "T00:00:00Z").getTime() - new Date(today + "T00:00:00Z").getTime()) / 86400000);
+        }
         default: return null;
       }
     };
@@ -115,15 +129,25 @@ export default function USSwingTable({
   function exportCsv() {
     const date = new Date().toISOString().slice(0, 10);
     const headers = ["Ticker", "Name", "Industry", "Price", "ATR%", "EMA20D", "Dist EMA20D%",
-      "EMA50D", "Dist EMA50D%", "MACD", "Low (6mo)", "Dist from Low%", "RSI", "Rel Volume"];
-    const data = sortedRows.map((r) => [
-      r.ticker, r.name ?? "", r.industry,
-      r.price?.toFixed(2) ?? "", r.atr?.toFixed(1) ?? "",
-      r.ema20d?.toFixed(2) ?? "", r.distEma20d?.toFixed(1) ?? "",
-      r.ema50d?.toFixed(2) ?? "", r.distEma50d?.toFixed(1) ?? "",
-      r.macd?.toFixed(2) ?? "", r.low6mo?.toFixed(2) ?? "", r.distLow6mo?.toFixed(1) ?? "",
-      r.rsi?.toFixed(1) ?? "", r.relVolume?.toFixed(2) ?? "",
-    ]);
+      "EMA50D", "Dist EMA50D%", "MACD", "Low (6mo)", "Dist from Low%", "RSI", "Short Float%", "ADV",
+      "Rel Volume", "Earnings Date", "Days to Earnings"];
+    const data = sortedRows.map((r) => {
+      const daysUntil = r.earnings
+        ? Math.round((new Date(r.earnings + "T00:00:00Z").getTime() - new Date(new Date().toISOString().slice(0, 10) + "T00:00:00Z").getTime()) / 86400000)
+        : null;
+      return [
+        r.ticker, r.name ?? "", r.industry,
+        r.price?.toFixed(2) ?? "", r.atr?.toFixed(1) ?? "",
+        r.ema20d?.toFixed(2) ?? "", r.distEma20d?.toFixed(1) ?? "",
+        r.ema50d?.toFixed(2) ?? "", r.distEma50d?.toFixed(1) ?? "",
+        r.macd?.toFixed(2) ?? "", r.low6mo?.toFixed(2) ?? "", r.distLow6mo?.toFixed(1) ?? "",
+        r.rsi?.toFixed(1) ?? "",
+        r.shortFloat != null ? (r.shortFloat * 100).toFixed(1) : "",
+        r.adv != null ? Math.round(r.adv).toLocaleString() : "",
+        r.relVolume?.toFixed(2) ?? "",
+        r.earnings ?? "", daysUntil != null ? String(daysUntil) : "",
+      ];
+    });
     downloadCsv(`swing-${date}.csv`, headers, data);
   }
 
@@ -145,6 +169,29 @@ export default function USSwingTable({
 
   const relVolColor = (v: number | null) =>
     v == null ? "text-gray-400" : v >= 1.5 ? "text-green-600 font-semibold" : v <= 0.5 ? "text-gray-400" : "text-gray-700";
+
+  const shortFloatColor = (v: number | null) =>
+    v == null ? "text-gray-400" : v >= 0.2 ? "text-red-500 font-semibold" : v >= 0.1 ? "text-yellow-600" : "text-gray-700";
+
+  const fmtAdv = (v: number | null) => {
+    if (v == null) return dash;
+    if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
+    if (v >= 1_000) return `${(v / 1_000).toFixed(0)}K`;
+    return v.toFixed(0);
+  };
+
+  function EarningsCell({ dateStr }: { dateStr: string | null }) {
+    if (!dateStr) return dash;
+    const todayStr = new Date().toISOString().slice(0, 10);
+    const daysUntil = Math.round((new Date(dateStr + "T00:00:00Z").getTime() - new Date(todayStr + "T00:00:00Z").getTime()) / 86400000);
+    const bracket = daysUntil < 0 ? `(reported)` : `(${daysUntil}d)`;
+    const color = daysUntil >= 0 && daysUntil <= 7 ? "text-yellow-600 font-semibold" : "text-gray-700";
+    return (
+      <span className={color}>
+        {dateStr} <span className="text-gray-400 font-normal">{bracket}</span>
+      </span>
+    );
+  }
 
   return (
     <div className="space-y-3">
@@ -205,13 +252,16 @@ export default function USSwingTable({
               <Th label="Low (6mo)" k="low6mo" title="Lowest intraday low over the last ~6 months (126 sessions)" />
               <Th label="Dist from Low" k="distLow6mo" title="Price distance from the 6-month low" />
               <Th label="RSI" k="rsi" title="RSI(14), daily" />
+              <Th label="Short Float %" k="shortFloat" title="Short interest as a % of the public float" />
+              <Th label="ADV" k="adv" title="Average daily volume (3-month)" />
               <Th label="Rel Volume" k="relVolume" title="Latest session volume vs its trailing 20-day average" />
+              <Th label="Earnings Date" k="earnings" title="Next/last reported earnings date, with days until in brackets" />
               <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Remove</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {sortedRows.length === 0 && (
-              <tr><td colSpan={15} className="px-3 py-6 text-center text-gray-400 text-sm">{starredOnly ? "No starred tickers." : "No tickers yet — add one above."}</td></tr>
+              <tr><td colSpan={18} className="px-3 py-6 text-center text-gray-400 text-sm">{starredOnly ? "No starred tickers." : "No tickers yet — add one above."}</td></tr>
             )}
             {sortedRows.map((r) => (
               <tr key={r.ticker} className="hover:bg-gray-50">
@@ -239,7 +289,10 @@ export default function USSwingTable({
                 <td className="px-3 py-2 text-gray-700">{r.low6mo != null ? `$${r.low6mo.toFixed(2)}` : dash}</td>
                 <td className="px-3 py-2 font-medium text-gray-700">{r.distLow6mo != null ? `${r.distLow6mo.toFixed(1)}%` : dash}</td>
                 <td className={`px-3 py-2 font-medium ${rsiColor(r.rsi)}`}>{r.rsi != null ? r.rsi.toFixed(1) : dash}</td>
+                <td className={`px-3 py-2 font-medium ${shortFloatColor(r.shortFloat)}`}>{r.shortFloat != null ? `${(r.shortFloat * 100).toFixed(1)}%` : dash}</td>
+                <td className="px-3 py-2 text-gray-700">{fmtAdv(r.adv)}</td>
                 <td className={`px-3 py-2 ${relVolColor(r.relVolume)}`}>{r.relVolume != null ? `${r.relVolume.toFixed(2)}x` : dash}</td>
+                <td className="px-3 py-2 whitespace-nowrap"><EarningsCell dateStr={r.earnings} /></td>
                 <td className="px-3 py-2">
                   <button
                     onClick={() => onRemove?.(r.ticker)}
