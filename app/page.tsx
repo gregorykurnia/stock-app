@@ -54,6 +54,17 @@ export default function Home() {
   const [peRefreshing, setPeRefreshing] = useState(false);
   const [peProgress, setPeProgress] = useState("");
 
+  // US "Swing" tab — same stock universe as List, daily-timeframe indicators, lazy-loaded
+  const [usSwingAtrs, setUsSwingAtrs] = useState<Record<string, number | null>>({});
+  const [usSwingEma20s, setUsSwingEma20s] = useState<Record<string, number | null>>({});
+  const [usSwingEma50s, setUsSwingEma50s] = useState<Record<string, number | null>>({});
+  const [usSwingMacds, setUsSwingMacds] = useState<Record<string, number | null>>({});
+  const [usSwingRsis, setUsSwingRsis] = useState<Record<string, number | null>>({});
+  const [usSwingLow3mos, setUsSwingLow3mos] = useState<Record<string, number | null>>({});
+  const [usSwingRelVolumes, setUsSwingRelVolumes] = useState<Record<string, number | null>>({});
+  const [usSwingLoading, setUsSwingLoading] = useState(false);
+  const [usSwingLoaded, setUsSwingLoaded] = useState(false);
+
   // IHSG state (mirrors US state, tickers stored without .JK)
   const [ihsgCustomStocks, setIhsgCustomStocks] = useState<CustomStock[]>([]);
   const [ihsgPrices, setIhsgPrices] = useState<Record<string, number | null>>({});
@@ -138,6 +149,26 @@ export default function Home() {
     }
     setPeRefreshing(false);
     setPeProgress("");
+  }
+
+  function handleUsSwingTabOpen() {
+    if (usSwingLoaded || market !== "us") return;
+    setUsSwingLoaded(true);
+    setUsSwingLoading(true);
+    const tickers = [...SEED_STOCKS.map((s) => s.ticker), ...customStocks.map((s) => s.ticker)];
+    fetch(`/api/swing-daily?tickers=${tickers.join(",")}`)
+      .then((r) => r.json())
+      .then((d) => {
+        setUsSwingEma20s(d.ema20 ?? {});
+        setUsSwingEma50s(d.ema50 ?? {});
+        setUsSwingAtrs(d.atrPct ?? {});
+        setUsSwingRsis(d.rsi ?? {});
+        setUsSwingMacds(d.macd ?? {});
+        setUsSwingLow3mos(d.low3mo ?? {});
+        setUsSwingRelVolumes(d.relVolume ?? {});
+      })
+      .catch(() => {})
+      .finally(() => setUsSwingLoading(false));
   }
 
   async function handleToggleMark(ticker: string) {
@@ -866,6 +897,19 @@ export default function Home() {
             onSetStatus={handleSetStatus}
             onRemoveCustom={handleRemoveCustom}
             onToggleMark={handleToggleMark}
+            usSwingStocks={[
+              ...SEED_STOCKS.map((s) => ({ ticker: s.ticker, name: null, industry: s.industry })),
+              ...customStocks.map((s) => ({ ticker: s.ticker, name: s.name, industry: s.industry ?? s.sector ?? "—" })),
+            ]}
+            usSwingAtrs={usSwingAtrs}
+            usSwingEma20s={usSwingEma20s}
+            usSwingEma50s={usSwingEma50s}
+            usSwingMacds={usSwingMacds}
+            usSwingRsis={usSwingRsis}
+            usSwingLow3mos={usSwingLow3mos}
+            usSwingRelVolumes={usSwingRelVolumes}
+            usSwingLoading={usSwingLoading}
+            onUsSwingTabOpen={handleUsSwingTabOpen}
           />
         )}
       </div>

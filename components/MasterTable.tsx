@@ -8,6 +8,7 @@ import { atrLabel, type BandarScoreResult } from "@/lib/indicators";
 import { downloadCsv } from "@/lib/exportCsv";
 import type { CustomStock, PeStats } from "@/lib/types";
 import type { FundData } from "@/app/api/funddata/route";
+import USSwingTable, { type USSwingStock } from "@/components/USSwingTable";
 
 type SortKey =
   | "ticker" | "combined" | "val" | "fund" | "price" | "industry" | "urgency" | "atr"
@@ -146,6 +147,17 @@ interface Props {
   onSetStatus: (ticker: string, status: "portfolio" | "watchlist") => void;
   onRemoveCustom: (ticker: string) => void;
   onToggleMark: (ticker: string) => void;
+  // US "Swing" tab — same 92-stock universe as List, different (daily) column set
+  usSwingStocks?: USSwingStock[];
+  usSwingAtrs?: Record<string, number | null>;
+  usSwingEma20s?: Record<string, number | null>;
+  usSwingEma50s?: Record<string, number | null>;
+  usSwingMacds?: Record<string, number | null>;
+  usSwingRsis?: Record<string, number | null>;
+  usSwingLow3mos?: Record<string, number | null>;
+  usSwingRelVolumes?: Record<string, number | null>;
+  usSwingLoading?: boolean;
+  onUsSwingTabOpen?: () => void;
 }
 
 function EarningsBadge({ dateStr }: { dateStr: string | null | undefined }) {
@@ -185,12 +197,18 @@ export default function MasterTable({
   swingAtr14 = {},
   swingBandar = {},
   swingLoading = false, swingAddTicker = "", swingAddLoading = false, swingAddError = "", onSwingAddTickerChange, onSwingAdd, onSwingRemove, onSwingEntryPriceChange,
+  usSwingStocks = [], usSwingAtrs = {}, usSwingEma20s = {}, usSwingEma50s = {}, usSwingMacds = {}, usSwingRsis = {}, usSwingLow3mos = {}, usSwingRelVolumes = {}, usSwingLoading = false, onUsSwingTabOpen,
 }: Props) {
   const isIhsg = market === "ihsg";
   // Currency prefix and price formatter
   const fmtPrice = (v: number) => isIhsg ? `Rp${Math.round(v).toLocaleString("id-ID")}` : `$${v.toFixed(2)}`;
-  type MainTab = "list" | "midterm";
+  type MainTab = "list" | "midterm" | "swing";
   const [mainTab, setMainTab] = useState<MainTab>("list");
+
+  useEffect(() => {
+    if (!isIhsg && mainTab === "swing") onUsSwingTabOpen?.();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mainTab, isIhsg]);
   const [activeTab, setActiveTab] = useState<SubTab>("all");
   const [sortKey, setSortKey] = useState<SortKey>("combined");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
@@ -1366,33 +1384,31 @@ export default function MasterTable({
 
   return (
     <div className="space-y-3">
-      {/* Main tabs (IHSG only): List vs Midterm/Swing */}
-      {isIhsg && (
-        <div className="flex gap-1 border-b-2 border-gray-200">
-          <button
-            onClick={() => setMainTab("list")}
-            className={`px-4 py-2 text-sm font-semibold transition-colors border-b-2 -mb-px ${
-              mainTab === "list"
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300"
-            }`}
-          >
-            List
-          </button>
-          <button
-            onClick={() => setMainTab("midterm")}
-            className={`px-4 py-2 text-sm font-semibold transition-colors border-b-2 -mb-px ${
-              mainTab === "midterm"
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300"
-            }`}
-          >
-            Midterm or Swing
-          </button>
-        </div>
-      )}
+      {/* Main tabs: List vs Midterm/Swing (IHSG) or List vs Swing (US) */}
+      <div className="flex gap-1 border-b-2 border-gray-200">
+        <button
+          onClick={() => setMainTab("list")}
+          className={`px-4 py-2 text-sm font-semibold transition-colors border-b-2 -mb-px ${
+            mainTab === "list"
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300"
+          }`}
+        >
+          List
+        </button>
+        <button
+          onClick={() => setMainTab(isIhsg ? "midterm" : "swing")}
+          className={`px-4 py-2 text-sm font-semibold transition-colors border-b-2 -mb-px ${
+            mainTab === (isIhsg ? "midterm" : "swing")
+              ? "border-blue-600 text-blue-600"
+              : "border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300"
+          }`}
+        >
+          {isIhsg ? "Midterm or Swing" : "Swing"}
+        </button>
+      </div>
 
-      {(!isIhsg || mainTab === "list") && (
+      {mainTab === "list" && (
       <>
       {/* Subtabs */}
       <div className="flex gap-1 border-b border-gray-200">
@@ -2080,6 +2096,22 @@ export default function MasterTable({
             </table>
           </div>
         </div>
+      )}
+
+      {/* SWING TAB (US only) — same stock universe as List, daily-timeframe columns */}
+      {!isIhsg && mainTab === "swing" && (
+        <USSwingTable
+          stocks={usSwingStocks}
+          prices={prices}
+          atrs={usSwingAtrs}
+          ema20s={usSwingEma20s}
+          ema50s={usSwingEma50s}
+          macds={usSwingMacds}
+          rsis={usSwingRsis}
+          low3mos={usSwingLow3mos}
+          relVolumes={usSwingRelVolumes}
+          loading={usSwingLoading}
+        />
       )}
     </div>
   );
