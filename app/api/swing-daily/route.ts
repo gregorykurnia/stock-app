@@ -29,6 +29,7 @@ interface SwingDailyResult {
   emaCrossAbove: boolean | null;
   crossPrice: number | null;
   crossDate: string | null;
+  goldenCrossDate: string | null;
   macd: number | null;
   signal: number | null;
   histogram: number | null;
@@ -46,7 +47,7 @@ interface SwingDailyResult {
 
 const EMPTY: SwingDailyResult = {
   ema20: null, ema50: null, atrPct: null, rsi: null,
-  emaCrossAbove: null, crossPrice: null, crossDate: null,
+  emaCrossAbove: null, crossPrice: null, crossDate: null, goldenCrossDate: null,
   macd: null, signal: null, histogram: null, histDirection: null,
   atr: null, stopLoss: null, stopLossPercent: null, bandar: null,
   low6mo: null, distFromLow6mo: null, resistance: null, distFromResistance: null, relVolume: null,
@@ -82,6 +83,7 @@ async function fetchSwingDaily(ticker: string): Promise<SwingDailyResult> {
   let emaCrossAbove: boolean | null = null;
   let crossPrice: number | null = null;
   let crossDate: string | null = null;
+  let goldenCrossDate: string | null = null;
 
   if (ema20 != null && ema50 != null) {
     emaCrossAbove = ema20 > ema50;
@@ -98,6 +100,9 @@ async function fetchSwingDaily(ticker: string): Promise<SwingDailyResult> {
         const q = quotes[i] as any;
         const d: Date = q.date instanceof Date ? q.date : new Date(q.date);
         crossDate = d.toISOString().slice(0, 10);
+        // Golden cross = EMA20 crossing above EMA50 specifically (sign flip -1 -> 1),
+        // tracked separately from crossDate since that also captures death crosses.
+        if (prevSign === -1 && sign === 1) goldenCrossDate = crossDate;
       }
       prevSign = sign;
     }
@@ -130,7 +135,7 @@ async function fetchSwingDaily(ticker: string): Promise<SwingDailyResult> {
   const relVolume = avgVol20 != null && avgVol20 > 0 ? lastVol / avgVol20 : null;
 
   return {
-    ema20, ema50, atrPct, rsi, emaCrossAbove, crossPrice, crossDate,
+    ema20, ema50, atrPct, rsi, emaCrossAbove, crossPrice, crossDate, goldenCrossDate,
     macd: macdRes?.macd ?? null,
     signal: macdRes?.signal ?? null,
     histogram: macdRes?.histogram ?? null,
@@ -156,6 +161,7 @@ export async function GET(req: NextRequest) {
   const emaCrossAbove: Record<string, boolean | null> = {};
   const crossPrice: Record<string, number | null> = {};
   const crossDate: Record<string, string | null> = {};
+  const goldenCrossDate: Record<string, string | null> = {};
   const macd: Record<string, number | null> = {};
   const signal: Record<string, number | null> = {};
   const histogram: Record<string, number | null> = {};
@@ -182,6 +188,7 @@ export async function GET(req: NextRequest) {
       emaCrossAbove[ticker] = r.emaCrossAbove;
       crossPrice[ticker] = r.crossPrice;
       crossDate[ticker] = r.crossDate;
+      goldenCrossDate[ticker] = r.goldenCrossDate;
       macd[ticker] = r.macd;
       signal[ticker] = r.signal;
       histogram[ticker] = r.histogram;
@@ -199,7 +206,7 @@ export async function GET(req: NextRequest) {
   }
 
   return NextResponse.json({
-    ema20, ema50, atrPct, rsi, emaCrossAbove, crossPrice, crossDate,
+    ema20, ema50, atrPct, rsi, emaCrossAbove, crossPrice, crossDate, goldenCrossDate,
     macd, signal, histogram, histDirection,
     atr, stopLoss, stopLossPercent, bandar,
     low6mo, distFromLow6mo, resistance, distFromResistance, relVolume,

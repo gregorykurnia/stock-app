@@ -63,6 +63,7 @@ export default function Home() {
   const [usSwingAtrs, setUsSwingAtrs] = useState<Record<string, number | null>>({});
   const [usSwingEma20s, setUsSwingEma20s] = useState<Record<string, number | null>>({});
   const [usSwingEma50s, setUsSwingEma50s] = useState<Record<string, number | null>>({});
+  const [usSwingGoldenCrossDates, setUsSwingGoldenCrossDates] = useState<Record<string, string | null>>({});
   const [usSwingMacds, setUsSwingMacds] = useState<Record<string, number | null>>({});
   const [usSwingRsis, setUsSwingRsis] = useState<Record<string, number | null>>({});
   const [usSwingLow6mos, setUsSwingLow6mos] = useState<Record<string, number | null>>({});
@@ -170,6 +171,7 @@ export default function Home() {
       .then((d) => {
         setUsSwingEma20s((p) => ({ ...p, ...(d.ema20 ?? {}) }));
         setUsSwingEma50s((p) => ({ ...p, ...(d.ema50 ?? {}) }));
+        setUsSwingGoldenCrossDates((p) => ({ ...p, ...(d.goldenCrossDate ?? {}) }));
         setUsSwingAtrs((p) => ({ ...p, ...(d.atrPct ?? {}) }));
         setUsSwingRsis((p) => ({ ...p, ...(d.rsi ?? {}) }));
         setUsSwingMacds((p) => ({ ...p, ...(d.macd ?? {}) }));
@@ -1006,6 +1008,7 @@ export default function Home() {
             usSwingAtrs={usSwingAtrs}
             usSwingEma20s={usSwingEma20s}
             usSwingEma50s={usSwingEma50s}
+            usSwingGoldenCrossDates={usSwingGoldenCrossDates}
             usSwingMacds={usSwingMacds}
             usSwingRsis={usSwingRsis}
             usSwingLow6mos={usSwingLow6mos}
