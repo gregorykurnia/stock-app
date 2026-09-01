@@ -151,7 +151,7 @@ export async function removePortfolioDivisionStock(division: PortfolioDivision, 
 export async function updatePortfolioDivisionEntry(
   division: PortfolioDivision,
   ticker: string,
-  data: { entry_price?: number | null; entry_value?: number | null }
+  data: { entry_price?: number | null; entry_quantity?: number | null }
 ) {
   await setDoc(doc(db, portfolioDivisionCollection(division), ticker), data, { merge: true });
 }

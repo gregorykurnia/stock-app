@@ -313,13 +313,13 @@ export default function Home() {
   async function loadPortfolioDivision(division: PortfolioDivision) {
     const data = await getPortfolioDivisionStocks(division).catch(() => ({}));
     const list = Object.entries(data).map(([ticker, d]) => {
-      const raw = d as { name?: string | null; industry?: string | null; entry_price?: number | null; entry_value?: number | null };
+      const raw = d as { name?: string | null; industry?: string | null; entry_price?: number | null; entry_quantity?: number | null };
       return {
         ticker,
         name: raw.name ?? null,
         industry: raw.industry ?? null,
         entry_price: raw.entry_price ?? null,
-        entry_value: raw.entry_value ?? null,
+        entry_quantity: raw.entry_quantity ?? null,
       } as PortfolioStock;
     });
     list.sort((a, b) => a.ticker.localeCompare(b.ticker));
@@ -365,7 +365,7 @@ export default function Home() {
         name: data.name ?? null,
         industry: data.industry ?? data.sector ?? null,
         entry_price: null,
-        entry_value: null,
+        entry_quantity: null,
       };
       await savePortfolioDivisionStock(division, sym, { name: entry.name, industry: entry.industry, added_at: new Date().toISOString() });
       setPortfolioStocks((p) => ({
@@ -393,7 +393,7 @@ export default function Home() {
   async function handlePortfolioEntryChange(
     division: PortfolioDivision,
     ticker: string,
-    field: "entry_price" | "entry_value",
+    field: "entry_price" | "entry_quantity",
     value: number | null
   ) {
     setPortfolioStocks((p) => ({

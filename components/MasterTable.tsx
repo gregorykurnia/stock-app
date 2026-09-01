@@ -195,7 +195,7 @@ interface Props {
   onPortfolioAddTickerChange?: (division: PortfolioDivision, v: string) => void;
   onPortfolioAdd?: (division: PortfolioDivision, e: FormEvent) => void;
   onPortfolioRemove?: (division: PortfolioDivision, ticker: string) => void;
-  onPortfolioEntryChange?: (division: PortfolioDivision, ticker: string, field: "entry_price" | "entry_value", value: number | null) => void;
+  onPortfolioEntryChange?: (division: PortfolioDivision, ticker: string, field: "entry_price" | "entry_quantity", value: number | null) => void;
 }
 
 function EarningsBadge({ dateStr }: { dateStr: string | null | undefined }) {

@@ -8,7 +8,7 @@ export interface PortfolioStock {
   name: string | null;
   industry: string | null;
   entry_price: number | null;
-  entry_value: number | null;
+  entry_quantity: number | null;
 }
 
 export const PORTFOLIO_DIVISIONS: { id: PortfolioDivision; label: string }[] = [
@@ -17,7 +17,7 @@ export const PORTFOLIO_DIVISIONS: { id: PortfolioDivision; label: string }[] = [
   { id: "swing", label: "Swing" },
 ];
 
-type SortKey = "ticker" | "industry" | "price" | "priceChangePct" | "entryPrice" | "entryValue" | "totalPct" | "unrealized";
+type SortKey = "ticker" | "industry" | "price" | "priceChangePct" | "entryPrice" | "entryQuantity" | "entryValue" | "totalPct" | "unrealized";
 type SortDir = "asc" | "desc";
 
 interface Props {
@@ -32,7 +32,7 @@ interface Props {
   onAddTickerChange?: (v: string) => void;
   onAdd?: (e: FormEvent) => void;
   onRemove?: (ticker: string) => void;
-  onEntryChange?: (ticker: string, field: "entry_price" | "entry_value", value: number | null) => void;
+  onEntryChange?: (ticker: string, field: "entry_price" | "entry_quantity", value: number | null) => void;
 }
 
 const dash = <span className="text-gray-400">—</span>;
@@ -89,8 +89,9 @@ export default function PortfolioTable({
       const prevClose = prevCloses[s.ticker] ?? null;
       const priceChangePct = price != null && prevClose != null && prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : null;
       const totalPct = price != null && s.entry_price != null && s.entry_price > 0 ? ((price - s.entry_price) / s.entry_price) * 100 : null;
-      const unrealized = totalPct != null && s.entry_value != null ? (totalPct / 100) * s.entry_value : null;
-      return { ...s, price, priceChangePct, totalPct, unrealized };
+      const entryValue = s.entry_price != null && s.entry_quantity != null ? s.entry_price * s.entry_quantity : null;
+      const unrealized = price != null && s.entry_price != null && s.entry_quantity != null ? (price - s.entry_price) * s.entry_quantity : null;
+      return { ...s, price, priceChangePct, totalPct, entryValue, unrealized };
     });
   }, [stocks, prices, prevCloses]);
 
@@ -102,7 +103,8 @@ export default function PortfolioTable({
         case "price": return r.price;
         case "priceChangePct": return r.priceChangePct;
         case "entryPrice": return r.entry_price;
-        case "entryValue": return r.entry_value;
+        case "entryQuantity": return r.entry_quantity;
+        case "entryValue": return r.entryValue;
         case "totalPct": return r.totalPct;
         case "unrealized": return r.unrealized;
         default: return null;
@@ -124,7 +126,7 @@ export default function PortfolioTable({
   }, [rows, sortKey, sortDir]);
 
   const totals = useMemo(() => {
-    const entryValue = rows.reduce((sum, r) => sum + (r.entry_value ?? 0), 0);
+    const entryValue = rows.reduce((sum, r) => sum + (r.entryValue ?? 0), 0);
     const unrealized = rows.reduce((sum, r) => sum + (r.unrealized ?? 0), 0);
     return { entryValue, unrealized };
   }, [rows]);
@@ -175,15 +177,16 @@ export default function PortfolioTable({
               <Th label="Price" k="price" />
               <Th label="Chg %" k="priceChangePct" title="% change vs previous close" />
               <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Entry Price</th>
-              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Entry Value</th>
+              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Entry Qty</th>
+              <Th label="Entry Value" k="entryValue" title="Entry price × entry quantity" />
               <Th label="Total %" k="totalPct" title="% change from entry price to current price" />
-              <Th label="Unrealized" k="unrealized" title="Unrealized gain/loss in $, based on entry value" />
+              <Th label="Unrealized" k="unrealized" title="Unrealized gain/loss in $ = (current price − entry price) × entry quantity" />
               <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Remove</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {sortedRows.length === 0 && (
-              <tr><td colSpan={9} className="px-3 py-6 text-center text-gray-400 text-sm">No positions in {PORTFOLIO_DIVISIONS.find((d) => d.id === division)?.label} yet — add one above.</td></tr>
+              <tr><td colSpan={10} className="px-3 py-6 text-center text-gray-400 text-sm">No positions in {PORTFOLIO_DIVISIONS.find((d) => d.id === division)?.label} yet — add one above.</td></tr>
             )}
             {sortedRows.map((r) => (
               <tr key={r.ticker} className="hover:bg-gray-50">
@@ -200,8 +203,9 @@ export default function PortfolioTable({
                   <EditableNumberCell value={r.entry_price} onCommit={(v) => onEntryChange?.(r.ticker, "entry_price", v)} />
                 </td>
                 <td className="px-3 py-2">
-                  <EditableNumberCell value={r.entry_value} onCommit={(v) => onEntryChange?.(r.ticker, "entry_value", v)} />
+                  <EditableNumberCell value={r.entry_quantity} onCommit={(v) => onEntryChange?.(r.ticker, "entry_quantity", v)} />
                 </td>
+                <td className="px-3 py-2 text-gray-700">{r.entryValue != null ? `$${r.entryValue.toFixed(2)}` : dash}</td>
                 <td className={`px-3 py-2 font-medium ${r.totalPct == null ? "text-gray-400" : r.totalPct >= 0 ? "text-green-600" : "text-red-500"}`}>
                   {r.totalPct != null ? `${r.totalPct >= 0 ? "+" : ""}${r.totalPct.toFixed(1)}%` : dash}
                 </td>
@@ -222,7 +226,7 @@ export default function PortfolioTable({
           {sortedRows.length > 0 && (
             <tfoot className="bg-gray-50 border-t-2 border-gray-200">
               <tr>
-                <td className="px-3 py-2 font-semibold text-gray-700" colSpan={5}>Total</td>
+                <td className="px-3 py-2 font-semibold text-gray-700" colSpan={6}>Total</td>
                 <td className="px-3 py-2 font-semibold text-gray-900">${totals.entryValue.toFixed(2)}</td>
                 <td></td>
                 <td className={`px-3 py-2 font-semibold ${totals.unrealized >= 0 ? "text-green-600" : "text-red-500"}`}>
