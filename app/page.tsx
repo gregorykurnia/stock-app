@@ -18,7 +18,7 @@ import {
   getPortfolioDivisionStocks, savePortfolioDivisionStock, removePortfolioDivisionStock, updatePortfolioDivisionEntry,
   type PortfolioDivision,
 } from "@/lib/firestore";
-import type { PortfolioStock } from "@/components/PortfolioTable";
+import type { PortfolioStock, PortfolioLevelField } from "@/components/PortfolioTable";
 import type { CustomStock, PeStats } from "@/lib/types";
 import type { BandarScoreResult } from "@/lib/indicators";
 import type { FundData } from "@/app/api/funddata/route";
@@ -313,13 +313,21 @@ export default function Home() {
   async function loadPortfolioDivision(division: PortfolioDivision) {
     const data = await getPortfolioDivisionStocks(division).catch(() => ({}));
     const list = Object.entries(data).map(([ticker, d]) => {
-      const raw = d as { name?: string | null; industry?: string | null; entry_price?: number | null; entry_quantity?: number | null };
+      const raw = d as {
+        name?: string | null; industry?: string | null; entry_price?: number | null; entry_quantity?: number | null;
+        nearest_support?: number | null; hard_support?: number | null; r1?: number | null; r2?: number | null; r3?: number | null;
+      };
       return {
         ticker,
         name: raw.name ?? null,
         industry: raw.industry ?? null,
         entry_price: raw.entry_price ?? null,
         entry_quantity: raw.entry_quantity ?? null,
+        nearest_support: raw.nearest_support ?? null,
+        hard_support: raw.hard_support ?? null,
+        r1: raw.r1 ?? null,
+        r2: raw.r2 ?? null,
+        r3: raw.r3 ?? null,
       } as PortfolioStock;
     });
     list.sort((a, b) => a.ticker.localeCompare(b.ticker));
@@ -394,6 +402,19 @@ export default function Home() {
     division: PortfolioDivision,
     ticker: string,
     field: "entry_price" | "entry_quantity",
+    value: number | null
+  ) {
+    setPortfolioStocks((p) => ({
+      ...p,
+      [division]: p[division].map((s) => (s.ticker === ticker ? { ...s, [field]: value } : s)),
+    }));
+    await updatePortfolioDivisionEntry(division, ticker, { [field]: value }).catch(() => {});
+  }
+
+  async function handlePortfolioLevelChange(
+    division: PortfolioDivision,
+    ticker: string,
+    field: PortfolioLevelField,
     value: number | null
   ) {
     setPortfolioStocks((p) => ({
@@ -1184,6 +1205,7 @@ export default function Home() {
             onPortfolioAdd={handleAddPortfolioTicker}
             onPortfolioRemove={handleRemovePortfolioTicker}
             onPortfolioEntryChange={handlePortfolioEntryChange}
+            onPortfolioLevelChange={handlePortfolioLevelChange}
           />
         )}
       </div>

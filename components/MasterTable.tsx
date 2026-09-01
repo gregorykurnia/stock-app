@@ -9,7 +9,7 @@ import { downloadCsv } from "@/lib/exportCsv";
 import type { CustomStock, PeStats } from "@/lib/types";
 import type { FundData } from "@/app/api/funddata/route";
 import USSwingTable, { type USSwingStock } from "@/components/USSwingTable";
-import PortfolioTable, { PORTFOLIO_DIVISIONS, type PortfolioStock } from "@/components/PortfolioTable";
+import PortfolioTable, { PORTFOLIO_DIVISIONS, type PortfolioStock, type PortfolioLevelField } from "@/components/PortfolioTable";
 import type { PortfolioDivision } from "@/lib/firestore";
 
 type SortKey =
@@ -196,6 +196,7 @@ interface Props {
   onPortfolioAdd?: (division: PortfolioDivision, e: FormEvent) => void;
   onPortfolioRemove?: (division: PortfolioDivision, ticker: string) => void;
   onPortfolioEntryChange?: (division: PortfolioDivision, ticker: string, field: "entry_price" | "entry_quantity", value: number | null) => void;
+  onPortfolioLevelChange?: (division: PortfolioDivision, ticker: string, field: PortfolioLevelField, value: number | null) => void;
 }
 
 function EarningsBadge({ dateStr }: { dateStr: string | null | undefined }) {
@@ -242,7 +243,7 @@ export default function MasterTable({
   portfolioLoading = { longterm: false, index: false, swing: false }, onPortfolioTabOpen,
   portfolioAddTicker = { longterm: "", index: "", swing: "" }, portfolioAddLoading = { longterm: false, index: false, swing: false },
   portfolioAddError = { longterm: "", index: "", swing: "" },
-  onPortfolioAddTickerChange, onPortfolioAdd, onPortfolioRemove, onPortfolioEntryChange,
+  onPortfolioAddTickerChange, onPortfolioAdd, onPortfolioRemove, onPortfolioEntryChange, onPortfolioLevelChange,
 }: Props) {
   const isIhsg = market === "ihsg";
   // Currency prefix and price formatter
@@ -2281,6 +2282,7 @@ export default function MasterTable({
             onAdd={(e) => onPortfolioAdd?.(portfolioDivision, e)}
             onRemove={(ticker) => onPortfolioRemove?.(portfolioDivision, ticker)}
             onEntryChange={(ticker, field, value) => onPortfolioEntryChange?.(portfolioDivision, ticker, field, value)}
+            onLevelChange={(ticker, field, value) => onPortfolioLevelChange?.(portfolioDivision, ticker, field, value)}
           />
         </div>
       )}
