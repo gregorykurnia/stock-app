@@ -48,17 +48,121 @@ interface Props {
 
 const dash = <span className="text-gray-400">—</span>;
 
-const LEGEND = {
-  atr: "ATR% — volatility as % of price\n<1%: Very Low\n1.01-2%: Low to Moderate\n2.01-4%: Moderate\n4.01-7%: High\n>7%: Very High",
-  ema20d: "Dist EMA20D — price distance from EMA20 daily\n0-3%: Healthy\n3.01-7%: Strong Trend\n7.01-12%: Extended\n>12.01%: Overextended",
-  ema50d: "Dist EMA50D — price distance from EMA50 daily\n0-5%: Healthy\n5.01-10%: Moderately Extended\n10.01-20%: Extended\n>20.01%: Overextended",
-  goldenCross: "Golden Cross — days since EMA20D crossed above EMA50D\n0-15d: Very Early, Trend Not Confirmed\n16-45d: Trend Establishing, Best Entry\n46-90d: Mature Trend\n91-180d: Late Stage Trend\n>181d: Aged Cross",
-  roc14: "ROC14 — % price change over the last 14 daily closes\n>10%: Strong Price Momentum, Overextend Check\n5-9.9%: Solid Momentum for Swing\n2-4.9%: Moderate Trend, Good Midterm\n0-1.9%: Weak Trend, Low Conviction",
-  distLow: "Dist from Low — price distance from the 6-month low\n0-5%: High Risk, Need Strong Reversal Confirmation\n5.01-15%: Early Recovery Zone\n15.01-30%: Mid Recovery Zone, Good Midterm\n30.01-50%: Strong Recovery Zone\n50.01-100%: Extended Recovery Zone\n>100.01%: Overextended Breakout",
-  distResistance: "Dist from Resistance — price distance from resistance\n>20%: Big Growth Room\n10-19.99%: Decent Room\n5-9.99%: Close Resistance Room\n0-4.99%: Near Resistance\n<0.1% (or above): Breakout",
-  adx: "ADX — trend strength\n<15: No Trend\n15.01-20: Weak Trend\n20.01-25: Building Trend, Good for Midterm\n25.01-35: Strong Trend, Good for Momentum\n35.01-50: Very Strong Trend, Maybe Overextended\n>50.01: Parabolic Move",
-  shortFloat: "Short Float % — short interest as a % of the public float\n<2%: Minimal Short Interest, No Skeptic\n2.01-5%: Low to Normal, Some Skeptics\n5.01-10%: Moderate, Squeeze Possible\n10.01-20%: Battleground Stock\n20.01-30%: Very High, Heavily Contested\n>30.01%: Extreme Short Float",
+// Shared 6-step ramp used across every tiered metric below: gray (neutral/no-signal) → blue (early/building)
+// → green (sweet spot) → yellow (caution) → orange (extended) → red (overextended/high-risk).
+const DOT: Record<string, string> = {
+  gray: "bg-gray-400", blue: "bg-blue-500", green: "bg-green-600",
+  yellow: "bg-yellow-500", orange: "bg-orange-500", red: "bg-red-500",
 };
+const TEXT: Record<string, string> = {
+  gray: "text-gray-400", blue: "text-blue-600 font-medium", green: "text-green-600 font-semibold",
+  yellow: "text-yellow-600 font-medium", orange: "text-orange-500 font-semibold", red: "text-red-500 font-semibold",
+};
+
+interface Tier { max: number; label: string; color: keyof typeof DOT; range: string }
+
+function tierFor(tiers: Tier[], v: number | null): Tier | null {
+  if (v == null) return null;
+  return tiers.find((t) => v <= t.max) ?? tiers[tiers.length - 1];
+}
+const cellClass = (tiers: Tier[], v: number | null) => TEXT[tierFor(tiers, v)?.color ?? "gray"];
+
+const TIERS = {
+  atr: [
+    { max: 1, label: "Very Low", color: "gray", range: "<1%" },
+    { max: 2, label: "Low to Moderate", color: "blue", range: "1.01-2%" },
+    { max: 4, label: "Moderate", color: "green", range: "2.01-4%" },
+    { max: 7, label: "High", color: "yellow", range: "4.01-7%" },
+    { max: Infinity, label: "Very High", color: "red", range: ">7%" },
+  ] as Tier[],
+  ema20d: [
+    { max: 3, label: "Healthy", color: "green", range: "0-3%" },
+    { max: 7, label: "Strong Trend", color: "blue", range: "3.01-7%" },
+    { max: 12, label: "Extended", color: "yellow", range: "7.01-12%" },
+    { max: Infinity, label: "Overextended", color: "red", range: ">12.01%" },
+  ] as Tier[],
+  ema50d: [
+    { max: 5, label: "Healthy", color: "green", range: "0-5%" },
+    { max: 10, label: "Moderately Extended", color: "blue", range: "5.01-10%" },
+    { max: 20, label: "Extended", color: "yellow", range: "10.01-20%" },
+    { max: Infinity, label: "Overextended", color: "red", range: ">20.01%" },
+  ] as Tier[],
+  goldenCross: [
+    { max: 15, label: "Very Early, Trend Not Confirmed", color: "gray", range: "0-15d" },
+    { max: 45, label: "Trend Establishing, Best Entry", color: "green", range: "16-45d" },
+    { max: 90, label: "Mature Trend", color: "blue", range: "46-90d" },
+    { max: 180, label: "Late Stage Trend", color: "yellow", range: "91-180d" },
+    { max: Infinity, label: "Aged Cross", color: "red", range: ">181d" },
+  ] as Tier[],
+  roc14: [
+    { max: 0, label: "Negative Momentum, Trend Reversing", color: "red", range: "<0%" },
+    { max: 1.9, label: "Weak Trend, Low Conviction", color: "gray", range: "0-1.9%" },
+    { max: 4.9, label: "Moderate Trend, Good Midterm", color: "blue", range: "2-4.9%" },
+    { max: 9.9, label: "Solid Momentum for Swing", color: "green", range: "5-9.9%" },
+    { max: Infinity, label: "Strong Momentum, Overextend Check", color: "yellow", range: ">10%" },
+  ] as Tier[],
+  distLow: [
+    { max: 5, label: "High Risk, Need Strong Reversal Confirmation", color: "red", range: "0-5%" },
+    { max: 15, label: "Early Recovery Zone", color: "yellow", range: "5.01-15%" },
+    { max: 30, label: "Mid Recovery Zone, Good Midterm", color: "green", range: "15.01-30%" },
+    { max: 50, label: "Strong Recovery Zone", color: "blue", range: "30.01-50%" },
+    { max: 100, label: "Extended Recovery Zone", color: "orange", range: "50.01-100%" },
+    { max: Infinity, label: "Overextended Breakout", color: "red", range: ">100.01%" },
+  ] as Tier[],
+  // Tiers below apply to "room to resistance" (how far price sits below resistance); a value already
+  // at/above resistance (distResistance >= 0) is a Breakout regardless of these bands.
+  distResistance: [
+    { max: 4.99, label: "Near Resistance", color: "orange", range: "0-4.99%" },
+    { max: 9.99, label: "Close Resistance Room", color: "yellow", range: "5-9.99%" },
+    { max: 19.99, label: "Decent Room", color: "blue", range: "10-19.99%" },
+    { max: Infinity, label: "Big Growth Room", color: "green", range: ">20%" },
+  ] as Tier[],
+  adx: [
+    { max: 15, label: "No Trend", color: "gray", range: "<15" },
+    { max: 20, label: "Weak Trend", color: "blue", range: "15.01-20" },
+    { max: 25, label: "Building Trend, Good for Midterm", color: "green", range: "20.01-25" },
+    { max: 35, label: "Strong Trend, Good for Momentum", color: "green", range: "25.01-35" },
+    { max: 50, label: "Very Strong Trend, Maybe Overextended", color: "yellow", range: "35.01-50" },
+    { max: Infinity, label: "Parabolic Move", color: "red", range: ">50.01" },
+  ] as Tier[],
+  shortFloat: [
+    { max: 2, label: "Minimal Short Interest, No Skeptic", color: "gray", range: "<2%" },
+    { max: 5, label: "Low to Normal, Some Skeptics", color: "blue", range: "2.01-5%" },
+    { max: 10, label: "Moderate, Squeeze Possible", color: "green", range: "5.01-10%" },
+    { max: 20, label: "Battleground Stock", color: "yellow", range: "10.01-20%" },
+    { max: 30, label: "Very High, Heavily Contested", color: "orange", range: "20.01-30%" },
+    { max: Infinity, label: "Extreme Short Float", color: "red", range: ">30.01%" },
+  ] as Tier[],
+} satisfies Record<string, Tier[]>;
+
+function InfoDot({ tiers, breakoutNote }: { tiers: Tier[]; breakoutNote?: string }) {
+  return (
+    <span className="relative inline-block group/info align-middle ml-1">
+      <span
+        onClick={(e) => e.stopPropagation()}
+        className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-gray-400 text-[9px] leading-none text-gray-400 group-hover/info:text-gray-700 group-hover/info:border-gray-700 normal-case font-normal cursor-help"
+      >
+        i
+      </span>
+      <span className="invisible opacity-0 group-hover/info:visible group-hover/info:opacity-100 transition-opacity absolute z-50 top-full left-1/2 -translate-x-1/2 mt-1 w-64 rounded-md border border-gray-200 bg-white shadow-lg p-2 text-left normal-case font-normal">
+        {breakoutNote && (
+          <div className="flex items-start gap-1.5 mb-1 pb-1 border-b border-gray-100">
+            <span className="mt-0.5 w-2 h-2 rounded-full bg-green-600 shrink-0" />
+            <span className="text-[11px] text-gray-700">{breakoutNote}</span>
+          </div>
+        )}
+        {tiers.map((t) => (
+          <div key={t.range} className="flex items-start gap-1.5 py-0.5">
+            <span className={`mt-0.5 w-2 h-2 rounded-full shrink-0 ${DOT[t.color]}`} />
+            <span className="text-[11px] text-gray-700">
+              <span className="font-semibold text-gray-900">{t.range}</span> {t.label}
+            </span>
+          </div>
+        ))}
+      </span>
+    </span>
+  );
+}
 
 export default function USSwingTable({
   stocks, prices, atrs, ema20s, ema50s, goldenCrossDates = {}, macds, roc14s = {}, rsis, diPluses = {}, diMinuses = {}, adxs = {}, low6mos, relVolumes,
@@ -102,6 +206,9 @@ export default function USSwingTable({
         ema50d,
         distEma50d: price != null && ema50d != null ? ((price - ema50d) / ema50d) * 100 : null,
         goldenCrossDate: goldenCrossDates[s.ticker] ?? null,
+        goldenCrossDays: goldenCrossDates[s.ticker]
+          ? Math.round((Date.now() - new Date(goldenCrossDates[s.ticker] + "T00:00:00Z").getTime()) / 86400000)
+          : null,
         macd: macds[s.ticker] ?? null,
         roc14: roc14s[s.ticker] ?? null,
         low6mo,
@@ -211,43 +318,44 @@ export default function USSwingTable({
         r.earnings ?? "", daysUntil != null ? String(daysUntil) : "",
       ];
     });
+    const METRIC_TITLES: Record<keyof typeof TIERS, string> = {
+      atr: "ATR%", ema20d: "Dist EMA20D%", ema50d: "Dist EMA50D%", goldenCross: "Golden Cross (days since)",
+      roc14: "ROC14", distLow: "Dist from Low%", distResistance: "Dist from Resistance% (room below resistance)",
+      adx: "ADX", shortFloat: "Short Float%",
+    };
     const legendRows: (string | number | null)[][] = [
-      [], ["Legend"],
-      ...Object.values(LEGEND).flatMap((text): (string | number | null)[][] => [...text.split("\n").map((line) => [line]), []]),
+      [], ["Legend", "Range", "Color", "Meaning"],
+      ...(Object.keys(TIERS) as (keyof typeof TIERS)[]).flatMap((key): (string | number | null)[][] => {
+        const rows = TIERS[key].map((t) => ["", t.range, t.color, t.label]);
+        if (key === "distResistance") rows.push(["", "at/above resistance", "green", "Breakout"]);
+        return [[METRIC_TITLES[key]], ...rows, []];
+      }),
     ];
     downloadCsv(`swing-${date}.csv`, headers, [...data, ...legendRows]);
   }
 
-  const Th = ({ label, k, title, sticky, info }: { label: string; k: SortKey; title?: string; sticky?: boolean; info?: boolean }) => (
+  const Th = ({ label, k, title, sticky, infoTiers, breakoutNote }: { label: string; k: SortKey; title?: string; sticky?: boolean; infoTiers?: Tier[]; breakoutNote?: string }) => (
     <th
-      title={info ? undefined : title}
+      title={infoTiers ? undefined : title}
       className={`px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide cursor-pointer hover:text-gray-900 whitespace-nowrap select-none${sticky ? " sticky left-0 z-20 bg-gray-100 after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-gray-300 after:content-['']" : ""}`}
       onClick={() => toggleSort(k)}
     >
       {label}{sortKey === k ? (sortDir === "desc" ? " ↓" : " ↑") : ""}
-      {info && (
-        <span
-          title={title}
-          onClick={(e) => e.stopPropagation()}
-          className="inline-flex items-center justify-center w-3.5 h-3.5 ml-1 rounded-full border border-gray-400 text-[9px] leading-none text-gray-400 hover:text-gray-700 hover:border-gray-700 normal-case font-normal cursor-help align-middle whitespace-pre-line"
-        >
-          i
-        </span>
-      )}
+      {infoTiers && <InfoDot tiers={infoTiers} breakoutNote={breakoutNote} />}
     </th>
   );
-
-  const distColor = (v: number | null) =>
-    v == null ? "text-gray-400" : v >= 0 ? "text-green-600" : "text-red-500";
 
   const rsiColor = (v: number | null) =>
     v == null ? "text-gray-400" : v >= 70 ? "text-red-500" : v <= 30 ? "text-green-600" : "text-gray-700";
 
-  const adxColor = (v: number | null) =>
-    v == null ? "text-gray-400" : v < 20 ? "text-gray-400" : v <= 45 ? "text-green-600 font-semibold" : "text-orange-500 font-semibold";
-
   const relVolColor = (v: number | null) =>
     v == null ? "text-gray-400" : v >= 1.5 ? "text-green-600 font-semibold" : v <= 0.5 ? "text-gray-400" : "text-gray-700";
+
+  const distResistanceClass = (v: number | null) => {
+    if (v == null) return "text-gray-400";
+    if (v >= 0) return "text-green-600 font-semibold";
+    return cellClass(TIERS.distResistance, -v);
+  };
 
   const shortFloatColor = (v: number | null) =>
     v == null ? "text-gray-400" : v >= 0.2 ? "text-red-500 font-semibold" : v >= 0.1 ? "text-yellow-600" : "text-gray-700";
@@ -340,24 +448,24 @@ export default function USSwingTable({
               <Th label="Ticker" k="ticker" sticky />
               <Th label="Industry" k="industry" />
               <Th label="Price" k="price" />
-              <Th label="ATR%" k="atr" title={LEGEND.atr} info />
+              <Th label="ATR%" k="atr" infoTiers={TIERS.atr} />
               <Th label="EMA20D" k="ema20d" title="EMA20, daily" />
-              <Th label="Dist EMA20D" k="distEma20d" title={LEGEND.ema20d} info />
+              <Th label="Dist EMA20D" k="distEma20d" infoTiers={TIERS.ema20d} />
               <Th label="EMA50D" k="ema50d" title="EMA50, daily" />
-              <Th label="Dist EMA50D" k="distEma50d" title={LEGEND.ema50d} info />
-              <Th label="Golden Cross" k="goldenCross" title={LEGEND.goldenCross} info />
+              <Th label="Dist EMA50D" k="distEma50d" infoTiers={TIERS.ema50d} />
+              <Th label="Golden Cross" k="goldenCross" infoTiers={TIERS.goldenCross} />
               <Th label="MACD" k="macd" title="MACD line (12, 26) — daily closes" />
-              <Th label="ROC14" k="roc14" title={LEGEND.roc14} info />
+              <Th label="ROC14" k="roc14" infoTiers={TIERS.roc14} />
               <Th label="Low (6mo)" k="low6mo" title="Lowest intraday low over the last ~6 months (126 sessions)" />
-              <Th label="Dist from Low" k="distLow6mo" title={LEGEND.distLow} info />
+              <Th label="Dist from Low" k="distLow6mo" infoTiers={TIERS.distLow} />
               <Th label="Resistance" k="resistance" title="Highest intraday high over the last ~1 year, excluding the most recent ~32 sessions (~1.5 months) — the last prior ceiling the stock pulled back from" />
-              <Th label="Dist from Resistance" k="distResistance" title={LEGEND.distResistance} info />
+              <Th label="Dist from Resistance" k="distResistance" infoTiers={TIERS.distResistance} breakoutNote="Already at/above resistance: Breakout" />
               <Th label="Days Since Resistance" k="daysSinceResistance" title="Trading sessions since the bar that set the resistance high — a stale reading means an old ceiling, a fresh one means it was made just outside the 32-session cooldown" />
               <Th label="RSI" k="rsi" title="RSI(14), daily" />
               <Th label="DI+" k="diPlus" title="+DI(14), daily" />
               <Th label="DI-" k="diMinus" title="-DI(14), daily" />
-              <Th label="ADX" k="adx" title={LEGEND.adx} info />
-              <Th label="Short Float %" k="shortFloat" title={LEGEND.shortFloat} info />
+              <Th label="ADX" k="adx" infoTiers={TIERS.adx} />
+              <Th label="Short Float %" k="shortFloat" infoTiers={TIERS.shortFloat} />
               <Th label="ADV" k="adv" title="Average daily volume (3-month)" />
               <Th label="Rel Volume" k="relVolume" title="Latest session volume vs its trailing 20-day average" />
               <Th label="Earnings Date" k="earnings" title="Next/last reported earnings date, with days until in brackets" />
@@ -385,28 +493,28 @@ export default function USSwingTable({
                 </td>
                 <td className="px-3 py-2 text-gray-600">{r.industry}</td>
                 <td className="px-3 py-2 font-medium text-gray-900">{r.price != null ? `$${r.price.toFixed(2)}` : dash}</td>
-                <td className="px-3 py-2 text-gray-700">{r.atr != null ? `${r.atr.toFixed(1)}%` : dash}</td>
+                <td className={`px-3 py-2 ${cellClass(TIERS.atr, r.atr)}`}>{r.atr != null ? `${r.atr.toFixed(1)}%` : dash}</td>
                 <td className="px-3 py-2 text-gray-700">{r.ema20d != null ? r.ema20d.toFixed(2) : dash}</td>
-                <td className={`px-3 py-2 font-medium ${distColor(r.distEma20d)}`}>{r.distEma20d != null ? `${r.distEma20d.toFixed(1)}%` : dash}</td>
+                <td className={`px-3 py-2 ${cellClass(TIERS.ema20d, r.distEma20d != null ? Math.abs(r.distEma20d) : null)}`}>{r.distEma20d != null ? `${r.distEma20d.toFixed(1)}%` : dash}</td>
                 <td className="px-3 py-2 text-gray-700">{r.ema50d != null ? r.ema50d.toFixed(2) : dash}</td>
-                <td className={`px-3 py-2 font-medium ${distColor(r.distEma50d)}`}>{r.distEma50d != null ? `${r.distEma50d.toFixed(1)}%` : dash}</td>
-                <td className="px-3 py-2 text-gray-700 whitespace-nowrap">
+                <td className={`px-3 py-2 ${cellClass(TIERS.ema50d, r.distEma50d != null ? Math.abs(r.distEma50d) : null)}`}>{r.distEma50d != null ? `${r.distEma50d.toFixed(1)}%` : dash}</td>
+                <td className={`px-3 py-2 whitespace-nowrap ${cellClass(TIERS.goldenCross, r.goldenCrossDays)}`}>
                   {r.goldenCrossDate != null ? (
-                    <>{r.goldenCrossDate} <span className="text-gray-400">({Math.round((new Date(new Date().toISOString().slice(0, 10) + "T00:00:00Z").getTime() - new Date(r.goldenCrossDate + "T00:00:00Z").getTime()) / 86400000)}D)</span></>
+                    <>{r.goldenCrossDate} <span className="text-gray-400">({r.goldenCrossDays}D)</span></>
                   ) : dash}
                 </td>
-                <td className={`px-3 py-2 font-medium ${distColor(r.macd)}`}>{r.macd != null ? r.macd.toFixed(2) : dash}</td>
-                <td className={`px-3 py-2 font-medium ${distColor(r.roc14)}`}>{r.roc14 != null ? `${r.roc14.toFixed(1)}%` : dash}</td>
+                <td className={`px-3 py-2 font-medium ${r.macd == null ? "text-gray-400" : r.macd >= 0 ? "text-green-600" : "text-red-500"}`}>{r.macd != null ? r.macd.toFixed(2) : dash}</td>
+                <td className={`px-3 py-2 ${cellClass(TIERS.roc14, r.roc14)}`}>{r.roc14 != null ? `${r.roc14.toFixed(1)}%` : dash}</td>
                 <td className="px-3 py-2 text-gray-700">{r.low6mo != null ? `$${r.low6mo.toFixed(2)}` : dash}</td>
-                <td className="px-3 py-2 font-medium text-gray-700">{r.distLow6mo != null ? `${r.distLow6mo.toFixed(1)}%` : dash}</td>
+                <td className={`px-3 py-2 ${cellClass(TIERS.distLow, r.distLow6mo)}`}>{r.distLow6mo != null ? `${r.distLow6mo.toFixed(1)}%` : dash}</td>
                 <td className="px-3 py-2 text-gray-700">{r.resistance != null ? `$${r.resistance.toFixed(2)}` : dash}</td>
-                <td className={`px-3 py-2 font-medium ${distColor(r.distResistance)}`}>{r.distResistance != null ? `${r.distResistance.toFixed(1)}%` : dash}</td>
+                <td className={`px-3 py-2 ${distResistanceClass(r.distResistance)}`}>{r.distResistance != null ? `${r.distResistance.toFixed(1)}%` : dash}</td>
                 <td className="px-3 py-2 text-gray-700">{r.daysSinceResistance != null ? `${r.daysSinceResistance}D` : dash}</td>
                 <td className={`px-3 py-2 font-medium ${rsiColor(r.rsi)}`}>{r.rsi != null ? r.rsi.toFixed(1) : dash}</td>
                 <td className="px-3 py-2 text-gray-700">{r.diPlus != null ? r.diPlus.toFixed(1) : dash}</td>
                 <td className="px-3 py-2 text-gray-700">{r.diMinus != null ? r.diMinus.toFixed(1) : dash}</td>
-                <td className={`px-3 py-2 font-medium ${adxColor(r.adx)}`}>{r.adx != null ? r.adx.toFixed(1) : dash}</td>
-                <td className={`px-3 py-2 font-medium ${shortFloatColor(r.shortFloat)}`}>{r.shortFloat != null ? `${(r.shortFloat * 100).toFixed(1)}%` : dash}</td>
+                <td className={`px-3 py-2 ${cellClass(TIERS.adx, r.adx)}`}>{r.adx != null ? r.adx.toFixed(1) : dash}</td>
+                <td className={`px-3 py-2 ${cellClass(TIERS.shortFloat, r.shortFloat != null ? r.shortFloat * 100 : null)}`}>{r.shortFloat != null ? `${(r.shortFloat * 100).toFixed(1)}%` : dash}</td>
                 <td className="px-3 py-2 text-gray-700">{fmtAdv(r.adv)}</td>
                 <td className={`px-3 py-2 ${relVolColor(r.relVolume)}`}>{r.relVolume != null ? `${r.relVolume.toFixed(2)}x` : dash}</td>
                 <td className="px-3 py-2 whitespace-nowrap"><EarningsCell dateStr={r.earnings} /></td>
