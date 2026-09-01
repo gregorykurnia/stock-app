@@ -303,7 +303,7 @@ export default function USSwingTable({
 
   function exportCsv() {
     const date = new Date().toISOString().slice(0, 10);
-    const headers = ["Ticker", "Name", "Industry", "Price", "ATR%", "EMA20D", "Dist EMA20D%",
+    const headers = ["Ticker", "Starred", "Name", "Industry", "Price", "ATR%", "EMA20D", "Dist EMA20D%",
       "EMA50D", "Dist EMA50D%", "Golden Cross", "MACD", "ROC14", "Low (6mo)", "Dist from Low%", "Resistance (1Y)", "Dist from Resistance%", "Days Since Resistance",
       "High (5Y)", "Dist from 5Y High%",
       "RSI", "DI+", "DI-", "ADX", "Short Float%", "ADV",
@@ -316,7 +316,7 @@ export default function USSwingTable({
         ? Math.round((new Date(new Date().toISOString().slice(0, 10) + "T00:00:00Z").getTime() - new Date(r.goldenCrossDate + "T00:00:00Z").getTime()) / 86400000)
         : null;
       return [
-        r.ticker, r.name ?? "", r.industry,
+        r.ticker, r.starred ? "Yes" : "", r.name ?? "", r.industry,
         r.price?.toFixed(2) ?? "", r.atr?.toFixed(1) ?? "",
         r.ema20d?.toFixed(2) ?? "", r.distEma20d?.toFixed(1) ?? "",
         r.ema50d?.toFixed(2) ?? "", r.distEma50d?.toFixed(1) ?? "",
