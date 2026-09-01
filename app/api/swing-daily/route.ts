@@ -42,6 +42,7 @@ interface SwingDailyResult {
   distFromLow6mo: number | null;
   resistance: number | null;
   distFromResistance: number | null;
+  daysSinceResistance: number | null;
   relVolume: number | null;
 }
 
@@ -50,7 +51,8 @@ const EMPTY: SwingDailyResult = {
   emaCrossAbove: null, crossPrice: null, crossDate: null, goldenCrossDate: null,
   macd: null, signal: null, histogram: null, histDirection: null,
   atr: null, stopLoss: null, stopLossPercent: null, bandar: null,
-  low6mo: null, distFromLow6mo: null, resistance: null, distFromResistance: null, relVolume: null,
+  low6mo: null, distFromLow6mo: null, resistance: null, distFromResistance: null,
+  daysSinceResistance: null, relVolume: null,
 };
 
 // Single 1-year daily chart fetch per ticker, powering every "Midterm/Swing" indicator
@@ -127,6 +129,18 @@ async function fetchSwingDaily(ticker: string): Promise<SwingDailyResult> {
   const resistance = resistanceWindow.length > 0 ? Math.max(...resistanceWindow.map((b: { high: number }) => b.high)) : null;
   const distFromResistance = resistance != null && resistance > 0 ? ((lastClose - resistance) / resistance) * 100 : null;
 
+  // Days (trading sessions) since the bar that set the resistance high — tells you whether
+  // resistance is a stale multi-month ceiling or one made just outside the cooldown window.
+  let daysSinceResistance: number | null = null;
+  if (resistance != null) {
+    for (let i = resistanceWindow.length - 1; i >= 0; i--) {
+      if (resistanceWindow[i].high === resistance) {
+        daysSinceResistance = bars.length - 1 - i;
+        break;
+      }
+    }
+  }
+
   // Relative volume: most recent session's volume vs its trailing 20-day average.
   const volumes = bars.map((b: { volume: number }) => b.volume);
   const last20Vol = volumes.slice(-21, -1);
@@ -144,7 +158,7 @@ async function fetchSwingDaily(ticker: string): Promise<SwingDailyResult> {
     stopLoss: atrRes?.stopLoss ?? null,
     stopLossPercent: atrRes?.stopLossPercent ?? null,
     bandar,
-    low6mo, distFromLow6mo, resistance, distFromResistance, relVolume,
+    low6mo, distFromLow6mo, resistance, distFromResistance, daysSinceResistance, relVolume,
   };
 }
 
@@ -174,6 +188,7 @@ export async function GET(req: NextRequest) {
   const distFromLow6mo: Record<string, number | null> = {};
   const resistance: Record<string, number | null> = {};
   const distFromResistance: Record<string, number | null> = {};
+  const daysSinceResistance: Record<string, number | null> = {};
   const relVolume: Record<string, number | null> = {};
 
   const chunkSize = 8;
@@ -201,6 +216,7 @@ export async function GET(req: NextRequest) {
       distFromLow6mo[ticker] = r.distFromLow6mo;
       resistance[ticker] = r.resistance;
       distFromResistance[ticker] = r.distFromResistance;
+      daysSinceResistance[ticker] = r.daysSinceResistance;
       relVolume[ticker] = r.relVolume;
     }));
   }
@@ -209,6 +225,6 @@ export async function GET(req: NextRequest) {
     ema20, ema50, atrPct, rsi, emaCrossAbove, crossPrice, crossDate, goldenCrossDate,
     macd, signal, histogram, histDirection,
     atr, stopLoss, stopLossPercent, bandar,
-    low6mo, distFromLow6mo, resistance, distFromResistance, relVolume,
+    low6mo, distFromLow6mo, resistance, distFromResistance, daysSinceResistance, relVolume,
   });
 }
