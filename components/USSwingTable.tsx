@@ -117,6 +117,14 @@ const TIERS = {
     { max: 19.99, label: "Decent Room", color: "blue", range: "10-19.99%" },
     { max: Infinity, label: "Big Growth Room", color: "green", range: ">20%" },
   ] as Tier[],
+  rsi: [
+    { max: 40, label: "Weak, Oversold", color: "red", range: "<40" },
+    { max: 50, label: "Neutral to Weak", color: "orange", range: "40.01-50" },
+    { max: 60, label: "Neutral to Strong", color: "blue", range: "50.01-60" },
+    { max: 70, label: "Strong", color: "green", range: "60.01-70" },
+    { max: 80, label: "Overbought", color: "yellow", range: "70.01-80" },
+    { max: Infinity, label: "Way Overbought", color: "red", range: ">80.01" },
+  ] as Tier[],
   adx: [
     { max: 15, label: "No Trend", color: "gray", range: "<15" },
     { max: 20, label: "Weak Trend", color: "blue", range: "15.01-20" },
@@ -321,7 +329,7 @@ export default function USSwingTable({
     const METRIC_TITLES: Record<keyof typeof TIERS, string> = {
       atr: "ATR%", ema20d: "Dist EMA20D%", ema50d: "Dist EMA50D%", goldenCross: "Golden Cross (days since)",
       roc14: "ROC14", distLow: "Dist from Low%", distResistance: "Dist from Resistance% (room below resistance)",
-      adx: "ADX", shortFloat: "Short Float%",
+      rsi: "RSI", adx: "ADX", shortFloat: "Short Float%",
     };
     const legendRows: (string | number | null)[][] = [
       [], ["Legend", "Range", "Color", "Meaning"],
@@ -345,8 +353,6 @@ export default function USSwingTable({
     </th>
   );
 
-  const rsiColor = (v: number | null) =>
-    v == null ? "text-gray-400" : v >= 70 ? "text-red-500" : v <= 30 ? "text-green-600" : "text-gray-700";
 
   const relVolColor = (v: number | null) =>
     v == null ? "text-gray-400" : v >= 1.5 ? "text-green-600 font-semibold" : v <= 0.5 ? "text-gray-400" : "text-gray-700";
@@ -461,7 +467,7 @@ export default function USSwingTable({
               <Th label="Resistance" k="resistance" title="Highest intraday high over the last ~1 year, excluding the most recent ~32 sessions (~1.5 months) — the last prior ceiling the stock pulled back from" />
               <Th label="Dist from Resistance" k="distResistance" infoTiers={TIERS.distResistance} breakoutNote="Already at/above resistance: Breakout" />
               <Th label="Days Since Resistance" k="daysSinceResistance" title="Trading sessions since the bar that set the resistance high — a stale reading means an old ceiling, a fresh one means it was made just outside the 32-session cooldown" />
-              <Th label="RSI" k="rsi" title="RSI(14), daily" />
+              <Th label="RSI" k="rsi" infoTiers={TIERS.rsi} />
               <Th label="DI+" k="diPlus" title="+DI(14), daily" />
               <Th label="DI-" k="diMinus" title="-DI(14), daily" />
               <Th label="ADX" k="adx" infoTiers={TIERS.adx} />
@@ -510,7 +516,7 @@ export default function USSwingTable({
                 <td className="px-3 py-2 text-gray-700">{r.resistance != null ? `$${r.resistance.toFixed(2)}` : dash}</td>
                 <td className={`px-3 py-2 ${distResistanceClass(r.distResistance)}`}>{r.distResistance != null ? `${r.distResistance.toFixed(1)}%` : dash}</td>
                 <td className="px-3 py-2 text-gray-700">{r.daysSinceResistance != null ? `${r.daysSinceResistance}D` : dash}</td>
-                <td className={`px-3 py-2 font-medium ${rsiColor(r.rsi)}`}>{r.rsi != null ? r.rsi.toFixed(1) : dash}</td>
+                <td className={`px-3 py-2 ${cellClass(TIERS.rsi, r.rsi)}`}>{r.rsi != null ? r.rsi.toFixed(1) : dash}</td>
                 <td className="px-3 py-2 text-gray-700">{r.diPlus != null ? r.diPlus.toFixed(1) : dash}</td>
                 <td className="px-3 py-2 text-gray-700">{r.diMinus != null ? r.diMinus.toFixed(1) : dash}</td>
                 <td className={`px-3 py-2 ${cellClass(TIERS.adx, r.adx)}`}>{r.adx != null ? r.adx.toFixed(1) : dash}</td>
