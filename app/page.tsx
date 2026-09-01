@@ -66,6 +66,7 @@ export default function Home() {
   const [usSwingEma50s, setUsSwingEma50s] = useState<Record<string, number | null>>({});
   const [usSwingGoldenCrossDates, setUsSwingGoldenCrossDates] = useState<Record<string, string | null>>({});
   const [usSwingMacds, setUsSwingMacds] = useState<Record<string, number | null>>({});
+  const [usSwingRoc14s, setUsSwingRoc14s] = useState<Record<string, number | null>>({});
   const [usSwingRsis, setUsSwingRsis] = useState<Record<string, number | null>>({});
   const [usSwingDiPluses, setUsSwingDiPluses] = useState<Record<string, number | null>>({});
   const [usSwingDiMinuses, setUsSwingDiMinuses] = useState<Record<string, number | null>>({});
@@ -184,6 +185,7 @@ export default function Home() {
         setUsSwingDiMinuses((p) => ({ ...p, ...(d.diMinus ?? {}) }));
         setUsSwingAdxs((p) => ({ ...p, ...(d.adx ?? {}) }));
         setUsSwingMacds((p) => ({ ...p, ...(d.macd ?? {}) }));
+        setUsSwingRoc14s((p) => ({ ...p, ...(d.roc14 ?? {}) }));
         setUsSwingLow6mos((p) => ({ ...p, ...(d.low6mo ?? {}) }));
         setUsSwingResistances((p) => ({ ...p, ...(d.resistance ?? {}) }));
         setUsSwingDaysSinceResistances((p) => ({ ...p, ...(d.daysSinceResistance ?? {}) }));
@@ -1028,6 +1030,7 @@ export default function Home() {
             usSwingEma50s={usSwingEma50s}
             usSwingGoldenCrossDates={usSwingGoldenCrossDates}
             usSwingMacds={usSwingMacds}
+            usSwingRoc14s={usSwingRoc14s}
             usSwingRsis={usSwingRsis}
             usSwingDiPluses={usSwingDiPluses}
             usSwingDiMinuses={usSwingDiMinuses}

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { calcIndicators, calculateMACD, calculateATR, calculateBandarScore, type BandarScoreResult } from "@/lib/indicators";
+import { calcIndicators, calculateMACD, calculateATR, calculateROC, calculateBandarScore, type BandarScoreResult } from "@/lib/indicators";
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const YahooFinance = require("yahoo-finance2").default;
 const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
@@ -37,6 +37,7 @@ interface SwingDailyResult {
   signal: number | null;
   histogram: number | null;
   histDirection: "up" | "down" | "flat" | null;
+  roc14: number | null;
   atr: number | null;
   stopLoss: number | null;
   stopLossPercent: number | null;
@@ -53,7 +54,7 @@ const EMPTY: SwingDailyResult = {
   ema20: null, ema50: null, atrPct: null, rsi: null,
   diPlus: null, diMinus: null, adx: null,
   emaCrossAbove: null, crossPrice: null, crossDate: null, goldenCrossDate: null,
-  macd: null, signal: null, histogram: null, histDirection: null,
+  macd: null, signal: null, histogram: null, histDirection: null, roc14: null,
   atr: null, stopLoss: null, stopLossPercent: null, bandar: null,
   low6mo: null, distFromLow6mo: null, resistance: null, distFromResistance: null,
   daysSinceResistance: null, relVolume: null,
@@ -118,6 +119,7 @@ async function fetchSwingDaily(ticker: string): Promise<SwingDailyResult> {
   }
 
   const macdRes = calculateMACD(closes);
+  const roc14 = calculateROC(closes, 14);
   const atrRes = calculateATR(bars, 14);
   const bandar = calculateBandarScore(bars.slice(-60));
 
@@ -161,6 +163,7 @@ async function fetchSwingDaily(ticker: string): Promise<SwingDailyResult> {
     signal: macdRes?.signal ?? null,
     histogram: macdRes?.histogram ?? null,
     histDirection: macdRes?.histDirection ?? null,
+    roc14,
     atr: atrRes?.atr ?? null,
     stopLoss: atrRes?.stopLoss ?? null,
     stopLossPercent: atrRes?.stopLossPercent ?? null,
@@ -190,6 +193,7 @@ export async function GET(req: NextRequest) {
   const signal: Record<string, number | null> = {};
   const histogram: Record<string, number | null> = {};
   const histDirection: Record<string, "up" | "down" | "flat" | null> = {};
+  const roc14: Record<string, number | null> = {};
   const atr: Record<string, number | null> = {};
   const stopLoss: Record<string, number | null> = {};
   const stopLossPercent: Record<string, number | null> = {};
@@ -221,6 +225,7 @@ export async function GET(req: NextRequest) {
       signal[ticker] = r.signal;
       histogram[ticker] = r.histogram;
       histDirection[ticker] = r.histDirection;
+      roc14[ticker] = r.roc14;
       atr[ticker] = r.atr;
       stopLoss[ticker] = r.stopLoss;
       stopLossPercent[ticker] = r.stopLossPercent;
@@ -236,7 +241,7 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     ema20, ema50, atrPct, rsi, diPlus, diMinus, adx, emaCrossAbove, crossPrice, crossDate, goldenCrossDate,
-    macd, signal, histogram, histDirection,
+    macd, signal, histogram, histDirection, roc14,
     atr, stopLoss, stopLossPercent, bandar,
     low6mo, distFromLow6mo, resistance, distFromResistance, daysSinceResistance, relVolume,
   });

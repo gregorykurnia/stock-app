@@ -157,6 +157,7 @@ interface Props {
   usSwingEma50s?: Record<string, number | null>;
   usSwingGoldenCrossDates?: Record<string, string | null>;
   usSwingMacds?: Record<string, number | null>;
+  usSwingRoc14s?: Record<string, number | null>;
   usSwingRsis?: Record<string, number | null>;
   usSwingDiPluses?: Record<string, number | null>;
   usSwingDiMinuses?: Record<string, number | null>;
@@ -216,7 +217,7 @@ export default function MasterTable({
   swingAtr14 = {},
   swingBandar = {},
   swingLoading = false, swingAddTicker = "", swingAddLoading = false, swingAddError = "", onSwingAddTickerChange, onSwingAdd, onSwingRemove, onSwingEntryPriceChange,
-  usSwingStocks = [], usSwingPrices = {}, usSwingAtrs = {}, usSwingEma20s = {}, usSwingEma50s = {}, usSwingGoldenCrossDates = {}, usSwingMacds = {}, usSwingRsis = {}, usSwingDiPluses = {}, usSwingDiMinuses = {}, usSwingAdxs = {}, usSwingLow6mos = {}, usSwingResistances = {}, usSwingDaysSinceResistances = {}, usSwingRelVolumes = {},
+  usSwingStocks = [], usSwingPrices = {}, usSwingAtrs = {}, usSwingEma20s = {}, usSwingEma50s = {}, usSwingGoldenCrossDates = {}, usSwingMacds = {}, usSwingRoc14s = {}, usSwingRsis = {}, usSwingDiPluses = {}, usSwingDiMinuses = {}, usSwingAdxs = {}, usSwingLow6mos = {}, usSwingResistances = {}, usSwingDaysSinceResistances = {}, usSwingRelVolumes = {},
   usSwingShortFloats = {}, usSwingAdvs = {}, usSwingEarnings = {}, usSwingLoading = false, onUsSwingTabOpen,
   usSwingAddTicker = "", usSwingAddLoading = false, usSwingAddError = "", onUsSwingAddTickerChange, onUsSwingAdd, onUsSwingRemove, onUsSwingToggleStar,
 }: Props) {
@@ -2182,6 +2183,7 @@ export default function MasterTable({
           ema50s={usSwingEma50s}
           goldenCrossDates={usSwingGoldenCrossDates}
           macds={usSwingMacds}
+          roc14s={usSwingRoc14s}
           rsis={usSwingRsis}
           diPluses={usSwingDiPluses}
           diMinuses={usSwingDiMinuses}

@@ -305,6 +305,16 @@ export function calculateMACD(closes: number[]): MACDResult | null {
   return { macd: latestMACD, signal: latestSignal, histogram: latestHistogram, histDirection };
 }
 
+// Rate of Change: % change in closing price over `period` bars.
+export function calculateROC(closes: number[], period = 14): number | null {
+  const valid = closes.filter((c) => c != null && !isNaN(c));
+  if (valid.length < period + 1) return null;
+  const latest = valid[valid.length - 1];
+  const prior = valid[valid.length - 1 - period];
+  if (prior === 0) return null;
+  return ((latest - prior) / prior) * 100;
+}
+
 export interface BandarBar {
   open: number;
   high: number;

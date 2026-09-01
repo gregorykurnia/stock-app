@@ -13,7 +13,7 @@ export interface USSwingStock {
 type SortKey =
   | "ticker" | "industry" | "price" | "atr"
   | "ema20d" | "distEma20d" | "ema50d" | "distEma50d" | "goldenCross"
-  | "macd" | "low6mo" | "distLow6mo" | "resistance" | "distResistance" | "daysSinceResistance" | "rsi" | "diPlus" | "diMinus" | "adx" | "shortFloat" | "adv" | "relVolume" | "earnings";
+  | "macd" | "roc14" | "low6mo" | "distLow6mo" | "resistance" | "distResistance" | "daysSinceResistance" | "rsi" | "diPlus" | "diMinus" | "adx" | "shortFloat" | "adv" | "relVolume" | "earnings";
 type SortDir = "asc" | "desc";
 
 interface Props {
@@ -24,6 +24,7 @@ interface Props {
   ema50s: Record<string, number | null>;
   goldenCrossDates?: Record<string, string | null>;
   macds: Record<string, number | null>;
+  roc14s?: Record<string, number | null>;
   rsis: Record<string, number | null>;
   diPluses?: Record<string, number | null>;
   diMinuses?: Record<string, number | null>;
@@ -48,7 +49,7 @@ interface Props {
 const dash = <span className="text-gray-400">—</span>;
 
 export default function USSwingTable({
-  stocks, prices, atrs, ema20s, ema50s, goldenCrossDates = {}, macds, rsis, diPluses = {}, diMinuses = {}, adxs = {}, low6mos, relVolumes,
+  stocks, prices, atrs, ema20s, ema50s, goldenCrossDates = {}, macds, roc14s = {}, rsis, diPluses = {}, diMinuses = {}, adxs = {}, low6mos, relVolumes,
   resistances = {}, daysSinceResistances = {}, shortFloats = {}, advs = {}, earnings = {}, loading = false,
   addTicker = "", addLoading = false, addError = "", onAddTickerChange, onAdd, onRemove, onToggleStar,
 }: Props) {
@@ -90,6 +91,7 @@ export default function USSwingTable({
         distEma50d: price != null && ema50d != null ? ((price - ema50d) / ema50d) * 100 : null,
         goldenCrossDate: goldenCrossDates[s.ticker] ?? null,
         macd: macds[s.ticker] ?? null,
+        roc14: roc14s[s.ticker] ?? null,
         low6mo,
         distLow6mo: price != null && low6mo != null && low6mo > 0 ? ((price - low6mo) / low6mo) * 100 : null,
         resistance,
@@ -105,7 +107,7 @@ export default function USSwingTable({
         earnings: earnings[s.ticker] ?? null,
       };
     });
-  }, [stocks, prices, atrs, ema20s, ema50s, goldenCrossDates, macds, rsis, diPluses, diMinuses, adxs, low6mos, relVolumes, resistances, daysSinceResistances, shortFloats, advs, earnings]);
+  }, [stocks, prices, atrs, ema20s, ema50s, goldenCrossDates, macds, roc14s, rsis, diPluses, diMinuses, adxs, low6mos, relVolumes, resistances, daysSinceResistances, shortFloats, advs, earnings]);
 
   const filteredRows = useMemo(() => {
     let out = starredOnly ? rows.filter((r) => r.starred) : rows;
@@ -130,6 +132,7 @@ export default function USSwingTable({
           return Math.round((new Date(today + "T00:00:00Z").getTime() - new Date(r.goldenCrossDate + "T00:00:00Z").getTime()) / 86400000);
         }
         case "macd": return r.macd;
+        case "roc14": return r.roc14;
         case "low6mo": return r.low6mo;
         case "distLow6mo": return r.distLow6mo;
         case "resistance": return r.resistance;
@@ -168,7 +171,7 @@ export default function USSwingTable({
   function exportCsv() {
     const date = new Date().toISOString().slice(0, 10);
     const headers = ["Ticker", "Name", "Industry", "Price", "ATR%", "EMA20D", "Dist EMA20D%",
-      "EMA50D", "Dist EMA50D%", "Golden Cross", "MACD", "Low (6mo)", "Dist from Low%", "Resistance (1Y)", "Dist from Resistance%", "Days Since Resistance",
+      "EMA50D", "Dist EMA50D%", "Golden Cross", "MACD", "ROC14", "Low (6mo)", "Dist from Low%", "Resistance (1Y)", "Dist from Resistance%", "Days Since Resistance",
       "RSI", "DI+", "DI-", "ADX", "Short Float%", "ADV",
       "Rel Volume", "Earnings Date", "Days to Earnings"];
     const data = sortedRows.map((r) => {
@@ -184,7 +187,7 @@ export default function USSwingTable({
         r.ema20d?.toFixed(2) ?? "", r.distEma20d?.toFixed(1) ?? "",
         r.ema50d?.toFixed(2) ?? "", r.distEma50d?.toFixed(1) ?? "",
         r.goldenCrossDate ? `${r.goldenCrossDate} (${goldenCrossDays}D)` : "",
-        r.macd?.toFixed(2) ?? "", r.low6mo?.toFixed(2) ?? "", r.distLow6mo?.toFixed(1) ?? "",
+        r.macd?.toFixed(2) ?? "", r.roc14?.toFixed(1) ?? "", r.low6mo?.toFixed(2) ?? "", r.distLow6mo?.toFixed(1) ?? "",
         r.resistance?.toFixed(2) ?? "", r.distResistance?.toFixed(1) ?? "", r.daysSinceResistance != null ? String(r.daysSinceResistance) : "",
         r.rsi?.toFixed(1) ?? "",
         r.diPlus?.toFixed(1) ?? "",
@@ -319,6 +322,7 @@ export default function USSwingTable({
               <Th label="Dist EMA50D" k="distEma50d" title="Price distance from EMA50 daily" />
               <Th label="Golden Cross" k="goldenCross" title="Most recent date EMA20D crossed above EMA50D, and days since" />
               <Th label="MACD" k="macd" title="MACD line (12, 26) — daily closes" />
+              <Th label="ROC14" k="roc14" title="Rate of Change: % price change over the last 14 daily closes — momentum strength/deceleration" />
               <Th label="Low (6mo)" k="low6mo" title="Lowest intraday low over the last ~6 months (126 sessions)" />
               <Th label="Dist from Low" k="distLow6mo" title="Price distance from the 6-month low" />
               <Th label="Resistance" k="resistance" title="Highest intraday high over the last ~1 year, excluding the most recent ~32 sessions (~1.5 months) — the last prior ceiling the stock pulled back from" />
@@ -337,7 +341,7 @@ export default function USSwingTable({
           </thead>
           <tbody className="divide-y divide-gray-100">
             {sortedRows.length === 0 && (
-              <tr><td colSpan={24} className="px-3 py-6 text-center text-gray-400 text-sm">{starredOnly ? "No starred tickers." : "No tickers yet — add one above."}</td></tr>
+              <tr><td colSpan={25} className="px-3 py-6 text-center text-gray-400 text-sm">{starredOnly ? "No starred tickers." : "No tickers yet — add one above."}</td></tr>
             )}
             {sortedRows.map((r) => (
               <tr key={r.ticker} className="hover:bg-gray-50">
@@ -367,6 +371,7 @@ export default function USSwingTable({
                   ) : dash}
                 </td>
                 <td className={`px-3 py-2 font-medium ${distColor(r.macd)}`}>{r.macd != null ? r.macd.toFixed(2) : dash}</td>
+                <td className={`px-3 py-2 font-medium ${distColor(r.roc14)}`}>{r.roc14 != null ? `${r.roc14.toFixed(1)}%` : dash}</td>
                 <td className="px-3 py-2 text-gray-700">{r.low6mo != null ? `$${r.low6mo.toFixed(2)}` : dash}</td>
                 <td className="px-3 py-2 font-medium text-gray-700">{r.distLow6mo != null ? `${r.distLow6mo.toFixed(1)}%` : dash}</td>
                 <td className="px-3 py-2 text-gray-700">{r.resistance != null ? `$${r.resistance.toFixed(2)}` : dash}</td>
