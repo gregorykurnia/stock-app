@@ -6,9 +6,11 @@ const yf = new YahooFinance();
 export async function fetchQuotes(tickers: string[]): Promise<{
   prices: Record<string, number | null>;
   preMarketPrices: Record<string, number | null>;
+  previousCloses: Record<string, number | null>;
 }> {
   const prices: Record<string, number | null> = {};
   const preMarket: Record<string, number | null> = {};
+  const previousCloses: Record<string, number | null> = {};
 
   const chunkSize = 10;
   for (let i = 0; i < tickers.length; i += chunkSize) {
@@ -20,15 +22,17 @@ export async function fetchQuotes(tickers: string[]): Promise<{
           const q: any = await yf.quote(ticker);
           prices[ticker] = q?.regularMarketPrice ?? null;
           preMarket[ticker] = q?.preMarketPrice ?? null;
+          previousCloses[ticker] = q?.regularMarketPreviousClose ?? null;
         } catch {
           prices[ticker] = null;
           preMarket[ticker] = null;
+          previousCloses[ticker] = null;
         }
       })
     );
   }
 
-  return { prices, preMarketPrices: preMarket };
+  return { prices, preMarketPrices: preMarket, previousCloses };
 }
 
 // Returns next/last earnings date per ticker as "YYYY-MM-DD" (ET calendar date), or null if unknown.

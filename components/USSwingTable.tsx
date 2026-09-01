@@ -11,7 +11,7 @@ export interface USSwingStock {
 }
 
 type SortKey =
-  | "ticker" | "industry" | "price" | "atr"
+  | "ticker" | "industry" | "price" | "priceChangePct" | "atr"
   | "ema20d" | "distEma20d" | "ema50d" | "distEma50d" | "goldenCross"
   | "macd" | "roc14" | "low6mo" | "distLow6mo" | "resistance" | "distResistance" | "daysSinceResistance" | "high5yr" | "distHigh5yr" | "rsi" | "diPlus" | "diMinus" | "adx" | "shortFloat" | "adv" | "relVolume" | "earnings";
 type SortDir = "asc" | "desc";
@@ -19,6 +19,7 @@ type SortDir = "asc" | "desc";
 interface Props {
   stocks: USSwingStock[];
   prices: Record<string, number | null>;
+  prevCloses?: Record<string, number | null>;
   atrs: Record<string, number | null>;
   ema20s: Record<string, number | null>;
   ema50s: Record<string, number | null>;
@@ -175,7 +176,7 @@ function InfoDot({ tiers, breakoutNote }: { tiers: Tier[]; breakoutNote?: string
 }
 
 export default function USSwingTable({
-  stocks, prices, atrs, ema20s, ema50s, goldenCrossDates = {}, macds, roc14s = {}, rsis, diPluses = {}, diMinuses = {}, adxs = {}, low6mos, relVolumes,
+  stocks, prices, prevCloses = {}, atrs, ema20s, ema50s, goldenCrossDates = {}, macds, roc14s = {}, rsis, diPluses = {}, diMinuses = {}, adxs = {}, low6mos, relVolumes,
   resistances = {}, daysSinceResistances = {}, high5yrs = {}, distHigh5yrs = {}, shortFloats = {}, advs = {}, earnings = {}, loading = false,
   addTicker = "", addLoading = false, addError = "", onAddTickerChange, onAdd, onRemove, onToggleStar,
 }: Props) {
@@ -203,6 +204,7 @@ export default function USSwingTable({
   const rows = useMemo(() => {
     return stocks.map((s) => {
       const price = prices[s.ticker] ?? null;
+      const prevClose = prevCloses[s.ticker] ?? null;
       const ema20d = ema20s[s.ticker] ?? null;
       const ema50d = ema50s[s.ticker] ?? null;
       const low6mo = low6mos[s.ticker] ?? null;
@@ -210,6 +212,7 @@ export default function USSwingTable({
       return {
         ...s,
         price,
+        priceChangePct: price != null && prevClose != null && prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : null,
         atr: atrs[s.ticker] ?? null,
         ema20d,
         distEma20d: price != null && ema20d != null ? ((price - ema20d) / ema20d) * 100 : null,
@@ -238,7 +241,7 @@ export default function USSwingTable({
         earnings: earnings[s.ticker] ?? null,
       };
     });
-  }, [stocks, prices, atrs, ema20s, ema50s, goldenCrossDates, macds, roc14s, rsis, diPluses, diMinuses, adxs, low6mos, relVolumes, resistances, daysSinceResistances, high5yrs, distHigh5yrs, shortFloats, advs, earnings]);
+  }, [stocks, prices, prevCloses, atrs, ema20s, ema50s, goldenCrossDates, macds, roc14s, rsis, diPluses, diMinuses, adxs, low6mos, relVolumes, resistances, daysSinceResistances, high5yrs, distHigh5yrs, shortFloats, advs, earnings]);
 
   const filteredRows = useMemo(() => {
     let out = starredOnly ? rows.filter((r) => r.starred) : rows;
@@ -252,6 +255,7 @@ export default function USSwingTable({
         case "ticker": return r.ticker;
         case "industry": return r.industry;
         case "price": return r.price;
+        case "priceChangePct": return r.priceChangePct;
         case "atr": return r.atr;
         case "ema20d": return r.ema20d;
         case "distEma20d": return r.distEma20d;
@@ -303,7 +307,7 @@ export default function USSwingTable({
 
   function exportCsv() {
     const date = new Date().toISOString().slice(0, 10);
-    const headers = ["Ticker", "Starred", "Name", "Industry", "Price", "ATR%", "EMA20D", "Dist EMA20D%",
+    const headers = ["Ticker", "Starred", "Name", "Industry", "Price", "Price Change%", "ATR%", "EMA20D", "Dist EMA20D%",
       "EMA50D", "Dist EMA50D%", "Golden Cross", "MACD", "ROC14", "Low (6mo)", "Dist from Low%", "Resistance (1Y)", "Dist from Resistance%", "Days Since Resistance",
       "High (5Y)", "Dist from 5Y High%",
       "RSI", "DI+", "DI-", "ADX", "Short Float%", "ADV",
@@ -317,7 +321,7 @@ export default function USSwingTable({
         : null;
       return [
         r.ticker, r.starred ? "Yes" : "", r.name ?? "", r.industry,
-        r.price?.toFixed(2) ?? "", r.atr?.toFixed(1) ?? "",
+        r.price?.toFixed(2) ?? "", r.priceChangePct != null ? `${r.priceChangePct >= 0 ? "+" : ""}${r.priceChangePct.toFixed(2)}%` : "", r.atr?.toFixed(1) ?? "",
         r.ema20d?.toFixed(2) ?? "", r.distEma20d?.toFixed(1) ?? "",
         r.ema50d?.toFixed(2) ?? "", r.distEma50d?.toFixed(1) ?? "",
         r.goldenCrossDate ? `${r.goldenCrossDate} (${goldenCrossDays}D)` : "",
@@ -462,6 +466,7 @@ export default function USSwingTable({
               <Th label="Ticker" k="ticker" sticky />
               <Th label="Industry" k="industry" />
               <Th label="Price" k="price" />
+              <Th label="Chg %" k="priceChangePct" title="% change vs previous close" />
               <Th label="ATR%" k="atr" infoTiers={TIERS.atr} />
               <Th label="EMA20D" k="ema20d" title="EMA20, daily" />
               <Th label="Dist EMA20D" k="distEma20d" infoTiers={TIERS.ema20d} />
@@ -490,7 +495,7 @@ export default function USSwingTable({
           </thead>
           <tbody className="divide-y divide-gray-100">
             {sortedRows.length === 0 && (
-              <tr><td colSpan={27} className="px-3 py-6 text-center text-gray-400 text-sm">{starredOnly ? "No starred tickers." : "No tickers yet — add one above."}</td></tr>
+              <tr><td colSpan={28} className="px-3 py-6 text-center text-gray-400 text-sm">{starredOnly ? "No starred tickers." : "No tickers yet — add one above."}</td></tr>
             )}
             {sortedRows.map((r) => (
               <tr key={r.ticker} className="hover:bg-gray-50">
@@ -509,6 +514,9 @@ export default function USSwingTable({
                 </td>
                 <td className="px-3 py-2 text-gray-600">{r.industry}</td>
                 <td className="px-3 py-2 font-medium text-gray-900">{r.price != null ? `$${r.price.toFixed(2)}` : dash}</td>
+                <td className={`px-3 py-2 font-medium ${r.priceChangePct == null ? "text-gray-400" : r.priceChangePct >= 0 ? "text-green-600" : "text-red-500"}`}>
+                  {r.priceChangePct != null ? `${r.priceChangePct >= 0 ? "+" : ""}${r.priceChangePct.toFixed(2)}%` : dash}
+                </td>
                 <td className={`px-3 py-2 ${cellClass(TIERS.atr, r.atr)}`}>{r.atr != null ? `${r.atr.toFixed(1)}%` : dash}</td>
                 <td className="px-3 py-2 text-gray-700">{r.ema20d != null ? r.ema20d.toFixed(2) : dash}</td>
                 <td className={`px-3 py-2 ${cellClass(TIERS.ema20d, r.distEma20d != null ? Math.abs(r.distEma20d) : null)}`}>{r.distEma20d != null ? `${r.distEma20d.toFixed(1)}%` : dash}</td>

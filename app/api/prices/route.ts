@@ -6,7 +6,7 @@ export async function GET(req: NextRequest) {
   if (!tickersParam) return NextResponse.json({ error: "tickers required" }, { status: 400 });
 
   const tickers = tickersParam.split(",").map((t) => t.trim().toUpperCase());
-  const { prices, preMarketPrices } = await fetchQuotes(tickers);
+  const { prices, preMarketPrices, previousCloses } = await fetchQuotes(tickers);
 
-  return NextResponse.json({ prices, preMarketPrices });
+  return NextResponse.json({ prices, preMarketPrices, previousCloses });
 }

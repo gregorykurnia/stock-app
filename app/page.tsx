@@ -61,6 +61,7 @@ export default function Home() {
   interface UsSwingStock { ticker: string; name: string | null; industry: string | null; starred?: boolean }
   const [usSwingStocks, setUsSwingStocks] = useState<UsSwingStock[]>([]);
   const [usSwingPrices, setUsSwingPrices] = useState<Record<string, number | null>>({});
+  const [usSwingPrevCloses, setUsSwingPrevCloses] = useState<Record<string, number | null>>({});
   const [usSwingAtrs, setUsSwingAtrs] = useState<Record<string, number | null>>({});
   const [usSwingEma20s, setUsSwingEma20s] = useState<Record<string, number | null>>({});
   const [usSwingEma50s, setUsSwingEma50s] = useState<Record<string, number | null>>({});
@@ -226,7 +227,10 @@ export default function Home() {
       const tickers = list.map((s) => s.ticker);
       fetch(`/api/prices?tickers=${tickers.join(",")}`)
         .then((r) => r.json())
-        .then((d) => setUsSwingPrices((p) => ({ ...p, ...(d.prices ?? {}) })))
+        .then((d) => {
+          setUsSwingPrices((p) => ({ ...p, ...(d.prices ?? {}) }));
+          setUsSwingPrevCloses((p) => ({ ...p, ...(d.previousCloses ?? {}) }));
+        })
         .catch(() => {});
       fetchUsSwingDaily(tickers);
       fetchUsSwingFundAndEarnings(tickers);
@@ -274,6 +278,10 @@ export default function Home() {
       await saveUsSwingStock(sym, { name: entry.name, industry: entry.industry, added_at: new Date().toISOString() });
       setUsSwingStocks((prev) => [...prev.filter((s) => s.ticker !== sym), entry].sort((a, b) => a.ticker.localeCompare(b.ticker)));
       if (data.price != null) setUsSwingPrices((p) => ({ ...p, [sym]: data.price }));
+      fetch(`/api/prices?tickers=${sym}`)
+        .then((r) => r.json())
+        .then((d) => setUsSwingPrevCloses((p) => ({ ...p, ...(d.previousCloses ?? {}) })))
+        .catch(() => {});
       fetchUsSwingDaily([sym]);
       fetchUsSwingFundAndEarnings([sym]);
       setUsSwingAddTicker("");
@@ -1029,6 +1037,7 @@ export default function Home() {
             onToggleMark={handleToggleMark}
             usSwingStocks={usSwingStocks}
             usSwingPrices={usSwingPrices}
+            usSwingPrevCloses={usSwingPrevCloses}
             usSwingAtrs={usSwingAtrs}
             usSwingEma20s={usSwingEma20s}
             usSwingEma50s={usSwingEma50s}

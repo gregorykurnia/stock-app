@@ -152,6 +152,7 @@ interface Props {
   // US "Swing" tab — separate, manually-managed ticker list independent from List
   usSwingStocks?: USSwingStock[];
   usSwingPrices?: Record<string, number | null>;
+  usSwingPrevCloses?: Record<string, number | null>;
   usSwingAtrs?: Record<string, number | null>;
   usSwingEma20s?: Record<string, number | null>;
   usSwingEma50s?: Record<string, number | null>;
@@ -219,7 +220,7 @@ export default function MasterTable({
   swingAtr14 = {},
   swingBandar = {},
   swingLoading = false, swingAddTicker = "", swingAddLoading = false, swingAddError = "", onSwingAddTickerChange, onSwingAdd, onSwingRemove, onSwingEntryPriceChange,
-  usSwingStocks = [], usSwingPrices = {}, usSwingAtrs = {}, usSwingEma20s = {}, usSwingEma50s = {}, usSwingGoldenCrossDates = {}, usSwingMacds = {}, usSwingRoc14s = {}, usSwingRsis = {}, usSwingDiPluses = {}, usSwingDiMinuses = {}, usSwingAdxs = {}, usSwingLow6mos = {}, usSwingResistances = {}, usSwingDaysSinceResistances = {}, usSwingHigh5yrs = {}, usSwingDistHigh5yrs = {}, usSwingRelVolumes = {},
+  usSwingStocks = [], usSwingPrices = {}, usSwingPrevCloses = {}, usSwingAtrs = {}, usSwingEma20s = {}, usSwingEma50s = {}, usSwingGoldenCrossDates = {}, usSwingMacds = {}, usSwingRoc14s = {}, usSwingRsis = {}, usSwingDiPluses = {}, usSwingDiMinuses = {}, usSwingAdxs = {}, usSwingLow6mos = {}, usSwingResistances = {}, usSwingDaysSinceResistances = {}, usSwingHigh5yrs = {}, usSwingDistHigh5yrs = {}, usSwingRelVolumes = {},
   usSwingShortFloats = {}, usSwingAdvs = {}, usSwingEarnings = {}, usSwingLoading = false, onUsSwingTabOpen,
   usSwingAddTicker = "", usSwingAddLoading = false, usSwingAddError = "", onUsSwingAddTickerChange, onUsSwingAdd, onUsSwingRemove, onUsSwingToggleStar,
 }: Props) {
@@ -2180,6 +2181,7 @@ export default function MasterTable({
         <USSwingTable
           stocks={usSwingStocks}
           prices={usSwingPrices}
+          prevCloses={usSwingPrevCloses}
           atrs={usSwingAtrs}
           ema20s={usSwingEma20s}
           ema50s={usSwingEma50s}
