@@ -48,6 +48,18 @@ interface Props {
 
 const dash = <span className="text-gray-400">—</span>;
 
+const LEGEND = {
+  atr: "ATR% — volatility as % of price\n<1%: Very Low\n1.01-2%: Low to Moderate\n2.01-4%: Moderate\n4.01-7%: High\n>7%: Very High",
+  ema20d: "Dist EMA20D — price distance from EMA20 daily\n0-3%: Healthy\n3.01-7%: Strong Trend\n7.01-12%: Extended\n>12.01%: Overextended",
+  ema50d: "Dist EMA50D — price distance from EMA50 daily\n0-5%: Healthy\n5.01-10%: Moderately Extended\n10.01-20%: Extended\n>20.01%: Overextended",
+  goldenCross: "Golden Cross — days since EMA20D crossed above EMA50D\n0-15d: Very Early, Trend Not Confirmed\n16-45d: Trend Establishing, Best Entry\n46-90d: Mature Trend\n91-180d: Late Stage Trend\n>181d: Aged Cross",
+  roc14: "ROC14 — % price change over the last 14 daily closes\n>10%: Strong Price Momentum, Overextend Check\n5-9.9%: Solid Momentum for Swing\n2-4.9%: Moderate Trend, Good Midterm\n0-1.9%: Weak Trend, Low Conviction",
+  distLow: "Dist from Low — price distance from the 6-month low\n0-5%: High Risk, Need Strong Reversal Confirmation\n5.01-15%: Early Recovery Zone\n15.01-30%: Mid Recovery Zone, Good Midterm\n30.01-50%: Strong Recovery Zone\n50.01-100%: Extended Recovery Zone\n>100.01%: Overextended Breakout",
+  distResistance: "Dist from Resistance — price distance from resistance\n>20%: Big Growth Room\n10-19.99%: Decent Room\n5-9.99%: Close Resistance Room\n0-4.99%: Near Resistance\n<0.1% (or above): Breakout",
+  adx: "ADX — trend strength\n<15: No Trend\n15.01-20: Weak Trend\n20.01-25: Building Trend, Good for Midterm\n25.01-35: Strong Trend, Good for Momentum\n35.01-50: Very Strong Trend, Maybe Overextended\n>50.01: Parabolic Move",
+  shortFloat: "Short Float % — short interest as a % of the public float\n<2%: Minimal Short Interest, No Skeptic\n2.01-5%: Low to Normal, Some Skeptics\n5.01-10%: Moderate, Squeeze Possible\n10.01-20%: Battleground Stock\n20.01-30%: Very High, Heavily Contested\n>30.01%: Extreme Short Float",
+};
+
 export default function USSwingTable({
   stocks, prices, atrs, ema20s, ema50s, goldenCrossDates = {}, macds, roc14s = {}, rsis, diPluses = {}, diMinuses = {}, adxs = {}, low6mos, relVolumes,
   resistances = {}, daysSinceResistances = {}, shortFloats = {}, advs = {}, earnings = {}, loading = false,
@@ -199,16 +211,29 @@ export default function USSwingTable({
         r.earnings ?? "", daysUntil != null ? String(daysUntil) : "",
       ];
     });
-    downloadCsv(`swing-${date}.csv`, headers, data);
+    const legendRows: (string | number | null)[][] = [
+      [], ["Legend"],
+      ...Object.values(LEGEND).flatMap((text): (string | number | null)[][] => [...text.split("\n").map((line) => [line]), []]),
+    ];
+    downloadCsv(`swing-${date}.csv`, headers, [...data, ...legendRows]);
   }
 
-  const Th = ({ label, k, title, sticky }: { label: string; k: SortKey; title?: string; sticky?: boolean }) => (
+  const Th = ({ label, k, title, sticky, info }: { label: string; k: SortKey; title?: string; sticky?: boolean; info?: boolean }) => (
     <th
-      title={title}
+      title={info ? undefined : title}
       className={`px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide cursor-pointer hover:text-gray-900 whitespace-nowrap select-none${sticky ? " sticky left-0 z-20 bg-gray-100 after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-gray-300 after:content-['']" : ""}`}
       onClick={() => toggleSort(k)}
     >
       {label}{sortKey === k ? (sortDir === "desc" ? " ↓" : " ↑") : ""}
+      {info && (
+        <span
+          title={title}
+          onClick={(e) => e.stopPropagation()}
+          className="inline-flex items-center justify-center w-3.5 h-3.5 ml-1 rounded-full border border-gray-400 text-[9px] leading-none text-gray-400 hover:text-gray-700 hover:border-gray-700 normal-case font-normal cursor-help align-middle whitespace-pre-line"
+        >
+          i
+        </span>
+      )}
     </th>
   );
 
@@ -315,24 +340,24 @@ export default function USSwingTable({
               <Th label="Ticker" k="ticker" sticky />
               <Th label="Industry" k="industry" />
               <Th label="Price" k="price" />
-              <Th label="ATR%" k="atr" title="Daily ATR% — volatility as % of price" />
+              <Th label="ATR%" k="atr" title={LEGEND.atr} info />
               <Th label="EMA20D" k="ema20d" title="EMA20, daily" />
-              <Th label="Dist EMA20D" k="distEma20d" title="Price distance from EMA20 daily" />
+              <Th label="Dist EMA20D" k="distEma20d" title={LEGEND.ema20d} info />
               <Th label="EMA50D" k="ema50d" title="EMA50, daily" />
-              <Th label="Dist EMA50D" k="distEma50d" title="Price distance from EMA50 daily" />
-              <Th label="Golden Cross" k="goldenCross" title="Most recent date EMA20D crossed above EMA50D, and days since" />
+              <Th label="Dist EMA50D" k="distEma50d" title={LEGEND.ema50d} info />
+              <Th label="Golden Cross" k="goldenCross" title={LEGEND.goldenCross} info />
               <Th label="MACD" k="macd" title="MACD line (12, 26) — daily closes" />
-              <Th label="ROC14" k="roc14" title="Rate of Change: % price change over the last 14 daily closes — momentum strength/deceleration" />
+              <Th label="ROC14" k="roc14" title={LEGEND.roc14} info />
               <Th label="Low (6mo)" k="low6mo" title="Lowest intraday low over the last ~6 months (126 sessions)" />
-              <Th label="Dist from Low" k="distLow6mo" title="Price distance from the 6-month low" />
+              <Th label="Dist from Low" k="distLow6mo" title={LEGEND.distLow} info />
               <Th label="Resistance" k="resistance" title="Highest intraday high over the last ~1 year, excluding the most recent ~32 sessions (~1.5 months) — the last prior ceiling the stock pulled back from" />
-              <Th label="Dist from Resistance" k="distResistance" title="Price distance from resistance — negative means below/approaching, positive means already broken above" />
+              <Th label="Dist from Resistance" k="distResistance" title={LEGEND.distResistance} info />
               <Th label="Days Since Resistance" k="daysSinceResistance" title="Trading sessions since the bar that set the resistance high — a stale reading means an old ceiling, a fresh one means it was made just outside the 32-session cooldown" />
               <Th label="RSI" k="rsi" title="RSI(14), daily" />
               <Th label="DI+" k="diPlus" title="+DI(14), daily" />
               <Th label="DI-" k="diMinus" title="-DI(14), daily" />
-              <Th label="ADX" k="adx" title="Average Directional Index — trend strength: <20 no trend/choppy, 20-25 emerging, 25-45 trending, >45 overextended" />
-              <Th label="Short Float %" k="shortFloat" title="Short interest as a % of the public float" />
+              <Th label="ADX" k="adx" title={LEGEND.adx} info />
+              <Th label="Short Float %" k="shortFloat" title={LEGEND.shortFloat} info />
               <Th label="ADV" k="adv" title="Average daily volume (3-month)" />
               <Th label="Rel Volume" k="relVolume" title="Latest session volume vs its trailing 20-day average" />
               <Th label="Earnings Date" k="earnings" title="Next/last reported earnings date, with days until in brackets" />
