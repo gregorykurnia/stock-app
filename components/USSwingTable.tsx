@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { downloadCsv } from "@/lib/exportCsv";
 
 export interface USSwingStock {
@@ -55,6 +55,18 @@ export default function USSwingTable({
   const [sortKey, setSortKey] = useState<SortKey>("ticker");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [starredOnly, setStarredOnly] = useState(false);
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+
+  // Debounce: only apply the search filter/lookup once the user pauses typing for 400ms,
+  // rather than re-filtering on every keystroke.
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(searchInput.trim().toUpperCase()), 400);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  const onListTicker = useMemo(() => new Set(stocks.map((s) => s.ticker.toUpperCase())), [stocks]);
+  const isOnList = search !== "" && onListTicker.has(search);
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -96,8 +108,10 @@ export default function USSwingTable({
   }, [stocks, prices, atrs, ema20s, ema50s, goldenCrossDates, macds, rsis, diPluses, diMinuses, adxs, low6mos, relVolumes, resistances, daysSinceResistances, shortFloats, advs, earnings]);
 
   const filteredRows = useMemo(() => {
-    return starredOnly ? rows.filter((r) => r.starred) : rows;
-  }, [rows, starredOnly]);
+    let out = starredOnly ? rows.filter((r) => r.starred) : rows;
+    if (search) out = out.filter((r) => r.ticker.toUpperCase().includes(search) || r.name?.toUpperCase().includes(search));
+    return out;
+  }, [rows, starredOnly, search]);
 
   const sortedRows = useMemo(() => {
     const getVal = (r: (typeof rows)[number]): number | string | null => {
@@ -254,6 +268,24 @@ export default function USSwingTable({
           </button>
         </form>
         {addError && <span className="text-xs text-red-500">{addError}</span>}
+        <div className="flex items-center gap-1.5">
+          <input
+            type="text"
+            placeholder="Search ticker or name…"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            autoCapitalize="characters"
+            autoCorrect="off"
+            autoComplete="off"
+            spellCheck={false}
+            className="bg-white border border-gray-300 rounded px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 w-48"
+          />
+          {search && (
+            <span className={`text-xs font-medium whitespace-nowrap ${isOnList ? "text-green-600" : "text-gray-400"}`}>
+              {isOnList ? `✓ ${search} is on your list` : `${search} not on your list`}
+            </span>
+          )}
+        </div>
         {loading && <span className="text-xs text-gray-400 animate-pulse">Loading daily indicators…</span>}
         <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none">
           <input
