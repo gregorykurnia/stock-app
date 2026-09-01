@@ -13,7 +13,7 @@ export interface USSwingStock {
 type SortKey =
   | "ticker" | "industry" | "price" | "atr"
   | "ema20d" | "distEma20d" | "ema50d" | "distEma50d" | "goldenCross"
-  | "macd" | "low6mo" | "distLow6mo" | "resistance" | "distResistance" | "daysSinceResistance" | "rsi" | "shortFloat" | "adv" | "relVolume" | "earnings";
+  | "macd" | "low6mo" | "distLow6mo" | "resistance" | "distResistance" | "daysSinceResistance" | "rsi" | "diPlus" | "diMinus" | "adx" | "shortFloat" | "adv" | "relVolume" | "earnings";
 type SortDir = "asc" | "desc";
 
 interface Props {
@@ -25,6 +25,9 @@ interface Props {
   goldenCrossDates?: Record<string, string | null>;
   macds: Record<string, number | null>;
   rsis: Record<string, number | null>;
+  diPluses?: Record<string, number | null>;
+  diMinuses?: Record<string, number | null>;
+  adxs?: Record<string, number | null>;
   low6mos: Record<string, number | null>;
   relVolumes: Record<string, number | null>;
   resistances?: Record<string, number | null>;
@@ -45,7 +48,7 @@ interface Props {
 const dash = <span className="text-gray-400">—</span>;
 
 export default function USSwingTable({
-  stocks, prices, atrs, ema20s, ema50s, goldenCrossDates = {}, macds, rsis, low6mos, relVolumes,
+  stocks, prices, atrs, ema20s, ema50s, goldenCrossDates = {}, macds, rsis, diPluses = {}, diMinuses = {}, adxs = {}, low6mos, relVolumes,
   resistances = {}, daysSinceResistances = {}, shortFloats = {}, advs = {}, earnings = {}, loading = false,
   addTicker = "", addLoading = false, addError = "", onAddTickerChange, onAdd, onRemove, onToggleStar,
 }: Props) {
@@ -81,13 +84,16 @@ export default function USSwingTable({
         distResistance: price != null && resistance != null && resistance > 0 ? ((price - resistance) / resistance) * 100 : null,
         daysSinceResistance: daysSinceResistances[s.ticker] ?? null,
         rsi: rsis[s.ticker] ?? null,
+        diPlus: diPluses[s.ticker] ?? null,
+        diMinus: diMinuses[s.ticker] ?? null,
+        adx: adxs[s.ticker] ?? null,
         relVolume: relVolumes[s.ticker] ?? null,
         shortFloat: shortFloats[s.ticker] ?? null,
         adv: advs[s.ticker] ?? null,
         earnings: earnings[s.ticker] ?? null,
       };
     });
-  }, [stocks, prices, atrs, ema20s, ema50s, goldenCrossDates, macds, rsis, low6mos, relVolumes, resistances, daysSinceResistances, shortFloats, advs, earnings]);
+  }, [stocks, prices, atrs, ema20s, ema50s, goldenCrossDates, macds, rsis, diPluses, diMinuses, adxs, low6mos, relVolumes, resistances, daysSinceResistances, shortFloats, advs, earnings]);
 
   const filteredRows = useMemo(() => {
     return starredOnly ? rows.filter((r) => r.starred) : rows;
@@ -116,6 +122,9 @@ export default function USSwingTable({
         case "distResistance": return r.distResistance;
         case "daysSinceResistance": return r.daysSinceResistance;
         case "rsi": return r.rsi;
+        case "diPlus": return r.diPlus;
+        case "diMinus": return r.diMinus;
+        case "adx": return r.adx;
         case "shortFloat": return r.shortFloat;
         case "adv": return r.adv;
         case "relVolume": return r.relVolume;
@@ -146,7 +155,7 @@ export default function USSwingTable({
     const date = new Date().toISOString().slice(0, 10);
     const headers = ["Ticker", "Name", "Industry", "Price", "ATR%", "EMA20D", "Dist EMA20D%",
       "EMA50D", "Dist EMA50D%", "Golden Cross", "MACD", "Low (6mo)", "Dist from Low%", "Resistance (1Y)", "Dist from Resistance%", "Days Since Resistance",
-      "RSI", "Short Float%", "ADV",
+      "RSI", "DI+", "DI-", "ADX", "Short Float%", "ADV",
       "Rel Volume", "Earnings Date", "Days to Earnings"];
     const data = sortedRows.map((r) => {
       const daysUntil = r.earnings
@@ -164,6 +173,9 @@ export default function USSwingTable({
         r.macd?.toFixed(2) ?? "", r.low6mo?.toFixed(2) ?? "", r.distLow6mo?.toFixed(1) ?? "",
         r.resistance?.toFixed(2) ?? "", r.distResistance?.toFixed(1) ?? "", r.daysSinceResistance != null ? String(r.daysSinceResistance) : "",
         r.rsi?.toFixed(1) ?? "",
+        r.diPlus?.toFixed(1) ?? "",
+        r.diMinus?.toFixed(1) ?? "",
+        r.adx?.toFixed(1) ?? "",
         r.shortFloat != null ? (r.shortFloat * 100).toFixed(1) : "",
         r.adv != null ? Math.round(r.adv).toLocaleString() : "",
         r.relVolume?.toFixed(2) ?? "",
@@ -188,6 +200,9 @@ export default function USSwingTable({
 
   const rsiColor = (v: number | null) =>
     v == null ? "text-gray-400" : v >= 70 ? "text-red-500" : v <= 30 ? "text-green-600" : "text-gray-700";
+
+  const adxColor = (v: number | null) =>
+    v == null ? "text-gray-400" : v < 20 ? "text-gray-400" : v <= 45 ? "text-green-600 font-semibold" : "text-orange-500 font-semibold";
 
   const relVolColor = (v: number | null) =>
     v == null ? "text-gray-400" : v >= 1.5 ? "text-green-600 font-semibold" : v <= 0.5 ? "text-gray-400" : "text-gray-700";
@@ -278,6 +293,9 @@ export default function USSwingTable({
               <Th label="Dist from Resistance" k="distResistance" title="Price distance from resistance — negative means below/approaching, positive means already broken above" />
               <Th label="Days Since Resistance" k="daysSinceResistance" title="Trading sessions since the bar that set the resistance high — a stale reading means an old ceiling, a fresh one means it was made just outside the 32-session cooldown" />
               <Th label="RSI" k="rsi" title="RSI(14), daily" />
+              <Th label="DI+" k="diPlus" title="+DI(14), daily" />
+              <Th label="DI-" k="diMinus" title="-DI(14), daily" />
+              <Th label="ADX" k="adx" title="Average Directional Index — trend strength: <20 no trend/choppy, 20-25 emerging, 25-45 trending, >45 overextended" />
               <Th label="Short Float %" k="shortFloat" title="Short interest as a % of the public float" />
               <Th label="ADV" k="adv" title="Average daily volume (3-month)" />
               <Th label="Rel Volume" k="relVolume" title="Latest session volume vs its trailing 20-day average" />
@@ -287,7 +305,7 @@ export default function USSwingTable({
           </thead>
           <tbody className="divide-y divide-gray-100">
             {sortedRows.length === 0 && (
-              <tr><td colSpan={21} className="px-3 py-6 text-center text-gray-400 text-sm">{starredOnly ? "No starred tickers." : "No tickers yet — add one above."}</td></tr>
+              <tr><td colSpan={24} className="px-3 py-6 text-center text-gray-400 text-sm">{starredOnly ? "No starred tickers." : "No tickers yet — add one above."}</td></tr>
             )}
             {sortedRows.map((r) => (
               <tr key={r.ticker} className="hover:bg-gray-50">
@@ -323,6 +341,9 @@ export default function USSwingTable({
                 <td className={`px-3 py-2 font-medium ${distColor(r.distResistance)}`}>{r.distResistance != null ? `${r.distResistance.toFixed(1)}%` : dash}</td>
                 <td className="px-3 py-2 text-gray-700">{r.daysSinceResistance != null ? `${r.daysSinceResistance}D` : dash}</td>
                 <td className={`px-3 py-2 font-medium ${rsiColor(r.rsi)}`}>{r.rsi != null ? r.rsi.toFixed(1) : dash}</td>
+                <td className="px-3 py-2 text-gray-700">{r.diPlus != null ? r.diPlus.toFixed(1) : dash}</td>
+                <td className="px-3 py-2 text-gray-700">{r.diMinus != null ? r.diMinus.toFixed(1) : dash}</td>
+                <td className={`px-3 py-2 font-medium ${adxColor(r.adx)}`}>{r.adx != null ? r.adx.toFixed(1) : dash}</td>
                 <td className={`px-3 py-2 font-medium ${shortFloatColor(r.shortFloat)}`}>{r.shortFloat != null ? `${(r.shortFloat * 100).toFixed(1)}%` : dash}</td>
                 <td className="px-3 py-2 text-gray-700">{fmtAdv(r.adv)}</td>
                 <td className={`px-3 py-2 ${relVolColor(r.relVolume)}`}>{r.relVolume != null ? `${r.relVolume.toFixed(2)}x` : dash}</td>

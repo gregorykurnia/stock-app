@@ -26,6 +26,9 @@ interface SwingDailyResult {
   ema50: number | null;
   atrPct: number | null;
   rsi: number | null;
+  diPlus: number | null;
+  diMinus: number | null;
+  adx: number | null;
   emaCrossAbove: boolean | null;
   crossPrice: number | null;
   crossDate: string | null;
@@ -48,6 +51,7 @@ interface SwingDailyResult {
 
 const EMPTY: SwingDailyResult = {
   ema20: null, ema50: null, atrPct: null, rsi: null,
+  diPlus: null, diMinus: null, adx: null,
   emaCrossAbove: null, crossPrice: null, crossDate: null, goldenCrossDate: null,
   macd: null, signal: null, histogram: null, histDirection: null,
   atr: null, stopLoss: null, stopLossPercent: null, bandar: null,
@@ -81,6 +85,9 @@ async function fetchSwingDaily(ticker: string): Promise<SwingDailyResult> {
   const ema20 = last(ind.ema20);
   const ema50 = last(ind.ema50);
   const rsi = last(ind.rsi);
+  const diPlus = last(ind.diPlus);
+  const diMinus = last(ind.diMinus);
+  const adx = last(ind.adx);
 
   let emaCrossAbove: boolean | null = null;
   let crossPrice: number | null = null;
@@ -149,7 +156,7 @@ async function fetchSwingDaily(ticker: string): Promise<SwingDailyResult> {
   const relVolume = avgVol20 != null && avgVol20 > 0 ? lastVol / avgVol20 : null;
 
   return {
-    ema20, ema50, atrPct, rsi, emaCrossAbove, crossPrice, crossDate, goldenCrossDate,
+    ema20, ema50, atrPct, rsi, diPlus, diMinus, adx, emaCrossAbove, crossPrice, crossDate, goldenCrossDate,
     macd: macdRes?.macd ?? null,
     signal: macdRes?.signal ?? null,
     histogram: macdRes?.histogram ?? null,
@@ -172,6 +179,9 @@ export async function GET(req: NextRequest) {
   const ema50: Record<string, number | null> = {};
   const atrPct: Record<string, number | null> = {};
   const rsi: Record<string, number | null> = {};
+  const diPlus: Record<string, number | null> = {};
+  const diMinus: Record<string, number | null> = {};
+  const adx: Record<string, number | null> = {};
   const emaCrossAbove: Record<string, boolean | null> = {};
   const crossPrice: Record<string, number | null> = {};
   const crossDate: Record<string, string | null> = {};
@@ -200,6 +210,9 @@ export async function GET(req: NextRequest) {
       ema50[ticker] = r.ema50;
       atrPct[ticker] = r.atrPct;
       rsi[ticker] = r.rsi;
+      diPlus[ticker] = r.diPlus;
+      diMinus[ticker] = r.diMinus;
+      adx[ticker] = r.adx;
       emaCrossAbove[ticker] = r.emaCrossAbove;
       crossPrice[ticker] = r.crossPrice;
       crossDate[ticker] = r.crossDate;
@@ -222,7 +235,7 @@ export async function GET(req: NextRequest) {
   }
 
   return NextResponse.json({
-    ema20, ema50, atrPct, rsi, emaCrossAbove, crossPrice, crossDate, goldenCrossDate,
+    ema20, ema50, atrPct, rsi, diPlus, diMinus, adx, emaCrossAbove, crossPrice, crossDate, goldenCrossDate,
     macd, signal, histogram, histDirection,
     atr, stopLoss, stopLossPercent, bandar,
     low6mo, distFromLow6mo, resistance, distFromResistance, daysSinceResistance, relVolume,

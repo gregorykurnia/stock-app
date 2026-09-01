@@ -67,6 +67,9 @@ export default function Home() {
   const [usSwingGoldenCrossDates, setUsSwingGoldenCrossDates] = useState<Record<string, string | null>>({});
   const [usSwingMacds, setUsSwingMacds] = useState<Record<string, number | null>>({});
   const [usSwingRsis, setUsSwingRsis] = useState<Record<string, number | null>>({});
+  const [usSwingDiPluses, setUsSwingDiPluses] = useState<Record<string, number | null>>({});
+  const [usSwingDiMinuses, setUsSwingDiMinuses] = useState<Record<string, number | null>>({});
+  const [usSwingAdxs, setUsSwingAdxs] = useState<Record<string, number | null>>({});
   const [usSwingLow6mos, setUsSwingLow6mos] = useState<Record<string, number | null>>({});
   const [usSwingResistances, setUsSwingResistances] = useState<Record<string, number | null>>({});
   const [usSwingDaysSinceResistances, setUsSwingDaysSinceResistances] = useState<Record<string, number | null>>({});
@@ -177,6 +180,9 @@ export default function Home() {
         setUsSwingGoldenCrossDates((p) => ({ ...p, ...(d.goldenCrossDate ?? {}) }));
         setUsSwingAtrs((p) => ({ ...p, ...(d.atrPct ?? {}) }));
         setUsSwingRsis((p) => ({ ...p, ...(d.rsi ?? {}) }));
+        setUsSwingDiPluses((p) => ({ ...p, ...(d.diPlus ?? {}) }));
+        setUsSwingDiMinuses((p) => ({ ...p, ...(d.diMinus ?? {}) }));
+        setUsSwingAdxs((p) => ({ ...p, ...(d.adx ?? {}) }));
         setUsSwingMacds((p) => ({ ...p, ...(d.macd ?? {}) }));
         setUsSwingLow6mos((p) => ({ ...p, ...(d.low6mo ?? {}) }));
         setUsSwingResistances((p) => ({ ...p, ...(d.resistance ?? {}) }));
@@ -1023,6 +1029,9 @@ export default function Home() {
             usSwingGoldenCrossDates={usSwingGoldenCrossDates}
             usSwingMacds={usSwingMacds}
             usSwingRsis={usSwingRsis}
+            usSwingDiPluses={usSwingDiPluses}
+            usSwingDiMinuses={usSwingDiMinuses}
+            usSwingAdxs={usSwingAdxs}
             usSwingLow6mos={usSwingLow6mos}
             usSwingResistances={usSwingResistances}
             usSwingDaysSinceResistances={usSwingDaysSinceResistances}
