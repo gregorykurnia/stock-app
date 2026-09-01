@@ -115,10 +115,9 @@ export default function PortfolioTable({
       const totalPct = price != null && s.entry_price != null && s.entry_price > 0 ? ((price - s.entry_price) / s.entry_price) * 100 : null;
       const entryValue = s.entry_price != null && s.entry_quantity != null ? s.entry_price * s.entry_quantity : null;
       const unrealized = price != null && s.entry_price != null && s.entry_quantity != null ? (price - s.entry_price) * s.entry_quantity : null;
-      // R:R = potential reward (highest R level − entry) ÷ potential risk (entry − nearest support)
-      const highestR = [s.r1, s.r2, s.r3].filter((v): v is number => v != null).reduce((max, v) => (max == null || v > max ? v : max), null as number | null);
+      // R:R = potential reward (R1 − entry) ÷ potential risk (entry − nearest support)
       const risk = s.entry_price != null && s.nearest_support != null ? s.entry_price - s.nearest_support : null;
-      const reward = s.entry_price != null && highestR != null ? highestR - s.entry_price : null;
+      const reward = s.entry_price != null && s.r1 != null ? s.r1 - s.entry_price : null;
       const rrRatio = risk != null && risk > 0 && reward != null ? reward / risk : null;
       return { ...s, price, priceChangePct, totalPct, entryValue, unrealized, rrRatio };
     });
@@ -212,7 +211,7 @@ export default function PortfolioTable({
               <Th label="Unrealized" k="unrealized" title="Unrealized gain/loss in $ = (current price − entry price) × entry quantity" />
               {isSwing && (
                 <>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Reward ÷ Risk = (highest R level − entry price) ÷ (entry price − nearest support)">R:R Ratio</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Reward ÷ Risk = (R1 − entry price) ÷ (entry price − nearest support)">R:R Ratio</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="% shown is the distance from your entry price to this level">Nearest Support</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="% shown is the distance from your entry price to this level">R1</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="% shown is the distance from your entry price to this level">R2</th>
