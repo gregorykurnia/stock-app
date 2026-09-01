@@ -15,7 +15,10 @@ import {
   saveWatchlistEntry, removeWatchlistEntry,
   getMarkedTickers, markTicker, unmarkTicker,
   getPeStatsMap,
+  getPortfolioDivisionStocks, savePortfolioDivisionStock, removePortfolioDivisionStock, updatePortfolioDivisionEntry,
+  type PortfolioDivision,
 } from "@/lib/firestore";
+import type { PortfolioStock } from "@/components/PortfolioTable";
 import type { CustomStock, PeStats } from "@/lib/types";
 import type { BandarScoreResult } from "@/lib/indicators";
 import type { FundData } from "@/app/api/funddata/route";
@@ -86,6 +89,16 @@ export default function Home() {
   const [usSwingAddTicker, setUsSwingAddTicker] = useState("");
   const [usSwingAddLoading, setUsSwingAddLoading] = useState(false);
   const [usSwingAddError, setUsSwingAddError] = useState("");
+
+  // "Portfolio" tab — three independent, manually-managed divisions (Long Term / Index / Swing)
+  const [portfolioStocks, setPortfolioStocks] = useState<Record<PortfolioDivision, PortfolioStock[]>>({ longterm: [], index: [], swing: [] });
+  const [portfolioPrices, setPortfolioPrices] = useState<Record<string, number | null>>({});
+  const [portfolioPrevCloses, setPortfolioPrevCloses] = useState<Record<string, number | null>>({});
+  const [portfolioLoaded, setPortfolioLoaded] = useState<Record<PortfolioDivision, boolean>>({ longterm: false, index: false, swing: false });
+  const [portfolioLoading, setPortfolioLoading] = useState<Record<PortfolioDivision, boolean>>({ longterm: false, index: false, swing: false });
+  const [portfolioAddTicker, setPortfolioAddTicker] = useState<Record<PortfolioDivision, string>>({ longterm: "", index: "", swing: "" });
+  const [portfolioAddLoading, setPortfolioAddLoading] = useState<Record<PortfolioDivision, boolean>>({ longterm: false, index: false, swing: false });
+  const [portfolioAddError, setPortfolioAddError] = useState<Record<PortfolioDivision, string>>({ longterm: "", index: "", swing: "" });
 
   // IHSG state (mirrors US state, tickers stored without .JK)
   const [ihsgCustomStocks, setIhsgCustomStocks] = useState<CustomStock[]>([]);
@@ -295,6 +308,99 @@ export default function Home() {
   async function handleRemoveUsSwingTicker(ticker: string) {
     await removeUsSwingStock(ticker);
     setUsSwingStocks((prev) => prev.filter((s) => s.ticker !== ticker));
+  }
+
+  async function loadPortfolioDivision(division: PortfolioDivision) {
+    const data = await getPortfolioDivisionStocks(division).catch(() => ({}));
+    const list = Object.entries(data).map(([ticker, d]) => {
+      const raw = d as { name?: string | null; industry?: string | null; entry_price?: number | null; entry_value?: number | null };
+      return {
+        ticker,
+        name: raw.name ?? null,
+        industry: raw.industry ?? null,
+        entry_price: raw.entry_price ?? null,
+        entry_value: raw.entry_value ?? null,
+      } as PortfolioStock;
+    });
+    list.sort((a, b) => a.ticker.localeCompare(b.ticker));
+    setPortfolioStocks((p) => ({ ...p, [division]: list }));
+    return list;
+  }
+
+  function handlePortfolioTabOpen(division: PortfolioDivision) {
+    if (portfolioLoaded[division]) return;
+    setPortfolioLoaded((p) => ({ ...p, [division]: true }));
+    setPortfolioLoading((p) => ({ ...p, [division]: true }));
+    loadPortfolioDivision(division).then((list) => {
+      setPortfolioLoading((p) => ({ ...p, [division]: false }));
+      if (list.length === 0) return;
+      const tickers = list.map((s) => s.ticker);
+      fetch(`/api/prices?tickers=${tickers.join(",")}`)
+        .then((r) => r.json())
+        .then((d) => {
+          setPortfolioPrices((p) => ({ ...p, ...(d.prices ?? {}) }));
+          setPortfolioPrevCloses((p) => ({ ...p, ...(d.previousCloses ?? {}) }));
+        })
+        .catch(() => {});
+    });
+  }
+
+  async function handleAddPortfolioTicker(division: PortfolioDivision, e: React.FormEvent) {
+    e.preventDefault();
+    const sym = portfolioAddTicker[division].trim().toUpperCase();
+    if (!sym) return;
+    if (portfolioStocks[division].some((s) => s.ticker === sym)) {
+      setPortfolioAddError((p) => ({ ...p, [division]: `${sym} is already in this division.` }));
+      return;
+    }
+    setPortfolioAddLoading((p) => ({ ...p, [division]: true }));
+    setPortfolioAddError((p) => ({ ...p, [division]: "" }));
+    try {
+      const res = await fetch(`/api/fundamentals?ticker=${sym}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to fetch data");
+
+      const entry: PortfolioStock = {
+        ticker: sym,
+        name: data.name ?? null,
+        industry: data.industry ?? data.sector ?? null,
+        entry_price: null,
+        entry_value: null,
+      };
+      await savePortfolioDivisionStock(division, sym, { name: entry.name, industry: entry.industry, added_at: new Date().toISOString() });
+      setPortfolioStocks((p) => ({
+        ...p,
+        [division]: [...p[division].filter((s) => s.ticker !== sym), entry].sort((a, b) => a.ticker.localeCompare(b.ticker)),
+      }));
+      if (data.price != null) setPortfolioPrices((p) => ({ ...p, [sym]: data.price }));
+      fetch(`/api/prices?tickers=${sym}`)
+        .then((r) => r.json())
+        .then((d) => setPortfolioPrevCloses((p) => ({ ...p, ...(d.previousCloses ?? {}) })))
+        .catch(() => {});
+      setPortfolioAddTicker((p) => ({ ...p, [division]: "" }));
+    } catch (err) {
+      setPortfolioAddError((p) => ({ ...p, [division]: err instanceof Error ? err.message : "Unknown error" }));
+    } finally {
+      setPortfolioAddLoading((p) => ({ ...p, [division]: false }));
+    }
+  }
+
+  async function handleRemovePortfolioTicker(division: PortfolioDivision, ticker: string) {
+    await removePortfolioDivisionStock(division, ticker);
+    setPortfolioStocks((p) => ({ ...p, [division]: p[division].filter((s) => s.ticker !== ticker) }));
+  }
+
+  async function handlePortfolioEntryChange(
+    division: PortfolioDivision,
+    ticker: string,
+    field: "entry_price" | "entry_value",
+    value: number | null
+  ) {
+    setPortfolioStocks((p) => ({
+      ...p,
+      [division]: p[division].map((s) => (s.ticker === ticker ? { ...s, [field]: value } : s)),
+    }));
+    await updatePortfolioDivisionEntry(division, ticker, { [field]: value }).catch(() => {});
   }
 
   async function handleToggleMark(ticker: string) {
@@ -1066,6 +1172,18 @@ export default function Home() {
             onUsSwingAdd={handleAddUsSwingTicker}
             onUsSwingRemove={handleRemoveUsSwingTicker}
             onUsSwingToggleStar={handleToggleUsSwingStar}
+            portfolioStocks={portfolioStocks}
+            portfolioPrices={portfolioPrices}
+            portfolioPrevCloses={portfolioPrevCloses}
+            portfolioLoading={portfolioLoading}
+            onPortfolioTabOpen={handlePortfolioTabOpen}
+            portfolioAddTicker={portfolioAddTicker}
+            portfolioAddLoading={portfolioAddLoading}
+            portfolioAddError={portfolioAddError}
+            onPortfolioAddTickerChange={(division, v) => setPortfolioAddTicker((p) => ({ ...p, [division]: v }))}
+            onPortfolioAdd={handleAddPortfolioTicker}
+            onPortfolioRemove={handleRemovePortfolioTicker}
+            onPortfolioEntryChange={handlePortfolioEntryChange}
           />
         )}
       </div>

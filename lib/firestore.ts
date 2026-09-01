@@ -125,6 +125,37 @@ export async function removePortfolioEntry(ticker: string) {
   await deleteDoc(doc(db, "portfolio", ticker));
 }
 
+// Portfolio divisions — three independent, manually-managed ticker lists ("Long Term",
+// "Index", "Swing"), each holding entry_price/entry_value alongside name/industry.
+export type PortfolioDivision = "longterm" | "index" | "swing";
+
+function portfolioDivisionCollection(division: PortfolioDivision) {
+  return `portfolio_${division}`;
+}
+
+export async function getPortfolioDivisionStocks(division: PortfolioDivision): Promise<Record<string, object>> {
+  const snap = await getDocs(collection(db, portfolioDivisionCollection(division)));
+  const result: Record<string, object> = {};
+  snap.forEach((d) => { result[d.id] = d.data(); });
+  return result;
+}
+
+export async function savePortfolioDivisionStock(division: PortfolioDivision, ticker: string, data: object) {
+  await setDoc(doc(db, portfolioDivisionCollection(division), ticker), data, { merge: true });
+}
+
+export async function removePortfolioDivisionStock(division: PortfolioDivision, ticker: string) {
+  await deleteDoc(doc(db, portfolioDivisionCollection(division), ticker));
+}
+
+export async function updatePortfolioDivisionEntry(
+  division: PortfolioDivision,
+  ticker: string,
+  data: { entry_price?: number | null; entry_value?: number | null }
+) {
+  await setDoc(doc(db, portfolioDivisionCollection(division), ticker), data, { merge: true });
+}
+
 // Watchlist
 export async function getWatchlist(): Promise<Record<string, object>> {
   const snap = await getDocs(collection(db, "watchlist"));

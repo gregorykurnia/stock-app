@@ -50,7 +50,6 @@ export default function RootLayout({
         <nav className="bg-white border-b border-gray-200 px-4 sm:px-6 py-2.5 flex items-center gap-4 sm:gap-6 text-sm overflow-x-auto whitespace-nowrap">
           <Link href="/" className="font-bold text-gray-900 hover:text-blue-600 shrink-0">Stock Analysis</Link>
           <Link href="/" className="text-gray-500 hover:text-gray-900 shrink-0">Master Table</Link>
-          <Link href="/portfolio" className="text-gray-500 hover:text-gray-900 shrink-0">Portfolio</Link>
           <Link href="/watchlist" className="text-gray-500 hover:text-gray-900 shrink-0">Watchlist</Link>
           <Link href="/alerts" className="text-gray-500 hover:text-gray-900 shrink-0">Price Alerts</Link>
         </nav>
