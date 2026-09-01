@@ -121,10 +121,10 @@ async function fetchSwingDaily(ticker: string): Promise<SwingDailyResult> {
   const distFromLow6mo = low6mo != null && low6mo > 0 ? ((lastClose - low6mo) / low6mo) * 100 : null;
 
   // Resistance: the highest intraday high over the full ~1yr window, excluding the most recent
-  // ~15 sessions. Excluding the recent cooldown avoids "resistance" trivially tracking today's
-  // price when a stock is actively making new highs — this is meant to capture the last real
-  // ceiling the stock pulled back from, not the current candle.
-  const cooldown = 15;
+  // ~32 sessions (~1.5 months). Excluding the recent cooldown avoids "resistance" trivially tracking
+  // today's price when a stock is actively making new highs — this is meant to capture the last real
+  // ceiling the stock pulled back from, not recent chop.
+  const cooldown = 32;
   const resistanceWindow = bars.slice(0, Math.max(0, bars.length - cooldown));
   const resistance = resistanceWindow.length > 0 ? Math.max(...resistanceWindow.map((b: { high: number }) => b.high)) : null;
   const distFromResistance = resistance != null && resistance > 0 ? ((lastClose - resistance) / resistance) * 100 : null;

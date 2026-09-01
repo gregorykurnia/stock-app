@@ -274,9 +274,9 @@ export default function USSwingTable({
               <Th label="MACD" k="macd" title="MACD line (12, 26) — daily closes" />
               <Th label="Low (6mo)" k="low6mo" title="Lowest intraday low over the last ~6 months (126 sessions)" />
               <Th label="Dist from Low" k="distLow6mo" title="Price distance from the 6-month low" />
-              <Th label="Resistance" k="resistance" title="Highest intraday high over the last ~1 year, excluding the most recent ~15 sessions — the last prior ceiling the stock pulled back from" />
+              <Th label="Resistance" k="resistance" title="Highest intraday high over the last ~1 year, excluding the most recent ~32 sessions (~1.5 months) — the last prior ceiling the stock pulled back from" />
               <Th label="Dist from Resistance" k="distResistance" title="Price distance from resistance — negative means below/approaching, positive means already broken above" />
-              <Th label="Days Since Resistance" k="daysSinceResistance" title="Trading sessions since the bar that set the resistance high — a stale reading means an old ceiling, a fresh one means it was made just outside the 15-session cooldown" />
+              <Th label="Days Since Resistance" k="daysSinceResistance" title="Trading sessions since the bar that set the resistance high — a stale reading means an old ceiling, a fresh one means it was made just outside the 32-session cooldown" />
               <Th label="RSI" k="rsi" title="RSI(14), daily" />
               <Th label="Short Float %" k="shortFloat" title="Short interest as a % of the public float" />
               <Th label="ADV" k="adv" title="Average daily volume (3-month)" />
