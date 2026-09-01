@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import type { PortfolioDivision } from "@/lib/firestore";
+import { downloadCsv } from "@/lib/exportCsv";
 
 export interface PortfolioStock {
   ticker: string;
@@ -159,6 +160,31 @@ export default function PortfolioTable({
     return { entryValue, unrealized };
   }, [rows]);
 
+  function exportCsv() {
+    const date = new Date().toISOString().slice(0, 10);
+    const headers = ["Ticker", "Industry", "Price", "Chg %", "Entry Price", "Entry Qty", "Entry Value", "Total %", "Unrealized",
+      ...(isSwing ? ["R:R Ratio", "Nearest Support", "R1", "R2", "R3"] : [])];
+    const data = sortedRows.map((r) => [
+      r.ticker,
+      r.industry ?? "",
+      r.price?.toFixed(2) ?? "",
+      r.priceChangePct?.toFixed(2) ?? "",
+      r.entry_price?.toFixed(2) ?? "",
+      r.entry_quantity ?? "",
+      r.entryValue?.toFixed(2) ?? "",
+      r.totalPct?.toFixed(1) ?? "",
+      r.unrealized?.toFixed(2) ?? "",
+      ...(isSwing ? [
+        r.rrRatio?.toFixed(2) ?? "",
+        r.nearest_support?.toFixed(2) ?? "",
+        r.r1?.toFixed(2) ?? "",
+        r.r2?.toFixed(2) ?? "",
+        r.r3?.toFixed(2) ?? "",
+      ] : []),
+    ]);
+    downloadCsv(`portfolio-${division}-${date}.csv`, headers, data);
+  }
+
   const Th = ({ label, k, title }: { label: string; k: SortKey; title?: string }) => (
     <th
       title={title}
@@ -194,6 +220,12 @@ export default function PortfolioTable({
         </form>
         {addError && <span className="text-xs text-red-500">{addError}</span>}
         {loading && <span className="text-xs text-gray-400 animate-pulse">Loading…</span>}
+        <button
+          onClick={exportCsv}
+          className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded text-sm font-semibold"
+        >
+          Export CSV
+        </button>
         <span className="text-xs text-gray-400 ml-auto">{sortedRows.length} position{sortedRows.length === 1 ? "" : "s"}</span>
       </div>
       <div className="overflow-x-auto overflow-y-auto max-h-[72vh] rounded-lg border border-gray-200">
