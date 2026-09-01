@@ -153,7 +153,7 @@ export async function updatePortfolioDivisionEntry(
   ticker: string,
   data: {
     entry_price?: number | null; entry_quantity?: number | null;
-    nearest_support?: number | null; hard_support?: number | null;
+    nearest_support?: number | null;
     r1?: number | null; r2?: number | null; r3?: number | null;
   }
 ) {

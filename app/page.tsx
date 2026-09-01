@@ -315,7 +315,7 @@ export default function Home() {
     const list = Object.entries(data).map(([ticker, d]) => {
       const raw = d as {
         name?: string | null; industry?: string | null; entry_price?: number | null; entry_quantity?: number | null;
-        nearest_support?: number | null; hard_support?: number | null; r1?: number | null; r2?: number | null; r3?: number | null;
+        nearest_support?: number | null; r1?: number | null; r2?: number | null; r3?: number | null;
       };
       return {
         ticker,
@@ -324,7 +324,6 @@ export default function Home() {
         entry_price: raw.entry_price ?? null,
         entry_quantity: raw.entry_quantity ?? null,
         nearest_support: raw.nearest_support ?? null,
-        hard_support: raw.hard_support ?? null,
         r1: raw.r1 ?? null,
         r2: raw.r2 ?? null,
         r3: raw.r3 ?? null,

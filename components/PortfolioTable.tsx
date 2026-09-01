@@ -10,13 +10,12 @@ export interface PortfolioStock {
   entry_price: number | null;
   entry_quantity: number | null;
   nearest_support?: number | null;
-  hard_support?: number | null;
   r1?: number | null;
   r2?: number | null;
   r3?: number | null;
 }
 
-export type PortfolioLevelField = "nearest_support" | "hard_support" | "r1" | "r2" | "r3";
+export type PortfolioLevelField = "nearest_support" | "r1" | "r2" | "r3";
 
 export const PORTFOLIO_DIVISIONS: { id: PortfolioDivision; label: string }[] = [
   { id: "longterm", label: "Long Term" },
@@ -116,7 +115,12 @@ export default function PortfolioTable({
       const totalPct = price != null && s.entry_price != null && s.entry_price > 0 ? ((price - s.entry_price) / s.entry_price) * 100 : null;
       const entryValue = s.entry_price != null && s.entry_quantity != null ? s.entry_price * s.entry_quantity : null;
       const unrealized = price != null && s.entry_price != null && s.entry_quantity != null ? (price - s.entry_price) * s.entry_quantity : null;
-      return { ...s, price, priceChangePct, totalPct, entryValue, unrealized };
+      // R:R = potential reward (highest R level − entry) ÷ potential risk (entry − nearest support)
+      const highestR = [s.r1, s.r2, s.r3].filter((v): v is number => v != null).reduce((max, v) => (max == null || v > max ? v : max), null as number | null);
+      const risk = s.entry_price != null && s.nearest_support != null ? s.entry_price - s.nearest_support : null;
+      const reward = s.entry_price != null && highestR != null ? highestR - s.entry_price : null;
+      const rrRatio = risk != null && risk > 0 && reward != null ? reward / risk : null;
+      return { ...s, price, priceChangePct, totalPct, entryValue, unrealized, rrRatio };
     });
   }, [stocks, prices, prevCloses]);
 
@@ -208,8 +212,8 @@ export default function PortfolioTable({
               <Th label="Unrealized" k="unrealized" title="Unrealized gain/loss in $ = (current price − entry price) × entry quantity" />
               {isSwing && (
                 <>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Reward ÷ Risk = (highest R level − entry price) ÷ (entry price − nearest support)">R:R Ratio</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="% shown is the distance from your entry price to this level">Nearest Support</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="% shown is the distance from your entry price to this level">Hard Support/Stop</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="% shown is the distance from your entry price to this level">R1</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="% shown is the distance from your entry price to this level">R2</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="% shown is the distance from your entry price to this level">R3</th>
@@ -248,8 +252,10 @@ export default function PortfolioTable({
                 </td>
                 {isSwing && (
                   <>
+                    <td className="px-3 py-2 font-medium text-gray-700">
+                      {r.rrRatio != null ? `1 : ${r.rrRatio.toFixed(2)}` : dash}
+                    </td>
                     <LevelCell value={r.nearest_support} entryPrice={r.entry_price} onCommit={(v) => onLevelChange?.(r.ticker, "nearest_support", v)} />
-                    <LevelCell value={r.hard_support} entryPrice={r.entry_price} onCommit={(v) => onLevelChange?.(r.ticker, "hard_support", v)} />
                     <LevelCell value={r.r1} entryPrice={r.entry_price} onCommit={(v) => onLevelChange?.(r.ticker, "r1", v)} />
                     <LevelCell value={r.r2} entryPrice={r.entry_price} onCommit={(v) => onLevelChange?.(r.ticker, "r2", v)} />
                     <LevelCell value={r.r3} entryPrice={r.entry_price} onCommit={(v) => onLevelChange?.(r.ticker, "r3", v)} />
