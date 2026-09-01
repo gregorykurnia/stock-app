@@ -16,7 +16,7 @@ type SortKey =
   | "fwd_pe" | "peg" | "ev_ebitda" | "ev_fcf"
   | "trailing_pe" | "ps_ratio" | "pb_ratio" | "ev_revenue" | "p_fcf" | "dividend_yield"
   | "roe" | "roic" | "current_ratio" | "beta" | "debt_to_equity" | "eps_ttm" | "eps_fwd" | "eps_past_5y" | "eps_next_5y" | "short_float"
-  | "ema20" | "dist_ema20" | "ema50" | "dist_ema50" | "rsi" | "di_plus" | "di_minus" | "cmf" | "earnings"
+  | "ema20" | "dist_ema20" | "ema50" | "dist_ema50" | "rsi" | "di_plus" | "di_minus" | "adx" | "cmf" | "earnings"
   | "pe_zscore" | "golden_cross";
 type SortDir = "asc" | "desc";
 type SubTab = "all" | "fundamental" | "valuation" | "technical";
@@ -132,6 +132,7 @@ interface Props {
   rsis: Record<string, number | null>;
   diPluses: Record<string, number | null>;
   diMinuses: Record<string, number | null>;
+  adxs?: Record<string, number | null>;
   cmfs: Record<string, number | null>;
   macds?: Record<string, number | null>;
   macdSignals?: Record<string, number | null>;
@@ -206,7 +207,7 @@ function EarningsBadge({ dateStr }: { dateStr: string | null | undefined }) {
 }
 
 export default function MasterTable({
-  market = "us", ihsgStocks, prices, preMarketPrices, verdicts, atrs, ema20s, ema50s, goldenCrossDates = {}, supportLows, rsis, diPluses, diMinuses, cmfs, macds = {}, macdSignals = {}, macdHists = {}, macdHistDirs = {}, earnings, fundData, peStats = {}, loading, customStocks, portfolioSet, watchlistSet, markedSet, onSetStatus, onRemoveCustom, onToggleMark,
+  market = "us", ihsgStocks, prices, preMarketPrices, verdicts, atrs, ema20s, ema50s, goldenCrossDates = {}, supportLows, rsis, diPluses, diMinuses, adxs = {}, cmfs, macds = {}, macdSignals = {}, macdHists = {}, macdHistDirs = {}, earnings, fundData, peStats = {}, loading, customStocks, portfolioSet, watchlistSet, markedSet, onSetStatus, onRemoveCustom, onToggleMark,
   swingStocks = [], swingPrices = {}, swingDailyEma20s = {}, swingDailyEma50s = {}, swingDailyAtrs = {}, swingDailyRsis = {}, swingEmaCrossAbove = {}, swingCrossPrice = {}, swingCrossDate = {},
   swingMacds = {}, swingMacdSignals = {}, swingMacdHists = {}, swingMacdHistDirs = {},
   swingAtr14 = {},
@@ -439,6 +440,7 @@ export default function MasterTable({
         rsi:      (r) => rsis[r.ticker] ?? null,
         di_plus:  (r) => diPluses[r.ticker] ?? null,
         di_minus: (r) => diMinuses[r.ticker] ?? null,
+        adx:      (r) => adxs[r.ticker] ?? null,
         cmf:      (r) => cmfs[r.ticker] ?? null,
         golden_cross: (r) => {
           const d = goldenCrossDates[r.ticker];
@@ -557,7 +559,7 @@ export default function MasterTable({
     if (activeTab === "technical") {
       const headers = ["Ticker", "Industry", "Price", "Setup",
         "EMA20W", "Dist EMA20%", "EMA50W", "Dist EMA50%", "Golden Cross", "Prev Support",
-        "RSI", "DI+", "DI-", "CMF", "ATR%", "Portfolio", "Watchlist", "Marked"];
+        "RSI", "DI+", "DI-", "ADX", "CMF", "ATR%", "Portfolio", "Watchlist", "Marked"];
       const data = rows.map((r) => {
         const price = r.price;
         const ema20 = ema20s[r.ticker] ?? null;
@@ -577,6 +579,7 @@ export default function MasterTable({
           rsis[r.ticker]?.toFixed(1) ?? "",
           diPluses[r.ticker]?.toFixed(1) ?? "",
           diMinuses[r.ticker]?.toFixed(1) ?? "",
+          adxs[r.ticker]?.toFixed(1) ?? "",
           cmfs[r.ticker]?.toFixed(3) ?? "",
           atrs[r.ticker]?.toFixed(1) ?? "",
           portfolio(r), watchlist(r), marked(r),
@@ -590,7 +593,7 @@ export default function MasterTable({
       ? ["Trail PE", "P/S", "P/B", "EV/Rev"]
       : ["Fwd PE", "Trail PE", "PEG", "P/S", "P/B", "EV/EBITDA", "EV/Rev", "EV/FCF", "P/FCF"];
     const headers = ["Ticker", "Industry", "Price", "ATR%",
-      "EMA20W", "Dist EMA20%", "EMA50W", "Dist EMA50%", "Golden Cross", "Prev Support", "RSI", "DI+", "DI-", "CMF",
+      "EMA20W", "Dist EMA20%", "EMA50W", "Dist EMA50%", "Golden Cross", "Prev Support", "RSI", "DI+", "DI-", "ADX", "CMF",
       "Rev Gr%", "Gross%", "Op%", "Net%", "FCF%", "ROE%",
       ...(isIhsg ? [] : ["ROIC%", "Current Ratio", "Beta"]),
       "D/E",
@@ -615,6 +618,7 @@ export default function MasterTable({
       rsis[r.ticker]?.toFixed(1) ?? "",
       diPluses[r.ticker]?.toFixed(1) ?? "",
       diMinuses[r.ticker]?.toFixed(1) ?? "",
+      adxs[r.ticker]?.toFixed(1) ?? "",
       cmfs[r.ticker]?.toFixed(3) ?? "",
       r.rev_growth != null ? (r.rev_growth * 100).toFixed(1) : "",
       r.gross_margin != null ? (r.gross_margin * 100).toFixed(1) : "",
@@ -1486,6 +1490,7 @@ export default function MasterTable({
                   <Th label="RSI"        k="rsi" />
                   <Th label="DI+"        k="di_plus" />
                   <Th label="DI-"        k="di_minus" />
+                  <Th label="ADX"        k="adx" title="Average Directional Index — trend strength: <20 no trend/choppy, 20-25 emerging, 25-45 trending, >45 overextended" />
                   <Th label="CMF"        k="cmf" />
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="MACD line (12, 26) — daily closes">MACD</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="MACD signal line (EMA9 of MACD) — daily closes">Signal</th>
@@ -1583,6 +1588,7 @@ export default function MasterTable({
                       const rsi = rsis[r.ticker] ?? null;
                       const diP = diPluses[r.ticker] ?? null;
                       const diM = diMinuses[r.ticker] ?? null;
+                      const adx = adxs[r.ticker] ?? null;
                       const cmf = cmfs[r.ticker] ?? null;
                       const isBeatenDown = r.verdict?.setup === "beaten_down";
                       const goldenCrossDate = goldenCrossDates[r.ticker] ?? null;
@@ -1609,6 +1615,12 @@ export default function MasterTable({
                         if (v < -0.05) return "text-red-500";
                         return "text-gray-500";
                       };
+                      const adxColor = (v: number | null) => {
+                        if (v == null) return "text-gray-400";
+                        if (v < 20) return "text-gray-400";
+                        if (v <= 45) return "text-green-600";
+                        return "text-orange-500";
+                      };
 
                       return (
                         <>
@@ -1631,6 +1643,7 @@ export default function MasterTable({
                           </td>
                           <td className="px-3 py-2 text-gray-700">{diP != null ? diP.toFixed(1) : <span className="text-gray-400">—</span>}</td>
                           <td className="px-3 py-2 text-gray-700">{diM != null ? diM.toFixed(1) : <span className="text-gray-400">—</span>}</td>
+                          <td className={`px-3 py-2 font-semibold ${adxColor(adx)}`}>{adx != null ? adx.toFixed(1) : <span className="text-gray-400">—</span>}</td>
                           <td className={`px-3 py-2 font-semibold ${cmfColor(cmf)}`}>
                             {cmf != null ? cmf.toFixed(3) : <span className="text-gray-400">—</span>}
                           </td>
@@ -1854,6 +1867,7 @@ export default function MasterTable({
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">RSI</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">DI+</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">DI-</th>
+                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Average Directional Index — trend strength: <20 no trend/choppy, 20-25 emerging, 25-45 trending, >45 overextended">ADX</th>
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">CMF</th>
                   <Th label="ATR%" k="atr" title="Weekly ATR% — volatility as % of price" />
                   <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Status</th>
@@ -1871,6 +1885,7 @@ export default function MasterTable({
                   const rsi = rsis[r.ticker] ?? null;
                   const diP = diPluses[r.ticker] ?? null;
                   const diM = diMinuses[r.ticker] ?? null;
+                  const adx = adxs[r.ticker] ?? null;
                   const cmf = cmfs[r.ticker] ?? null;
                   const atrV = atrs[r.ticker] ?? null;
                   const isBeatenDown = r.verdict?.setup === "beaten_down";
@@ -1897,6 +1912,12 @@ export default function MasterTable({
                     if (v > 0.05) return "text-green-600";
                     if (v < -0.05) return "text-red-500";
                     return "text-gray-500";
+                  };
+                  const adxColor = (v: number | null) => {
+                    if (v == null) return "text-gray-400";
+                    if (v < 20) return "text-gray-400";
+                    if (v <= 45) return "text-green-600";
+                    return "text-orange-500";
                   };
 
                   return (
@@ -1933,6 +1954,7 @@ export default function MasterTable({
                       </td>
                       <td className="px-3 py-2 text-gray-700">{diP != null ? diP.toFixed(1) : <span className="text-gray-400">—</span>}</td>
                       <td className="px-3 py-2 text-gray-700">{diM != null ? diM.toFixed(1) : <span className="text-gray-400">—</span>}</td>
+                      <td className={`px-3 py-2 font-semibold ${adxColor(adx)}`}>{adx != null ? adx.toFixed(1) : <span className="text-gray-400">—</span>}</td>
                       <td className={`px-3 py-2 font-semibold ${cmfColor(cmf)}`}>
                         {cmf != null ? cmf.toFixed(3) : <span className="text-gray-400">—</span>}
                       </td>

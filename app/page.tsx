@@ -40,6 +40,7 @@ export default function Home() {
   const [rsis, setRsis] = useState<Record<string, number | null>>({});
   const [diPluses, setDiPluses] = useState<Record<string, number | null>>({});
   const [diMinuses, setDiMinuses] = useState<Record<string, number | null>>({});
+  const [adxs, setAdxs] = useState<Record<string, number | null>>({});
   const [cmfs, setCmfs] = useState<Record<string, number | null>>({});
   const [macds, setMacds] = useState<Record<string, number | null>>({});
   const [macdSignals, setMacdSignals] = useState<Record<string, number | null>>({});
@@ -89,6 +90,7 @@ export default function Home() {
   const [ihsgRsis, setIhsgRsis] = useState<Record<string, number | null>>({});
   const [ihsgDiPluses, setIhsgDiPluses] = useState<Record<string, number | null>>({});
   const [ihsgDiMinuses, setIhsgDiMinuses] = useState<Record<string, number | null>>({});
+  const [ihsgAdxs, setIhsgAdxs] = useState<Record<string, number | null>>({});
   const [ihsgCmfs, setIhsgCmfs] = useState<Record<string, number | null>>({});
   const [ihsgMacds, setIhsgMacds] = useState<Record<string, number | null>>({});
   const [ihsgMacdSignals, setIhsgMacdSignals] = useState<Record<string, number | null>>({});
@@ -324,6 +326,7 @@ export default function Home() {
         setRsis((prev) => ({ ...prev, ...(d.rsi ?? {}) }));
         setDiPluses((prev) => ({ ...prev, ...(d.diPlus ?? {}) }));
         setDiMinuses((prev) => ({ ...prev, ...(d.diMinus ?? {}) }));
+        setAdxs((prev) => ({ ...prev, ...(d.adx ?? {}) }));
         setCmfs((prev) => ({ ...prev, ...(d.cmf ?? {}) }));
       })
       .catch(() => {});
@@ -390,6 +393,7 @@ export default function Home() {
             setRsis((prev) => ({ ...prev, ...(d.rsi ?? {}) }));
             setDiPluses((prev) => ({ ...prev, ...(d.diPlus ?? {}) }));
             setDiMinuses((prev) => ({ ...prev, ...(d.diMinus ?? {}) }));
+            setAdxs((prev) => ({ ...prev, ...(d.adx ?? {}) }));
             setCmfs((prev) => ({ ...prev, ...(d.cmf ?? {}) }));
           })
           .catch(() => {});
@@ -433,6 +437,7 @@ export default function Home() {
           setIhsgRsis((p) => ({ ...p, ...remap(d.rsi ?? {}) }));
           setIhsgDiPluses((p) => ({ ...p, ...remap(d.diPlus ?? {}) }));
           setIhsgDiMinuses((p) => ({ ...p, ...remap(d.diMinus ?? {}) }));
+          setIhsgAdxs((p) => ({ ...p, ...remap(d.adx ?? {}) }));
           setIhsgCmfs((p) => ({ ...p, ...remap(d.cmf ?? {}) }));
         }).catch(() => {});
       fetch(`/api/macd?tickers=${jkTickers}`)
@@ -498,6 +503,7 @@ export default function Home() {
         setIhsgRsis((p) => ({ ...p, ...remap(d.rsi ?? {}) }));
         setIhsgDiPluses((p) => ({ ...p, ...remap(d.diPlus ?? {}) }));
         setIhsgDiMinuses((p) => ({ ...p, ...remap(d.diMinus ?? {}) }));
+        setIhsgAdxs((p) => ({ ...p, ...remap(d.adx ?? {}) }));
         setIhsgCmfs((p) => ({ ...p, ...remap(d.cmf ?? {}) }));
       })
       .catch(() => {});
@@ -734,6 +740,7 @@ export default function Home() {
             setIhsgRsis((prev) => ({ ...prev, ...remap(d.rsi ?? {}) }));
             setIhsgDiPluses((prev) => ({ ...prev, ...remap(d.diPlus ?? {}) }));
             setIhsgDiMinuses((prev) => ({ ...prev, ...remap(d.diMinus ?? {}) }));
+            setIhsgAdxs((prev) => ({ ...prev, ...remap(d.adx ?? {}) }));
             setIhsgCmfs((prev) => ({ ...prev, ...remap(d.cmf ?? {}) }));
           }).catch(() => {});
       } else {
@@ -758,6 +765,7 @@ export default function Home() {
             setRsis((prev) => ({ ...prev, ...(d.rsi ?? {}) }));
             setDiPluses((prev) => ({ ...prev, ...(d.diPlus ?? {}) }));
             setDiMinuses((prev) => ({ ...prev, ...(d.diMinus ?? {}) }));
+            setAdxs((prev) => ({ ...prev, ...(d.adx ?? {}) }));
             setCmfs((prev) => ({ ...prev, ...(d.cmf ?? {}) }));
           }).catch(() => {});
       }
@@ -935,6 +943,7 @@ export default function Home() {
             rsis={ihsgRsis}
             diPluses={ihsgDiPluses}
             diMinuses={ihsgDiMinuses}
+            adxs={ihsgAdxs}
             cmfs={ihsgCmfs}
             macds={ihsgMacds}
             macdSignals={ihsgMacdSignals}
@@ -989,6 +998,7 @@ export default function Home() {
             rsis={rsis}
             diPluses={diPluses}
             diMinuses={diMinuses}
+            adxs={adxs}
             cmfs={cmfs}
             macds={macds}
             macdSignals={macdSignals}

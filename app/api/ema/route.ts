@@ -23,6 +23,7 @@ interface EMAResult {
   rsi: number | null;
   diPlus: number | null;
   diMinus: number | null;
+  adx: number | null;
   cmf: number | null;
   goldenCrossDate: string | null;
 }
@@ -90,11 +91,12 @@ async function fetchEMAs(ticker: string): Promise<EMAResult> {
   const rsi = ind.rsi[last] ?? null;
   const diPlus = ind.diPlus[last] ?? null;
   const diMinus = ind.diMinus[last] ?? null;
+  const adx = ind.adx[last] ?? null;
   const cmfArr = ind.cmf;
   const cmf = cmfArr[cmfArr.length - 1] ?? null;
   const goldenCrossDate = findGoldenCrossDate(ind.ema20, ind.ema50, quotes);
 
-  return { ema20: calcEMA(closes, 20), ema50: calcEMA(closes, 50), ath, supportLow, atrPct, rsi, diPlus, diMinus, cmf, goldenCrossDate };
+  return { ema20: calcEMA(closes, 20), ema50: calcEMA(closes, 50), ath, supportLow, atrPct, rsi, diPlus, diMinus, adx, cmf, goldenCrossDate };
 }
 
 export async function GET(req: NextRequest) {
@@ -110,6 +112,7 @@ export async function GET(req: NextRequest) {
   const rsi: Record<string, number | null> = {};
   const diPlus: Record<string, number | null> = {};
   const diMinus: Record<string, number | null> = {};
+  const adx: Record<string, number | null> = {};
   const cmf: Record<string, number | null> = {};
   const goldenCrossDate: Record<string, string | null> = {};
 
@@ -127,6 +130,7 @@ export async function GET(req: NextRequest) {
         rsi[ticker] = r.rsi;
         diPlus[ticker] = r.diPlus;
         diMinus[ticker] = r.diMinus;
+        adx[ticker] = r.adx;
         cmf[ticker] = r.cmf;
         goldenCrossDate[ticker] = r.goldenCrossDate;
       } catch {
@@ -138,11 +142,12 @@ export async function GET(req: NextRequest) {
         rsi[ticker] = null;
         diPlus[ticker] = null;
         diMinus[ticker] = null;
+        adx[ticker] = null;
         cmf[ticker] = null;
         goldenCrossDate[ticker] = null;
       }
     }));
   }
 
-  return NextResponse.json({ ema20, ema50, ath, supportLow, atrPct, rsi, diPlus, diMinus, cmf, goldenCrossDate });
+  return NextResponse.json({ ema20, ema50, ath, supportLow, atrPct, rsi, diPlus, diMinus, adx, cmf, goldenCrossDate });
 }
