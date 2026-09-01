@@ -353,7 +353,7 @@ export default function USSwingTable({
   const Th = ({ label, k, title, sticky, infoTiers, breakoutNote }: { label: string; k: SortKey; title?: string; sticky?: boolean; infoTiers?: Tier[]; breakoutNote?: string }) => (
     <th
       title={infoTiers ? undefined : title}
-      className={`px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide cursor-pointer hover:text-gray-900 whitespace-nowrap select-none${sticky ? " sticky left-0 z-20 bg-gray-100 after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-gray-300 after:content-['']" : ""}`}
+      className={`px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide cursor-pointer hover:text-gray-900 whitespace-nowrap select-none${sticky ? " sticky left-9 z-20 bg-gray-100 after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-gray-300 after:content-['']" : ""}`}
       onClick={() => toggleSort(k)}
     >
       {label}{sortKey === k ? (sortDir === "desc" ? " ↓" : " ↑") : ""}
@@ -458,7 +458,7 @@ export default function USSwingTable({
         <table className="w-full text-sm">
           <thead className="bg-gray-100 border-b border-gray-200 sticky top-0 z-30">
             <tr>
-              <th className="px-2 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">★</th>
+              <th className="w-9 px-2 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap sticky left-0 z-20 bg-gray-100">★</th>
               <Th label="Ticker" k="ticker" sticky />
               <Th label="Industry" k="industry" />
               <Th label="Price" k="price" />
@@ -494,7 +494,7 @@ export default function USSwingTable({
             )}
             {sortedRows.map((r) => (
               <tr key={r.ticker} className="hover:bg-gray-50">
-                <td className="px-2 py-2">
+                <td className="w-9 px-2 py-2 sticky left-0 z-10 bg-white">
                   <button
                     onClick={() => onToggleStar?.(r.ticker)}
                     aria-label={r.starred ? `Unstar ${r.ticker}` : `Star ${r.ticker}`}
@@ -503,7 +503,7 @@ export default function USSwingTable({
                     {r.starred ? "★" : "☆"}
                   </button>
                 </td>
-                <td className="px-3 py-2 sticky left-0 z-10 bg-white after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-gray-200 after:content-['']">
+                <td className="px-3 py-2 sticky left-9 z-10 bg-white after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-gray-200 after:content-['']">
                   <div className="font-semibold text-gray-900">{r.ticker}</div>
                   {r.name && <div className="text-xs text-gray-400">{r.name}</div>}
                 </td>
