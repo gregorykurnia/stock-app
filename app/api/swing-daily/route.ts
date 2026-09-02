@@ -59,6 +59,7 @@ interface SwingDailyResult {
   roc63: number | null;
   roc90: number | null;
   sortino: number | null;
+  sortino6mo: number | null;
   atr: number | null;
   stopLoss: number | null;
   stopLossPercent: number | null;
@@ -81,7 +82,7 @@ const EMPTY: SwingDailyResult = {
   ema20: null, ema50: null, atrPct: null, rsi: null,
   diPlus: null, diMinus: null, adx: null,
   emaCrossAbove: null, crossPrice: null, crossDate: null, goldenCrossDate: null,
-  macd: null, signal: null, histogram: null, histDirection: null, roc14: null, roc63: null, roc90: null, sortino: null,
+  macd: null, signal: null, histogram: null, histDirection: null, roc14: null, roc63: null, roc90: null, sortino: null, sortino6mo: null,
   atr: null, stopLoss: null, stopLossPercent: null, bandar: null,
   low6mo: null, distFromLow6mo: null, resistance: null, distFromResistance: null,
   daysSinceResistance: null, relVolume: null,
@@ -201,6 +202,7 @@ async function fetchSwingDaily(ticker: string): Promise<SwingDailyResult> {
   const roc63 = calculateROC(closes, 63);
   const roc90 = calculateROC(closes, 90);
   const sortino = calcSortino(closes);
+  const sortino6mo = calcSortino(closes.slice(-126));
   const atrRes = calculateATR(bars, 14);
   const bandar = calculateBandarScore(bars.slice(-60));
 
@@ -247,7 +249,7 @@ async function fetchSwingDaily(ticker: string): Promise<SwingDailyResult> {
     signal: macdRes?.signal ?? null,
     histogram: macdRes?.histogram ?? null,
     histDirection: macdRes?.histDirection ?? null,
-    roc14, roc63, roc90, sortino,
+    roc14, roc63, roc90, sortino, sortino6mo,
     atr: atrRes?.atr ?? null,
     stopLoss: atrRes?.stopLoss ?? null,
     stopLossPercent: atrRes?.stopLossPercent ?? null,
@@ -283,6 +285,7 @@ export async function GET(req: NextRequest) {
   const roc63: Record<string, number | null> = {};
   const roc90: Record<string, number | null> = {};
   const sortino: Record<string, number | null> = {};
+  const sortino6mo: Record<string, number | null> = {};
   const atr: Record<string, number | null> = {};
   const stopLoss: Record<string, number | null> = {};
   const stopLossPercent: Record<string, number | null> = {};
@@ -324,6 +327,7 @@ export async function GET(req: NextRequest) {
       roc63[ticker] = r.roc63;
       roc90[ticker] = r.roc90;
       sortino[ticker] = r.sortino;
+      sortino6mo[ticker] = r.sortino6mo;
       atr[ticker] = r.atr;
       stopLoss[ticker] = r.stopLoss;
       stopLossPercent[ticker] = r.stopLossPercent;
@@ -345,7 +349,7 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     ema20, ema50, atrPct, rsi, diPlus, diMinus, adx, emaCrossAbove, crossPrice, crossDate, goldenCrossDate,
-    macd, signal, histogram, histDirection, roc14, roc63, roc90, sortino,
+    macd, signal, histogram, histDirection, roc14, roc63, roc90, sortino, sortino6mo,
     atr, stopLoss, stopLossPercent, bandar,
     low6mo, distFromLow6mo, resistance, distFromResistance, daysSinceResistance, relVolume,
     high5yr, distFromHigh5yr, daysSinceHigh5yr,
