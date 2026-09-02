@@ -304,11 +304,13 @@ export default function USSwingTable({
           const distLow1yrVal = distLow1yrs[s.ticker] ?? null;
           const daysSinceHigh = daysSinceHigh5yrs[s.ticker] ?? null;
           const distLow6moVal = price != null && low6mo != null && low6mo > 0 ? ((price - low6mo) / low6mo) * 100 : null;
+          const distHigh5yrVal = distHigh5yrs[s.ticker] ?? null;
           return (
             daysSinceLow != null && daysSinceLow >= 300 &&
             distLow1yrVal != null && distLow1yrVal >= 45 &&
             daysSinceHigh != null && daysSinceHigh <= 45 &&
-            distLow6moVal != null && distLow6moVal <= 50
+            distLow6moVal != null && distLow6moVal <= 50 &&
+            !(distHigh5yrVal != null && distHigh5yrVal >= -0.5 && distHigh5yrVal <= 0)
           );
         })(),
         low1yr: low1yrs[s.ticker] ?? null,
@@ -569,7 +571,7 @@ export default function USSwingTable({
               <th className="w-9 px-2 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap sticky left-0 z-20 bg-gray-100">★</th>
               <Th label="Ticker" k="ticker" sticky />
               <Th label="Industry" k="industry" />
-              <Th label="Stock Category" k="coiledBase" title="Limited Upside: within 15% below the 5-year high, but it's been more than 75 days since that high was set — sitting quietly under an old ceiling instead of chasing it or falling away from it. Extended High and Higher: made a new 2Y high within the last 15 days, is at least 220 days removed from its 1Y low, is 35-60% above its 6mo low, and has a ROC63 of at least 22%. Recent Breakout: made a new 2Y high within the last 15 days, is between -1% and 5% from its resistance level, and that resistance was set at least 100 days ago. Strong Uptrend: at least 35% above its 6mo low, within 8% of EMA20D, has a ROC90 above 20%, made a new 2Y high within the last 60 days, and is less than 300 days removed from its 1Y low. Stable Long Term: at least 300 days removed from its 1Y low, at least 45% above that 1Y low, made a new 2Y high within the last 45 days, and is at most 50% above its 6mo low" />
+              <Th label="Stock Category" k="coiledBase" title="Limited Upside: within 15% below the 5-year high, but it's been more than 75 days since that high was set — sitting quietly under an old ceiling instead of chasing it or falling away from it. Extended High and Higher: made a new 2Y high within the last 15 days, is at least 220 days removed from its 1Y low, is 35-60% above its 6mo low, and has a ROC63 of at least 22%. Recent Breakout: made a new 2Y high within the last 15 days, is between -1% and 5% from its resistance level, and that resistance was set at least 100 days ago. Strong Uptrend: at least 35% above its 6mo low, within 8% of EMA20D, has a ROC90 above 20%, made a new 2Y high within the last 60 days, and is less than 300 days removed from its 1Y low. Stable Long Term: at least 300 days removed from its 1Y low, at least 45% above that 1Y low, made a new 2Y high within the last 45 days, is at most 50% above its 6mo low, and excludes ones sitting within -0.5% to 0% of their 2Y high (i.e. already at a fresh 2Y high)" />
               <Th label="Price" k="price" />
               <Th label="Chg %" k="priceChangePct" title="% change vs previous close" />
               <Th label="ATR%" k="atr" infoTiers={TIERS.atr} />
