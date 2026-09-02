@@ -23,6 +23,9 @@ export default function ScreenerDraftPage() {
   const [promoting, setPromoting] = useState<Set<string>>(new Set());
   const [promoteErrors, setPromoteErrors] = useState<Record<string, string>>({});
   const [filter, setFilter] = useState<"all" | Status | "excluded">("new");
+  const [manualTicker, setManualTicker] = useState("");
+  const [manualReason, setManualReason] = useState("");
+  const [manualError, setManualError] = useState<string | null>(null);
 
   const load = useCallback(async (showLoading = false) => {
     if (showLoading) setLoading(true);
@@ -90,6 +93,27 @@ export default function ScreenerDraftPage() {
     const reason = window.prompt(`Reason for excluding ${ticker}? (optional)`, "") || null;
     setEntries((prev) => prev.filter((e) => e.ticker !== ticker));
     setExcludedTickers((prev) => ({ ...prev, [ticker]: { reason, excluded_at: new Date().toISOString() } }));
+    await Promise.all([excludeScreenerTicker(ticker, reason), removeScreenerDraftEntry(ticker)]);
+  }
+
+  async function handleManualExclude(e: React.FormEvent) {
+    e.preventDefault();
+    setManualError(null);
+    const ticker = manualTicker.trim().toUpperCase();
+    if (!ticker) return;
+    if (isExcluded(ticker)) {
+      setManualError(`${ticker} is already excluded.`);
+      return;
+    }
+    if (trackedTickers.has(ticker)) {
+      setManualError(`${ticker} is already tracked (watchlist/portfolio/US-Swing) — remove it from there first.`);
+      return;
+    }
+    const reason = manualReason.trim() || null;
+    setEntries((prev) => prev.filter((e2) => e2.ticker !== ticker));
+    setExcludedTickers((prev) => ({ ...prev, [ticker]: { reason, excluded_at: new Date().toISOString() } }));
+    setManualTicker("");
+    setManualReason("");
     await Promise.all([excludeScreenerTicker(ticker, reason), removeScreenerDraftEntry(ticker)]);
   }
 
@@ -192,7 +216,36 @@ export default function ScreenerDraftPage() {
       {loading ? (
         <p className="text-sm text-[var(--muted)]">Loading...</p>
       ) : filter === "excluded" ? (
-        excludedList.length === 0 ? (
+        <>
+        <form onSubmit={handleManualExclude} className="mb-4 rounded-lg border border-[var(--border)] bg-white p-4 flex flex-wrap items-end gap-3">
+          <div>
+            <label className="block text-xs font-medium text-[var(--muted)] mb-1">Ticker</label>
+            <input
+              value={manualTicker}
+              onChange={(e) => setManualTicker(e.target.value)}
+              placeholder="e.g. XYZ"
+              className="rounded-md border border-[var(--border)] px-3 py-1.5 text-sm w-32 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+            />
+          </div>
+          <div className="flex-1 min-w-[200px]">
+            <label className="block text-xs font-medium text-[var(--muted)] mb-1">Reason (optional)</label>
+            <input
+              value={manualReason}
+              onChange={(e) => setManualReason(e.target.value)}
+              placeholder="e.g. not on Pluang"
+              className="w-full rounded-md border border-[var(--border)] px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={!manualTicker.trim()}
+            className="px-4 py-1.5 rounded-md bg-[var(--accent)] text-white text-sm font-medium disabled:opacity-50"
+          >
+            Add to Excluded
+          </button>
+          {manualError && <span className="text-sm text-red-600 w-full">{manualError}</span>}
+        </form>
+        {excludedList.length === 0 ? (
           <p className="text-sm text-[var(--muted)]">No excluded tickers.</p>
         ) : (
           <div className="overflow-x-auto rounded-lg border border-[var(--border)] bg-white">
@@ -234,7 +287,8 @@ export default function ScreenerDraftPage() {
               </tbody>
             </table>
           </div>
-        )
+        )}
+        </>
       ) : rows.length === 0 ? (
         <p className="text-sm text-[var(--muted)]">Nothing here yet — run the screener above to pull in tickers.</p>
       ) : (
