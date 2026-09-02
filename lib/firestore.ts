@@ -143,6 +143,24 @@ export async function excludeScreenerTicker(ticker: string, reason: string | nul
   await setDoc(doc(db, "screener_excluded", ticker), { reason, excluded_at: new Date().toISOString() });
 }
 
+// Bulk version of excludeScreenerTicker + removeScreenerDraftEntry, chunked to stay under
+// Firestore's 500-writes-per-batch limit. Each ticker writes an exclusion doc BEFORE its
+// draft entry is deleted (both in the same batch/commit) so a failed commit leaves every
+// ticker exactly as it was — never deleted from the draft without a recorded exclusion.
+export async function excludeScreenerTickersBulk(tickers: string[], reason: string | null = null) {
+  const now = new Date().toISOString();
+  const chunkSize = 250; // 2 writes per ticker, well under the 500-op batch limit
+  for (let i = 0; i < tickers.length; i += chunkSize) {
+    const chunk = tickers.slice(i, i + chunkSize);
+    const batch = writeBatch(db);
+    for (const ticker of chunk) {
+      batch.set(doc(db, "screener_excluded", ticker), { reason, excluded_at: now });
+      batch.delete(doc(db, "screener_draft", ticker));
+    }
+    await batch.commit();
+  }
+}
+
 export async function unexcludeScreenerTicker(ticker: string) {
   await deleteDoc(doc(db, "screener_excluded", ticker));
 }

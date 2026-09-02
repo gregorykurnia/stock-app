@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   getScreenerDraft, importScreenerDraftEntries, removeScreenerDraftEntry,
   getWatchlistTickers, getPortfolioTickers, getUsSwingStocks, saveUsSwingStock,
-  getScreenerExcludedTickers, excludeScreenerTicker, unexcludeScreenerTicker,
+  getScreenerExcludedTickers, excludeScreenerTicker, excludeScreenerTickersBulk, unexcludeScreenerTicker,
   getScreenerExclusionOverrides, addScreenerExclusionOverride,
 } from "@/lib/firestore";
 import { SCREENER_EXCLUDED_TICKERS } from "@/lib/screenerExclusions";
@@ -26,6 +26,8 @@ export default function ScreenerDraftPage() {
   const [manualTicker, setManualTicker] = useState("");
   const [manualReason, setManualReason] = useState("");
   const [manualError, setManualError] = useState<string | null>(null);
+  const [massExcluding, setMassExcluding] = useState(false);
+  const [massExcludeError, setMassExcludeError] = useState<string | null>(null);
 
   const load = useCallback(async (showLoading = false) => {
     if (showLoading) setLoading(true);
@@ -124,6 +126,33 @@ export default function ScreenerDraftPage() {
     await Promise.all([excludeScreenerTicker(ticker, reason), removeScreenerDraftEntry(ticker)]);
   }
 
+  async function handleMassExclude() {
+    setMassExcludeError(null);
+    const newTickers = entries.filter((e) => !trackedTickers.has(e.ticker)).map((e) => e.ticker);
+    if (newTickers.length === 0) return;
+    if (!window.confirm(`Exclude all ${newTickers.length} "New" ticker(s)? This can be undone individually from the Excluded tab.`)) {
+      return;
+    }
+    const reason = window.prompt(`Reason for excluding all ${newTickers.length} tickers? (optional, applies to all)`, "") || null;
+    setMassExcluding(true);
+    try {
+      // Write to Firestore first — entries/excludedTickers state is only updated on success,
+      // so a failed write leaves every ticker exactly where it was (nothing vanishes).
+      await excludeScreenerTickersBulk(newTickers, reason);
+      const now = new Date().toISOString();
+      setEntries((prev) => prev.filter((e) => !newTickers.includes(e.ticker)));
+      setExcludedTickers((prev) => {
+        const next = { ...prev };
+        for (const ticker of newTickers) next[ticker] = { reason, excluded_at: now };
+        return next;
+      });
+    } catch (err) {
+      setMassExcludeError(err instanceof Error ? err.message : "Mass exclude failed — no tickers were changed.");
+    } finally {
+      setMassExcluding(false);
+    }
+  }
+
   async function handleDeleteExcluded(ticker: string, fromDoc: boolean) {
     if (fromDoc) {
       setExclusionOverrides((prev) => new Set(prev).add(ticker));
@@ -219,6 +248,19 @@ export default function ScreenerDraftPage() {
           </button>
         ))}
       </div>
+
+      {filter === "new" && newCount > 0 && (
+        <div className="mb-4 flex items-center gap-3">
+          <button
+            onClick={handleMassExclude}
+            disabled={massExcluding}
+            className="text-xs px-3 py-1.5 rounded-md border border-red-300 text-red-600 hover:bg-red-50 font-medium disabled:opacity-50"
+          >
+            {massExcluding ? "Excluding..." : `Mass Exclude All (${newCount})`}
+          </button>
+          {massExcludeError && <span className="text-xs text-red-600">{massExcludeError}</span>}
+        </div>
+      )}
 
       {loading ? (
         <p className="text-sm text-[var(--muted)]">Loading...</p>
