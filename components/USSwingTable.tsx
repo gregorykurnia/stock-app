@@ -696,6 +696,16 @@ export default function USSwingTable({
       <div className="overflow-x-auto overflow-y-auto max-h-[72vh] rounded-lg border border-gray-200">
         <table className="w-full text-sm">
           <thead className="bg-gray-100 border-b border-gray-200 sticky top-0 z-30">
+            <tr className="border-b border-gray-200">
+              <th colSpan={2} className="px-2 py-1 sticky left-0 z-20 bg-gray-100" />
+              <th colSpan={2} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Overview</th>
+              <th colSpan={9} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Price &amp; Trend</th>
+              <th colSpan={5} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Momentum</th>
+              <th colSpan={12} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Price Levels</th>
+              <th colSpan={4} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Trend Strength</th>
+              <th colSpan={4} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Liquidity &amp; Events</th>
+              <th className="px-3 py-1 border-l border-gray-300 bg-gray-50/70" />
+            </tr>
             <tr>
               <th className="w-9 px-2 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap sticky left-0 z-20 bg-gray-100">★</th>
               <Th label="Ticker" k="ticker" sticky />
