@@ -14,7 +14,7 @@ type SortKey =
   | "ticker" | "industry" | "price" | "priceChangePct" | "atr"
   | "ema20d" | "distEma20d" | "ema50d" | "distEma50d" | "goldenCross"
   | "macd" | "roc14" | "roc63" | "roc90" | "low6mo" | "distLow6mo" | "resistance" | "distResistance" | "daysSinceResistance" | "high5yr" | "distHigh5yr" | "daysSinceHigh5yr"
-  | "low1yr" | "daysSinceLow1yr" | "distLow1yr" | "cagrLow1yr" | "rsi" | "diPlus" | "diMinus" | "adx" | "shortFloat" | "adv" | "relVolume" | "earnings" | "coiledBase" | "extLongTermMomentum";
+  | "low1yr" | "daysSinceLow1yr" | "distLow1yr" | "cagrLow1yr" | "rsi" | "diPlus" | "diMinus" | "adx" | "shortFloat" | "adv" | "relVolume" | "earnings" | "coiledBase" | "extLongTermMomentum" | "recentBreakout";
 type SortDir = "asc" | "desc";
 
 interface Props {
@@ -275,6 +275,14 @@ export default function USSwingTable({
             roc63 != null && roc63 >= 22
           );
         })(),
+        recentBreakout: (() => {
+          const daysSinceHigh = daysSinceHigh5yrs[s.ticker] ?? null;
+          const distResistanceVal = price != null && resistance != null && resistance > 0 ? ((price - resistance) / resistance) * 100 : null;
+          return (
+            daysSinceHigh != null && daysSinceHigh < 15 &&
+            distResistanceVal != null && distResistanceVal >= -1 && distResistanceVal <= 5
+          );
+        })(),
         low1yr: low1yrs[s.ticker] ?? null,
         distLow1yr: distLow1yrs[s.ticker] ?? null,
         daysSinceLow1yr: daysSinceLow1yrs[s.ticker] ?? null,
@@ -333,6 +341,7 @@ export default function USSwingTable({
         case "daysSinceHigh5yr": return r.daysSinceHigh5yr;
         case "coiledBase": return r.coiledBase ? 1 : 0;
         case "extLongTermMomentum": return r.extLongTermMomentum ? 1 : 0;
+        case "recentBreakout": return r.recentBreakout ? 1 : 0;
         case "low1yr": return r.low1yr;
         case "distLow1yr": return r.distLow1yr;
         case "daysSinceLow1yr": return r.daysSinceLow1yr;
@@ -384,7 +393,7 @@ export default function USSwingTable({
         : null;
       return [
         r.ticker, r.starred ? "Yes" : "", r.name ?? "", r.industry,
-        [r.coiledBase ? "Limited Upside" : "", r.extLongTermMomentum ? "Extended Long Term Momentum" : ""].filter(Boolean).join(" / "),
+        [r.coiledBase ? "Limited Upside" : "", r.extLongTermMomentum ? "Extended Long Term Momentum" : "", r.recentBreakout ? "Recent Breakout" : ""].filter(Boolean).join(" / "),
         r.price?.toFixed(2) ?? "", r.priceChangePct != null ? `${r.priceChangePct >= 0 ? "+" : ""}${r.priceChangePct.toFixed(2)}%` : "", r.atr?.toFixed(1) ?? "",
         r.ema20d?.toFixed(2) ?? "", r.distEma20d?.toFixed(1) ?? "",
         r.ema50d?.toFixed(2) ?? "", r.distEma50d?.toFixed(1) ?? "",
@@ -530,7 +539,7 @@ export default function USSwingTable({
               <th className="w-9 px-2 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap sticky left-0 z-20 bg-gray-100">★</th>
               <Th label="Ticker" k="ticker" sticky />
               <Th label="Industry" k="industry" />
-              <Th label="Stock Category" k="coiledBase" title="Limited Upside: within 15% below the 5-year high, but it's been more than 75 days since that high was set — sitting quietly under an old ceiling instead of chasing it or falling away from it. Extended Long Term Momentum: made a new 2Y high within the last 15 days, is at least 220 days removed from its 1Y low, is 35-60% above its 6mo low, and has a ROC63 of at least 22%" />
+              <Th label="Stock Category" k="coiledBase" title="Limited Upside: within 15% below the 5-year high, but it's been more than 75 days since that high was set — sitting quietly under an old ceiling instead of chasing it or falling away from it. Extended Long Term Momentum: made a new 2Y high within the last 15 days, is at least 220 days removed from its 1Y low, is 35-60% above its 6mo low, and has a ROC63 of at least 22%. Recent Breakout: made a new 2Y high within the last 15 days and is between -1% and 5% from its resistance level" />
               <Th label="Price" k="price" />
               <Th label="Chg %" k="priceChangePct" title="% change vs previous close" />
               <Th label="ATR%" k="atr" infoTiers={TIERS.atr} />
@@ -598,7 +607,12 @@ export default function USSwingTable({
                         Extended Long Term Momentum
                       </span>
                     )}
-                    {!r.coiledBase && !r.extLongTermMomentum && dash}
+                    {r.recentBreakout && (
+                      <span className="inline-flex items-center rounded-full bg-sky-100 text-sky-700 text-xs font-semibold px-2 py-0.5 whitespace-nowrap">
+                        Recent Breakout
+                      </span>
+                    )}
+                    {!r.coiledBase && !r.extLongTermMomentum && !r.recentBreakout && dash}
                   </div>
                 </td>
                 <td className="px-3 py-2 font-medium text-gray-900">{r.price != null ? `$${r.price.toFixed(2)}` : dash}</td>
