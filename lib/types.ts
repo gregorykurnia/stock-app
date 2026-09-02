@@ -138,6 +138,12 @@ export interface PriceAlert {
   earnings_alert_fired?: boolean;
 }
 
+export interface ScreenerDraftEntry {
+  ticker: string;
+  company: string | null;
+  added_at: string;
+}
+
 export interface PushSubscriptionDoc {
   endpoint: string;
   keys: { p256dh: string; auth: string };

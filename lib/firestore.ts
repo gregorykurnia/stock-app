@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc, collection, addDoc, getDocs, deleteDoc, deleteField } from "firebase/firestore";
+import { doc, getDoc, setDoc, collection, addDoc, getDocs, deleteDoc, deleteField, writeBatch } from "firebase/firestore";
 import { db } from "./firebase";
 
 export async function loadStockData(ticker: string) {
@@ -107,6 +107,27 @@ export async function removeUsSwingStock(ticker: string) {
 
 export async function updateUsSwingStar(ticker: string, starred: boolean) {
   await setDoc(doc(db, "us_swing_stocks", ticker), { starred }, { merge: true });
+}
+
+// Screener Draft — raw imports from finviz screener runs, pending triage into US-Swing
+export async function getScreenerDraft(): Promise<Record<string, { company: string | null; added_at: string }>> {
+  const snap = await getDocs(collection(db, "screener_draft"));
+  const result: Record<string, { company: string | null; added_at: string }> = {};
+  snap.forEach((d) => { result[d.id] = d.data() as { company: string | null; added_at: string }; });
+  return result;
+}
+
+export async function importScreenerDraftEntries(entries: { ticker: string; company: string | null }[]) {
+  const batch = writeBatch(db);
+  const now = new Date().toISOString();
+  for (const { ticker, company } of entries) {
+    batch.set(doc(db, "screener_draft", ticker), { company, added_at: now });
+  }
+  await batch.commit();
+}
+
+export async function removeScreenerDraftEntry(ticker: string) {
+  await deleteDoc(doc(db, "screener_draft", ticker));
 }
 
 // Portfolio

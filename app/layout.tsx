@@ -56,6 +56,7 @@ export default function RootLayout({
             <Link href="/" className="shrink-0 px-3 py-1.5 rounded-md font-medium text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-black/[0.03] transition-colors">Master Table</Link>
             <Link href="/watchlist" className="shrink-0 px-3 py-1.5 rounded-md font-medium text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-black/[0.03] transition-colors">Watchlist</Link>
             <Link href="/alerts" className="shrink-0 px-3 py-1.5 rounded-md font-medium text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-black/[0.03] transition-colors">Price Alerts</Link>
+            <Link href="/screener-draft" className="shrink-0 px-3 py-1.5 rounded-md font-medium text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-black/[0.03] transition-colors">Screener Draft</Link>
           </div>
         </nav>
         {children}
