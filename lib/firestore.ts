@@ -130,6 +130,23 @@ export async function removeScreenerDraftEntry(ticker: string) {
   await deleteDoc(doc(db, "screener_draft", ticker));
 }
 
+// Screener Excluded — exclusions added from the app itself (on top of the static doc-sourced list),
+// so a ticker excluded once doesn't reappear on the next screener import.
+export async function getScreenerExcludedTickers(): Promise<Record<string, { reason: string | null; excluded_at: string }>> {
+  const snap = await getDocs(collection(db, "screener_excluded"));
+  const result: Record<string, { reason: string | null; excluded_at: string }> = {};
+  snap.forEach((d) => { result[d.id] = d.data() as { reason: string | null; excluded_at: string }; });
+  return result;
+}
+
+export async function excludeScreenerTicker(ticker: string, reason: string | null = null) {
+  await setDoc(doc(db, "screener_excluded", ticker), { reason, excluded_at: new Date().toISOString() });
+}
+
+export async function unexcludeScreenerTicker(ticker: string) {
+  await deleteDoc(doc(db, "screener_excluded", ticker));
+}
+
 // Portfolio
 export async function getPortfolio(): Promise<Record<string, object>> {
   const snap = await getDocs(collection(db, "portfolio"));

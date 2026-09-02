@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   getScreenerDraft, importScreenerDraftEntries, removeScreenerDraftEntry,
   getWatchlistTickers, getPortfolioTickers, getUsSwingStocks, saveUsSwingStock,
+  getScreenerExcludedTickers, excludeScreenerTicker, unexcludeScreenerTicker,
 } from "@/lib/firestore";
 import { SCREENER_EXCLUDED_TICKERS } from "@/lib/screenerExclusions";
 import type { ScreenerDraftEntry } from "@/lib/types";
@@ -13,25 +14,28 @@ type Status = "new" | "tracked";
 export default function ScreenerDraftPage() {
   const [entries, setEntries] = useState<ScreenerDraftEntry[]>([]);
   const [trackedTickers, setTrackedTickers] = useState<Set<string>>(new Set());
+  const [excludedTickers, setExcludedTickers] = useState<Record<string, { reason: string | null; excluded_at: string }>>({});
   const [loading, setLoading] = useState(true);
   const [pasteInput, setPasteInput] = useState("");
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const [promoting, setPromoting] = useState<Set<string>>(new Set());
   const [promoteErrors, setPromoteErrors] = useState<Record<string, string>>({});
-  const [filter, setFilter] = useState<"all" | Status>("new");
+  const [filter, setFilter] = useState<"all" | Status | "excluded">("new");
 
   const load = useCallback(async (showLoading = false) => {
     if (showLoading) setLoading(true);
     try {
-      const [draft, watchlist, portfolio, usSwing] = await Promise.all([
+      const [draft, watchlist, portfolio, usSwing, excluded] = await Promise.all([
         getScreenerDraft(),
         getWatchlistTickers(),
         getPortfolioTickers(),
         getUsSwingStocks(),
+        getScreenerExcludedTickers(),
       ]);
       const tracked = new Set<string>([...watchlist, ...portfolio, ...Object.keys(usSwing)]);
       setTrackedTickers(tracked);
+      setExcludedTickers(excluded);
       const list: ScreenerDraftEntry[] = Object.entries(draft).map(([ticker, d]) => ({
         ticker,
         company: d.company ?? null,
@@ -80,8 +84,9 @@ export default function ScreenerDraftPage() {
       return;
     }
     const existingTickers = new Set(entries.map((e) => e.ticker));
-    const excluded = rows.filter((r) => SCREENER_EXCLUDED_TICKERS.has(r.ticker));
-    const toImport = rows.filter((r) => !SCREENER_EXCLUDED_TICKERS.has(r.ticker) && !existingTickers.has(r.ticker));
+    const isExcluded = (t: string) => SCREENER_EXCLUDED_TICKERS.has(t) || t in excludedTickers;
+    const excluded = rows.filter((r) => isExcluded(r.ticker));
+    const toImport = rows.filter((r) => !isExcluded(r.ticker) && !existingTickers.has(r.ticker));
 
     setImporting(true);
     try {
@@ -98,9 +103,16 @@ export default function ScreenerDraftPage() {
     }
   }
 
-  async function handleDiscard(ticker: string) {
+  async function handleExclude(ticker: string) {
+    const reason = window.prompt(`Reason for excluding ${ticker}? (optional)`, "") || null;
     setEntries((prev) => prev.filter((e) => e.ticker !== ticker));
-    await removeScreenerDraftEntry(ticker);
+    setExcludedTickers((prev) => ({ ...prev, [ticker]: { reason, excluded_at: new Date().toISOString() } }));
+    await Promise.all([excludeScreenerTicker(ticker, reason), removeScreenerDraftEntry(ticker)]);
+  }
+
+  async function handleUnexclude(ticker: string) {
+    setExcludedTickers((prev) => { const next = { ...prev }; delete next[ticker]; return next; });
+    await unexcludeScreenerTicker(ticker);
   }
 
   async function handlePromote(ticker: string) {
@@ -133,6 +145,10 @@ export default function ScreenerDraftPage() {
 
   const newCount = entries.filter((e) => !trackedTickers.has(e.ticker)).length;
   const trackedCount = entries.length - newCount;
+  const excludedList = useMemo(
+    () => Object.entries(excludedTickers).sort(([a], [b]) => a.localeCompare(b)),
+    [excludedTickers]
+  );
 
   return (
     <main className="max-w-screen-xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
@@ -164,7 +180,7 @@ export default function ScreenerDraftPage() {
       </div>
 
       <div className="flex items-center gap-2 mb-4 text-sm">
-        {(["new", "tracked", "all"] as const).map((f) => (
+        {(["new", "tracked", "excluded", "all"] as const).map((f) => (
           <button
             key={f}
             onClick={() => setFilter(f)}
@@ -172,13 +188,50 @@ export default function ScreenerDraftPage() {
               filter === f ? "bg-[var(--accent)] text-white" : "bg-black/[0.04] text-[var(--muted)] hover:bg-black/[0.07]"
             }`}
           >
-            {f === "new" ? `New (${newCount})` : f === "tracked" ? `Already Tracked (${trackedCount})` : `All (${entries.length})`}
+            {f === "new" ? `New (${newCount})`
+              : f === "tracked" ? `Already Tracked (${trackedCount})`
+              : f === "excluded" ? `Excluded (${excludedList.length})`
+              : `All Draft (${entries.length})`}
           </button>
         ))}
       </div>
 
       {loading ? (
         <p className="text-sm text-[var(--muted)]">Loading...</p>
+      ) : filter === "excluded" ? (
+        excludedList.length === 0 ? (
+          <p className="text-sm text-[var(--muted)]">No tickers excluded from within the app yet (the static doc-sourced exclusion list is applied automatically and isn&apos;t shown here).</p>
+        ) : (
+          <div className="overflow-x-auto rounded-lg border border-[var(--border)] bg-white">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[var(--border)] text-left text-xs uppercase tracking-wide text-[var(--muted)]">
+                  <th className="px-4 py-2.5">Ticker</th>
+                  <th className="px-4 py-2.5">Reason</th>
+                  <th className="px-4 py-2.5">Excluded</th>
+                  <th className="px-4 py-2.5"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {excludedList.map(([ticker, d]) => (
+                  <tr key={ticker} className="border-b border-[var(--border)] last:border-0">
+                    <td className="px-4 py-2.5 font-semibold">{ticker}</td>
+                    <td className="px-4 py-2.5 text-[var(--muted)]">{d.reason ?? "—"}</td>
+                    <td className="px-4 py-2.5 text-[var(--muted)] text-xs">{d.excluded_at.slice(0, 10)}</td>
+                    <td className="px-4 py-2.5 text-right">
+                      <button
+                        onClick={() => handleUnexclude(ticker)}
+                        className="text-xs px-2.5 py-1 rounded-md text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-black/[0.04]"
+                      >
+                        Un-exclude
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )
       ) : rows.length === 0 ? (
         <p className="text-sm text-[var(--muted)]">Nothing here yet — paste a screener run above to import it.</p>
       ) : (
@@ -220,10 +273,10 @@ export default function ScreenerDraftPage() {
                       </button>
                     )}
                     <button
-                      onClick={() => handleDiscard(row.ticker)}
+                      onClick={() => handleExclude(row.ticker)}
                       className="text-xs px-2.5 py-1 rounded-md text-[var(--muted)] hover:text-red-600 hover:bg-red-50"
                     >
-                      Discard
+                      Exclude
                     </button>
                   </td>
                 </tr>
