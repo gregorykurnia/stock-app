@@ -395,7 +395,7 @@ export default function USSwingTable({
         : null;
       return [
         r.ticker, r.starred ? "Yes" : "", r.name ?? "", r.industry,
-        [r.coiledBase ? "Limited Upside" : "", r.extLongTermMomentum ? "Extended Midterm Momentum" : "", r.recentBreakout ? "Recent Breakout" : ""].filter(Boolean).join(" / "),
+        [r.coiledBase ? "Limited Upside" : "", r.extLongTermMomentum ? "Extended High and Higher" : "", r.recentBreakout ? "Recent Breakout" : ""].filter(Boolean).join(" / "),
         r.price?.toFixed(2) ?? "", r.priceChangePct != null ? `${r.priceChangePct >= 0 ? "+" : ""}${r.priceChangePct.toFixed(2)}%` : "", r.atr?.toFixed(1) ?? "",
         r.ema20d?.toFixed(2) ?? "", r.distEma20d?.toFixed(1) ?? "",
         r.ema50d?.toFixed(2) ?? "", r.distEma50d?.toFixed(1) ?? "",
@@ -541,7 +541,7 @@ export default function USSwingTable({
               <th className="w-9 px-2 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap sticky left-0 z-20 bg-gray-100">★</th>
               <Th label="Ticker" k="ticker" sticky />
               <Th label="Industry" k="industry" />
-              <Th label="Stock Category" k="coiledBase" title="Limited Upside: within 15% below the 5-year high, but it's been more than 75 days since that high was set — sitting quietly under an old ceiling instead of chasing it or falling away from it. Extended Midterm Momentum: made a new 2Y high within the last 15 days, is at least 220 days removed from its 1Y low, is 35-60% above its 6mo low, and has a ROC63 of at least 22%. Recent Breakout: made a new 2Y high within the last 15 days, is between -1% and 5% from its resistance level, and that resistance was set at least 100 days ago" />
+              <Th label="Stock Category" k="coiledBase" title="Limited Upside: within 15% below the 5-year high, but it's been more than 75 days since that high was set — sitting quietly under an old ceiling instead of chasing it or falling away from it. Extended High and Higher: made a new 2Y high within the last 15 days, is at least 220 days removed from its 1Y low, is 35-60% above its 6mo low, and has a ROC63 of at least 22%. Recent Breakout: made a new 2Y high within the last 15 days, is between -1% and 5% from its resistance level, and that resistance was set at least 100 days ago" />
               <Th label="Price" k="price" />
               <Th label="Chg %" k="priceChangePct" title="% change vs previous close" />
               <Th label="ATR%" k="atr" infoTiers={TIERS.atr} />
@@ -606,7 +606,7 @@ export default function USSwingTable({
                     )}
                     {r.extLongTermMomentum && (
                       <span className="inline-flex items-center rounded-full bg-emerald-100 text-emerald-700 text-xs font-semibold px-2 py-0.5 whitespace-nowrap">
-                        Extended Midterm Momentum
+                        Extended High and Higher
                       </span>
                     )}
                     {r.recentBreakout && (
