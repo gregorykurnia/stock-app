@@ -189,7 +189,7 @@ const CATEGORY_DEFS: { key: CategoryKey; label: string; badgeClass: string; desc
   },
   {
     key: "parabolicRecovery", label: "Parabolic Recovery", badgeClass: "bg-rose-100 text-rose-700",
-    description: "More than 50% above its 6mo low, but still 28% or more below its 2Y high (can be -28%, -50%, -80%, etc.) — a sharp bounce off the bottom that hasn't reclaimed the old high yet.",
+    description: "More than 47% above its 6mo low, but still 28% or more below its 2Y high (can be -28%, -50%, -80%, etc.) — a sharp bounce off the bottom that hasn't reclaimed the old high yet.",
   },
   {
     key: "stableRecovery", label: "Stable Recovery", badgeClass: "bg-lime-100 text-lime-700",
@@ -350,7 +350,7 @@ export default function USSwingTable({
         parabolicRecovery: (() => {
           const distLow6moVal = price != null && low6mo != null && low6mo > 0 ? ((price - low6mo) / low6mo) * 100 : null;
           const distHigh5yrVal = distHigh5yrs[s.ticker] ?? null;
-          return distLow6moVal != null && distLow6moVal > 50 && distHigh5yrVal != null && distHigh5yrVal <= -28;
+          return distLow6moVal != null && distLow6moVal > 47 && distHigh5yrVal != null && distHigh5yrVal <= -28;
         })(),
         stableRecovery: (() => {
           const distEma20dVal = price != null && ema20d != null ? ((price - ema20d) / ema20d) * 100 : null;
