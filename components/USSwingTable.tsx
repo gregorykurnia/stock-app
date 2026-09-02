@@ -14,7 +14,7 @@ type SortKey =
   | "ticker" | "industry" | "price" | "priceChangePct" | "atr"
   | "ema20d" | "distEma20d" | "ema50d" | "distEma50d" | "goldenCross"
   | "macd" | "roc14" | "roc63" | "roc90" | "low6mo" | "distLow6mo" | "resistance" | "distResistance" | "daysSinceResistance" | "high5yr" | "distHigh5yr" | "daysSinceHigh5yr"
-  | "low1yr" | "daysSinceLow1yr" | "distLow1yr" | "cagrLow1yr" | "rsi" | "diPlus" | "diMinus" | "adx" | "shortFloat" | "adv" | "relVolume" | "earnings";
+  | "low1yr" | "daysSinceLow1yr" | "distLow1yr" | "cagrLow1yr" | "rsi" | "diPlus" | "diMinus" | "adx" | "shortFloat" | "adv" | "relVolume" | "earnings" | "coiledBase";
 type SortDir = "asc" | "desc";
 
 interface Props {
@@ -257,6 +257,11 @@ export default function USSwingTable({
         high5yr: high5yrs[s.ticker] ?? null,
         distHigh5yr: distHigh5yrs[s.ticker] ?? null,
         daysSinceHigh5yr: daysSinceHigh5yrs[s.ticker] ?? null,
+        coiledBase: (() => {
+          const d = distHigh5yrs[s.ticker] ?? null;
+          const days = daysSinceHigh5yrs[s.ticker] ?? null;
+          return d != null && days != null && d >= -15 && d <= 0 && days > 75;
+        })(),
         low1yr: low1yrs[s.ticker] ?? null,
         distLow1yr: distLow1yrs[s.ticker] ?? null,
         daysSinceLow1yr: daysSinceLow1yrs[s.ticker] ?? null,
@@ -313,6 +318,7 @@ export default function USSwingTable({
         case "high5yr": return r.high5yr;
         case "distHigh5yr": return r.distHigh5yr;
         case "daysSinceHigh5yr": return r.daysSinceHigh5yr;
+        case "coiledBase": return r.coiledBase ? 1 : 0;
         case "low1yr": return r.low1yr;
         case "distLow1yr": return r.distLow1yr;
         case "daysSinceLow1yr": return r.daysSinceLow1yr;
@@ -351,7 +357,7 @@ export default function USSwingTable({
     const date = new Date().toISOString().slice(0, 10);
     const headers = ["Ticker", "Starred", "Name", "Industry", "Price", "Price Change%", "ATR%", "EMA20D", "Dist EMA20D%",
       "EMA50D", "Dist EMA50D%", "Golden Cross", "MACD", "ROC14", "ROC63", "ROC90", "Low (6mo)", "Dist from Low%", "Resistance (1Y)", "Dist from Resistance%", "Days Since Resistance",
-      "High (5Y)", "Dist from 5Y High%", "Days Since 5Y High",
+      "High (5Y)", "Dist from 5Y High%", "Days Since 5Y High", "Coiled Base",
       "Low (1Y)", "Days Since 1Y Low", "Dist from 1Y Low%", "CAGR from 1Y Low%",
       "RSI", "DI+", "DI-", "ADX", "Short Float%", "ADV",
       "Rel Volume", "Earnings Date", "Days to Earnings"];
@@ -370,7 +376,7 @@ export default function USSwingTable({
         r.goldenCrossDate ? `${r.goldenCrossDate} (${goldenCrossDays}D)` : "",
         r.macd?.toFixed(2) ?? "", r.roc14?.toFixed(1) ?? "", r.roc63?.toFixed(1) ?? "", r.roc90?.toFixed(1) ?? "", r.low6mo?.toFixed(2) ?? "", r.distLow6mo?.toFixed(1) ?? "",
         r.resistance?.toFixed(2) ?? "", r.distResistance?.toFixed(1) ?? "", r.daysSinceResistance != null ? String(r.daysSinceResistance) : "",
-        r.high5yr?.toFixed(2) ?? "", r.distHigh5yr?.toFixed(1) ?? "", r.daysSinceHigh5yr != null ? String(r.daysSinceHigh5yr) : "",
+        r.high5yr?.toFixed(2) ?? "", r.distHigh5yr?.toFixed(1) ?? "", r.daysSinceHigh5yr != null ? String(r.daysSinceHigh5yr) : "", r.coiledBase ? "Yes" : "",
         r.low1yr?.toFixed(2) ?? "", r.daysSinceLow1yr != null ? String(r.daysSinceLow1yr) : "", r.distLow1yr?.toFixed(1) ?? "", r.cagrLow1yr?.toFixed(1) ?? "",
         r.rsi?.toFixed(1) ?? "",
         r.diPlus?.toFixed(1) ?? "",
@@ -529,6 +535,7 @@ export default function USSwingTable({
               <Th label="5Y High" k="high5yr" title="Highest weekly high over the trailing 5 years" />
               <Th label="Dist from 5Y High" k="distHigh5yr" title="Current price vs the 5-year high, as a %. Negative = below high." />
               <Th label="Days Since 5Y High" k="daysSinceHigh5yr" title="Calendar days since the weekly bar that set the trailing 5-year high" />
+              <Th label="Coiled Base" k="coiledBase" title="Flag: within 15% below the 5-year high, but it's been more than 75 days since that high was set — sitting quietly under an old ceiling instead of chasing it or falling away from it" />
               <Th label="1Y Low" k="low1yr" title="Lowest weekly low over the trailing 1 year" />
               <Th label="Days Since 1Y Low" k="daysSinceLow1yr" title="Calendar days since the weekly bar that set the trailing 1-year low" />
               <Th label="Dist from 1Y Low" k="distLow1yr" title="Current price vs the 1-year low, as a %." />
@@ -590,6 +597,13 @@ export default function USSwingTable({
                 <td className="px-3 py-2 text-gray-700">{r.high5yr != null ? `$${r.high5yr.toFixed(2)}` : dash}</td>
                 <td className={`px-3 py-2 font-medium ${r.distHigh5yr == null ? "text-gray-400" : r.distHigh5yr >= -2 ? "text-green-600 font-semibold" : "text-gray-700"}`}>{r.distHigh5yr != null ? `${r.distHigh5yr.toFixed(1)}%` : dash}</td>
                 <td className="px-3 py-2 text-gray-700">{r.daysSinceHigh5yr != null ? `${r.daysSinceHigh5yr}D` : dash}</td>
+                <td className="px-3 py-2">
+                  {r.coiledBase ? (
+                    <span className="inline-flex items-center rounded-full bg-purple-100 text-purple-700 text-xs font-semibold px-2 py-0.5 whitespace-nowrap">
+                      Coiled Base
+                    </span>
+                  ) : dash}
+                </td>
                 <td className="px-3 py-2 text-gray-700">{r.low1yr != null ? `$${r.low1yr.toFixed(2)}` : dash}</td>
                 <td className="px-3 py-2 text-gray-700">{r.daysSinceLow1yr != null ? `${r.daysSinceLow1yr}D` : dash}</td>
                 <td className="px-3 py-2 font-medium text-gray-700">{r.distLow1yr != null ? `${r.distLow1yr.toFixed(1)}%` : dash}</td>
