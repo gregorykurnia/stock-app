@@ -15,7 +15,7 @@ type SortKey =
   | "ema20d" | "distEma20d" | "ema50d" | "distEma50d" | "goldenCross"
   | "macd" | "roc14" | "roc63" | "roc90" | "sortino" | "sortino6mo" | "low6mo" | "distLow6mo" | "resistance" | "distResistance" | "daysSinceResistance" | "high5yr" | "distHigh5yr" | "daysSinceHigh5yr"
   | "low1yr" | "daysSinceLow1yr" | "distLow1yr" | "cagrLow1yr" | "rsi" | "diPlus" | "diMinus" | "adx" | "shortFloat" | "adv" | "relVolume" | "earnings" | "coiledBase" | "recentBreakout" | "strongUptrend" | "stableLongTerm" | "parabolicRecovery" | "stableRecovery" | "stableModerateUpside" | "parabolic"
-  | "priceTrendScore" | "momentumScore" | "trendStrengthScore" | "priceLevelsScore" | "liquidityScore";
+  | "priceTrendScore" | "momentumScore" | "trendStrengthScore" | "priceLevelsScore" | "liquidityScore" | "grandScore";
 type SortDir = "asc" | "desc";
 
 interface Props {
@@ -206,6 +206,19 @@ function combineScore(components: (ScoreComponent | null)[]): { score: number | 
   return { score: Math.max(0, Math.min(10, (sum / max) * 10)), components: valid };
 }
 
+// Weighted blend of the 0-10 group scores into one grand score — weights are relative importance,
+// renormalized over whichever groups have data so a missing group doesn't just zero things out.
+function weightedScore(parts: { label: string; score: number | null; weight: number }[]): { score: number | null; components: ScoreComponent[] } {
+  const valid = parts.filter((p): p is { label: string; score: number; weight: number } => p.score != null);
+  const totalWeight = valid.reduce((a, p) => a + p.weight, 0);
+  if (totalWeight <= 0) return { score: null, components: [] };
+  const sum = valid.reduce((a, p) => a + p.score * p.weight, 0);
+  return {
+    score: Math.max(0, Math.min(10, sum / totalWeight)),
+    components: valid.map((p) => ({ label: `${p.label} (${Math.round(p.weight * 100)}%)`, pts: Math.round(p.score * 10) / 10, max: 10 })),
+  };
+}
+
 function ptsDistEma20d(v: number | null): number | null {
   if (v == null) return null;
   const av = Math.abs(v);
@@ -276,15 +289,17 @@ function ptsDistLow6mo(v: number | null): number | null {
   if (v <= 100) return 2;
   return 0;
 }
-function ptsRelVolume(v: number | null): number | null {
-  if (v == null) return null;
-  return v >= 1.5 ? 2 : v >= 0.5 ? 1 : 0;
-}
 function penaltyShortFloat(v: number | null): number {
   return v != null && v * 100 >= 15 ? -1 : 0;
 }
 function penaltyEarnings(daysUntil: number | null): number {
   return daysUntil != null && daysUntil >= 0 && daysUntil <= 7 ? -1 : 0;
+}
+// Liquidity score now reflects event risk only (short float + upcoming earnings) — Rel Volume
+// dropped as a scored input (still shown as a data column) since it wasn't a meaningful signal.
+function ptsEventRisk(shortFloat: number | null, earningsDaysUntil: number | null): number | null {
+  if (shortFloat == null && earningsDaysUntil == null) return null;
+  return Math.max(0, 2 + penaltyShortFloat(shortFloat) + penaltyEarnings(earningsDaysUntil));
 }
 
 function scoreColorClass(score: number | null): string {
@@ -457,9 +472,14 @@ export default function USSwingTable({
         comp("Dist from 6mo Low", ptsDistLow6mo(distLow6moVal), 3),
       ]);
       const liquidityScore = combineScore([
-        comp("Rel Volume", ptsRelVolume(relVolumes[s.ticker] ?? null), 2),
-        { label: "Short Float ≥15%", pts: penaltyShortFloat(shortFloats[s.ticker] ?? null), max: 0 },
-        { label: "Earnings <7d", pts: penaltyEarnings(earningsDaysUntil), max: 0 },
+        comp("Event Risk", ptsEventRisk(shortFloats[s.ticker] ?? null, earningsDaysUntil), 2),
+      ]);
+      const grandScore = weightedScore([
+        { label: "Price & Trend", score: priceTrendScore.score, weight: 0.32 },
+        { label: "Price Levels", score: priceLevelsScore.score, weight: 0.26 },
+        { label: "Trend Strength", score: trendStrengthScore.score, weight: 0.20 },
+        { label: "Momentum", score: momentumScore.score, weight: 0.17 },
+        { label: "Liquidity & Events", score: liquidityScore.score, weight: 0.05 },
       ]);
 
       return {
@@ -584,6 +604,7 @@ export default function USSwingTable({
         trendStrengthScore,
         priceLevelsScore,
         liquidityScore,
+        grandScore,
       };
     });
   }, [stocks, prices, prevCloses, atrs, ema20s, ema50s, goldenCrossDates, macds, roc14s, roc63s, roc90s, sortinos, sortino6mos, rsis, diPluses, diMinuses, adxs, low6mos, relVolumes, resistances, daysSinceResistances, high5yrs, distHigh5yrs, daysSinceHigh5yrs, low1yrs, distLow1yrs, daysSinceLow1yrs, shortFloats, advs, earnings]);
@@ -655,6 +676,7 @@ export default function USSwingTable({
         case "trendStrengthScore": return r.trendStrengthScore.score;
         case "priceLevelsScore": return r.priceLevelsScore.score;
         case "liquidityScore": return r.liquidityScore.score;
+        case "grandScore": return r.grandScore.score;
         default: return null;
       }
     };
@@ -675,7 +697,7 @@ export default function USSwingTable({
 
   function exportCsv() {
     const date = new Date().toISOString().slice(0, 10);
-    const headers = ["Ticker", "Starred", "Name", "Industry", "Stock Category",
+    const headers = ["Ticker", "Starred", "Name", "Industry", "Stock Category", "Grand Score",
       "Price & Trend Score", "Price", "Price Change%", "ATR%", "EMA20D", "Dist EMA20D%",
       "EMA50D", "Dist EMA50D%", "Golden Cross", "MACD",
       "Momentum Score", "ROC14", "ROC63", "ROC90", "Sortino (3mo)", "Sortino (6mo)",
@@ -695,6 +717,7 @@ export default function USSwingTable({
       return [
         r.ticker, r.starred ? "Yes" : "", r.name ?? "", r.industry,
         CATEGORY_DEFS.filter((c) => r[c.key]).map((c) => c.label).join(" / "),
+        r.grandScore.score?.toFixed(1) ?? "",
         r.priceTrendScore.score?.toFixed(1) ?? "",
         r.price?.toFixed(2) ?? "", r.priceChangePct != null ? `${r.priceChangePct >= 0 ? "+" : ""}${r.priceChangePct.toFixed(2)}%` : "", r.atr?.toFixed(1) ?? "",
         r.ema20d?.toFixed(2) ?? "", r.distEma20d?.toFixed(1) ?? "",
@@ -884,7 +907,7 @@ export default function USSwingTable({
           <thead className="bg-gray-100 border-b border-gray-200 sticky top-0 z-30">
             <tr className="border-b border-gray-200">
               <th colSpan={2} className="px-2 py-1 sticky left-0 z-20 bg-gray-100" />
-              <th colSpan={2} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Overview</th>
+              <th colSpan={3} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Overview</th>
               <th colSpan={10} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Price &amp; Trend</th>
               <th colSpan={6} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Momentum</th>
               <th colSpan={13} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Price Levels</th>
@@ -897,6 +920,7 @@ export default function USSwingTable({
               <Th label="Ticker" k="ticker" sticky />
               <Th label="Industry" k="industry" />
               <Th label="Stock Category" k="coiledBase" title={CATEGORY_DEFS.map((c) => `${c.label}: ${c.description}`).join(" ")} />
+              <Th label="Grand Score" k="grandScore" title="Weighted blend of all 5 group scores: Price & Trend 32%, Price Levels 26%, Trend Strength 20%, Momentum 17%, Liquidity & Events 5% — hover for the breakdown" />
               <Th label="Score" k="priceTrendScore" title="Composite 0-10 score from Dist EMA20D, Dist EMA50D, MACD and ATR% — hover a score cell for the breakdown" />
               <Th label="Price" k="price" />
               <Th label="Chg %" k="priceChangePct" title="% change vs previous close" />
@@ -931,7 +955,7 @@ export default function USSwingTable({
               <Th label="DI+" k="diPlus" title="+DI(14), daily" />
               <Th label="DI-" k="diMinus" title="-DI(14), daily" />
               <Th label="ADX" k="adx" infoTiers={TIERS.adx} />
-              <Th label="Score" k="liquidityScore" title="Composite 0-10 score from Rel Volume, with penalties for Short Float ≥15% and earnings within 7 days — hover a score cell for the breakdown" />
+              <Th label="Score" k="liquidityScore" title="Event risk score: starts at 10, penalized for Short Float ≥15% and earnings within 7 days — hover a score cell for the breakdown" />
               <Th label="Short Float %" k="shortFloat" infoTiers={TIERS.shortFloat} />
               <Th label="ADV" k="adv" title="Average daily volume (3-month)" />
               <Th label="Rel Volume" k="relVolume" title="Latest session volume vs its trailing 20-day average" />
@@ -941,7 +965,7 @@ export default function USSwingTable({
           </thead>
           <tbody className="divide-y divide-gray-100">
             {sortedRows.length === 0 && (
-              <tr><td colSpan={44} className="px-3 py-6 text-center text-gray-400 text-sm">{starredOnly ? "No starred tickers." : "No tickers yet — add one above."}</td></tr>
+              <tr><td colSpan={45} className="px-3 py-6 text-center text-gray-400 text-sm">{starredOnly ? "No starred tickers." : "No tickers yet — add one above."}</td></tr>
             )}
             {sortedRows.map((r) => (
               <tr key={r.ticker} className="hover:bg-gray-50">
@@ -969,6 +993,7 @@ export default function USSwingTable({
                     {CATEGORY_DEFS.every((c) => !r[c.key]) && dash}
                   </div>
                 </td>
+                <ScoreCell groupLabel="Grand Score" data={r.grandScore} />
                 <ScoreCell groupLabel="Price & Trend" data={r.priceTrendScore} />
                 <td className="px-3 py-2 font-medium text-gray-900">{r.price != null ? `$${r.price.toFixed(2)}` : dash}</td>
                 <td className={`px-3 py-2 font-medium ${r.priceChangePct == null ? "text-gray-400" : r.priceChangePct >= 0 ? "text-green-600" : "text-red-500"}`}>
