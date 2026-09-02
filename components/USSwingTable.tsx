@@ -278,9 +278,11 @@ export default function USSwingTable({
         recentBreakout: (() => {
           const daysSinceHigh = daysSinceHigh5yrs[s.ticker] ?? null;
           const distResistanceVal = price != null && resistance != null && resistance > 0 ? ((price - resistance) / resistance) * 100 : null;
+          const daysSinceRes = daysSinceResistances[s.ticker] ?? null;
           return (
             daysSinceHigh != null && daysSinceHigh < 15 &&
-            distResistanceVal != null && distResistanceVal >= -1 && distResistanceVal <= 5
+            distResistanceVal != null && distResistanceVal >= -1 && distResistanceVal <= 5 &&
+            daysSinceRes != null && daysSinceRes >= 100
           );
         })(),
         low1yr: low1yrs[s.ticker] ?? null,
@@ -539,7 +541,7 @@ export default function USSwingTable({
               <th className="w-9 px-2 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap sticky left-0 z-20 bg-gray-100">★</th>
               <Th label="Ticker" k="ticker" sticky />
               <Th label="Industry" k="industry" />
-              <Th label="Stock Category" k="coiledBase" title="Limited Upside: within 15% below the 5-year high, but it's been more than 75 days since that high was set — sitting quietly under an old ceiling instead of chasing it or falling away from it. Extended Long Term Momentum: made a new 2Y high within the last 15 days, is at least 220 days removed from its 1Y low, is 35-60% above its 6mo low, and has a ROC63 of at least 22%. Recent Breakout: made a new 2Y high within the last 15 days and is between -1% and 5% from its resistance level" />
+              <Th label="Stock Category" k="coiledBase" title="Limited Upside: within 15% below the 5-year high, but it's been more than 75 days since that high was set — sitting quietly under an old ceiling instead of chasing it or falling away from it. Extended Long Term Momentum: made a new 2Y high within the last 15 days, is at least 220 days removed from its 1Y low, is 35-60% above its 6mo low, and has a ROC63 of at least 22%. Recent Breakout: made a new 2Y high within the last 15 days, is between -1% and 5% from its resistance level, and that resistance was set at least 100 days ago" />
               <Th label="Price" k="price" />
               <Th label="Chg %" k="priceChangePct" title="% change vs previous close" />
               <Th label="ATR%" k="atr" infoTiers={TIERS.atr} />
