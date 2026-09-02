@@ -145,10 +145,16 @@ export default function ScreenerDraftPage() {
 
   const newCount = entries.filter((e) => !trackedTickers.has(e.ticker)).length;
   const trackedCount = entries.length - newCount;
-  const excludedList = useMemo(
-    () => Object.entries(excludedTickers).sort(([a], [b]) => a.localeCompare(b)),
-    [excludedTickers]
-  );
+  const excludedList = useMemo(() => {
+    const merged: Record<string, { reason: string | null; excluded_at: string | null; fromDoc: boolean }> = {};
+    for (const ticker of SCREENER_EXCLUDED_TICKERS) {
+      merged[ticker] = { reason: "From exclusion doc", excluded_at: null, fromDoc: true };
+    }
+    for (const [ticker, d] of Object.entries(excludedTickers)) {
+      merged[ticker] = { reason: d.reason, excluded_at: d.excluded_at, fromDoc: false };
+    }
+    return Object.entries(merged).sort(([a], [b]) => a.localeCompare(b));
+  }, [excludedTickers]);
 
   return (
     <main className="max-w-screen-xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
@@ -200,7 +206,7 @@ export default function ScreenerDraftPage() {
         <p className="text-sm text-[var(--muted)]">Loading...</p>
       ) : filter === "excluded" ? (
         excludedList.length === 0 ? (
-          <p className="text-sm text-[var(--muted)]">No tickers excluded from within the app yet (the static doc-sourced exclusion list is applied automatically and isn&apos;t shown here).</p>
+          <p className="text-sm text-[var(--muted)]">No excluded tickers.</p>
         ) : (
           <div className="overflow-x-auto rounded-lg border border-[var(--border)] bg-white">
             <table className="w-full text-sm">
@@ -217,14 +223,16 @@ export default function ScreenerDraftPage() {
                   <tr key={ticker} className="border-b border-[var(--border)] last:border-0">
                     <td className="px-4 py-2.5 font-semibold">{ticker}</td>
                     <td className="px-4 py-2.5 text-[var(--muted)]">{d.reason ?? "—"}</td>
-                    <td className="px-4 py-2.5 text-[var(--muted)] text-xs">{d.excluded_at.slice(0, 10)}</td>
+                    <td className="px-4 py-2.5 text-[var(--muted)] text-xs">{d.excluded_at ? d.excluded_at.slice(0, 10) : "—"}</td>
                     <td className="px-4 py-2.5 text-right">
-                      <button
-                        onClick={() => handleUnexclude(ticker)}
-                        className="text-xs px-2.5 py-1 rounded-md text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-black/[0.04]"
-                      >
-                        Un-exclude
-                      </button>
+                      {!d.fromDoc && (
+                        <button
+                          onClick={() => handleUnexclude(ticker)}
+                          className="text-xs px-2.5 py-1 rounded-md text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-black/[0.04]"
+                        >
+                          Un-exclude
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
