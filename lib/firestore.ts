@@ -147,6 +147,18 @@ export async function unexcludeScreenerTicker(ticker: string) {
   await deleteDoc(doc(db, "screener_excluded", ticker));
 }
 
+// Overrides a ticker from the static doc-sourced exclusion list (lib/screenerExclusions.ts),
+// which can't itself be edited from the app — deleting a doc-sourced entry from the
+// Excluded tab writes one of these instead so it stops showing up as excluded.
+export async function getScreenerExclusionOverrides(): Promise<Set<string>> {
+  const snap = await getDocs(collection(db, "screener_exclusion_overrides"));
+  return new Set(snap.docs.map((d) => d.id));
+}
+
+export async function addScreenerExclusionOverride(ticker: string) {
+  await setDoc(doc(db, "screener_exclusion_overrides", ticker), { added_at: new Date().toISOString() });
+}
+
 // Portfolio
 export async function getPortfolio(): Promise<Record<string, object>> {
   const snap = await getDocs(collection(db, "portfolio"));
