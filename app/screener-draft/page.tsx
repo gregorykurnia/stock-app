@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import {
-  getScreenerDraft, importScreenerDraftEntries, removeScreenerDraftEntry,
+  getScreenerDraft, importScreenerDraftEntries, updateScreenerDraftRanks, removeScreenerDraftEntry,
   getWatchlistTickers, getPortfolioTickers, getUsSwingStocks, saveUsSwingStock,
   getScreenerExcludedTickers, excludeScreenerTicker, excludeScreenerTickersBulk, unexcludeScreenerTicker,
   getScreenerExclusionOverrides, addScreenerExclusionOverride,
@@ -83,13 +83,18 @@ export default function ScreenerDraftPage() {
 
       const existingTickers = new Set(entries.map((e) => e.ticker));
       const excluded = rows.filter((r) => isExcluded(r.ticker));
-      const toImport = rows.filter((r) => !isExcluded(r.ticker) && !existingTickers.has(r.ticker));
-      const skippedExisting = rows.length - excluded.length - toImport.length;
+      const notExcluded = rows.filter((r) => !isExcluded(r.ticker));
+      const toImport = notExcluded.filter((r) => !existingTickers.has(r.ticker));
+      const toRefreshRank = notExcluded.filter((r) => existingTickers.has(r.ticker));
 
       if (toImport.length > 0) await importScreenerDraftEntries(toImport);
+      // Refresh rank (and company) on entries already in the draft too — otherwise a
+      // re-run never updates rank for the ~200 tickers that were already there, and the
+      // list looks unsorted since only brand-new entries would carry a fresh rank.
+      if (toRefreshRank.length > 0) await updateScreenerDraftRanks(toRefreshRank);
       setRunStatus(
         `Screener returned ${rows.length} ticker(s). Added ${toImport.length} new to the draft, ` +
-        `${excluded.length} excluded, ${skippedExisting} already in draft.`
+        `${excluded.length} excluded, ${toRefreshRank.length} already in draft (rank refreshed).`
       );
       await load();
     } catch (err) {

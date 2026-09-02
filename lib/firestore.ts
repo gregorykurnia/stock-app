@@ -130,6 +130,21 @@ export async function removeScreenerDraftEntry(ticker: string) {
   await deleteDoc(doc(db, "screener_draft", ticker));
 }
 
+// Refreshes rank (and company) on draft entries that already exist, without touching
+// added_at — a screener re-run's market-cap order can shift for tickers already in the
+// draft, and their rank would otherwise stay stuck at whatever it was on first import
+// (or unset, for anything imported before rank existed).
+export async function updateScreenerDraftRanks(entries: { ticker: string; company: string | null; rank?: number }[]) {
+  const chunkSize = 400;
+  for (let i = 0; i < entries.length; i += chunkSize) {
+    const batch = writeBatch(db);
+    for (const { ticker, company, rank } of entries.slice(i, i + chunkSize)) {
+      batch.set(doc(db, "screener_draft", ticker), { company, ...(rank !== undefined ? { rank } : {}) }, { merge: true });
+    }
+    await batch.commit();
+  }
+}
+
 // Screener Excluded — exclusions added from the app itself (on top of the static doc-sourced list),
 // so a ticker excluded once doesn't reappear on the next screener import.
 export async function getScreenerExcludedTickers(): Promise<Record<string, { reason: string | null; excluded_at: string }>> {
