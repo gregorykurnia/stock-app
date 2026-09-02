@@ -83,9 +83,9 @@ export default function Home() {
   const [usSwingHigh5yrs, setUsSwingHigh5yrs] = useState<Record<string, number | null>>({});
   const [usSwingDistHigh5yrs, setUsSwingDistHigh5yrs] = useState<Record<string, number | null>>({});
   const [usSwingDaysSinceHigh5yrs, setUsSwingDaysSinceHigh5yrs] = useState<Record<string, number | null>>({});
-  const [usSwingLow2yrs, setUsSwingLow2yrs] = useState<Record<string, number | null>>({});
-  const [usSwingDistLow2yrs, setUsSwingDistLow2yrs] = useState<Record<string, number | null>>({});
-  const [usSwingDaysSinceLow2yrs, setUsSwingDaysSinceLow2yrs] = useState<Record<string, number | null>>({});
+  const [usSwingLow1yrs, setUsSwingLow1yrs] = useState<Record<string, number | null>>({});
+  const [usSwingDistLow1yrs, setUsSwingDistLow1yrs] = useState<Record<string, number | null>>({});
+  const [usSwingDaysSinceLow1yrs, setUsSwingDaysSinceLow1yrs] = useState<Record<string, number | null>>({});
   const [usSwingRelVolumes, setUsSwingRelVolumes] = useState<Record<string, number | null>>({});
   const [usSwingShortFloats, setUsSwingShortFloats] = useState<Record<string, number | null>>({});
   const [usSwingAdvs, setUsSwingAdvs] = useState<Record<string, number | null>>({});
@@ -216,9 +216,9 @@ export default function Home() {
         setUsSwingHigh5yrs((p) => ({ ...p, ...(d.high5yr ?? {}) }));
         setUsSwingDistHigh5yrs((p) => ({ ...p, ...(d.distFromHigh5yr ?? {}) }));
         setUsSwingDaysSinceHigh5yrs((p) => ({ ...p, ...(d.daysSinceHigh5yr ?? {}) }));
-        setUsSwingLow2yrs((p) => ({ ...p, ...(d.low2yr ?? {}) }));
-        setUsSwingDistLow2yrs((p) => ({ ...p, ...(d.distFromLow2yr ?? {}) }));
-        setUsSwingDaysSinceLow2yrs((p) => ({ ...p, ...(d.daysSinceLow2yr ?? {}) }));
+        setUsSwingLow1yrs((p) => ({ ...p, ...(d.low1yr ?? {}) }));
+        setUsSwingDistLow1yrs((p) => ({ ...p, ...(d.distFromLow1yr ?? {}) }));
+        setUsSwingDaysSinceLow1yrs((p) => ({ ...p, ...(d.daysSinceLow1yr ?? {}) }));
         setUsSwingRelVolumes((p) => ({ ...p, ...(d.relVolume ?? {}) }));
       })
       .catch(() => {});
@@ -1194,9 +1194,9 @@ export default function Home() {
             usSwingHigh5yrs={usSwingHigh5yrs}
             usSwingDistHigh5yrs={usSwingDistHigh5yrs}
             usSwingDaysSinceHigh5yrs={usSwingDaysSinceHigh5yrs}
-            usSwingLow2yrs={usSwingLow2yrs}
-            usSwingDistLow2yrs={usSwingDistLow2yrs}
-            usSwingDaysSinceLow2yrs={usSwingDaysSinceLow2yrs}
+            usSwingLow1yrs={usSwingLow1yrs}
+            usSwingDistLow1yrs={usSwingDistLow1yrs}
+            usSwingDaysSinceLow1yrs={usSwingDaysSinceLow1yrs}
             usSwingRelVolumes={usSwingRelVolumes}
             usSwingShortFloats={usSwingShortFloats}
             usSwingAdvs={usSwingAdvs}

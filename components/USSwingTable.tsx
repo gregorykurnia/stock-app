@@ -14,7 +14,7 @@ type SortKey =
   | "ticker" | "industry" | "price" | "priceChangePct" | "atr"
   | "ema20d" | "distEma20d" | "ema50d" | "distEma50d" | "goldenCross"
   | "macd" | "roc14" | "roc63" | "roc90" | "low6mo" | "distLow6mo" | "resistance" | "distResistance" | "daysSinceResistance" | "high5yr" | "distHigh5yr" | "daysSinceHigh5yr"
-  | "low2yr" | "daysSinceLow2yr" | "distLow2yr" | "cagrLow2yr" | "rsi" | "diPlus" | "diMinus" | "adx" | "shortFloat" | "adv" | "relVolume" | "earnings";
+  | "low1yr" | "daysSinceLow1yr" | "distLow1yr" | "cagrLow1yr" | "rsi" | "diPlus" | "diMinus" | "adx" | "shortFloat" | "adv" | "relVolume" | "earnings";
 type SortDir = "asc" | "desc";
 
 interface Props {
@@ -40,9 +40,9 @@ interface Props {
   high5yrs?: Record<string, number | null>;
   distHigh5yrs?: Record<string, number | null>;
   daysSinceHigh5yrs?: Record<string, number | null>;
-  low2yrs?: Record<string, number | null>;
-  distLow2yrs?: Record<string, number | null>;
-  daysSinceLow2yrs?: Record<string, number | null>;
+  low1yrs?: Record<string, number | null>;
+  distLow1yrs?: Record<string, number | null>;
+  daysSinceLow1yrs?: Record<string, number | null>;
   shortFloats?: Record<string, number | null>;
   advs?: Record<string, number | null>;
   earnings?: Record<string, string | null>;
@@ -200,7 +200,7 @@ function InfoDot({ tiers, breakoutNote }: { tiers: Tier[]; breakoutNote?: string
 export default function USSwingTable({
   stocks, prices, prevCloses = {}, atrs, ema20s, ema50s, goldenCrossDates = {}, macds, roc14s = {}, roc63s = {}, roc90s = {}, rsis, diPluses = {}, diMinuses = {}, adxs = {}, low6mos, relVolumes,
   resistances = {}, daysSinceResistances = {}, high5yrs = {}, distHigh5yrs = {}, daysSinceHigh5yrs = {},
-  low2yrs = {}, distLow2yrs = {}, daysSinceLow2yrs = {}, shortFloats = {}, advs = {}, earnings = {}, loading = false,
+  low1yrs = {}, distLow1yrs = {}, daysSinceLow1yrs = {}, shortFloats = {}, advs = {}, earnings = {}, loading = false,
   addTicker = "", addLoading = false, addError = "", onAddTickerChange, onAdd, onRemove, onToggleStar,
 }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>("ticker");
@@ -257,12 +257,12 @@ export default function USSwingTable({
         high5yr: high5yrs[s.ticker] ?? null,
         distHigh5yr: distHigh5yrs[s.ticker] ?? null,
         daysSinceHigh5yr: daysSinceHigh5yrs[s.ticker] ?? null,
-        low2yr: low2yrs[s.ticker] ?? null,
-        distLow2yr: distLow2yrs[s.ticker] ?? null,
-        daysSinceLow2yr: daysSinceLow2yrs[s.ticker] ?? null,
-        cagrLow2yr: (() => {
-          const low = low2yrs[s.ticker] ?? null;
-          const days = daysSinceLow2yrs[s.ticker] ?? null;
+        low1yr: low1yrs[s.ticker] ?? null,
+        distLow1yr: distLow1yrs[s.ticker] ?? null,
+        daysSinceLow1yr: daysSinceLow1yrs[s.ticker] ?? null,
+        cagrLow1yr: (() => {
+          const low = low1yrs[s.ticker] ?? null;
+          const days = daysSinceLow1yrs[s.ticker] ?? null;
           if (price == null || low == null || low <= 0 || days == null || days <= 0) return null;
           return (Math.pow(price / low, 365 / days) - 1) * 100;
         })(),
@@ -276,7 +276,7 @@ export default function USSwingTable({
         earnings: earnings[s.ticker] ?? null,
       };
     });
-  }, [stocks, prices, prevCloses, atrs, ema20s, ema50s, goldenCrossDates, macds, roc14s, roc63s, roc90s, rsis, diPluses, diMinuses, adxs, low6mos, relVolumes, resistances, daysSinceResistances, high5yrs, distHigh5yrs, daysSinceHigh5yrs, low2yrs, distLow2yrs, daysSinceLow2yrs, shortFloats, advs, earnings]);
+  }, [stocks, prices, prevCloses, atrs, ema20s, ema50s, goldenCrossDates, macds, roc14s, roc63s, roc90s, rsis, diPluses, diMinuses, adxs, low6mos, relVolumes, resistances, daysSinceResistances, high5yrs, distHigh5yrs, daysSinceHigh5yrs, low1yrs, distLow1yrs, daysSinceLow1yrs, shortFloats, advs, earnings]);
 
   const filteredRows = useMemo(() => {
     let out = starredOnly ? rows.filter((r) => r.starred) : rows;
@@ -313,10 +313,10 @@ export default function USSwingTable({
         case "high5yr": return r.high5yr;
         case "distHigh5yr": return r.distHigh5yr;
         case "daysSinceHigh5yr": return r.daysSinceHigh5yr;
-        case "low2yr": return r.low2yr;
-        case "distLow2yr": return r.distLow2yr;
-        case "daysSinceLow2yr": return r.daysSinceLow2yr;
-        case "cagrLow2yr": return r.cagrLow2yr;
+        case "low1yr": return r.low1yr;
+        case "distLow1yr": return r.distLow1yr;
+        case "daysSinceLow1yr": return r.daysSinceLow1yr;
+        case "cagrLow1yr": return r.cagrLow1yr;
         case "rsi": return r.rsi;
         case "diPlus": return r.diPlus;
         case "diMinus": return r.diMinus;
@@ -352,7 +352,7 @@ export default function USSwingTable({
     const headers = ["Ticker", "Starred", "Name", "Industry", "Price", "Price Change%", "ATR%", "EMA20D", "Dist EMA20D%",
       "EMA50D", "Dist EMA50D%", "Golden Cross", "MACD", "ROC14", "ROC63", "ROC90", "Low (6mo)", "Dist from Low%", "Resistance (1Y)", "Dist from Resistance%", "Days Since Resistance",
       "High (5Y)", "Dist from 5Y High%", "Days Since 5Y High",
-      "Low (2Y)", "Days Since 2Y Low", "Dist from 2Y Low%", "CAGR from 2Y Low%",
+      "Low (1Y)", "Days Since 1Y Low", "Dist from 1Y Low%", "CAGR from 1Y Low%",
       "RSI", "DI+", "DI-", "ADX", "Short Float%", "ADV",
       "Rel Volume", "Earnings Date", "Days to Earnings"];
     const data = sortedRows.map((r) => {
@@ -371,7 +371,7 @@ export default function USSwingTable({
         r.macd?.toFixed(2) ?? "", r.roc14?.toFixed(1) ?? "", r.roc63?.toFixed(1) ?? "", r.roc90?.toFixed(1) ?? "", r.low6mo?.toFixed(2) ?? "", r.distLow6mo?.toFixed(1) ?? "",
         r.resistance?.toFixed(2) ?? "", r.distResistance?.toFixed(1) ?? "", r.daysSinceResistance != null ? String(r.daysSinceResistance) : "",
         r.high5yr?.toFixed(2) ?? "", r.distHigh5yr?.toFixed(1) ?? "", r.daysSinceHigh5yr != null ? String(r.daysSinceHigh5yr) : "",
-        r.low2yr?.toFixed(2) ?? "", r.daysSinceLow2yr != null ? String(r.daysSinceLow2yr) : "", r.distLow2yr?.toFixed(1) ?? "", r.cagrLow2yr?.toFixed(1) ?? "",
+        r.low1yr?.toFixed(2) ?? "", r.daysSinceLow1yr != null ? String(r.daysSinceLow1yr) : "", r.distLow1yr?.toFixed(1) ?? "", r.cagrLow1yr?.toFixed(1) ?? "",
         r.rsi?.toFixed(1) ?? "",
         r.diPlus?.toFixed(1) ?? "",
         r.diMinus?.toFixed(1) ?? "",
@@ -529,10 +529,10 @@ export default function USSwingTable({
               <Th label="5Y High" k="high5yr" title="Highest weekly high over the trailing 5 years" />
               <Th label="Dist from 5Y High" k="distHigh5yr" title="Current price vs the 5-year high, as a %. Negative = below high." />
               <Th label="Days Since 5Y High" k="daysSinceHigh5yr" title="Calendar days since the weekly bar that set the trailing 5-year high" />
-              <Th label="2Y Low" k="low2yr" title="Lowest weekly low over the trailing 2 years" />
-              <Th label="Days Since 2Y Low" k="daysSinceLow2yr" title="Calendar days since the weekly bar that set the trailing 2-year low" />
-              <Th label="Dist from 2Y Low" k="distLow2yr" title="Current price vs the 2-year low, as a %." />
-              <Th label="CAGR from 2Y Low" k="cagrLow2yr" title="Annualized return implied by the rally from the 2-year low: ((Price / 2Y Low) ^ (365 / Days Since 2Y Low) - 1) × 100" />
+              <Th label="1Y Low" k="low1yr" title="Lowest weekly low over the trailing 1 year" />
+              <Th label="Days Since 1Y Low" k="daysSinceLow1yr" title="Calendar days since the weekly bar that set the trailing 1-year low" />
+              <Th label="Dist from 1Y Low" k="distLow1yr" title="Current price vs the 1-year low, as a %." />
+              <Th label="CAGR from 1Y Low" k="cagrLow1yr" title="Annualized return implied by the rally from the 1-year low: ((Price / 1Y Low) ^ (365 / Days Since 1Y Low) - 1) × 100" />
               <Th label="RSI" k="rsi" infoTiers={TIERS.rsi} />
               <Th label="DI+" k="diPlus" title="+DI(14), daily" />
               <Th label="DI-" k="diMinus" title="-DI(14), daily" />
@@ -590,10 +590,10 @@ export default function USSwingTable({
                 <td className="px-3 py-2 text-gray-700">{r.high5yr != null ? `$${r.high5yr.toFixed(2)}` : dash}</td>
                 <td className={`px-3 py-2 font-medium ${r.distHigh5yr == null ? "text-gray-400" : r.distHigh5yr >= -2 ? "text-green-600 font-semibold" : "text-gray-700"}`}>{r.distHigh5yr != null ? `${r.distHigh5yr.toFixed(1)}%` : dash}</td>
                 <td className="px-3 py-2 text-gray-700">{r.daysSinceHigh5yr != null ? `${r.daysSinceHigh5yr}D` : dash}</td>
-                <td className="px-3 py-2 text-gray-700">{r.low2yr != null ? `$${r.low2yr.toFixed(2)}` : dash}</td>
-                <td className="px-3 py-2 text-gray-700">{r.daysSinceLow2yr != null ? `${r.daysSinceLow2yr}D` : dash}</td>
-                <td className="px-3 py-2 font-medium text-gray-700">{r.distLow2yr != null ? `${r.distLow2yr.toFixed(1)}%` : dash}</td>
-                <td className="px-3 py-2 font-medium text-gray-700">{r.cagrLow2yr != null ? `${r.cagrLow2yr.toFixed(1)}%` : dash}</td>
+                <td className="px-3 py-2 text-gray-700">{r.low1yr != null ? `$${r.low1yr.toFixed(2)}` : dash}</td>
+                <td className="px-3 py-2 text-gray-700">{r.daysSinceLow1yr != null ? `${r.daysSinceLow1yr}D` : dash}</td>
+                <td className="px-3 py-2 font-medium text-gray-700">{r.distLow1yr != null ? `${r.distLow1yr.toFixed(1)}%` : dash}</td>
+                <td className="px-3 py-2 font-medium text-gray-700">{r.cagrLow1yr != null ? `${r.cagrLow1yr.toFixed(1)}%` : dash}</td>
                 <td className={`px-3 py-2 ${cellClass(TIERS.rsi, r.rsi)}`}>{r.rsi != null ? r.rsi.toFixed(1) : dash}</td>
                 <td className="px-3 py-2 text-gray-700">{r.diPlus != null ? r.diPlus.toFixed(1) : dash}</td>
                 <td className="px-3 py-2 text-gray-700">{r.diMinus != null ? r.diMinus.toFixed(1) : dash}</td>

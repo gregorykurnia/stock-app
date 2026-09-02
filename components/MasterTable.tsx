@@ -173,9 +173,9 @@ interface Props {
   usSwingHigh5yrs?: Record<string, number | null>;
   usSwingDistHigh5yrs?: Record<string, number | null>;
   usSwingDaysSinceHigh5yrs?: Record<string, number | null>;
-  usSwingLow2yrs?: Record<string, number | null>;
-  usSwingDistLow2yrs?: Record<string, number | null>;
-  usSwingDaysSinceLow2yrs?: Record<string, number | null>;
+  usSwingLow1yrs?: Record<string, number | null>;
+  usSwingDistLow1yrs?: Record<string, number | null>;
+  usSwingDaysSinceLow1yrs?: Record<string, number | null>;
   usSwingRelVolumes?: Record<string, number | null>;
   usSwingShortFloats?: Record<string, number | null>;
   usSwingAdvs?: Record<string, number | null>;
@@ -242,7 +242,7 @@ export default function MasterTable({
   swingAtr14 = {},
   swingBandar = {},
   swingLoading = false, swingAddTicker = "", swingAddLoading = false, swingAddError = "", onSwingAddTickerChange, onSwingAdd, onSwingRemove, onSwingEntryPriceChange,
-  usSwingStocks = [], usSwingPrices = {}, usSwingPrevCloses = {}, usSwingAtrs = {}, usSwingEma20s = {}, usSwingEma50s = {}, usSwingGoldenCrossDates = {}, usSwingMacds = {}, usSwingRoc14s = {}, usSwingRoc63s = {}, usSwingRoc90s = {}, usSwingRsis = {}, usSwingDiPluses = {}, usSwingDiMinuses = {}, usSwingAdxs = {}, usSwingLow6mos = {}, usSwingResistances = {}, usSwingDaysSinceResistances = {}, usSwingHigh5yrs = {}, usSwingDistHigh5yrs = {}, usSwingDaysSinceHigh5yrs = {}, usSwingLow2yrs = {}, usSwingDistLow2yrs = {}, usSwingDaysSinceLow2yrs = {}, usSwingRelVolumes = {},
+  usSwingStocks = [], usSwingPrices = {}, usSwingPrevCloses = {}, usSwingAtrs = {}, usSwingEma20s = {}, usSwingEma50s = {}, usSwingGoldenCrossDates = {}, usSwingMacds = {}, usSwingRoc14s = {}, usSwingRoc63s = {}, usSwingRoc90s = {}, usSwingRsis = {}, usSwingDiPluses = {}, usSwingDiMinuses = {}, usSwingAdxs = {}, usSwingLow6mos = {}, usSwingResistances = {}, usSwingDaysSinceResistances = {}, usSwingHigh5yrs = {}, usSwingDistHigh5yrs = {}, usSwingDaysSinceHigh5yrs = {}, usSwingLow1yrs = {}, usSwingDistLow1yrs = {}, usSwingDaysSinceLow1yrs = {}, usSwingRelVolumes = {},
   usSwingShortFloats = {}, usSwingAdvs = {}, usSwingEarnings = {}, usSwingLoading = false, onUsSwingTabOpen,
   usSwingAddTicker = "", usSwingAddLoading = false, usSwingAddError = "", onUsSwingAddTickerChange, onUsSwingAdd, onUsSwingRemove, onUsSwingToggleStar,
   portfolioStocks = { longterm: [], index: [], swing: [] }, portfolioPrices = {}, portfolioPrevCloses = {},
@@ -2245,9 +2245,9 @@ export default function MasterTable({
           high5yrs={usSwingHigh5yrs}
           distHigh5yrs={usSwingDistHigh5yrs}
           daysSinceHigh5yrs={usSwingDaysSinceHigh5yrs}
-          low2yrs={usSwingLow2yrs}
-          distLow2yrs={usSwingDistLow2yrs}
-          daysSinceLow2yrs={usSwingDaysSinceLow2yrs}
+          low1yrs={usSwingLow1yrs}
+          distLow1yrs={usSwingDistLow1yrs}
+          daysSinceLow1yrs={usSwingDaysSinceLow1yrs}
           relVolumes={usSwingRelVolumes}
           shortFloats={usSwingShortFloats}
           advs={usSwingAdvs}

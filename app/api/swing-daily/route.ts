@@ -53,9 +53,9 @@ interface SwingDailyResult {
   high5yr: number | null;
   distFromHigh5yr: number | null;
   daysSinceHigh5yr: number | null;
-  low2yr: number | null;
-  distFromLow2yr: number | null;
-  daysSinceLow2yr: number | null;
+  low1yr: number | null;
+  distFromLow1yr: number | null;
+  daysSinceLow1yr: number | null;
 }
 
 const EMPTY: SwingDailyResult = {
@@ -67,7 +67,7 @@ const EMPTY: SwingDailyResult = {
   low6mo: null, distFromLow6mo: null, resistance: null, distFromResistance: null,
   daysSinceResistance: null, relVolume: null,
   high5yr: null, distFromHigh5yr: null, daysSinceHigh5yr: null,
-  low2yr: null, distFromLow2yr: null, daysSinceLow2yr: null,
+  low1yr: null, distFromLow1yr: null, daysSinceLow1yr: null,
 };
 
 // Separate weekly 5-year chart fetch, used only for the all-time-high (5yr) column — kept apart from
@@ -95,28 +95,28 @@ async function fetchFiveYearHigh(ticker: string, lastClose: number | null): Prom
   return { high5yr, distFromHigh5yr, daysSinceHigh5yr };
 }
 
-// Mirror of fetchFiveYearHigh, for the trailing-low (2yr) columns.
-async function fetchTwoYearLow(ticker: string, lastClose: number | null): Promise<{ low2yr: number | null; distFromLow2yr: number | null; daysSinceLow2yr: number | null }> {
+// Mirror of fetchFiveYearHigh, for the trailing-low (1yr) columns.
+async function fetchOneYearLow(ticker: string, lastClose: number | null): Promise<{ low1yr: number | null; distFromLow1yr: number | null; daysSinceLow1yr: number | null }> {
   const now = new Date();
-  const twoYearsAgo = new Date(now.getTime() - 2 * 365 * 24 * 3600 * 1000);
+  const oneYearAgo = new Date(now.getTime() - 365 * 24 * 3600 * 1000);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const result: any = await yf.chart(ticker, { period1: twoYearsAgo, period2: now, interval: "1wk" });
+  const result: any = await yf.chart(ticker, { period1: oneYearAgo, period2: now, interval: "1wk" });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const quotes = (result?.quotes ?? []).filter((q: any) => q.low != null);
-  if (quotes.length === 0) return { low2yr: null, distFromLow2yr: null, daysSinceLow2yr: null };
+  if (quotes.length === 0) return { low1yr: null, distFromLow1yr: null, daysSinceLow1yr: null };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const low2yr = Math.min(...quotes.map((q: any) => q.low));
-  const distFromLow2yr = lastClose != null && low2yr > 0 ? ((lastClose - low2yr) / low2yr) * 100 : null;
+  const low1yr = Math.min(...quotes.map((q: any) => q.low));
+  const distFromLow1yr = lastClose != null && low1yr > 0 ? ((lastClose - low1yr) / low1yr) * 100 : null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const lowIdx = quotes.findIndex((q: any) => q.low === low2yr);
-  let daysSinceLow2yr: number | null = null;
+  const lowIdx = quotes.findIndex((q: any) => q.low === low1yr);
+  let daysSinceLow1yr: number | null = null;
   if (lowIdx !== -1) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const q = quotes[lowIdx] as any;
     const d: Date = q.date instanceof Date ? q.date : new Date(q.date);
-    daysSinceLow2yr = Math.round((now.getTime() - d.getTime()) / 86400000);
+    daysSinceLow1yr = Math.round((now.getTime() - d.getTime()) / 86400000);
   }
-  return { low2yr, distFromLow2yr, daysSinceLow2yr };
+  return { low1yr, distFromLow1yr, daysSinceLow1yr };
 }
 
 // Single 1-year daily chart fetch per ticker, powering every "Midterm/Swing" indicator
@@ -219,7 +219,7 @@ async function fetchSwingDaily(ticker: string): Promise<SwingDailyResult> {
   const relVolume = avgVol20 != null && avgVol20 > 0 ? lastVol / avgVol20 : null;
 
   const { high5yr, distFromHigh5yr, daysSinceHigh5yr } = await fetchFiveYearHigh(ticker, lastClose).catch(() => ({ high5yr: null, distFromHigh5yr: null, daysSinceHigh5yr: null }));
-  const { low2yr, distFromLow2yr, daysSinceLow2yr } = await fetchTwoYearLow(ticker, lastClose).catch(() => ({ low2yr: null, distFromLow2yr: null, daysSinceLow2yr: null }));
+  const { low1yr, distFromLow1yr, daysSinceLow1yr } = await fetchOneYearLow(ticker, lastClose).catch(() => ({ low1yr: null, distFromLow1yr: null, daysSinceLow1yr: null }));
 
   return {
     ema20, ema50, atrPct, rsi, diPlus, diMinus, adx, emaCrossAbove, crossPrice, crossDate, goldenCrossDate,
@@ -234,7 +234,7 @@ async function fetchSwingDaily(ticker: string): Promise<SwingDailyResult> {
     bandar,
     low6mo, distFromLow6mo, resistance, distFromResistance, daysSinceResistance, relVolume,
     high5yr, distFromHigh5yr, daysSinceHigh5yr,
-    low2yr, distFromLow2yr, daysSinceLow2yr,
+    low1yr, distFromLow1yr, daysSinceLow1yr,
   };
 }
 
@@ -275,9 +275,9 @@ export async function GET(req: NextRequest) {
   const high5yr: Record<string, number | null> = {};
   const distFromHigh5yr: Record<string, number | null> = {};
   const daysSinceHigh5yr: Record<string, number | null> = {};
-  const low2yr: Record<string, number | null> = {};
-  const distFromLow2yr: Record<string, number | null> = {};
-  const daysSinceLow2yr: Record<string, number | null> = {};
+  const low1yr: Record<string, number | null> = {};
+  const distFromLow1yr: Record<string, number | null> = {};
+  const daysSinceLow1yr: Record<string, number | null> = {};
 
   const chunkSize = 8;
   for (let i = 0; i < tickers.length; i += chunkSize) {
@@ -315,9 +315,9 @@ export async function GET(req: NextRequest) {
       high5yr[ticker] = r.high5yr;
       distFromHigh5yr[ticker] = r.distFromHigh5yr;
       daysSinceHigh5yr[ticker] = r.daysSinceHigh5yr;
-      low2yr[ticker] = r.low2yr;
-      distFromLow2yr[ticker] = r.distFromLow2yr;
-      daysSinceLow2yr[ticker] = r.daysSinceLow2yr;
+      low1yr[ticker] = r.low1yr;
+      distFromLow1yr[ticker] = r.distFromLow1yr;
+      daysSinceLow1yr[ticker] = r.daysSinceLow1yr;
     }));
   }
 
@@ -327,6 +327,6 @@ export async function GET(req: NextRequest) {
     atr, stopLoss, stopLossPercent, bandar,
     low6mo, distFromLow6mo, resistance, distFromResistance, daysSinceResistance, relVolume,
     high5yr, distFromHigh5yr, daysSinceHigh5yr,
-    low2yr, distFromLow2yr, daysSinceLow2yr,
+    low1yr, distFromLow1yr, daysSinceLow1yr,
   });
 }
