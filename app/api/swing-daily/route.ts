@@ -38,6 +38,8 @@ interface SwingDailyResult {
   histogram: number | null;
   histDirection: "up" | "down" | "flat" | null;
   roc14: number | null;
+  roc63: number | null;
+  roc90: number | null;
   atr: number | null;
   stopLoss: number | null;
   stopLossPercent: number | null;
@@ -60,7 +62,7 @@ const EMPTY: SwingDailyResult = {
   ema20: null, ema50: null, atrPct: null, rsi: null,
   diPlus: null, diMinus: null, adx: null,
   emaCrossAbove: null, crossPrice: null, crossDate: null, goldenCrossDate: null,
-  macd: null, signal: null, histogram: null, histDirection: null, roc14: null,
+  macd: null, signal: null, histogram: null, histDirection: null, roc14: null, roc63: null, roc90: null,
   atr: null, stopLoss: null, stopLossPercent: null, bandar: null,
   low6mo: null, distFromLow6mo: null, resistance: null, distFromResistance: null,
   daysSinceResistance: null, relVolume: null,
@@ -93,7 +95,7 @@ async function fetchFiveYearHigh(ticker: string, lastClose: number | null): Prom
   return { high5yr, distFromHigh5yr, daysSinceHigh5yr };
 }
 
-// Mirror of fetchFiveYearHigh, for the all-time-low (5yr) columns and the CAGR-from-low calc.
+// Mirror of fetchFiveYearHigh, for the all-time-low (5yr) columns.
 async function fetchFiveYearLow(ticker: string, lastClose: number | null): Promise<{ low5yr: number | null; distFromLow5yr: number | null; daysSinceLow5yr: number | null }> {
   const now = new Date();
   const fiveYearsAgo = new Date(now.getTime() - 5 * 365 * 24 * 3600 * 1000);
@@ -177,6 +179,8 @@ async function fetchSwingDaily(ticker: string): Promise<SwingDailyResult> {
 
   const macdRes = calculateMACD(closes);
   const roc14 = calculateROC(closes, 14);
+  const roc63 = calculateROC(closes, 63);
+  const roc90 = calculateROC(closes, 90);
   const atrRes = calculateATR(bars, 14);
   const bandar = calculateBandarScore(bars.slice(-60));
 
@@ -223,7 +227,7 @@ async function fetchSwingDaily(ticker: string): Promise<SwingDailyResult> {
     signal: macdRes?.signal ?? null,
     histogram: macdRes?.histogram ?? null,
     histDirection: macdRes?.histDirection ?? null,
-    roc14,
+    roc14, roc63, roc90,
     atr: atrRes?.atr ?? null,
     stopLoss: atrRes?.stopLoss ?? null,
     stopLossPercent: atrRes?.stopLossPercent ?? null,
@@ -256,6 +260,8 @@ export async function GET(req: NextRequest) {
   const histogram: Record<string, number | null> = {};
   const histDirection: Record<string, "up" | "down" | "flat" | null> = {};
   const roc14: Record<string, number | null> = {};
+  const roc63: Record<string, number | null> = {};
+  const roc90: Record<string, number | null> = {};
   const atr: Record<string, number | null> = {};
   const stopLoss: Record<string, number | null> = {};
   const stopLossPercent: Record<string, number | null> = {};
@@ -294,6 +300,8 @@ export async function GET(req: NextRequest) {
       histogram[ticker] = r.histogram;
       histDirection[ticker] = r.histDirection;
       roc14[ticker] = r.roc14;
+      roc63[ticker] = r.roc63;
+      roc90[ticker] = r.roc90;
       atr[ticker] = r.atr;
       stopLoss[ticker] = r.stopLoss;
       stopLossPercent[ticker] = r.stopLossPercent;
@@ -315,7 +323,7 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     ema20, ema50, atrPct, rsi, diPlus, diMinus, adx, emaCrossAbove, crossPrice, crossDate, goldenCrossDate,
-    macd, signal, histogram, histDirection, roc14,
+    macd, signal, histogram, histDirection, roc14, roc63, roc90,
     atr, stopLoss, stopLossPercent, bandar,
     low6mo, distFromLow6mo, resistance, distFromResistance, daysSinceResistance, relVolume,
     high5yr, distFromHigh5yr, daysSinceHigh5yr,
