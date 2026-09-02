@@ -201,7 +201,7 @@ async function fetchSwingDaily(ticker: string): Promise<SwingDailyResult> {
   const roc14 = calculateROC(closes, 14);
   const roc63 = calculateROC(closes, 63);
   const roc90 = calculateROC(closes, 90);
-  const sortino = calcSortino(closes);
+  const sortino = calcSortino(closes.slice(-63));
   const sortino6mo = calcSortino(closes.slice(-126));
   const atrRes = calculateATR(bars, 14);
   const bandar = calculateBandarScore(bars.slice(-60));

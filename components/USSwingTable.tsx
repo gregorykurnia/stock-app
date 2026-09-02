@@ -135,8 +135,8 @@ const TIERS = {
     { max: 3, label: "Great", color: "green", range: "2.01-3" },
     { max: Infinity, label: "Excellent Risk-Adjusted Return", color: "yellow", range: ">3" },
   ] as Tier[],
-  // Same scale as sortino (both are annualized), but computed from only the trailing ~6mo of daily
-  // returns — noisier / more reactive to recent price action than the 1yr figure.
+  // Same scale as sortino (both are annualized), but computed from the trailing ~6mo of daily
+  // returns instead of ~3mo — a steadier, less reactive read than the 3mo figure.
   sortino6mo: [
     { max: 0, label: "Poor, Negative Risk-Adjusted Return", color: "red", range: "<0" },
     { max: 1, label: "Sub-Optimal", color: "gray", range: "0-1" },
@@ -501,7 +501,7 @@ export default function USSwingTable({
   function exportCsv() {
     const date = new Date().toISOString().slice(0, 10);
     const headers = ["Ticker", "Starred", "Name", "Industry", "Stock Category", "Price", "Price Change%", "ATR%", "EMA20D", "Dist EMA20D%",
-      "EMA50D", "Dist EMA50D%", "Golden Cross", "MACD", "ROC14", "ROC63", "ROC90", "Sortino", "Sortino (6mo)", "Low (6mo)", "Dist from Low%", "Resistance (1Y)", "Dist from Resistance%", "Days Since Resistance",
+      "EMA50D", "Dist EMA50D%", "Golden Cross", "MACD", "ROC14", "ROC63", "ROC90", "Sortino (3mo)", "Sortino (6mo)", "Low (6mo)", "Dist from Low%", "Resistance (1Y)", "Dist from Resistance%", "Days Since Resistance",
       "High (2Y)", "Dist from 2Y High%", "Days Since 2Y High",
       "Low (1Y)", "Days Since 1Y Low", "Dist from 1Y Low%", "CAGR from 1Y Low%",
       "RSI", "DI+", "DI-", "ADX", "Short Float%", "ADV",
@@ -536,7 +536,7 @@ export default function USSwingTable({
     });
     const METRIC_TITLES: Record<keyof typeof TIERS, string> = {
       atr: "ATR%", ema20d: "Dist EMA20D%", ema50d: "Dist EMA50D%", goldenCross: "Golden Cross (days since)",
-      roc14: "ROC14", roc63: "ROC63", roc90: "ROC90", sortino: "Sortino", sortino6mo: "Sortino (6mo)", distLow: "Dist from Low%", distResistance: "Dist from Resistance% (room below resistance)",
+      roc14: "ROC14", roc63: "ROC63", roc90: "ROC90", sortino: "Sortino (3mo)", sortino6mo: "Sortino (6mo)", distLow: "Dist from Low%", distResistance: "Dist from Resistance% (room below resistance)",
       rsi: "RSI", adx: "ADX", shortFloat: "Short Float%",
     };
     const legendRows: (string | number | null)[][] = [
@@ -713,8 +713,8 @@ export default function USSwingTable({
               <Th label="ROC14" k="roc14" infoTiers={TIERS.roc14} />
               <Th label="ROC63" k="roc63" infoTiers={TIERS.roc63} title="Rate of change over the trailing 63 trading sessions (~3mo)" />
               <Th label="ROC90" k="roc90" infoTiers={TIERS.roc90} title="Rate of change over the trailing 90 trading sessions (~4.5mo)" />
-              <Th label="Sortino" k="sortino" infoTiers={TIERS.sortino} title="Annualized Sortino ratio: mean daily return over downside deviation (only negative daily returns) of the trailing 1-year daily closes, scaled by sqrt(252). Higher = better return per unit of downside risk." />
-              <Th label="Sortino (6mo)" k="sortino6mo" infoTiers={TIERS.sortino6mo} title="Same annualized Sortino ratio calculation, but using only the trailing ~6 months of daily closes. More reactive to recent price action than the 1yr figure, but noisier." />
+              <Th label="Sortino (3mo)" k="sortino" infoTiers={TIERS.sortino} title="Annualized Sortino ratio: mean daily return over downside deviation (only negative daily returns) of the trailing ~3 months of daily closes, scaled by sqrt(252). Higher = better return per unit of downside risk." />
+              <Th label="Sortino (6mo)" k="sortino6mo" infoTiers={TIERS.sortino6mo} title="Same annualized Sortino ratio calculation, but using the trailing ~6 months of daily closes. Steadier / less reactive to recent price action than the 3mo figure." />
               <Th label="Low (6mo)" k="low6mo" title="Lowest intraday low over the last ~6 months (126 sessions)" />
               <Th label="Dist from Low" k="distLow6mo" infoTiers={TIERS.distLow} />
               <Th label="Resistance" k="resistance" title="Highest intraday high over the last ~1 year, excluding the most recent ~32 sessions (~1.5 months) — the last prior ceiling the stock pulled back from" />
