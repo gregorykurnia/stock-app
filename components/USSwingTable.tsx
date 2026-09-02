@@ -357,7 +357,7 @@ export default function USSwingTable({
     const date = new Date().toISOString().slice(0, 10);
     const headers = ["Ticker", "Starred", "Name", "Industry", "Stock Category", "Price", "Price Change%", "ATR%", "EMA20D", "Dist EMA20D%",
       "EMA50D", "Dist EMA50D%", "Golden Cross", "MACD", "ROC14", "ROC63", "ROC90", "Low (6mo)", "Dist from Low%", "Resistance (1Y)", "Dist from Resistance%", "Days Since Resistance",
-      "High (5Y)", "Dist from 5Y High%", "Days Since 5Y High",
+      "High (2Y)", "Dist from 2Y High%", "Days Since 2Y High",
       "Low (1Y)", "Days Since 1Y Low", "Dist from 1Y Low%", "CAGR from 1Y Low%",
       "RSI", "DI+", "DI-", "ADX", "Short Float%", "ADV",
       "Rel Volume", "Earnings Date", "Days to Earnings"];
@@ -533,9 +533,9 @@ export default function USSwingTable({
               <Th label="Resistance" k="resistance" title="Highest intraday high over the last ~1 year, excluding the most recent ~32 sessions (~1.5 months) — the last prior ceiling the stock pulled back from" />
               <Th label="Dist from Resistance" k="distResistance" infoTiers={TIERS.distResistance} breakoutNote="Already at/above resistance: Breakout" />
               <Th label="Days Since Resistance" k="daysSinceResistance" title="Trading sessions since the bar that set the resistance high — a stale reading means an old ceiling, a fresh one means it was made just outside the 32-session cooldown" />
-              <Th label="5Y High" k="high5yr" title="Highest weekly high over the trailing 5 years" />
-              <Th label="Dist from 5Y High" k="distHigh5yr" title="Current price vs the 5-year high, as a %. Negative = below high." />
-              <Th label="Days Since 5Y High" k="daysSinceHigh5yr" title="Calendar days since the weekly bar that set the trailing 5-year high" />
+              <Th label="2Y High" k="high5yr" title="Highest weekly high over the trailing 2 years" />
+              <Th label="Dist from 2Y High" k="distHigh5yr" title="Current price vs the 2-year high, as a %. Negative = below high." />
+              <Th label="Days Since 2Y High" k="daysSinceHigh5yr" title="Calendar days since the weekly bar that set the trailing 2-year high" />
               <Th label="1Y Low" k="low1yr" title="Lowest weekly low over the trailing 1 year" />
               <Th label="Days Since 1Y Low" k="daysSinceLow1yr" title="Calendar days since the weekly bar that set the trailing 1-year low" />
               <Th label="Dist from 1Y Low" k="distLow1yr" title="Current price vs the 1-year low, as a %." />

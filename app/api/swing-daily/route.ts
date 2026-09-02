@@ -70,13 +70,13 @@ const EMPTY: SwingDailyResult = {
   low1yr: null, distFromLow1yr: null, daysSinceLow1yr: null,
 };
 
-// Separate weekly 5-year chart fetch, used only for the all-time-high (5yr) column — kept apart from
-// the 1yr daily fetch above since it needs a much longer lookback and weekly bars are enough for a high.
-async function fetchFiveYearHigh(ticker: string, lastClose: number | null): Promise<{ high5yr: number | null; distFromHigh5yr: number | null; daysSinceHigh5yr: number | null }> {
+// Separate weekly 2-year chart fetch, used only for the trailing-high (2yr) column — kept apart from
+// the 1yr daily fetch above since it needs a longer lookback and weekly bars are enough for a high.
+async function fetchTwoYearHigh(ticker: string, lastClose: number | null): Promise<{ high5yr: number | null; distFromHigh5yr: number | null; daysSinceHigh5yr: number | null }> {
   const now = new Date();
-  const fiveYearsAgo = new Date(now.getTime() - 5 * 365 * 24 * 3600 * 1000);
+  const twoYearsAgo = new Date(now.getTime() - 2 * 365 * 24 * 3600 * 1000);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const result: any = await yf.chart(ticker, { period1: fiveYearsAgo, period2: now, interval: "1wk" });
+  const result: any = await yf.chart(ticker, { period1: twoYearsAgo, period2: now, interval: "1wk" });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const quotes = (result?.quotes ?? []).filter((q: any) => q.high != null);
   if (quotes.length === 0) return { high5yr: null, distFromHigh5yr: null, daysSinceHigh5yr: null };
@@ -95,7 +95,7 @@ async function fetchFiveYearHigh(ticker: string, lastClose: number | null): Prom
   return { high5yr, distFromHigh5yr, daysSinceHigh5yr };
 }
 
-// Mirror of fetchFiveYearHigh, for the trailing-low (1yr) columns.
+// Mirror of fetchTwoYearHigh, for the trailing-low (1yr) columns.
 async function fetchOneYearLow(ticker: string, lastClose: number | null): Promise<{ low1yr: number | null; distFromLow1yr: number | null; daysSinceLow1yr: number | null }> {
   const now = new Date();
   const oneYearAgo = new Date(now.getTime() - 365 * 24 * 3600 * 1000);
@@ -218,7 +218,7 @@ async function fetchSwingDaily(ticker: string): Promise<SwingDailyResult> {
   const lastVol = volumes[volumes.length - 1];
   const relVolume = avgVol20 != null && avgVol20 > 0 ? lastVol / avgVol20 : null;
 
-  const { high5yr, distFromHigh5yr, daysSinceHigh5yr } = await fetchFiveYearHigh(ticker, lastClose).catch(() => ({ high5yr: null, distFromHigh5yr: null, daysSinceHigh5yr: null }));
+  const { high5yr, distFromHigh5yr, daysSinceHigh5yr } = await fetchTwoYearHigh(ticker, lastClose).catch(() => ({ high5yr: null, distFromHigh5yr: null, daysSinceHigh5yr: null }));
   const { low1yr, distFromLow1yr, daysSinceLow1yr } = await fetchOneYearLow(ticker, lastClose).catch(() => ({ low1yr: null, distFromLow1yr: null, daysSinceLow1yr: null }));
 
   return {
