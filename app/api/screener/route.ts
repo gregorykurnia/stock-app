@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import * as cheerio from "cheerio";
 
+// 10 sequential page fetches (jina + potential direct-fetch fallback each) can exceed
+// Vercel's default serverless timeout, so raise it and fetch pages in parallel instead.
+export const maxDuration = 60;
+
 // Mirrors finviz-screener-ca's screener.py: Market Cap >= $1B, 0-3% below 50-Day High,
 // sorted by Market Cap desc, 10 pages of 20 rows (200 tickers max).
 const BASE_URL =
@@ -52,42 +56,57 @@ function parseScreenerHtml(html: string): { ticker: string; company: string }[] 
   return results;
 }
 
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function fetchPage(page: number): Promise<{ ticker: string; company: string }[]> {
   const rowOffset = (page - 1) * ROWS_PER_PAGE + 1;
   const url = `${BASE_URL}&r=${rowOffset}`;
+  const errors: string[] = [];
 
   try {
-    const resp = await fetch(`https://r.jina.ai/${url}`, {
-      headers: { Accept: "text/plain" },
-    });
+    const resp = await fetchWithTimeout(`https://r.jina.ai/${url}`, { headers: { Accept: "text/plain" } }, 20000);
     if (resp.ok) {
       const markdown = await resp.text();
       const rows = parseJinaMarkdown(markdown);
       if (rows.length > 0) return rows;
+      errors.push(`jina: parsed 0 rows (${markdown.length} chars)`);
+    } else {
+      errors.push(`jina: HTTP ${resp.status}`);
     }
-  } catch {
-    // fall through to direct fetch
+  } catch (err) {
+    errors.push(`jina: ${err instanceof Error ? err.message : String(err)}`);
   }
 
-  const resp = await fetch(url, { headers: HEADERS });
-  if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-  return parseScreenerHtml(await resp.text());
+  try {
+    const resp = await fetchWithTimeout(url, { headers: HEADERS }, 15000);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    return parseScreenerHtml(await resp.text());
+  } catch (err) {
+    errors.push(`direct: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  throw new Error(`page ${page} failed — ${errors.join("; ")}`);
 }
 
 export async function GET() {
-  const all: { ticker: string; company: string }[] = [];
   try {
-    for (let page = 1; page <= PAGES; page++) {
-      const rows = await fetchPage(page);
-      if (rows.length === 0) break;
-      all.push(...rows);
-    }
+    const pageResults = await Promise.all(
+      Array.from({ length: PAGES }, (_, i) => fetchPage(i + 1))
+    );
+    const all = pageResults.flat();
+    return NextResponse.json({ results: all });
   } catch (err) {
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Screener fetch failed", partial: all },
+      { error: err instanceof Error ? err.message : "Screener fetch failed" },
       { status: 502 }
     );
   }
-
-  return NextResponse.json({ results: all });
 }
