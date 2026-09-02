@@ -168,6 +168,39 @@ const TIERS = {
   ] as Tier[],
 } satisfies Record<string, Tier[]>;
 
+type CategoryKey = "coiledBase" | "recentBreakout" | "strongUptrend" | "stableLongTerm" | "parabolicRecovery" | "stableRecovery" | "stableModerateUpside";
+
+const CATEGORY_DEFS: { key: CategoryKey; label: string; badgeClass: string; description: string }[] = [
+  {
+    key: "coiledBase", label: "Limited Upside", badgeClass: "bg-amber-100 text-amber-700",
+    description: "Within 15% below the 2-year high, but it's been more than 75 days since that high was set — sitting quietly under an old ceiling instead of chasing it or falling away from it.",
+  },
+  {
+    key: "recentBreakout", label: "Recent Breakout", badgeClass: "bg-sky-100 text-sky-700",
+    description: "Made a new 2Y high within the last 15 days, is between -1% and 5% from its resistance level, and that resistance was set at least 100 days ago.",
+  },
+  {
+    key: "strongUptrend", label: "Strong Uptrend", badgeClass: "bg-violet-100 text-violet-700",
+    description: "At least 35% above its 6mo low, within 8% of EMA20D, has a ROC90 above 20%, made a new 2Y high within the last 60 days, and is less than 300 days removed from its 1Y low.",
+  },
+  {
+    key: "stableLongTerm", label: "Stable Long Term", badgeClass: "bg-teal-100 text-teal-700",
+    description: "At least 300 days removed from its 1Y low, at least 45% above that 1Y low, made a new 2Y high within the last 45 days, is at most 50% above its 6mo low, and excludes ones sitting within -0.5% to 0% of their 2Y high (i.e. already at a fresh 2Y high).",
+  },
+  {
+    key: "parabolicRecovery", label: "Parabolic Recovery", badgeClass: "bg-rose-100 text-rose-700",
+    description: "More than 50% above its 6mo low, but still 28% or more below its 2Y high (can be -28%, -50%, -80%, etc.) — a sharp bounce off the bottom that hasn't reclaimed the old high yet.",
+  },
+  {
+    key: "stableRecovery", label: "Stable Recovery", badgeClass: "bg-lime-100 text-lime-700",
+    description: "Within 6% of EMA20D, at most 40% above its 6mo low, and still 25% or more below its 2Y high (can be -25%, -40%, -50%, etc.) — a steadier, less parabolic bounce off the bottom that's found footing near its short-term trend.",
+  },
+  {
+    key: "stableModerateUpside", label: "Stable Moderate Upside", badgeClass: "bg-cyan-100 text-cyan-700",
+    description: "Within 6% of EMA20D, at most 50% above its 6mo low, and 15.01%-24.99% below its 2Y high — a middle zone between Stable Recovery and Limited Upside.",
+  },
+];
+
 function InfoDot({ tiers, breakoutNote }: { tiers: Tier[]; breakoutNote?: string }) {
   return (
     <span className="relative inline-block group/info align-middle ml-1">
@@ -208,6 +241,16 @@ export default function USSwingTable({
   const [starredOnly, setStarredOnly] = useState(false);
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<Set<CategoryKey>>(new Set());
+  const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
+
+  function toggleCategoryFilter(key: CategoryKey) {
+    setCategoryFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }
 
   // Debounce: only apply the search filter/lookup once the user pauses typing for 400ms,
   // rather than re-filtering on every keystroke.
@@ -349,8 +392,9 @@ export default function USSwingTable({
   const filteredRows = useMemo(() => {
     let out = starredOnly ? rows.filter((r) => r.starred) : rows;
     if (search) out = out.filter((r) => r.ticker.toUpperCase().includes(search) || r.name?.toUpperCase().includes(search));
+    if (categoryFilter.size > 0) out = out.filter((r) => [...categoryFilter].some((key) => r[key]));
     return out;
-  }, [rows, starredOnly, search]);
+  }, [rows, starredOnly, search, categoryFilter]);
 
   const sortedRows = useMemo(() => {
     const getVal = (r: (typeof rows)[number]): number | string | null => {
@@ -439,7 +483,7 @@ export default function USSwingTable({
         : null;
       return [
         r.ticker, r.starred ? "Yes" : "", r.name ?? "", r.industry,
-        [r.coiledBase ? "Limited Upside" : "", r.recentBreakout ? "Recent Breakout" : "", r.strongUptrend ? "Strong Uptrend" : "", r.stableLongTerm ? "Stable Long Term" : "", r.parabolicRecovery ? "Parabolic Recovery" : "", r.stableRecovery ? "Stable Recovery" : "", r.stableModerateUpside ? "Stable Moderate Upside" : ""].filter(Boolean).join(" / "),
+        CATEGORY_DEFS.filter((c) => r[c.key]).map((c) => c.label).join(" / "),
         r.price?.toFixed(2) ?? "", r.priceChangePct != null ? `${r.priceChangePct >= 0 ? "+" : ""}${r.priceChangePct.toFixed(2)}%` : "", r.atr?.toFixed(1) ?? "",
         r.ema20d?.toFixed(2) ?? "", r.distEma20d?.toFixed(1) ?? "",
         r.ema50d?.toFixed(2) ?? "", r.distEma50d?.toFixed(1) ?? "",
@@ -570,6 +614,45 @@ export default function USSwingTable({
           />
           ★ Starred only
         </label>
+        <div className="relative">
+          <button
+            onClick={() => setCategoryMenuOpen((o) => !o)}
+            className={`text-xs px-3 py-1.5 rounded border flex items-center gap-1 ${categoryFilter.size > 0 ? "border-blue-400 text-blue-700 bg-blue-50" : "border-gray-300 text-gray-600 bg-white hover:border-gray-400 hover:text-gray-800"}`}
+          >
+            Category{categoryFilter.size > 0 ? ` (${categoryFilter.size})` : ""} ▾
+          </button>
+          {categoryMenuOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setCategoryMenuOpen(false)} />
+              <div className="absolute z-50 top-full left-0 mt-1 w-80 rounded-md border border-gray-200 bg-white shadow-lg p-2">
+                <div className="flex items-center justify-between px-1 pb-1.5 mb-1 border-b border-gray-100">
+                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Filter by category</span>
+                  {categoryFilter.size > 0 && (
+                    <button onClick={() => setCategoryFilter(new Set())} className="text-xs text-blue-600 hover:underline">
+                      Clear
+                    </button>
+                  )}
+                </div>
+                {CATEGORY_DEFS.map((c) => (
+                  <label key={c.key} className="flex items-start gap-2 px-1 py-1.5 rounded hover:bg-gray-50 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={categoryFilter.has(c.key)}
+                      onChange={() => toggleCategoryFilter(c.key)}
+                      className="mt-0.5 accent-blue-600"
+                    />
+                    <span>
+                      <span className={`inline-flex items-center rounded-full ${c.badgeClass} text-xs font-semibold px-2 py-0.5 whitespace-nowrap`}>
+                        {c.label}
+                      </span>
+                      <span className="block text-[11px] text-gray-500 mt-0.5">{c.description}</span>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
         <span className="text-xs text-gray-400 ml-auto">{sortedRows.length} of {stocks.length} stocks · daily timeframe · independent from List</span>
         <button
           onClick={exportCsv}
@@ -585,7 +668,7 @@ export default function USSwingTable({
               <th className="w-9 px-2 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap sticky left-0 z-20 bg-gray-100">★</th>
               <Th label="Ticker" k="ticker" sticky />
               <Th label="Industry" k="industry" />
-              <Th label="Stock Category" k="coiledBase" title="Limited Upside: within 15% below the 5-year high, but it's been more than 75 days since that high was set — sitting quietly under an old ceiling instead of chasing it or falling away from it. Recent Breakout: made a new 2Y high within the last 15 days, is between -1% and 5% from its resistance level, and that resistance was set at least 100 days ago. Strong Uptrend: at least 35% above its 6mo low, within 8% of EMA20D, has a ROC90 above 20%, made a new 2Y high within the last 60 days, and is less than 300 days removed from its 1Y low. Stable Long Term: at least 300 days removed from its 1Y low, at least 45% above that 1Y low, made a new 2Y high within the last 45 days, is at most 50% above its 6mo low, and excludes ones sitting within -0.5% to 0% of their 2Y high (i.e. already at a fresh 2Y high). Parabolic Recovery: more than 50% above its 6mo low, but still 28% or more below its 2Y high (can be -28%, -50%, -80%, etc.) — a sharp bounce off the bottom that hasn't reclaimed the old high yet. Stable Recovery: within 6% of EMA20D, at most 40% above its 6mo low, and still 25% or more below its 2Y high (can be -25%, -40%, -50%, etc.) — a steadier, less parabolic bounce off the bottom that's found footing near its short-term trend. Stable Moderate Upside: within 6% of EMA20D, at most 50% above its 6mo low, and 15.01%-24.99% below its 2Y high — a middle zone between Stable Recovery and Limited Upside." />
+              <Th label="Stock Category" k="coiledBase" title={CATEGORY_DEFS.map((c) => `${c.label}: ${c.description}`).join(" ")} />
               <Th label="Price" k="price" />
               <Th label="Chg %" k="priceChangePct" title="% change vs previous close" />
               <Th label="ATR%" k="atr" infoTiers={TIERS.atr} />
@@ -643,42 +726,12 @@ export default function USSwingTable({
                 <td className="px-3 py-2 text-gray-600">{r.industry}</td>
                 <td className="px-3 py-2">
                   <div className="flex flex-col gap-1 items-start">
-                    {r.coiledBase && (
-                      <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-700 text-xs font-semibold px-2 py-0.5 whitespace-nowrap">
-                        Limited Upside
+                    {CATEGORY_DEFS.filter((c) => r[c.key]).map((c) => (
+                      <span key={c.key} title={c.description} className={`inline-flex items-center rounded-full ${c.badgeClass} text-xs font-semibold px-2 py-0.5 whitespace-nowrap cursor-help`}>
+                        {c.label}
                       </span>
-                    )}
-                    {r.recentBreakout && (
-                      <span className="inline-flex items-center rounded-full bg-sky-100 text-sky-700 text-xs font-semibold px-2 py-0.5 whitespace-nowrap">
-                        Recent Breakout
-                      </span>
-                    )}
-                    {r.strongUptrend && (
-                      <span className="inline-flex items-center rounded-full bg-violet-100 text-violet-700 text-xs font-semibold px-2 py-0.5 whitespace-nowrap">
-                        Strong Uptrend
-                      </span>
-                    )}
-                    {r.stableLongTerm && (
-                      <span className="inline-flex items-center rounded-full bg-teal-100 text-teal-700 text-xs font-semibold px-2 py-0.5 whitespace-nowrap">
-                        Stable Long Term
-                      </span>
-                    )}
-                    {r.parabolicRecovery && (
-                      <span className="inline-flex items-center rounded-full bg-rose-100 text-rose-700 text-xs font-semibold px-2 py-0.5 whitespace-nowrap">
-                        Parabolic Recovery
-                      </span>
-                    )}
-                    {r.stableRecovery && (
-                      <span className="inline-flex items-center rounded-full bg-lime-100 text-lime-700 text-xs font-semibold px-2 py-0.5 whitespace-nowrap">
-                        Stable Recovery
-                      </span>
-                    )}
-                    {r.stableModerateUpside && (
-                      <span className="inline-flex items-center rounded-full bg-cyan-100 text-cyan-700 text-xs font-semibold px-2 py-0.5 whitespace-nowrap">
-                        Stable Moderate Upside
-                      </span>
-                    )}
-                    {!r.coiledBase && !r.recentBreakout && !r.strongUptrend && !r.stableLongTerm && !r.parabolicRecovery && !r.stableRecovery && !r.stableModerateUpside && dash}
+                    ))}
+                    {CATEGORY_DEFS.every((c) => !r[c.key]) && dash}
                   </div>
                 </td>
                 <td className="px-3 py-2 font-medium text-gray-900">{r.price != null ? `$${r.price.toFixed(2)}` : dash}</td>
