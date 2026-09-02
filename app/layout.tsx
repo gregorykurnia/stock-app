@@ -47,11 +47,16 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <ServiceWorkerRegister />
-        <nav className="bg-white border-b border-gray-200 px-4 sm:px-6 py-2.5 flex items-center gap-4 sm:gap-6 text-sm overflow-x-auto whitespace-nowrap">
-          <Link href="/" className="font-bold text-gray-900 hover:text-blue-600 shrink-0">Stock Analysis</Link>
-          <Link href="/" className="text-gray-500 hover:text-gray-900 shrink-0">Master Table</Link>
-          <Link href="/watchlist" className="text-gray-500 hover:text-gray-900 shrink-0">Watchlist</Link>
-          <Link href="/alerts" className="text-gray-500 hover:text-gray-900 shrink-0">Price Alerts</Link>
+        <nav className="sticky top-0 z-40 bg-white/80 backdrop-blur border-b border-[var(--border)] px-4 sm:px-6 overflow-x-auto whitespace-nowrap">
+          <div className="max-w-screen-xl mx-auto flex items-center gap-1 sm:gap-2 h-14 text-sm">
+            <Link href="/" className="flex items-center gap-2 font-bold text-[var(--foreground)] shrink-0 mr-3 sm:mr-5">
+              <span className="w-2 h-2 rounded-full bg-[var(--accent)]" />
+              Stock Analysis
+            </Link>
+            <Link href="/" className="shrink-0 px-3 py-1.5 rounded-md font-medium text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-black/[0.03] transition-colors">Master Table</Link>
+            <Link href="/watchlist" className="shrink-0 px-3 py-1.5 rounded-md font-medium text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-black/[0.03] transition-colors">Watchlist</Link>
+            <Link href="/alerts" className="shrink-0 px-3 py-1.5 rounded-md font-medium text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-black/[0.03] transition-colors">Price Alerts</Link>
+          </div>
         </nav>
         {children}
       </body>

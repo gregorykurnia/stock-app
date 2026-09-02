@@ -585,7 +585,7 @@ export default function USSwingTable({
             autoCorrect="off"
             autoComplete="off"
             spellCheck={false}
-            className="bg-white border border-gray-300 rounded px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 w-32 uppercase"
+            className="input-field w-32 uppercase"
           />
           <button
             type="submit"
@@ -606,7 +606,7 @@ export default function USSwingTable({
             autoCorrect="off"
             autoComplete="off"
             spellCheck={false}
-            className="bg-white border border-gray-300 rounded px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 w-48"
+            className="input-field w-48"
           />
           {search && (
             <span className={`text-xs font-medium whitespace-nowrap ${isOnList ? "text-green-600" : "text-gray-400"}`}>
@@ -666,7 +666,7 @@ export default function USSwingTable({
         <span className="text-xs text-gray-400 ml-auto">{sortedRows.length} of {stocks.length} stocks · daily timeframe · independent from List</span>
         <button
           onClick={exportCsv}
-          className="text-xs px-3 py-1.5 rounded border border-gray-300 text-gray-600 hover:border-gray-400 hover:text-gray-800 bg-white"
+          className="btn btn-ghost text-xs px-3 py-1.5"
         >
           Export CSV
         </button>

@@ -965,49 +965,41 @@ export default function Home() {
   const isIhsg = market === "ihsg";
 
   return (
-    <main className="min-h-screen bg-gray-50 text-gray-900 p-6">
-      <div className="max-w-screen-xl mx-auto space-y-6">
+    <main className="min-h-screen bg-[var(--background)] text-[var(--foreground)] p-4 sm:p-6">
+      <div className="max-w-screen-xl mx-auto space-y-5">
         {/* Top-level market switcher */}
-        <div className="flex items-center gap-1 border-b-2 border-gray-200">
+        <div className="segmented w-fit">
           <button
             onClick={() => setMarket("us")}
-            className={`px-5 py-2.5 text-sm font-semibold transition-colors border-b-2 -mb-px ${
-              market === "us"
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300"
-            }`}
+            className={`segmented-btn ${market === "us" ? "is-active" : ""}`}
           >
             🇺🇸 US Stocks
           </button>
           <button
             onClick={() => setMarket("ihsg")}
-            className={`px-5 py-2.5 text-sm font-semibold transition-colors border-b-2 -mb-px ${
-              market === "ihsg"
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300"
-            }`}
+            className={`segmented-btn ${market === "ihsg" ? "is-active" : ""}`}
           >
             🇮🇩 IHSG
           </button>
         </div>
 
-        <div className="flex items-center justify-between flex-wrap gap-3">
+        <div className="surface-card p-4 sm:p-5 flex items-center justify-between flex-wrap gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">
+            <h1 className="text-xl font-bold tracking-tight">
               {isIhsg ? "IHSG Analysis" : "Stock Analysis"}
             </h1>
-            <p className="text-gray-500 text-sm mt-0.5">
+            <p className="text-[var(--muted)] text-xs mt-0.5">
               {isIhsg
                 ? `${IHSG_STOCKS.length} stocks · Weekly framework · AI verdicts`
                 : `${54 + customStocks.length} stocks · Weekly framework · AI verdicts`}
             </p>
           </div>
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 flex-wrap items-center">
             {!isIhsg && (
               <button
                 onClick={handleRefreshPeStats}
                 disabled={peRefreshing}
-                className="bg-white border border-gray-300 hover:bg-gray-50 disabled:opacity-50 text-gray-700 px-4 py-2 rounded-lg font-semibold text-sm transition-colors"
+                className="btn btn-ghost"
                 title="Recompute 5Y P/E z-score for all stocks from SEC EDGAR + Yahoo Finance"
               >
                 {peRefreshing ? `Refreshing P/E… ${peProgress}` : "Refresh P/E Z-Scores"}
@@ -1015,7 +1007,7 @@ export default function Home() {
             )}
             <button
               onClick={() => { setShowAdd(true); setAddError(""); }}
-              className="bg-gray-800 hover:bg-gray-900 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-colors"
+              className="btn btn-secondary"
             >
               + Add Stock
             </button>
@@ -1029,11 +1021,11 @@ export default function Home() {
                 autoCorrect="off"
                 autoComplete="off"
                 spellCheck={false}
-                className="bg-white border border-gray-300 rounded-lg px-3 py-2 text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-500 w-40 text-sm uppercase"
+                className="input-field w-36 sm:w-40 uppercase"
               />
               <button
                 type="submit"
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-colors"
+                className="btn btn-primary"
               >
                 Analyze →
               </button>
@@ -1042,17 +1034,17 @@ export default function Home() {
         </div>
 
         {showAdd && (
-          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 backdrop-blur-[2px]">
             <form
               onSubmit={handleAddStock}
-              className="bg-white rounded-xl shadow-xl p-6 w-full max-w-sm space-y-4"
+              className="surface-card p-6 w-full max-w-sm space-y-4 shadow-[var(--shadow-md)]"
             >
               <div>
-                <h2 className="font-bold text-lg text-gray-900">Add Stock to Master Table</h2>
-                <p className="text-xs text-gray-500 mt-1">Fetches fundamentals + valuation live from Yahoo Finance</p>
+                <h2 className="font-bold text-lg">Add Stock to Master Table</h2>
+                <p className="text-xs text-[var(--muted)] mt-1">Fetches fundamentals + valuation live from Yahoo Finance</p>
               </div>
               <div>
-                <label className="text-xs text-gray-500 block mb-1">Ticker Symbol</label>
+                <label className="text-xs text-[var(--muted)] block mb-1">Ticker Symbol</label>
                 <input
                   required
                   autoFocus
@@ -1063,23 +1055,23 @@ export default function Home() {
                   autoCorrect="off"
                   autoComplete="off"
                   spellCheck={false}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono tracking-wider uppercase"
+                  className="input-field w-full font-mono tracking-wider uppercase"
                 />
               </div>
               {addError && <p className="text-red-500 text-xs">{addError}</p>}
-              {addLoading && <p className="text-blue-500 text-xs animate-pulse">Fetching data from Yahoo Finance…</p>}
+              {addLoading && <p className="text-[var(--accent)] text-xs animate-pulse">Fetching data from Yahoo Finance…</p>}
               <div className="flex gap-2">
                 <button
                   type="submit"
                   disabled={addLoading}
-                  className="flex-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white py-2 rounded-lg text-sm font-semibold"
+                  className="btn btn-primary flex-1 py-2"
                 >
                   {addLoading ? "Fetching…" : "Add"}
                 </button>
                 <button
                   type="button"
                   onClick={() => { setShowAdd(false); setAddError(""); setAddTicker(""); }}
-                  className="flex-1 border border-gray-300 text-gray-600 hover:text-gray-800 py-2 rounded-lg text-sm"
+                  className="btn btn-ghost flex-1 py-2"
                 >
                   Cancel
                 </button>

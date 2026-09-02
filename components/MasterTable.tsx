@@ -1330,7 +1330,7 @@ export default function MasterTable({
           onChange={(e) => setDraft(e.target.value)}
           onBlur={commit}
           onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }}
-          className="w-24 bg-white border border-gray-300 rounded px-2 py-1 text-sm text-gray-900 placeholder-gray-400"
+          className="w-24 input-field px-2 py-1"
         />
       </td>
     );
@@ -1364,12 +1364,12 @@ export default function MasterTable({
         placeholder="Search…"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        className="bg-white border border-gray-300 rounded px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 w-36"
+        className="input-field w-36"
       />
       <select
         value={industryFilter}
         onChange={(e) => setIndustryFilter(e.target.value)}
-        className="bg-white border border-gray-300 rounded px-3 py-1.5 text-sm text-gray-900"
+        className="input-field"
       >
         {industries.map((i) => (
           <option key={i} value={i}>{i === "all" ? "All Industries" : i}</option>
@@ -1378,7 +1378,7 @@ export default function MasterTable({
       <select
         value={urgencyFilter}
         onChange={(e) => setUrgencyFilter(e.target.value)}
-        className="bg-white border border-gray-300 rounded px-3 py-1.5 text-sm text-gray-900"
+        className="input-field"
       >
         <option value="all">All Urgency</option>
         <option value="urgent">Urgent</option>
@@ -1390,7 +1390,7 @@ export default function MasterTable({
       <span className="text-xs text-gray-400">{rows.length} stocks</span>
       <button
         onClick={exportCsv}
-        className="ml-auto text-xs px-3 py-1.5 rounded border border-gray-300 text-gray-600 hover:border-gray-400 hover:text-gray-800 bg-white"
+        className="ml-auto btn btn-ghost text-xs px-3 py-1.5"
       >
         Export CSV
       </button>
@@ -1462,35 +1462,23 @@ export default function MasterTable({
   return (
     <div className="space-y-3">
       {/* Main tabs: List vs Midterm/Swing (IHSG) or List vs Swing (US) */}
-      <div className="flex gap-1 border-b-2 border-gray-200">
+      <div className="segmented">
         <button
           onClick={() => setMainTab("list")}
-          className={`px-4 py-2 text-sm font-semibold transition-colors border-b-2 -mb-px ${
-            mainTab === "list"
-              ? "border-blue-600 text-blue-600"
-              : "border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300"
-          }`}
+          className={`segmented-btn ${mainTab === "list" ? "is-active" : ""}`}
         >
           List
         </button>
         <button
           onClick={() => setMainTab(isIhsg ? "midterm" : "swing")}
-          className={`px-4 py-2 text-sm font-semibold transition-colors border-b-2 -mb-px ${
-            mainTab === (isIhsg ? "midterm" : "swing")
-              ? "border-blue-600 text-blue-600"
-              : "border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300"
-          }`}
+          className={`segmented-btn ${mainTab === (isIhsg ? "midterm" : "swing") ? "is-active" : ""}`}
         >
           {isIhsg ? "Midterm or Swing" : "Swing"}
         </button>
         {!isIhsg && (
           <button
             onClick={() => setMainTab("portfolio")}
-            className={`px-4 py-2 text-sm font-semibold transition-colors border-b-2 -mb-px ${
-              mainTab === "portfolio"
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300"
-            }`}
+            className={`segmented-btn ${mainTab === "portfolio" ? "is-active" : ""}`}
           >
             Portfolio
           </button>
@@ -1500,16 +1488,12 @@ export default function MasterTable({
       {mainTab === "list" && (
       <>
       {/* Subtabs */}
-      <div className="flex gap-1 border-b border-gray-200">
+      <div className="subtab-bar">
         {tabs.map((t) => (
           <button
             key={t.id}
             onClick={() => setActiveTab(t.id)}
-            className={`px-4 py-2 text-sm font-medium transition-colors border-b-2 -mb-px ${
-              activeTab === t.id
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300"
-            }`}
+            className={`subtab-btn ${activeTab === t.id ? "is-active" : ""}`}
           >
             {t.label}
           </button>
@@ -2048,7 +2032,7 @@ export default function MasterTable({
                 autoCorrect="off"
                 autoComplete="off"
                 spellCheck={false}
-                className="bg-white border border-gray-300 rounded px-3 py-1.5 text-sm text-gray-900 placeholder-gray-400 w-32 uppercase"
+                className="input-field w-32 uppercase"
               />
               <button
                 type="submit"
@@ -2063,7 +2047,7 @@ export default function MasterTable({
             <span className="text-xs text-gray-400 ml-auto">{swingStocks.length} stocks · independent from List</span>
             <button
               onClick={exportSwingCsv}
-              className="text-xs px-3 py-1.5 rounded border border-gray-300 text-gray-600 hover:border-gray-400 hover:text-gray-800 bg-white"
+              className="btn btn-ghost text-xs px-3 py-1.5"
             >
               Export CSV
             </button>
