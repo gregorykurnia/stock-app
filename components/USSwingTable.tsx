@@ -425,7 +425,7 @@ export default function USSwingTable({
         case "high5yr": return r.high5yr;
         case "distHigh5yr": return r.distHigh5yr;
         case "daysSinceHigh5yr": return r.daysSinceHigh5yr;
-        case "coiledBase": return r.coiledBase ? 1 : 0;
+        case "coiledBase": return CATEGORY_DEFS.filter((c) => r[c.key]).map((c) => c.label).join(" / ");
         case "recentBreakout": return r.recentBreakout ? 1 : 0;
         case "strongUptrend": return r.strongUptrend ? 1 : 0;
         case "stableLongTerm": return r.stableLongTerm ? 1 : 0;
