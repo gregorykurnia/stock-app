@@ -50,6 +50,7 @@ interface SwingDailyResult {
   relVolume: number | null;
   high5yr: number | null;
   distFromHigh5yr: number | null;
+  daysSinceHigh5yr: number | null;
 }
 
 const EMPTY: SwingDailyResult = {
@@ -60,23 +61,32 @@ const EMPTY: SwingDailyResult = {
   atr: null, stopLoss: null, stopLossPercent: null, bandar: null,
   low6mo: null, distFromLow6mo: null, resistance: null, distFromResistance: null,
   daysSinceResistance: null, relVolume: null,
-  high5yr: null, distFromHigh5yr: null,
+  high5yr: null, distFromHigh5yr: null, daysSinceHigh5yr: null,
 };
 
 // Separate weekly 5-year chart fetch, used only for the all-time-high (5yr) column — kept apart from
 // the 1yr daily fetch above since it needs a much longer lookback and weekly bars are enough for a high.
-async function fetchFiveYearHigh(ticker: string, lastClose: number | null): Promise<{ high5yr: number | null; distFromHigh5yr: number | null }> {
+async function fetchFiveYearHigh(ticker: string, lastClose: number | null): Promise<{ high5yr: number | null; distFromHigh5yr: number | null; daysSinceHigh5yr: number | null }> {
   const now = new Date();
   const fiveYearsAgo = new Date(now.getTime() - 5 * 365 * 24 * 3600 * 1000);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const result: any = await yf.chart(ticker, { period1: fiveYearsAgo, period2: now, interval: "1wk" });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const quotes = (result?.quotes ?? []).filter((q: any) => q.high != null);
-  if (quotes.length === 0) return { high5yr: null, distFromHigh5yr: null };
+  if (quotes.length === 0) return { high5yr: null, distFromHigh5yr: null, daysSinceHigh5yr: null };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const high5yr = Math.max(...quotes.map((q: any) => q.high));
   const distFromHigh5yr = lastClose != null && high5yr > 0 ? ((lastClose - high5yr) / high5yr) * 100 : null;
-  return { high5yr, distFromHigh5yr };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const highIdx = quotes.findIndex((q: any) => q.high === high5yr);
+  let daysSinceHigh5yr: number | null = null;
+  if (highIdx !== -1) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const q = quotes[highIdx] as any;
+    const d: Date = q.date instanceof Date ? q.date : new Date(q.date);
+    daysSinceHigh5yr = Math.round((now.getTime() - d.getTime()) / 86400000);
+  }
+  return { high5yr, distFromHigh5yr, daysSinceHigh5yr };
 }
 
 // Single 1-year daily chart fetch per ticker, powering every "Midterm/Swing" indicator
@@ -176,7 +186,7 @@ async function fetchSwingDaily(ticker: string): Promise<SwingDailyResult> {
   const lastVol = volumes[volumes.length - 1];
   const relVolume = avgVol20 != null && avgVol20 > 0 ? lastVol / avgVol20 : null;
 
-  const { high5yr, distFromHigh5yr } = await fetchFiveYearHigh(ticker, lastClose).catch(() => ({ high5yr: null, distFromHigh5yr: null }));
+  const { high5yr, distFromHigh5yr, daysSinceHigh5yr } = await fetchFiveYearHigh(ticker, lastClose).catch(() => ({ high5yr: null, distFromHigh5yr: null, daysSinceHigh5yr: null }));
 
   return {
     ema20, ema50, atrPct, rsi, diPlus, diMinus, adx, emaCrossAbove, crossPrice, crossDate, goldenCrossDate,
@@ -190,7 +200,7 @@ async function fetchSwingDaily(ticker: string): Promise<SwingDailyResult> {
     stopLossPercent: atrRes?.stopLossPercent ?? null,
     bandar,
     low6mo, distFromLow6mo, resistance, distFromResistance, daysSinceResistance, relVolume,
-    high5yr, distFromHigh5yr,
+    high5yr, distFromHigh5yr, daysSinceHigh5yr,
   };
 }
 
@@ -228,6 +238,7 @@ export async function GET(req: NextRequest) {
   const relVolume: Record<string, number | null> = {};
   const high5yr: Record<string, number | null> = {};
   const distFromHigh5yr: Record<string, number | null> = {};
+  const daysSinceHigh5yr: Record<string, number | null> = {};
 
   const chunkSize = 8;
   for (let i = 0; i < tickers.length; i += chunkSize) {
@@ -262,6 +273,7 @@ export async function GET(req: NextRequest) {
       relVolume[ticker] = r.relVolume;
       high5yr[ticker] = r.high5yr;
       distFromHigh5yr[ticker] = r.distFromHigh5yr;
+      daysSinceHigh5yr[ticker] = r.daysSinceHigh5yr;
     }));
   }
 
@@ -270,6 +282,6 @@ export async function GET(req: NextRequest) {
     macd, signal, histogram, histDirection, roc14,
     atr, stopLoss, stopLossPercent, bandar,
     low6mo, distFromLow6mo, resistance, distFromResistance, daysSinceResistance, relVolume,
-    high5yr, distFromHigh5yr,
+    high5yr, distFromHigh5yr, daysSinceHigh5yr,
   });
 }

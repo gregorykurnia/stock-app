@@ -13,7 +13,7 @@ export interface USSwingStock {
 type SortKey =
   | "ticker" | "industry" | "price" | "priceChangePct" | "atr"
   | "ema20d" | "distEma20d" | "ema50d" | "distEma50d" | "goldenCross"
-  | "macd" | "roc14" | "low6mo" | "distLow6mo" | "resistance" | "distResistance" | "daysSinceResistance" | "high5yr" | "distHigh5yr" | "rsi" | "diPlus" | "diMinus" | "adx" | "shortFloat" | "adv" | "relVolume" | "earnings";
+  | "macd" | "roc14" | "low6mo" | "distLow6mo" | "resistance" | "distResistance" | "daysSinceResistance" | "high5yr" | "distHigh5yr" | "daysSinceHigh5yr" | "rsi" | "diPlus" | "diMinus" | "adx" | "shortFloat" | "adv" | "relVolume" | "earnings";
 type SortDir = "asc" | "desc";
 
 interface Props {
@@ -36,6 +36,7 @@ interface Props {
   daysSinceResistances?: Record<string, number | null>;
   high5yrs?: Record<string, number | null>;
   distHigh5yrs?: Record<string, number | null>;
+  daysSinceHigh5yrs?: Record<string, number | null>;
   shortFloats?: Record<string, number | null>;
   advs?: Record<string, number | null>;
   earnings?: Record<string, string | null>;
@@ -177,7 +178,7 @@ function InfoDot({ tiers, breakoutNote }: { tiers: Tier[]; breakoutNote?: string
 
 export default function USSwingTable({
   stocks, prices, prevCloses = {}, atrs, ema20s, ema50s, goldenCrossDates = {}, macds, roc14s = {}, rsis, diPluses = {}, diMinuses = {}, adxs = {}, low6mos, relVolumes,
-  resistances = {}, daysSinceResistances = {}, high5yrs = {}, distHigh5yrs = {}, shortFloats = {}, advs = {}, earnings = {}, loading = false,
+  resistances = {}, daysSinceResistances = {}, high5yrs = {}, distHigh5yrs = {}, daysSinceHigh5yrs = {}, shortFloats = {}, advs = {}, earnings = {}, loading = false,
   addTicker = "", addLoading = false, addError = "", onAddTickerChange, onAdd, onRemove, onToggleStar,
 }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>("ticker");
@@ -231,6 +232,7 @@ export default function USSwingTable({
         daysSinceResistance: daysSinceResistances[s.ticker] ?? null,
         high5yr: high5yrs[s.ticker] ?? null,
         distHigh5yr: distHigh5yrs[s.ticker] ?? null,
+        daysSinceHigh5yr: daysSinceHigh5yrs[s.ticker] ?? null,
         rsi: rsis[s.ticker] ?? null,
         diPlus: diPluses[s.ticker] ?? null,
         diMinus: diMinuses[s.ticker] ?? null,
@@ -241,7 +243,7 @@ export default function USSwingTable({
         earnings: earnings[s.ticker] ?? null,
       };
     });
-  }, [stocks, prices, prevCloses, atrs, ema20s, ema50s, goldenCrossDates, macds, roc14s, rsis, diPluses, diMinuses, adxs, low6mos, relVolumes, resistances, daysSinceResistances, high5yrs, distHigh5yrs, shortFloats, advs, earnings]);
+  }, [stocks, prices, prevCloses, atrs, ema20s, ema50s, goldenCrossDates, macds, roc14s, rsis, diPluses, diMinuses, adxs, low6mos, relVolumes, resistances, daysSinceResistances, high5yrs, distHigh5yrs, daysSinceHigh5yrs, shortFloats, advs, earnings]);
 
   const filteredRows = useMemo(() => {
     let out = starredOnly ? rows.filter((r) => r.starred) : rows;
@@ -275,6 +277,7 @@ export default function USSwingTable({
         case "daysSinceResistance": return r.daysSinceResistance;
         case "high5yr": return r.high5yr;
         case "distHigh5yr": return r.distHigh5yr;
+        case "daysSinceHigh5yr": return r.daysSinceHigh5yr;
         case "rsi": return r.rsi;
         case "diPlus": return r.diPlus;
         case "diMinus": return r.diMinus;
@@ -309,7 +312,7 @@ export default function USSwingTable({
     const date = new Date().toISOString().slice(0, 10);
     const headers = ["Ticker", "Starred", "Name", "Industry", "Price", "Price Change%", "ATR%", "EMA20D", "Dist EMA20D%",
       "EMA50D", "Dist EMA50D%", "Golden Cross", "MACD", "ROC14", "Low (6mo)", "Dist from Low%", "Resistance (1Y)", "Dist from Resistance%", "Days Since Resistance",
-      "High (5Y)", "Dist from 5Y High%",
+      "High (5Y)", "Dist from 5Y High%", "Days Since 5Y High",
       "RSI", "DI+", "DI-", "ADX", "Short Float%", "ADV",
       "Rel Volume", "Earnings Date", "Days to Earnings"];
     const data = sortedRows.map((r) => {
@@ -327,7 +330,7 @@ export default function USSwingTable({
         r.goldenCrossDate ? `${r.goldenCrossDate} (${goldenCrossDays}D)` : "",
         r.macd?.toFixed(2) ?? "", r.roc14?.toFixed(1) ?? "", r.low6mo?.toFixed(2) ?? "", r.distLow6mo?.toFixed(1) ?? "",
         r.resistance?.toFixed(2) ?? "", r.distResistance?.toFixed(1) ?? "", r.daysSinceResistance != null ? String(r.daysSinceResistance) : "",
-        r.high5yr?.toFixed(2) ?? "", r.distHigh5yr?.toFixed(1) ?? "",
+        r.high5yr?.toFixed(2) ?? "", r.distHigh5yr?.toFixed(1) ?? "", r.daysSinceHigh5yr != null ? String(r.daysSinceHigh5yr) : "",
         r.rsi?.toFixed(1) ?? "",
         r.diPlus?.toFixed(1) ?? "",
         r.diMinus?.toFixed(1) ?? "",
@@ -482,6 +485,7 @@ export default function USSwingTable({
               <Th label="Days Since Resistance" k="daysSinceResistance" title="Trading sessions since the bar that set the resistance high — a stale reading means an old ceiling, a fresh one means it was made just outside the 32-session cooldown" />
               <Th label="5Y High" k="high5yr" title="Highest weekly high over the trailing 5 years" />
               <Th label="Dist from 5Y High" k="distHigh5yr" title="Current price vs the 5-year high, as a %. Negative = below high." />
+              <Th label="Days Since 5Y High" k="daysSinceHigh5yr" title="Calendar days since the weekly bar that set the trailing 5-year high" />
               <Th label="RSI" k="rsi" infoTiers={TIERS.rsi} />
               <Th label="DI+" k="diPlus" title="+DI(14), daily" />
               <Th label="DI-" k="diMinus" title="-DI(14), daily" />
@@ -495,7 +499,7 @@ export default function USSwingTable({
           </thead>
           <tbody className="divide-y divide-gray-100">
             {sortedRows.length === 0 && (
-              <tr><td colSpan={28} className="px-3 py-6 text-center text-gray-400 text-sm">{starredOnly ? "No starred tickers." : "No tickers yet — add one above."}</td></tr>
+              <tr><td colSpan={29} className="px-3 py-6 text-center text-gray-400 text-sm">{starredOnly ? "No starred tickers." : "No tickers yet — add one above."}</td></tr>
             )}
             {sortedRows.map((r) => (
               <tr key={r.ticker} className="hover:bg-gray-50">
@@ -536,6 +540,7 @@ export default function USSwingTable({
                 <td className="px-3 py-2 text-gray-700">{r.daysSinceResistance != null ? `${r.daysSinceResistance}D` : dash}</td>
                 <td className="px-3 py-2 text-gray-700">{r.high5yr != null ? `$${r.high5yr.toFixed(2)}` : dash}</td>
                 <td className={`px-3 py-2 font-medium ${r.distHigh5yr == null ? "text-gray-400" : r.distHigh5yr >= -2 ? "text-green-600 font-semibold" : "text-gray-700"}`}>{r.distHigh5yr != null ? `${r.distHigh5yr.toFixed(1)}%` : dash}</td>
+                <td className="px-3 py-2 text-gray-700">{r.daysSinceHigh5yr != null ? `${r.daysSinceHigh5yr}D` : dash}</td>
                 <td className={`px-3 py-2 ${cellClass(TIERS.rsi, r.rsi)}`}>{r.rsi != null ? r.rsi.toFixed(1) : dash}</td>
                 <td className="px-3 py-2 text-gray-700">{r.diPlus != null ? r.diPlus.toFixed(1) : dash}</td>
                 <td className="px-3 py-2 text-gray-700">{r.diMinus != null ? r.diMinus.toFixed(1) : dash}</td>

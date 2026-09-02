@@ -80,6 +80,7 @@ export default function Home() {
   const [usSwingDaysSinceResistances, setUsSwingDaysSinceResistances] = useState<Record<string, number | null>>({});
   const [usSwingHigh5yrs, setUsSwingHigh5yrs] = useState<Record<string, number | null>>({});
   const [usSwingDistHigh5yrs, setUsSwingDistHigh5yrs] = useState<Record<string, number | null>>({});
+  const [usSwingDaysSinceHigh5yrs, setUsSwingDaysSinceHigh5yrs] = useState<Record<string, number | null>>({});
   const [usSwingRelVolumes, setUsSwingRelVolumes] = useState<Record<string, number | null>>({});
   const [usSwingShortFloats, setUsSwingShortFloats] = useState<Record<string, number | null>>({});
   const [usSwingAdvs, setUsSwingAdvs] = useState<Record<string, number | null>>({});
@@ -207,6 +208,7 @@ export default function Home() {
         setUsSwingDaysSinceResistances((p) => ({ ...p, ...(d.daysSinceResistance ?? {}) }));
         setUsSwingHigh5yrs((p) => ({ ...p, ...(d.high5yr ?? {}) }));
         setUsSwingDistHigh5yrs((p) => ({ ...p, ...(d.distFromHigh5yr ?? {}) }));
+        setUsSwingDaysSinceHigh5yrs((p) => ({ ...p, ...(d.daysSinceHigh5yr ?? {}) }));
         setUsSwingRelVolumes((p) => ({ ...p, ...(d.relVolume ?? {}) }));
       })
       .catch(() => {});
@@ -1179,6 +1181,7 @@ export default function Home() {
             usSwingDaysSinceResistances={usSwingDaysSinceResistances}
             usSwingHigh5yrs={usSwingHigh5yrs}
             usSwingDistHigh5yrs={usSwingDistHigh5yrs}
+            usSwingDaysSinceHigh5yrs={usSwingDaysSinceHigh5yrs}
             usSwingRelVolumes={usSwingRelVolumes}
             usSwingShortFloats={usSwingShortFloats}
             usSwingAdvs={usSwingAdvs}
