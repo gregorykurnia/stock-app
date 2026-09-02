@@ -14,7 +14,7 @@ type SortKey =
   | "ticker" | "industry" | "price" | "priceChangePct" | "atr"
   | "ema20d" | "distEma20d" | "ema50d" | "distEma50d" | "goldenCross"
   | "macd" | "roc14" | "roc63" | "roc90" | "low6mo" | "distLow6mo" | "resistance" | "distResistance" | "daysSinceResistance" | "high5yr" | "distHigh5yr" | "daysSinceHigh5yr"
-  | "low1yr" | "daysSinceLow1yr" | "distLow1yr" | "cagrLow1yr" | "rsi" | "diPlus" | "diMinus" | "adx" | "shortFloat" | "adv" | "relVolume" | "earnings" | "coiledBase" | "recentBreakout" | "strongUptrend" | "stableLongTerm" | "parabolicRecovery" | "stableRecovery" | "stableModerateUpside";
+  | "low1yr" | "daysSinceLow1yr" | "distLow1yr" | "cagrLow1yr" | "rsi" | "diPlus" | "diMinus" | "adx" | "shortFloat" | "adv" | "relVolume" | "earnings" | "coiledBase" | "recentBreakout" | "strongUptrend" | "stableLongTerm" | "parabolicRecovery" | "stableRecovery" | "stableModerateUpside" | "parabolic";
 type SortDir = "asc" | "desc";
 
 interface Props {
@@ -168,7 +168,7 @@ const TIERS = {
   ] as Tier[],
 } satisfies Record<string, Tier[]>;
 
-type CategoryKey = "coiledBase" | "recentBreakout" | "strongUptrend" | "stableLongTerm" | "parabolicRecovery" | "stableRecovery" | "stableModerateUpside";
+type CategoryKey = "coiledBase" | "recentBreakout" | "strongUptrend" | "stableLongTerm" | "parabolicRecovery" | "stableRecovery" | "stableModerateUpside" | "parabolic";
 
 const CATEGORY_DEFS: { key: CategoryKey; label: string; badgeClass: string; description: string }[] = [
   {
@@ -198,6 +198,10 @@ const CATEGORY_DEFS: { key: CategoryKey; label: string; badgeClass: string; desc
   {
     key: "stableModerateUpside", label: "Stable Moderate Upside", badgeClass: "bg-cyan-100 text-cyan-700",
     description: "Within 6% of EMA20D, at most 50% above its 6mo low, and 15.01%-24.99% below its 2Y high — a middle zone between Stable Recovery and Limited Upside.",
+  },
+  {
+    key: "parabolic", label: "Parabolic", badgeClass: "bg-red-100 text-red-700",
+    description: "More than 15% above its resistance level and more than 60% above its 6mo low — a vertical, overextended run well clear of its prior ceiling.",
   },
 ];
 
@@ -368,6 +372,11 @@ export default function USSwingTable({
             distHigh5yrVal != null && distHigh5yrVal >= -24.99 && distHigh5yrVal <= -15.01
           );
         })(),
+        parabolic: (() => {
+          const distResistanceVal = price != null && resistance != null && resistance > 0 ? ((price - resistance) / resistance) * 100 : null;
+          const distLow6moVal = price != null && low6mo != null && low6mo > 0 ? ((price - low6mo) / low6mo) * 100 : null;
+          return distResistanceVal != null && distResistanceVal > 15 && distLow6moVal != null && distLow6moVal > 60;
+        })(),
         low1yr: low1yrs[s.ticker] ?? null,
         distLow1yr: distLow1yrs[s.ticker] ?? null,
         daysSinceLow1yr: daysSinceLow1yrs[s.ticker] ?? null,
@@ -432,6 +441,7 @@ export default function USSwingTable({
         case "parabolicRecovery": return r.parabolicRecovery ? 1 : 0;
         case "stableRecovery": return r.stableRecovery ? 1 : 0;
         case "stableModerateUpside": return r.stableModerateUpside ? 1 : 0;
+        case "parabolic": return r.parabolic ? 1 : 0;
         case "low1yr": return r.low1yr;
         case "distLow1yr": return r.distLow1yr;
         case "daysSinceLow1yr": return r.daysSinceLow1yr;
