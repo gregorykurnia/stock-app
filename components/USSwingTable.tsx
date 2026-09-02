@@ -231,12 +231,13 @@ function ptsDistEma50d(v: number | null): number | null {
 }
 function ptsMacd(v: number | null): number | null {
   if (v == null) return null;
-  return v >= 0 ? 2 : 0;
+  if (v < 0) return 0;
+  return v <= 1 ? 1 : 2;
 }
 function ptsAtr(v: number | null): number | null {
   if (v == null) return null;
-  if (v < 1) return 0;
-  if (v <= 2) return 1;
+  if (v < 1) return 1;
+  if (v <= 2) return 2;
   if (v <= 4) return 3;
   if (v <= 7) return 1;
   return 0;
@@ -244,10 +245,19 @@ function ptsAtr(v: number | null): number | null {
 function ptsRoc14(v: number | null): number | null {
   if (v == null) return null;
   if (v <= 0) return 0;
-  if (v <= 1.9) return 1;
-  if (v <= 4.9) return 2;
-  if (v <= 9.9) return 3;
-  return 2;
+  if (v <= 1.9) return 2;
+  if (v <= 4.9) return 3;
+  if (v <= 9.9) return 5;
+  return 4;
+}
+function ptsDistResistance(v: number | null): number | null {
+  if (v == null) return null;
+  if (v >= 0) return 3;
+  const below = -v;
+  if (below <= 5) return 2;
+  if (below <= 20) return 3;
+  if (below <= 40) return 2;
+  return 1;
 }
 function ptsSortino3mo(v: number | null): number | null {
   if (v == null) return null;
@@ -266,20 +276,23 @@ function ptsRsi(v: number | null): number | null {
   if (v == null) return null;
   if (v < 40) return 0;
   if (v <= 50) return 1;
-  if (v <= 70) return 3;
-  if (v <= 80) return 2;
+  if (v <= 54) return 2;
+  if (v <= 68) return 3;
+  if (v <= 75) return 1;
   return 0;
 }
 function ptsAdx(v: number | null): number | null {
   if (v == null) return null;
   if (v < 20) return 0;
   if (v <= 35) return 3;
-  if (v <= 50) return 2;
-  return 0;
+  if (v <= 50) return 3;
+  return 2;
 }
 function ptsDiCross(diPlus: number | null, diMinus: number | null): number | null {
   if (diPlus == null || diMinus == null) return null;
-  return diPlus > diMinus ? 1 : 0;
+  const diff = diPlus - diMinus;
+  if (diff <= 0) return 0;
+  return diff < 5 ? 1 : 2;
 }
 function ptsDistLow6mo(v: number | null): number | null {
   if (v == null) return null;
@@ -290,16 +303,23 @@ function ptsDistLow6mo(v: number | null): number | null {
   return 0;
 }
 function penaltyShortFloat(v: number | null): number {
-  return v != null && v * 100 >= 15 ? -1 : 0;
+  if (v == null) return 0;
+  const pct = v * 100;
+  if (pct >= 20) return -2;
+  if (pct >= 15) return -1;
+  return 0;
 }
 function penaltyEarnings(daysUntil: number | null): number {
-  return daysUntil != null && daysUntil >= 0 && daysUntil <= 7 ? -1 : 0;
+  if (daysUntil == null || daysUntil < 0) return 0;
+  if (daysUntil <= 7) return -2;
+  if (daysUntil <= 14) return -1;
+  return 0;
 }
 // Liquidity score now reflects event risk only (short float + upcoming earnings) — Rel Volume
 // dropped as a scored input (still shown as a data column) since it wasn't a meaningful signal.
 function ptsEventRisk(shortFloat: number | null, earningsDaysUntil: number | null): number | null {
   if (shortFloat == null && earningsDaysUntil == null) return null;
-  return Math.max(0, 2 + penaltyShortFloat(shortFloat) + penaltyEarnings(earningsDaysUntil));
+  return Math.max(0, 4 + penaltyShortFloat(shortFloat) + penaltyEarnings(earningsDaysUntil));
 }
 
 function scoreColorClass(score: number | null): string {
@@ -445,6 +465,7 @@ export default function USSwingTable({
       const distEma20dVal = price != null && ema20d != null ? ((price - ema20d) / ema20d) * 100 : null;
       const distEma50dVal = price != null && ema50d != null ? ((price - ema50d) / ema50d) * 100 : null;
       const distLow6moVal = price != null && low6mo != null && low6mo > 0 ? ((price - low6mo) / low6mo) * 100 : null;
+      const distResistanceVal = price != null && resistance != null && resistance > 0 ? ((price - resistance) / resistance) * 100 : null;
       const earningsDaysUntil = (() => {
         const e = earnings[s.ticker] ?? null;
         if (!e) return null;
@@ -459,26 +480,27 @@ export default function USSwingTable({
         comp("ATR%", ptsAtr(atrs[s.ticker] ?? null), 3),
       ]);
       const momentumScore = combineScore([
-        comp("ROC14", ptsRoc14(roc14s[s.ticker] ?? null), 3),
+        comp("ROC14", ptsRoc14(roc14s[s.ticker] ?? null), 5),
         comp("Sortino (3mo)", ptsSortino3mo(sortinos[s.ticker] ?? null), 4),
         comp("Sortino (6mo)", ptsSortino6mo(sortino6mos[s.ticker] ?? null), 2),
       ]);
       const trendStrengthScore = combineScore([
         comp("RSI", ptsRsi(rsis[s.ticker] ?? null), 3),
         comp("ADX", ptsAdx(adxs[s.ticker] ?? null), 3),
-        comp("DI+ > DI-", ptsDiCross(diPluses[s.ticker] ?? null, diMinuses[s.ticker] ?? null), 1),
+        comp("DI+ > DI-", ptsDiCross(diPluses[s.ticker] ?? null, diMinuses[s.ticker] ?? null), 2),
       ]);
       const priceLevelsScore = combineScore([
         comp("Dist from 6mo Low", ptsDistLow6mo(distLow6moVal), 3),
+        comp("Dist from 1Y Resistance", ptsDistResistance(distResistanceVal), 3),
       ]);
       const liquidityScore = combineScore([
-        comp("Event Risk", ptsEventRisk(shortFloats[s.ticker] ?? null, earningsDaysUntil), 2),
+        comp("Event Risk", ptsEventRisk(shortFloats[s.ticker] ?? null, earningsDaysUntil), 4),
       ]);
       const grandScore = weightedScore([
-        { label: "Price & Trend", score: priceTrendScore.score, weight: 0.32 },
-        { label: "Price Levels", score: priceLevelsScore.score, weight: 0.26 },
-        { label: "Trend Strength", score: trendStrengthScore.score, weight: 0.20 },
-        { label: "Momentum", score: momentumScore.score, weight: 0.17 },
+        { label: "Price & Trend", score: priceTrendScore.score, weight: 0.30 },
+        { label: "Trend Strength", score: trendStrengthScore.score, weight: 0.25 },
+        { label: "Momentum", score: momentumScore.score, weight: 0.22 },
+        { label: "Price Levels", score: priceLevelsScore.score, weight: 0.18 },
         { label: "Liquidity & Events", score: liquidityScore.score, weight: 0.05 },
       ]);
 
@@ -920,7 +942,7 @@ export default function USSwingTable({
               <Th label="Ticker" k="ticker" sticky />
               <Th label="Industry" k="industry" />
               <Th label="Stock Category" k="coiledBase" title={CATEGORY_DEFS.map((c) => `${c.label}: ${c.description}`).join(" ")} />
-              <Th label="Grand Score" k="grandScore" title="Weighted blend of all 5 group scores: Price & Trend 32%, Price Levels 26%, Trend Strength 20%, Momentum 17%, Liquidity & Events 5% — hover for the breakdown" />
+              <Th label="Grand Score" k="grandScore" title="Weighted blend of all 5 group scores: Price & Trend 30%, Trend Strength 25%, Momentum 22%, Price Levels 18%, Liquidity & Events 5% — hover for the breakdown" />
               <Th label="Score" k="priceTrendScore" title="Composite 0-10 score from Dist EMA20D, Dist EMA50D, MACD and ATR% — hover a score cell for the breakdown" />
               <Th label="Price" k="price" />
               <Th label="Chg %" k="priceChangePct" title="% change vs previous close" />
@@ -931,13 +953,13 @@ export default function USSwingTable({
               <Th label="Dist EMA50D" k="distEma50d" infoTiers={TIERS.ema50d} />
               <Th label="Golden Cross" k="goldenCross" infoTiers={TIERS.goldenCross} />
               <Th label="MACD" k="macd" title="MACD line (12, 26) — daily closes" />
-              <Th label="Score" k="momentumScore" title="Composite 0-10 score from ROC14 (max 3), Sortino 3mo (max 4, weighted higher) and Sortino 6mo (max 2) — hover a score cell for the breakdown" />
+              <Th label="Score" k="momentumScore" title="Composite 0-10 score from ROC14 (max 5), Sortino 3mo (max 4) and Sortino 6mo (max 2) — hover a score cell for the breakdown" />
               <Th label="ROC14" k="roc14" infoTiers={TIERS.roc14} />
               <Th label="ROC63" k="roc63" infoTiers={TIERS.roc63} title="Rate of change over the trailing 63 trading sessions (~3mo)" />
               <Th label="ROC90" k="roc90" infoTiers={TIERS.roc90} title="Rate of change over the trailing 90 trading sessions (~4.5mo)" />
               <Th label="Sortino (3mo)" k="sortino" infoTiers={TIERS.sortino} title="Annualized Sortino ratio: mean daily return over downside deviation (only negative daily returns) of the trailing ~3 months of daily closes, scaled by sqrt(252). Higher = better return per unit of downside risk." />
               <Th label="Sortino (6mo)" k="sortino6mo" infoTiers={TIERS.sortino6mo} title="Same annualized Sortino ratio calculation, but using the trailing ~6 months of daily closes. Steadier / less reactive to recent price action than the 3mo figure." />
-              <Th label="Score" k="priceLevelsScore" title="Composite 0-10 score from Dist from 6mo Low — hover a score cell for the breakdown" />
+              <Th label="Score" k="priceLevelsScore" title="Composite 0-10 score from Dist from 6mo Low and Dist from 1Y Resistance — hover a score cell for the breakdown" />
               <Th label="Low (6mo)" k="low6mo" title="Lowest intraday low over the last ~6 months (126 sessions)" />
               <Th label="Dist from Low" k="distLow6mo" infoTiers={TIERS.distLow} />
               <Th label="Resistance" k="resistance" title="Highest intraday high over the last ~1 year, excluding the most recent ~32 sessions (~1.5 months) — the last prior ceiling the stock pulled back from" />
@@ -950,12 +972,12 @@ export default function USSwingTable({
               <Th label="Days Since 1Y Low" k="daysSinceLow1yr" title="Calendar days since the weekly bar that set the trailing 1-year low" />
               <Th label="Dist from 1Y Low" k="distLow1yr" title="Current price vs the 1-year low, as a %." />
               <Th label="CAGR from 1Y Low" k="cagrLow1yr" title="Annualized return implied by the rally from the 1-year low: ((Price / 1Y Low) ^ (365 / Days Since 1Y Low) - 1) × 100" />
-              <Th label="Score" k="trendStrengthScore" title="Composite 0-10 score from RSI, ADX and DI+ vs DI- — hover a score cell for the breakdown" />
+              <Th label="Score" k="trendStrengthScore" title="Composite 0-10 score from RSI (max 3), ADX (max 3) and DI+ vs DI- margin (max 2) — hover a score cell for the breakdown" />
               <Th label="RSI" k="rsi" infoTiers={TIERS.rsi} />
               <Th label="DI+" k="diPlus" title="+DI(14), daily" />
               <Th label="DI-" k="diMinus" title="-DI(14), daily" />
               <Th label="ADX" k="adx" infoTiers={TIERS.adx} />
-              <Th label="Score" k="liquidityScore" title="Event risk score: starts at 10, penalized for Short Float ≥15% and earnings within 7 days — hover a score cell for the breakdown" />
+              <Th label="Score" k="liquidityScore" title="Event risk score: starts at 10, penalized for Short Float (-1 at ≥15%, -2 at ≥20%) and earnings proximity (-1 within 8-14d, -2 within 0-7d) — hover a score cell for the breakdown" />
               <Th label="Short Float %" k="shortFloat" infoTiers={TIERS.shortFloat} />
               <Th label="ADV" k="adv" title="Average daily volume (3-month)" />
               <Th label="Rel Volume" k="relVolume" title="Latest session volume vs its trailing 20-day average" />
