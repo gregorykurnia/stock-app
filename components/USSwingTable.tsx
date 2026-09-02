@@ -14,7 +14,7 @@ type SortKey =
   | "ticker" | "industry" | "price" | "priceChangePct" | "atr"
   | "ema20d" | "distEma20d" | "ema50d" | "distEma50d" | "goldenCross"
   | "macd" | "roc14" | "roc63" | "roc90" | "low6mo" | "distLow6mo" | "resistance" | "distResistance" | "daysSinceResistance" | "high5yr" | "distHigh5yr" | "daysSinceHigh5yr"
-  | "low1yr" | "daysSinceLow1yr" | "distLow1yr" | "cagrLow1yr" | "rsi" | "diPlus" | "diMinus" | "adx" | "shortFloat" | "adv" | "relVolume" | "earnings" | "coiledBase" | "extLongTermMomentum" | "recentBreakout";
+  | "low1yr" | "daysSinceLow1yr" | "distLow1yr" | "cagrLow1yr" | "rsi" | "diPlus" | "diMinus" | "adx" | "shortFloat" | "adv" | "relVolume" | "earnings" | "coiledBase" | "extLongTermMomentum" | "recentBreakout" | "strongUptrend";
 type SortDir = "asc" | "desc";
 
 interface Props {
@@ -285,6 +285,16 @@ export default function USSwingTable({
             daysSinceRes != null && daysSinceRes >= 100
           );
         })(),
+        strongUptrend: (() => {
+          const distLow6moVal = price != null && low6mo != null && low6mo > 0 ? ((price - low6mo) / low6mo) * 100 : null;
+          const distEma20dVal = price != null && ema20d != null ? ((price - ema20d) / ema20d) * 100 : null;
+          const roc90 = roc90s[s.ticker] ?? null;
+          return (
+            distLow6moVal != null && distLow6moVal >= 40 &&
+            distEma20dVal != null && Math.abs(distEma20dVal) < 8 &&
+            roc90 != null && roc90 > 20
+          );
+        })(),
         low1yr: low1yrs[s.ticker] ?? null,
         distLow1yr: distLow1yrs[s.ticker] ?? null,
         daysSinceLow1yr: daysSinceLow1yrs[s.ticker] ?? null,
@@ -344,6 +354,7 @@ export default function USSwingTable({
         case "coiledBase": return r.coiledBase ? 1 : 0;
         case "extLongTermMomentum": return r.extLongTermMomentum ? 1 : 0;
         case "recentBreakout": return r.recentBreakout ? 1 : 0;
+        case "strongUptrend": return r.strongUptrend ? 1 : 0;
         case "low1yr": return r.low1yr;
         case "distLow1yr": return r.distLow1yr;
         case "daysSinceLow1yr": return r.daysSinceLow1yr;
@@ -395,7 +406,7 @@ export default function USSwingTable({
         : null;
       return [
         r.ticker, r.starred ? "Yes" : "", r.name ?? "", r.industry,
-        [r.coiledBase ? "Limited Upside" : "", r.extLongTermMomentum ? "Extended High and Higher" : "", r.recentBreakout ? "Recent Breakout" : ""].filter(Boolean).join(" / "),
+        [r.coiledBase ? "Limited Upside" : "", r.extLongTermMomentum ? "Extended High and Higher" : "", r.recentBreakout ? "Recent Breakout" : "", r.strongUptrend ? "Strong Uptrend" : ""].filter(Boolean).join(" / "),
         r.price?.toFixed(2) ?? "", r.priceChangePct != null ? `${r.priceChangePct >= 0 ? "+" : ""}${r.priceChangePct.toFixed(2)}%` : "", r.atr?.toFixed(1) ?? "",
         r.ema20d?.toFixed(2) ?? "", r.distEma20d?.toFixed(1) ?? "",
         r.ema50d?.toFixed(2) ?? "", r.distEma50d?.toFixed(1) ?? "",
@@ -541,7 +552,7 @@ export default function USSwingTable({
               <th className="w-9 px-2 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap sticky left-0 z-20 bg-gray-100">★</th>
               <Th label="Ticker" k="ticker" sticky />
               <Th label="Industry" k="industry" />
-              <Th label="Stock Category" k="coiledBase" title="Limited Upside: within 15% below the 5-year high, but it's been more than 75 days since that high was set — sitting quietly under an old ceiling instead of chasing it or falling away from it. Extended High and Higher: made a new 2Y high within the last 15 days, is at least 220 days removed from its 1Y low, is 35-60% above its 6mo low, and has a ROC63 of at least 22%. Recent Breakout: made a new 2Y high within the last 15 days, is between -1% and 5% from its resistance level, and that resistance was set at least 100 days ago" />
+              <Th label="Stock Category" k="coiledBase" title="Limited Upside: within 15% below the 5-year high, but it's been more than 75 days since that high was set — sitting quietly under an old ceiling instead of chasing it or falling away from it. Extended High and Higher: made a new 2Y high within the last 15 days, is at least 220 days removed from its 1Y low, is 35-60% above its 6mo low, and has a ROC63 of at least 22%. Recent Breakout: made a new 2Y high within the last 15 days, is between -1% and 5% from its resistance level, and that resistance was set at least 100 days ago. Strong Uptrend: at least 40% above its 6mo low, within 8% of EMA20D, and has a ROC90 above 20%" />
               <Th label="Price" k="price" />
               <Th label="Chg %" k="priceChangePct" title="% change vs previous close" />
               <Th label="ATR%" k="atr" infoTiers={TIERS.atr} />
@@ -614,7 +625,12 @@ export default function USSwingTable({
                         Recent Breakout
                       </span>
                     )}
-                    {!r.coiledBase && !r.extLongTermMomentum && !r.recentBreakout && dash}
+                    {r.strongUptrend && (
+                      <span className="inline-flex items-center rounded-full bg-violet-100 text-violet-700 text-xs font-semibold px-2 py-0.5 whitespace-nowrap">
+                        Strong Uptrend
+                      </span>
+                    )}
+                    {!r.coiledBase && !r.extLongTermMomentum && !r.recentBreakout && !r.strongUptrend && dash}
                   </div>
                 </td>
                 <td className="px-3 py-2 font-medium text-gray-900">{r.price != null ? `$${r.price.toFixed(2)}` : dash}</td>
