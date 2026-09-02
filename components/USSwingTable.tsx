@@ -13,7 +13,7 @@ export interface USSwingStock {
 type SortKey =
   | "ticker" | "industry" | "price" | "priceChangePct" | "atr"
   | "ema20d" | "distEma20d" | "ema50d" | "distEma50d" | "goldenCross"
-  | "macd" | "roc14" | "roc63" | "roc90" | "low6mo" | "distLow6mo" | "resistance" | "distResistance" | "daysSinceResistance" | "high5yr" | "distHigh5yr" | "daysSinceHigh5yr"
+  | "macd" | "roc14" | "roc63" | "roc90" | "sortino" | "low6mo" | "distLow6mo" | "resistance" | "distResistance" | "daysSinceResistance" | "high5yr" | "distHigh5yr" | "daysSinceHigh5yr"
   | "low1yr" | "daysSinceLow1yr" | "distLow1yr" | "cagrLow1yr" | "rsi" | "diPlus" | "diMinus" | "adx" | "shortFloat" | "adv" | "relVolume" | "earnings" | "coiledBase" | "recentBreakout" | "strongUptrend" | "stableLongTerm" | "parabolicRecovery" | "stableRecovery" | "stableModerateUpside" | "parabolic";
 type SortDir = "asc" | "desc";
 
@@ -29,6 +29,7 @@ interface Props {
   roc14s?: Record<string, number | null>;
   roc63s?: Record<string, number | null>;
   roc90s?: Record<string, number | null>;
+  sortinos?: Record<string, number | null>;
   rsis: Record<string, number | null>;
   diPluses?: Record<string, number | null>;
   diMinuses?: Record<string, number | null>;
@@ -125,6 +126,13 @@ const TIERS = {
     { max: 12.4, label: "Moderate Trend, Good Midterm", color: "blue", range: "4.9-12.4%" },
     { max: 25.1, label: "Solid Momentum for Swing", color: "green", range: "12.5-25.1%" },
     { max: Infinity, label: "Strong Momentum, Overextend Check", color: "yellow", range: ">25.1%" },
+  ] as Tier[],
+  sortino: [
+    { max: 0, label: "Poor, Negative Risk-Adjusted Return", color: "red", range: "<0" },
+    { max: 1, label: "Sub-Optimal", color: "gray", range: "0-1" },
+    { max: 2, label: "Good", color: "blue", range: "1.01-2" },
+    { max: 3, label: "Great", color: "green", range: "2.01-3" },
+    { max: Infinity, label: "Excellent Risk-Adjusted Return", color: "yellow", range: ">3" },
   ] as Tier[],
   distLow: [
     { max: 5, label: "High Risk, Need Strong Reversal Confirmation", color: "red", range: "0-5%" },
@@ -235,7 +243,7 @@ function InfoDot({ tiers, breakoutNote }: { tiers: Tier[]; breakoutNote?: string
 }
 
 export default function USSwingTable({
-  stocks, prices, prevCloses = {}, atrs, ema20s, ema50s, goldenCrossDates = {}, macds, roc14s = {}, roc63s = {}, roc90s = {}, rsis, diPluses = {}, diMinuses = {}, adxs = {}, low6mos, relVolumes,
+  stocks, prices, prevCloses = {}, atrs, ema20s, ema50s, goldenCrossDates = {}, macds, roc14s = {}, roc63s = {}, roc90s = {}, sortinos = {}, rsis, diPluses = {}, diMinuses = {}, adxs = {}, low6mos, relVolumes,
   resistances = {}, daysSinceResistances = {}, high5yrs = {}, distHigh5yrs = {}, daysSinceHigh5yrs = {},
   low1yrs = {}, distLow1yrs = {}, daysSinceLow1yrs = {}, shortFloats = {}, advs = {}, earnings = {}, loading = false,
   addTicker = "", addLoading = false, addError = "", onAddTickerChange, onAdd, onRemove, onToggleStar,
@@ -296,6 +304,7 @@ export default function USSwingTable({
         roc14: roc14s[s.ticker] ?? null,
         roc63: roc63s[s.ticker] ?? null,
         roc90: roc90s[s.ticker] ?? null,
+        sortino: sortinos[s.ticker] ?? null,
         low6mo,
         distLow6mo: price != null && low6mo != null && low6mo > 0 ? ((price - low6mo) / low6mo) * 100 : null,
         resistance,
@@ -396,7 +405,7 @@ export default function USSwingTable({
         earnings: earnings[s.ticker] ?? null,
       };
     });
-  }, [stocks, prices, prevCloses, atrs, ema20s, ema50s, goldenCrossDates, macds, roc14s, roc63s, roc90s, rsis, diPluses, diMinuses, adxs, low6mos, relVolumes, resistances, daysSinceResistances, high5yrs, distHigh5yrs, daysSinceHigh5yrs, low1yrs, distLow1yrs, daysSinceLow1yrs, shortFloats, advs, earnings]);
+  }, [stocks, prices, prevCloses, atrs, ema20s, ema50s, goldenCrossDates, macds, roc14s, roc63s, roc90s, sortinos, rsis, diPluses, diMinuses, adxs, low6mos, relVolumes, resistances, daysSinceResistances, high5yrs, distHigh5yrs, daysSinceHigh5yrs, low1yrs, distLow1yrs, daysSinceLow1yrs, shortFloats, advs, earnings]);
 
   const filteredRows = useMemo(() => {
     let out = starredOnly ? rows.filter((r) => r.starred) : rows;
@@ -426,6 +435,7 @@ export default function USSwingTable({
         case "roc14": return r.roc14;
         case "roc63": return r.roc63;
         case "roc90": return r.roc90;
+        case "sortino": return r.sortino;
         case "low6mo": return r.low6mo;
         case "distLow6mo": return r.distLow6mo;
         case "resistance": return r.resistance;
@@ -479,7 +489,7 @@ export default function USSwingTable({
   function exportCsv() {
     const date = new Date().toISOString().slice(0, 10);
     const headers = ["Ticker", "Starred", "Name", "Industry", "Stock Category", "Price", "Price Change%", "ATR%", "EMA20D", "Dist EMA20D%",
-      "EMA50D", "Dist EMA50D%", "Golden Cross", "MACD", "ROC14", "ROC63", "ROC90", "Low (6mo)", "Dist from Low%", "Resistance (1Y)", "Dist from Resistance%", "Days Since Resistance",
+      "EMA50D", "Dist EMA50D%", "Golden Cross", "MACD", "ROC14", "ROC63", "ROC90", "Sortino", "Low (6mo)", "Dist from Low%", "Resistance (1Y)", "Dist from Resistance%", "Days Since Resistance",
       "High (2Y)", "Dist from 2Y High%", "Days Since 2Y High",
       "Low (1Y)", "Days Since 1Y Low", "Dist from 1Y Low%", "CAGR from 1Y Low%",
       "RSI", "DI+", "DI-", "ADX", "Short Float%", "ADV",
@@ -498,7 +508,7 @@ export default function USSwingTable({
         r.ema20d?.toFixed(2) ?? "", r.distEma20d?.toFixed(1) ?? "",
         r.ema50d?.toFixed(2) ?? "", r.distEma50d?.toFixed(1) ?? "",
         r.goldenCrossDate ? `${r.goldenCrossDate} (${goldenCrossDays}D)` : "",
-        r.macd?.toFixed(2) ?? "", r.roc14?.toFixed(1) ?? "", r.roc63?.toFixed(1) ?? "", r.roc90?.toFixed(1) ?? "", r.low6mo?.toFixed(2) ?? "", r.distLow6mo?.toFixed(1) ?? "",
+        r.macd?.toFixed(2) ?? "", r.roc14?.toFixed(1) ?? "", r.roc63?.toFixed(1) ?? "", r.roc90?.toFixed(1) ?? "", r.sortino?.toFixed(2) ?? "", r.low6mo?.toFixed(2) ?? "", r.distLow6mo?.toFixed(1) ?? "",
         r.resistance?.toFixed(2) ?? "", r.distResistance?.toFixed(1) ?? "", r.daysSinceResistance != null ? String(r.daysSinceResistance) : "",
         r.high5yr?.toFixed(2) ?? "", r.distHigh5yr?.toFixed(1) ?? "", r.daysSinceHigh5yr != null ? String(r.daysSinceHigh5yr) : "",
         r.low1yr?.toFixed(2) ?? "", r.daysSinceLow1yr != null ? String(r.daysSinceLow1yr) : "", r.distLow1yr?.toFixed(1) ?? "", r.cagrLow1yr?.toFixed(1) ?? "",
@@ -514,7 +524,7 @@ export default function USSwingTable({
     });
     const METRIC_TITLES: Record<keyof typeof TIERS, string> = {
       atr: "ATR%", ema20d: "Dist EMA20D%", ema50d: "Dist EMA50D%", goldenCross: "Golden Cross (days since)",
-      roc14: "ROC14", roc63: "ROC63", roc90: "ROC90", distLow: "Dist from Low%", distResistance: "Dist from Resistance% (room below resistance)",
+      roc14: "ROC14", roc63: "ROC63", roc90: "ROC90", sortino: "Sortino", distLow: "Dist from Low%", distResistance: "Dist from Resistance% (room below resistance)",
       rsi: "RSI", adx: "ADX", shortFloat: "Short Float%",
     };
     const legendRows: (string | number | null)[][] = [
@@ -691,6 +701,7 @@ export default function USSwingTable({
               <Th label="ROC14" k="roc14" infoTiers={TIERS.roc14} />
               <Th label="ROC63" k="roc63" infoTiers={TIERS.roc63} title="Rate of change over the trailing 63 trading sessions (~3mo)" />
               <Th label="ROC90" k="roc90" infoTiers={TIERS.roc90} title="Rate of change over the trailing 90 trading sessions (~4.5mo)" />
+              <Th label="Sortino" k="sortino" infoTiers={TIERS.sortino} title="Annualized Sortino ratio: mean daily return over downside deviation (only negative daily returns) of the trailing 1-year daily closes, scaled by sqrt(252). Higher = better return per unit of downside risk." />
               <Th label="Low (6mo)" k="low6mo" title="Lowest intraday low over the last ~6 months (126 sessions)" />
               <Th label="Dist from Low" k="distLow6mo" infoTiers={TIERS.distLow} />
               <Th label="Resistance" k="resistance" title="Highest intraday high over the last ~1 year, excluding the most recent ~32 sessions (~1.5 months) — the last prior ceiling the stock pulled back from" />
@@ -762,6 +773,7 @@ export default function USSwingTable({
                 <td className={`px-3 py-2 ${cellClass(TIERS.roc14, r.roc14)}`}>{r.roc14 != null ? `${r.roc14.toFixed(1)}%` : dash}</td>
                 <td className={`px-3 py-2 ${cellClass(TIERS.roc63, r.roc63)}`}>{r.roc63 != null ? `${r.roc63.toFixed(1)}%` : dash}</td>
                 <td className={`px-3 py-2 ${cellClass(TIERS.roc90, r.roc90)}`}>{r.roc90 != null ? `${r.roc90.toFixed(1)}%` : dash}</td>
+                <td className={`px-3 py-2 ${cellClass(TIERS.sortino, r.sortino)}`}>{r.sortino != null ? r.sortino.toFixed(2) : dash}</td>
                 <td className="px-3 py-2 text-gray-700">{r.low6mo != null ? `$${r.low6mo.toFixed(2)}` : dash}</td>
                 <td className={`px-3 py-2 ${cellClass(TIERS.distLow, r.distLow6mo)}`}>{r.distLow6mo != null ? `${r.distLow6mo.toFixed(1)}%` : dash}</td>
                 <td className="px-3 py-2 text-gray-700">{r.resistance != null ? `$${r.resistance.toFixed(2)}` : dash}</td>

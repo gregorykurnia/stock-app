@@ -4,6 +4,24 @@ import { calcIndicators, calculateMACD, calculateATR, calculateROC, calculateBan
 const YahooFinance = require("yahoo-finance2").default;
 const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
 
+// Annualized Sortino ratio from trailing daily closes: mean daily return over downside deviation
+// (stdev of only the negative daily returns), scaled by sqrt(252). Target/MAR is 0% daily return.
+function calcSortino(closes: number[]): number | null {
+  if (closes.length < 30) return null;
+  const returns: number[] = [];
+  for (let i = 1; i < closes.length; i++) {
+    if (closes[i - 1] > 0) returns.push((closes[i] - closes[i - 1]) / closes[i - 1]);
+  }
+  if (returns.length < 20) return null;
+  const meanReturn = returns.reduce((a, b) => a + b, 0) / returns.length;
+  const downside = returns.filter((r) => r < 0);
+  if (downside.length === 0) return null;
+  const downsideVariance = downside.reduce((a, b) => a + b * b, 0) / returns.length;
+  const downsideDeviation = Math.sqrt(downsideVariance);
+  if (downsideDeviation === 0) return null;
+  return (meanReturn / downsideDeviation) * Math.sqrt(252);
+}
+
 function calcATRPct(quotes: { high: number; low: number; close: number }[], period = 14): number | null {
   if (quotes.length < period + 1) return null;
   const trs: number[] = [];
@@ -40,6 +58,7 @@ interface SwingDailyResult {
   roc14: number | null;
   roc63: number | null;
   roc90: number | null;
+  sortino: number | null;
   atr: number | null;
   stopLoss: number | null;
   stopLossPercent: number | null;
@@ -62,7 +81,7 @@ const EMPTY: SwingDailyResult = {
   ema20: null, ema50: null, atrPct: null, rsi: null,
   diPlus: null, diMinus: null, adx: null,
   emaCrossAbove: null, crossPrice: null, crossDate: null, goldenCrossDate: null,
-  macd: null, signal: null, histogram: null, histDirection: null, roc14: null, roc63: null, roc90: null,
+  macd: null, signal: null, histogram: null, histDirection: null, roc14: null, roc63: null, roc90: null, sortino: null,
   atr: null, stopLoss: null, stopLossPercent: null, bandar: null,
   low6mo: null, distFromLow6mo: null, resistance: null, distFromResistance: null,
   daysSinceResistance: null, relVolume: null,
@@ -181,6 +200,7 @@ async function fetchSwingDaily(ticker: string): Promise<SwingDailyResult> {
   const roc14 = calculateROC(closes, 14);
   const roc63 = calculateROC(closes, 63);
   const roc90 = calculateROC(closes, 90);
+  const sortino = calcSortino(closes);
   const atrRes = calculateATR(bars, 14);
   const bandar = calculateBandarScore(bars.slice(-60));
 
@@ -227,7 +247,7 @@ async function fetchSwingDaily(ticker: string): Promise<SwingDailyResult> {
     signal: macdRes?.signal ?? null,
     histogram: macdRes?.histogram ?? null,
     histDirection: macdRes?.histDirection ?? null,
-    roc14, roc63, roc90,
+    roc14, roc63, roc90, sortino,
     atr: atrRes?.atr ?? null,
     stopLoss: atrRes?.stopLoss ?? null,
     stopLossPercent: atrRes?.stopLossPercent ?? null,
@@ -262,6 +282,7 @@ export async function GET(req: NextRequest) {
   const roc14: Record<string, number | null> = {};
   const roc63: Record<string, number | null> = {};
   const roc90: Record<string, number | null> = {};
+  const sortino: Record<string, number | null> = {};
   const atr: Record<string, number | null> = {};
   const stopLoss: Record<string, number | null> = {};
   const stopLossPercent: Record<string, number | null> = {};
@@ -302,6 +323,7 @@ export async function GET(req: NextRequest) {
       roc14[ticker] = r.roc14;
       roc63[ticker] = r.roc63;
       roc90[ticker] = r.roc90;
+      sortino[ticker] = r.sortino;
       atr[ticker] = r.atr;
       stopLoss[ticker] = r.stopLoss;
       stopLossPercent[ticker] = r.stopLossPercent;
@@ -323,7 +345,7 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     ema20, ema50, atrPct, rsi, diPlus, diMinus, adx, emaCrossAbove, crossPrice, crossDate, goldenCrossDate,
-    macd, signal, histogram, histDirection, roc14, roc63, roc90,
+    macd, signal, histogram, histDirection, roc14, roc63, roc90, sortino,
     atr, stopLoss, stopLossPercent, bandar,
     low6mo, distFromLow6mo, resistance, distFromResistance, daysSinceResistance, relVolume,
     high5yr, distFromHigh5yr, daysSinceHigh5yr,
