@@ -355,9 +355,9 @@ export default function USSwingTable({
 
   function exportCsv() {
     const date = new Date().toISOString().slice(0, 10);
-    const headers = ["Ticker", "Starred", "Name", "Industry", "Price", "Price Change%", "ATR%", "EMA20D", "Dist EMA20D%",
+    const headers = ["Ticker", "Starred", "Name", "Industry", "Stock Category", "Price", "Price Change%", "ATR%", "EMA20D", "Dist EMA20D%",
       "EMA50D", "Dist EMA50D%", "Golden Cross", "MACD", "ROC14", "ROC63", "ROC90", "Low (6mo)", "Dist from Low%", "Resistance (1Y)", "Dist from Resistance%", "Days Since Resistance",
-      "High (5Y)", "Dist from 5Y High%", "Days Since 5Y High", "Coiled Base",
+      "High (5Y)", "Dist from 5Y High%", "Days Since 5Y High",
       "Low (1Y)", "Days Since 1Y Low", "Dist from 1Y Low%", "CAGR from 1Y Low%",
       "RSI", "DI+", "DI-", "ADX", "Short Float%", "ADV",
       "Rel Volume", "Earnings Date", "Days to Earnings"];
@@ -369,14 +369,14 @@ export default function USSwingTable({
         ? Math.round((new Date(new Date().toISOString().slice(0, 10) + "T00:00:00Z").getTime() - new Date(r.goldenCrossDate + "T00:00:00Z").getTime()) / 86400000)
         : null;
       return [
-        r.ticker, r.starred ? "Yes" : "", r.name ?? "", r.industry,
+        r.ticker, r.starred ? "Yes" : "", r.name ?? "", r.industry, r.coiledBase ? "Limited Upside" : "",
         r.price?.toFixed(2) ?? "", r.priceChangePct != null ? `${r.priceChangePct >= 0 ? "+" : ""}${r.priceChangePct.toFixed(2)}%` : "", r.atr?.toFixed(1) ?? "",
         r.ema20d?.toFixed(2) ?? "", r.distEma20d?.toFixed(1) ?? "",
         r.ema50d?.toFixed(2) ?? "", r.distEma50d?.toFixed(1) ?? "",
         r.goldenCrossDate ? `${r.goldenCrossDate} (${goldenCrossDays}D)` : "",
         r.macd?.toFixed(2) ?? "", r.roc14?.toFixed(1) ?? "", r.roc63?.toFixed(1) ?? "", r.roc90?.toFixed(1) ?? "", r.low6mo?.toFixed(2) ?? "", r.distLow6mo?.toFixed(1) ?? "",
         r.resistance?.toFixed(2) ?? "", r.distResistance?.toFixed(1) ?? "", r.daysSinceResistance != null ? String(r.daysSinceResistance) : "",
-        r.high5yr?.toFixed(2) ?? "", r.distHigh5yr?.toFixed(1) ?? "", r.daysSinceHigh5yr != null ? String(r.daysSinceHigh5yr) : "", r.coiledBase ? "Yes" : "",
+        r.high5yr?.toFixed(2) ?? "", r.distHigh5yr?.toFixed(1) ?? "", r.daysSinceHigh5yr != null ? String(r.daysSinceHigh5yr) : "",
         r.low1yr?.toFixed(2) ?? "", r.daysSinceLow1yr != null ? String(r.daysSinceLow1yr) : "", r.distLow1yr?.toFixed(1) ?? "", r.cagrLow1yr?.toFixed(1) ?? "",
         r.rsi?.toFixed(1) ?? "",
         r.diPlus?.toFixed(1) ?? "",
@@ -515,6 +515,7 @@ export default function USSwingTable({
               <th className="w-9 px-2 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap sticky left-0 z-20 bg-gray-100">★</th>
               <Th label="Ticker" k="ticker" sticky />
               <Th label="Industry" k="industry" />
+              <Th label="Stock Category" k="coiledBase" title="Limited Upside: within 15% below the 5-year high, but it's been more than 75 days since that high was set — sitting quietly under an old ceiling instead of chasing it or falling away from it" />
               <Th label="Price" k="price" />
               <Th label="Chg %" k="priceChangePct" title="% change vs previous close" />
               <Th label="ATR%" k="atr" infoTiers={TIERS.atr} />
@@ -535,7 +536,6 @@ export default function USSwingTable({
               <Th label="5Y High" k="high5yr" title="Highest weekly high over the trailing 5 years" />
               <Th label="Dist from 5Y High" k="distHigh5yr" title="Current price vs the 5-year high, as a %. Negative = below high." />
               <Th label="Days Since 5Y High" k="daysSinceHigh5yr" title="Calendar days since the weekly bar that set the trailing 5-year high" />
-              <Th label="Coiled Base" k="coiledBase" title="Flag: within 15% below the 5-year high, but it's been more than 75 days since that high was set — sitting quietly under an old ceiling instead of chasing it or falling away from it" />
               <Th label="1Y Low" k="low1yr" title="Lowest weekly low over the trailing 1 year" />
               <Th label="Days Since 1Y Low" k="daysSinceLow1yr" title="Calendar days since the weekly bar that set the trailing 1-year low" />
               <Th label="Dist from 1Y Low" k="distLow1yr" title="Current price vs the 1-year low, as a %." />
@@ -571,6 +571,13 @@ export default function USSwingTable({
                   {r.name && <div className="text-xs text-gray-400">{r.name}</div>}
                 </td>
                 <td className="px-3 py-2 text-gray-600">{r.industry}</td>
+                <td className="px-3 py-2">
+                  {r.coiledBase ? (
+                    <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-700 text-xs font-semibold px-2 py-0.5 whitespace-nowrap">
+                      Limited Upside
+                    </span>
+                  ) : dash}
+                </td>
                 <td className="px-3 py-2 font-medium text-gray-900">{r.price != null ? `$${r.price.toFixed(2)}` : dash}</td>
                 <td className={`px-3 py-2 font-medium ${r.priceChangePct == null ? "text-gray-400" : r.priceChangePct >= 0 ? "text-green-600" : "text-red-500"}`}>
                   {r.priceChangePct != null ? `${r.priceChangePct >= 0 ? "+" : ""}${r.priceChangePct.toFixed(2)}%` : dash}
@@ -597,13 +604,6 @@ export default function USSwingTable({
                 <td className="px-3 py-2 text-gray-700">{r.high5yr != null ? `$${r.high5yr.toFixed(2)}` : dash}</td>
                 <td className={`px-3 py-2 font-medium ${r.distHigh5yr == null ? "text-gray-400" : r.distHigh5yr >= -2 ? "text-green-600 font-semibold" : "text-gray-700"}`}>{r.distHigh5yr != null ? `${r.distHigh5yr.toFixed(1)}%` : dash}</td>
                 <td className="px-3 py-2 text-gray-700">{r.daysSinceHigh5yr != null ? `${r.daysSinceHigh5yr}D` : dash}</td>
-                <td className="px-3 py-2">
-                  {r.coiledBase ? (
-                    <span className="inline-flex items-center rounded-full bg-purple-100 text-purple-700 text-xs font-semibold px-2 py-0.5 whitespace-nowrap">
-                      Coiled Base
-                    </span>
-                  ) : dash}
-                </td>
                 <td className="px-3 py-2 text-gray-700">{r.low1yr != null ? `$${r.low1yr.toFixed(2)}` : dash}</td>
                 <td className="px-3 py-2 text-gray-700">{r.daysSinceLow1yr != null ? `${r.daysSinceLow1yr}D` : dash}</td>
                 <td className="px-3 py-2 font-medium text-gray-700">{r.distLow1yr != null ? `${r.distLow1yr.toFixed(1)}%` : dash}</td>
