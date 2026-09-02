@@ -48,8 +48,16 @@ export default function ScreenerDraftPage() {
         ticker,
         company: d.company ?? null,
         added_at: d.added_at,
+        rank: d.rank,
       }));
-      list.sort((a, b) => a.ticker.localeCompare(b.ticker));
+      // Market cap desc, same as finviz's own sort — entries imported before `rank` existed
+      // sort after everything ranked, alphabetically among themselves.
+      list.sort((a, b) => {
+        if (a.rank !== undefined && b.rank !== undefined) return a.rank - b.rank;
+        if (a.rank !== undefined) return -1;
+        if (b.rank !== undefined) return 1;
+        return a.ticker.localeCompare(b.ticker);
+      });
       setEntries(list);
     } finally {
       setLoading(false);
@@ -71,7 +79,7 @@ export default function ScreenerDraftPage() {
       const res = await fetch("/api/screener");
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Screener run failed");
-      const rows: { ticker: string; company: string }[] = data.results ?? [];
+      const rows: { ticker: string; company: string; rank: number }[] = data.results ?? [];
 
       const existingTickers = new Set(entries.map((e) => e.ticker));
       const excluded = rows.filter((r) => isExcluded(r.ticker));

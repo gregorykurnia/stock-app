@@ -142,6 +142,9 @@ export interface ScreenerDraftEntry {
   ticker: string;
   company: string | null;
   added_at: string;
+  // Finviz's own row number from the screener run that added this ticker (market cap desc).
+  // Undefined for entries imported before this field existed.
+  rank?: number;
 }
 
 export interface PushSubscriptionDoc {

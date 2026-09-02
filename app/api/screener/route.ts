@@ -24,23 +24,25 @@ const HEADERS = {
 // fetch works locally but 502s in production. Route through r.jina.ai's reader proxy first —
 // it fetches the page from its own IPs and returns readable markdown instead of raw HTML —
 // falling back to a direct fetch (e.g. for local dev, where Finviz isn't blocking us anyway).
-function parseJinaMarkdown(markdown: string): { ticker: string; company: string }[] {
+// Finviz's own row number (#1, #2, ...) reflects its current sort (market cap desc, per
+// BASE_URL's o=-marketcap) — captured as `rank` so the app can preserve that order later.
+function parseJinaMarkdown(markdown: string): { ticker: string; company: string; rank: number }[] {
   const rowRe =
     /\[(\d+)\]\(https:\/\/finviz\.com\/stock\?t=([A-Z.\-]+)&ty=c&p=d&b=1\)[\s\S]*?\[\2\]\(https:\/\/finviz\.com\/stock\?t=\2&ty=c&p=d&b=1\) \| \[([^\]]+)\]\(/g;
-  const results: { ticker: string; company: string }[] = [];
+  const results: { ticker: string; company: string; rank: number }[] = [];
   let m: RegExpExecArray | null;
   while ((m = rowRe.exec(markdown))) {
-    results.push({ ticker: m[2], company: m[3] });
+    results.push({ ticker: m[2], company: m[3], rank: Number(m[1]) });
   }
   return results;
 }
 
-function parseScreenerHtml(html: string): { ticker: string; company: string }[] {
+function parseScreenerHtml(html: string): { ticker: string; company: string; rank: number }[] {
   const $ = cheerio.load(html);
   const table = $("table#screener-content").length ? $("table#screener-content") : $("table.screener_table");
   if (table.length === 0) return [];
 
-  const results: { ticker: string; company: string }[] = [];
+  const results: { ticker: string; company: string; rank: number }[] = [];
   table.find("tr").each((_, row) => {
     const cells = $(row).find("td");
     if (cells.length < 3) return;
@@ -50,7 +52,7 @@ function parseScreenerHtml(html: string): { ticker: string; company: string }[] 
     const rawTicker = $(cells[1]).text().trim();
     const ticker = rawTicker.length > 1 ? rawTicker.slice(1) : rawTicker;
     const company = $(cells[2]).text().trim();
-    results.push({ ticker, company });
+    results.push({ ticker, company, rank: Number(first) });
   });
 
   return results;
@@ -66,7 +68,7 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: numbe
   }
 }
 
-async function fetchPage(page: number): Promise<{ ticker: string; company: string }[]> {
+async function fetchPage(page: number): Promise<{ ticker: string; company: string; rank: number }[]> {
   const rowOffset = (page - 1) * ROWS_PER_PAGE + 1;
   const url = `${BASE_URL}&r=${rowOffset}`;
   const errors: string[] = [];

@@ -110,18 +110,18 @@ export async function updateUsSwingStar(ticker: string, starred: boolean) {
 }
 
 // Screener Draft — raw imports from finviz screener runs, pending triage into US-Swing
-export async function getScreenerDraft(): Promise<Record<string, { company: string | null; added_at: string }>> {
+export async function getScreenerDraft(): Promise<Record<string, { company: string | null; added_at: string; rank?: number }>> {
   const snap = await getDocs(collection(db, "screener_draft"));
-  const result: Record<string, { company: string | null; added_at: string }> = {};
-  snap.forEach((d) => { result[d.id] = d.data() as { company: string | null; added_at: string }; });
+  const result: Record<string, { company: string | null; added_at: string; rank?: number }> = {};
+  snap.forEach((d) => { result[d.id] = d.data() as { company: string | null; added_at: string; rank?: number }; });
   return result;
 }
 
-export async function importScreenerDraftEntries(entries: { ticker: string; company: string | null }[]) {
+export async function importScreenerDraftEntries(entries: { ticker: string; company: string | null; rank?: number }[]) {
   const batch = writeBatch(db);
   const now = new Date().toISOString();
-  for (const { ticker, company } of entries) {
-    batch.set(doc(db, "screener_draft", ticker), { company, added_at: now });
+  for (const { ticker, company, rank } of entries) {
+    batch.set(doc(db, "screener_draft", ticker), { company, added_at: now, ...(rank !== undefined ? { rank } : {}) });
   }
   await batch.commit();
 }
