@@ -290,11 +290,13 @@ export default function USSwingTable({
           const distEma20dVal = price != null && ema20d != null ? ((price - ema20d) / ema20d) * 100 : null;
           const roc90 = roc90s[s.ticker] ?? null;
           const daysSinceHigh = daysSinceHigh5yrs[s.ticker] ?? null;
+          const daysSinceLow = daysSinceLow1yrs[s.ticker] ?? null;
           return (
-            distLow6moVal != null && distLow6moVal >= 40 &&
+            distLow6moVal != null && distLow6moVal >= 35 &&
             distEma20dVal != null && Math.abs(distEma20dVal) < 8 &&
             roc90 != null && roc90 > 20 &&
-            daysSinceHigh != null && daysSinceHigh < 60
+            daysSinceHigh != null && daysSinceHigh < 60 &&
+            daysSinceLow != null && daysSinceLow < 300
           );
         })(),
         low1yr: low1yrs[s.ticker] ?? null,
@@ -554,7 +556,7 @@ export default function USSwingTable({
               <th className="w-9 px-2 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap sticky left-0 z-20 bg-gray-100">★</th>
               <Th label="Ticker" k="ticker" sticky />
               <Th label="Industry" k="industry" />
-              <Th label="Stock Category" k="coiledBase" title="Limited Upside: within 15% below the 5-year high, but it's been more than 75 days since that high was set — sitting quietly under an old ceiling instead of chasing it or falling away from it. Extended High and Higher: made a new 2Y high within the last 15 days, is at least 220 days removed from its 1Y low, is 35-60% above its 6mo low, and has a ROC63 of at least 22%. Recent Breakout: made a new 2Y high within the last 15 days, is between -1% and 5% from its resistance level, and that resistance was set at least 100 days ago. Strong Uptrend: at least 40% above its 6mo low, within 8% of EMA20D, has a ROC90 above 20%, and made a new 2Y high within the last 60 days" />
+              <Th label="Stock Category" k="coiledBase" title="Limited Upside: within 15% below the 5-year high, but it's been more than 75 days since that high was set — sitting quietly under an old ceiling instead of chasing it or falling away from it. Extended High and Higher: made a new 2Y high within the last 15 days, is at least 220 days removed from its 1Y low, is 35-60% above its 6mo low, and has a ROC63 of at least 22%. Recent Breakout: made a new 2Y high within the last 15 days, is between -1% and 5% from its resistance level, and that resistance was set at least 100 days ago. Strong Uptrend: at least 35% above its 6mo low, within 8% of EMA20D, has a ROC90 above 20%, made a new 2Y high within the last 60 days, and is less than 300 days removed from its 1Y low" />
               <Th label="Price" k="price" />
               <Th label="Chg %" k="priceChangePct" title="% change vs previous close" />
               <Th label="ATR%" k="atr" infoTiers={TIERS.atr} />
