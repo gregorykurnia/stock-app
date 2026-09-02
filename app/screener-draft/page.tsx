@@ -146,8 +146,9 @@ export default function ScreenerDraftPage() {
     for (const [ticker, d] of Object.entries(excludedTickers)) {
       merged[ticker] = { reason: d.reason, excluded_at: d.excluded_at, fromDoc: false };
     }
+    for (const ticker of trackedTickers) delete merged[ticker];
     return Object.entries(merged).sort(([a], [b]) => a.localeCompare(b));
-  }, [excludedTickers, exclusionOverrides]);
+  }, [excludedTickers, exclusionOverrides, trackedTickers]);
 
   return (
     <main className="max-w-screen-xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
