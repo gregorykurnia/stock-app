@@ -236,12 +236,18 @@ function ptsRoc14(v: number | null): number | null {
   if (v <= 9.9) return 3;
   return 2;
 }
-function ptsSortino(v: number | null): number | null {
+function ptsSortino3mo(v: number | null): number | null {
   if (v == null) return null;
   if (v <= 0) return 0;
   if (v <= 1) return 1;
-  if (v <= 2) return 2;
-  return 3;
+  if (v <= 2) return 3;
+  return 4;
+}
+function ptsSortino6mo(v: number | null): number | null {
+  if (v == null) return null;
+  if (v <= 0) return 0;
+  if (v <= 1) return 1;
+  return 2;
 }
 function ptsRsi(v: number | null): number | null {
   if (v == null) return null;
@@ -439,8 +445,8 @@ export default function USSwingTable({
       ]);
       const momentumScore = combineScore([
         comp("ROC14", ptsRoc14(roc14s[s.ticker] ?? null), 3),
-        comp("Sortino (3mo)", ptsSortino(sortinos[s.ticker] ?? null), 3),
-        comp("Sortino (6mo)", ptsSortino(sortino6mos[s.ticker] ?? null), 3),
+        comp("Sortino (3mo)", ptsSortino3mo(sortinos[s.ticker] ?? null), 4),
+        comp("Sortino (6mo)", ptsSortino6mo(sortino6mos[s.ticker] ?? null), 2),
       ]);
       const trendStrengthScore = combineScore([
         comp("RSI", ptsRsi(rsis[s.ticker] ?? null), 3),
@@ -901,7 +907,7 @@ export default function USSwingTable({
               <Th label="Dist EMA50D" k="distEma50d" infoTiers={TIERS.ema50d} />
               <Th label="Golden Cross" k="goldenCross" infoTiers={TIERS.goldenCross} />
               <Th label="MACD" k="macd" title="MACD line (12, 26) — daily closes" />
-              <Th label="Score" k="momentumScore" title="Composite 0-10 score from ROC14 and Sortino (3mo/6mo) — hover a score cell for the breakdown" />
+              <Th label="Score" k="momentumScore" title="Composite 0-10 score from ROC14 (max 3), Sortino 3mo (max 4, weighted higher) and Sortino 6mo (max 2) — hover a score cell for the breakdown" />
               <Th label="ROC14" k="roc14" infoTiers={TIERS.roc14} />
               <Th label="ROC63" k="roc63" infoTiers={TIERS.roc63} title="Rate of change over the trailing 63 trading sessions (~3mo)" />
               <Th label="ROC90" k="roc90" infoTiers={TIERS.roc90} title="Rate of change over the trailing 90 trading sessions (~4.5mo)" />
