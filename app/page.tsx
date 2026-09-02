@@ -81,6 +81,9 @@ export default function Home() {
   const [usSwingHigh5yrs, setUsSwingHigh5yrs] = useState<Record<string, number | null>>({});
   const [usSwingDistHigh5yrs, setUsSwingDistHigh5yrs] = useState<Record<string, number | null>>({});
   const [usSwingDaysSinceHigh5yrs, setUsSwingDaysSinceHigh5yrs] = useState<Record<string, number | null>>({});
+  const [usSwingLow5yrs, setUsSwingLow5yrs] = useState<Record<string, number | null>>({});
+  const [usSwingDistLow5yrs, setUsSwingDistLow5yrs] = useState<Record<string, number | null>>({});
+  const [usSwingDaysSinceLow5yrs, setUsSwingDaysSinceLow5yrs] = useState<Record<string, number | null>>({});
   const [usSwingRelVolumes, setUsSwingRelVolumes] = useState<Record<string, number | null>>({});
   const [usSwingShortFloats, setUsSwingShortFloats] = useState<Record<string, number | null>>({});
   const [usSwingAdvs, setUsSwingAdvs] = useState<Record<string, number | null>>({});
@@ -209,6 +212,9 @@ export default function Home() {
         setUsSwingHigh5yrs((p) => ({ ...p, ...(d.high5yr ?? {}) }));
         setUsSwingDistHigh5yrs((p) => ({ ...p, ...(d.distFromHigh5yr ?? {}) }));
         setUsSwingDaysSinceHigh5yrs((p) => ({ ...p, ...(d.daysSinceHigh5yr ?? {}) }));
+        setUsSwingLow5yrs((p) => ({ ...p, ...(d.low5yr ?? {}) }));
+        setUsSwingDistLow5yrs((p) => ({ ...p, ...(d.distFromLow5yr ?? {}) }));
+        setUsSwingDaysSinceLow5yrs((p) => ({ ...p, ...(d.daysSinceLow5yr ?? {}) }));
         setUsSwingRelVolumes((p) => ({ ...p, ...(d.relVolume ?? {}) }));
       })
       .catch(() => {});
@@ -1182,6 +1188,9 @@ export default function Home() {
             usSwingHigh5yrs={usSwingHigh5yrs}
             usSwingDistHigh5yrs={usSwingDistHigh5yrs}
             usSwingDaysSinceHigh5yrs={usSwingDaysSinceHigh5yrs}
+            usSwingLow5yrs={usSwingLow5yrs}
+            usSwingDistLow5yrs={usSwingDistLow5yrs}
+            usSwingDaysSinceLow5yrs={usSwingDaysSinceLow5yrs}
             usSwingRelVolumes={usSwingRelVolumes}
             usSwingShortFloats={usSwingShortFloats}
             usSwingAdvs={usSwingAdvs}
