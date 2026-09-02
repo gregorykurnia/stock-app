@@ -96,6 +96,13 @@ export default function ScreenerDraftPage() {
     await Promise.all([excludeScreenerTicker(ticker, reason), removeScreenerDraftEntry(ticker)]);
   }
 
+  // Already-tracked tickers can't be "excluded" (that write is silently dropped from the
+  // Excluded tab, which hides anything in trackedTickers) — just drop them from the draft.
+  async function handleRemoveFromDraft(ticker: string) {
+    setEntries((prev) => prev.filter((e) => e.ticker !== ticker));
+    await removeScreenerDraftEntry(ticker);
+  }
+
   async function handleManualExclude(e: React.FormEvent) {
     e.preventDefault();
     setManualError(null);
@@ -329,12 +336,21 @@ export default function ScreenerDraftPage() {
                         {promoting.has(row.ticker) ? "Adding..." : "Add to US-Swing"}
                       </button>
                     )}
-                    <button
-                      onClick={() => handleExclude(row.ticker)}
-                      className="text-xs px-2.5 py-1 rounded-md text-[var(--muted)] hover:text-red-600 hover:bg-red-50"
-                    >
-                      Exclude
-                    </button>
+                    {row.status === "new" ? (
+                      <button
+                        onClick={() => handleExclude(row.ticker)}
+                        className="text-xs px-2.5 py-1 rounded-md text-[var(--muted)] hover:text-red-600 hover:bg-red-50"
+                      >
+                        Exclude
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => handleRemoveFromDraft(row.ticker)}
+                        className="text-xs px-2.5 py-1 rounded-md text-[var(--muted)] hover:text-red-600 hover:bg-red-50"
+                      >
+                        Remove from Draft
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}
