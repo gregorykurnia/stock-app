@@ -6,6 +6,7 @@ import { scoreCoilingRows, type CoilingLabel, type CoilingSubScores } from "@/li
 import { scoreProximity, type ProximityLabel, type ProximitySubScores } from "@/lib/proximityScore";
 import { scoreUpside, type UpsideLabel, type UpsideSubScores, type UpsideInput } from "@/lib/upsideScore";
 import { computeMasterScore, type MasterLabel } from "@/lib/masterScore";
+import { scoreReversalSignal, type ReversalSignalLabel, type ReversalSignalSubScores } from "@/lib/reversalSignalScore";
 
 export interface CoilingStock {
   ticker: string;
@@ -17,8 +18,8 @@ export interface CoilingStock {
 type SortKey =
   | "ticker" | "industry" | "price" | "grandScore" | "distFrom2yHigh" | "distFrom6moLow" | "roc1mo" | "roc3mo"
   | "ma30wk" | "priceVsMa30wk" | "ma30wkSlope" | "volRatio10_90" | "upDownVolRatio" | "bbw"
-  | "atrPct" | "atrTrend" | "weeklyRsi" | "rsiFloor6mo" | "rsiDivergence" | "obvSlope" | "obvDivergence" | "maStackScore" | "lowerHighs" | "rsVsSpy3mo"
-  | "proximityScore" | "upsideScore" | "masterScore";
+  | "atrPct" | "atrTrend" | "weeklyRsi" | "rsiFloor6mo" | "rsiDivergence" | "rsiDivergenceWeekly" | "obvSlope" | "obvDivergence" | "maStackScore" | "lowerHighs" | "rsVsSpy3mo"
+  | "proximityScore" | "upsideScore" | "masterScore" | "reversalSignalScore";
 type SortDir = "asc" | "desc";
 
 const LABEL_STYLES: Record<CoilingLabel, string> = {
@@ -43,6 +44,13 @@ const UPSIDE_LABEL_STYLES: Record<UpsideLabel, string> = {
   "Low Conviction": "bg-red-100 text-red-700 border border-red-300",
 };
 
+const REVERSAL_SIGNAL_LABEL_STYLES: Record<ReversalSignalLabel, string> = {
+  "Strong Accumulation": "bg-green-100 text-green-700 border border-green-300",
+  "Developing": "bg-blue-100 text-blue-700 border border-blue-300",
+  "Weak Signal": "bg-yellow-100 text-yellow-700 border border-yellow-300",
+  "No Signal": "bg-red-100 text-red-700 border border-red-300",
+};
+
 const MASTER_LABEL_STYLES: Record<MasterLabel, string> = {
   "Tier 1: High Conviction Entry": "bg-green-100 text-green-700 border border-green-300",
   "Tier 2: Strong Candidate": "bg-blue-100 text-blue-700 border border-blue-300",
@@ -57,6 +65,13 @@ const PROXIMITY_ROW_LABELS: [keyof ProximitySubScores, string][] = [
   ["rangeContraction", "Range Contraction"],
   ["rsLineDirection", "RS Line Direction"],
   ["volumeGreenDays", "Volume on Green Days"],
+];
+
+const REVERSAL_SIGNAL_ROW_LABELS: [keyof ReversalSignalSubScores, string][] = [
+  ["rsiDivDaily", "RSI Divergence (Daily)"],
+  ["rsiDivWeekly", "RSI Divergence (Weekly)"],
+  ["obvSlope", "OBV Slope"],
+  ["obvDivergence", "OBV Divergence"],
 ];
 
 const UPSIDE_ROW_LABELS: [keyof UpsideSubScores, string][] = [
@@ -86,6 +101,9 @@ interface Props {
   weeklyRsi: Record<string, number | null>;
   rsiFloor6mo: Record<string, number | null>;
   rsiDivergence: Record<string, number | null>;
+  rsiDivDailyConfirmed: Record<string, boolean | null>;
+  rsiDivergenceWeekly: Record<string, number | null>;
+  rsiDivWeeklyConfirmed: Record<string, boolean | null>;
   obvSlope: Record<string, number | null>;
   obvDivergence: Record<string, number | null>;
   maStackScore: Record<string, number | null>;
@@ -263,21 +281,28 @@ const COLUMN_TIPS: Partial<Record<SortKey, ColumnTip>> = {
     ranges: [],
   },
   rsiDivergence: {
-    definition: "Daily RSI(14, Wilder) at the 20-day low minus RSI at the 40-20-day-ago low. Positive = bullish divergence (price made a lower low but RSI made a higher low) — bigger is stronger. Not part of Grand Score.",
+    definition: "Daily RSI(14, Wilder) at the 20-day low minus RSI at the 40-20-day-ago low. Positive = bullish divergence (price made a lower low but RSI made a higher low) — bigger is stronger. Feeds the Reversal Signal Score's Daily component (only scored when the price also made a lower low — a 'confirmed' divergence). Not part of Grand Score. Logged as a Data Gap ('rsi_div_daily') when fewer than 40 daily bars are available.",
+    ranges: [
+      { range: "> 0", color: "green", meaning: "Bullish divergence" },
+      { range: "≤ 0", color: "red", meaning: "No divergence / bearish" },
+    ],
+  },
+  rsiDivergenceWeekly: {
+    definition: "Weekly RSI(14, Wilder) at the last-8-week low minus RSI at the 16-8-week-ago low. Same shape as RSI Divergence but on weekly closes. Feeds the Reversal Signal Score's Weekly component (only scored when the price also made a lower low — a 'confirmed' divergence). Not part of Grand Score. Logged as a Data Gap ('rsi_div_weekly') when fewer than 16 weekly bars are available.",
     ranges: [
       { range: "> 0", color: "green", meaning: "Bullish divergence" },
       { range: "≤ 0", color: "red", meaning: "No divergence / bearish" },
     ],
   },
   obvSlope: {
-    definition: "Linear-regression slope of daily OBV over the last 20 sessions, normalized by mean OBV over that window so it's comparable across tickers. Not part of Grand Score. Logged as a Data Gap ('OBV') when fewer than 20 sessions are available.",
+    definition: "Linear-regression slope of daily OBV over the last 20 sessions, normalized by mean OBV over that window so it's comparable across tickers. Feeds the Reversal Signal Score's OBV Slope component. Not part of Grand Score. Logged as a Data Gap ('obv_slope') when fewer than 20 sessions are available.",
     ranges: [
       { range: "> 0", color: "green", meaning: "OBV rising" },
       { range: "≤ 0", color: "red", meaning: "OBV flat/falling" },
     ],
   },
   obvDivergence: {
-    definition: "Normalized OBV Slope minus normalized price slope (both over the last 20 sessions). Positive = OBV rising while price is flat or falling — accumulation signal. Not part of Grand Score. Logged as a Data Gap ('OBV') when fewer than 20 sessions are available.",
+    definition: "Normalized OBV Slope minus normalized price slope (both over the last 20 sessions). Positive = OBV rising while price is flat or falling — accumulation signal. Feeds the Reversal Signal Score's OBV Divergence component. Not part of Grand Score. Logged as a Data Gap ('obv_divergence') when fewer than 20 sessions are available.",
     ranges: [
       { range: "> 0", color: "green", meaning: "Accumulation (OBV outpacing price)" },
       { range: "≤ 0", color: "red", meaning: "No accumulation signal" },
@@ -498,7 +523,8 @@ function CompositeBadge<K extends string>({
 export default function CoilingReversalTable({
   stocks, prices, distFrom2yHigh, distFrom6moLow, roc1mo, roc3mo,
   ma30wk, priceVsMa30wk, ma30wkSlope, volRatio10_90, upDownVolRatio, bbw,
-  atrPct, atrTrend, weeklyRsi, rsiFloor6mo, rsiDivergence, obvSlope, obvDivergence, maStackScore, lowerHighs, rsVsSpy3mo,
+  atrPct, atrTrend, weeklyRsi, rsiFloor6mo, rsiDivergence, rsiDivDailyConfirmed, rsiDivergenceWeekly, rsiDivWeeklyConfirmed,
+  obvSlope, obvDivergence, maStackScore, lowerHighs, rsVsSpy3mo,
   slopeNow, slope4wk, slope8wk, maTouchCount, rangeContractionRatio, rsLineDiffPct, volGreenRatio, upside,
   loading, addTicker, addLoading, addError, onAddTickerChange, onAdd, onRemove, onMoveToExcluded,
 }: Props) {
@@ -529,6 +555,9 @@ export default function CoilingReversalTable({
       weeklyRsi: weeklyRsi[s.ticker] ?? null,
       rsiFloor6mo: rsiFloor6mo[s.ticker] ?? null,
       rsiDivergence: rsiDivergence[s.ticker] ?? null,
+      rsiDivDailyConfirmed: rsiDivDailyConfirmed[s.ticker] ?? null,
+      rsiDivergenceWeekly: rsiDivergenceWeekly[s.ticker] ?? null,
+      rsiDivWeeklyConfirmed: rsiDivWeeklyConfirmed[s.ticker] ?? null,
       obvSlope: obvSlope[s.ticker] ?? null,
       obvDivergence: obvDivergence[s.ticker] ?? null,
       maStackScore: maStackScore[s.ticker] ?? null,
@@ -556,19 +585,22 @@ export default function CoilingReversalTable({
         epsCurrent: null, epsNinetyDaysAgo: null, shortPercentOfFloat: null, insiderBuyCount: null,
       });
       const master = computeMasterScore(grandScore, prox.totalScore, up.totalScore);
-      // Insufficient-history gaps for technical raw columns computed client-side (RSI Divergence,
-      // OBV Slope/Divergence) — merged with the fundamentals gaps from scoreUpside into one
-      // "Data Gaps" list surfaced in the CSV export and the Upside tooltip.
-      const techDataGaps: string[] = [];
-      if (r.rsiDivergence == null) techDataGaps.push("RSI_divergence");
-      if (r.obvSlope == null || r.obvDivergence == null) techDataGaps.push("OBV");
-      const allDataGaps = [...up.dataGaps, ...techDataGaps];
+      const reversal = scoreReversalSignal({
+        rsiDivDaily: r.rsiDivergence, rsiDivDailyConfirmed: r.rsiDivDailyConfirmed,
+        rsiDivWeekly: r.rsiDivergenceWeekly, rsiDivWeeklyConfirmed: r.rsiDivWeeklyConfirmed,
+        obvSlope: r.obvSlope, obvDivergence: r.obvDivergence,
+      });
+      // Data gaps merge the fundamentals gaps from scoreUpside with the Reversal Signal Score's
+      // own insufficient-history gaps — one combined "Data Gaps" list surfaced in the CSV export
+      // and the Upside tooltip.
+      const allDataGaps = [...up.dataGaps, ...reversal.dataGaps];
       return {
         ...r, ...scores[i], grandScore,
         proximity: prox, proximityScore: prox.totalScore,
         upsideResult: up, upsideScore: up.totalScore,
         master, masterScore: master.masterScore,
-        techDataGaps, allDataGaps,
+        reversal, reversalSignalScore: reversal.totalScore,
+        allDataGaps,
       };
     });
     arr.sort((a, b) => {
@@ -584,7 +616,9 @@ export default function CoilingReversalTable({
     });
     return arr;
   }, [stocks, prices, distFrom2yHigh, distFrom6moLow, roc1mo, roc3mo, ma30wk, priceVsMa30wk, ma30wkSlope,
-      volRatio10_90, upDownVolRatio, bbw, atrPct, atrTrend, weeklyRsi, rsiFloor6mo, rsiDivergence, maStackScore, lowerHighs, rsVsSpy3mo,
+      volRatio10_90, upDownVolRatio, bbw, atrPct, atrTrend, weeklyRsi, rsiFloor6mo, rsiDivergence,
+      rsiDivDailyConfirmed, rsiDivergenceWeekly, rsiDivWeeklyConfirmed, obvSlope, obvDivergence,
+      maStackScore, lowerHighs, rsVsSpy3mo,
       slopeNow, slope4wk, slope8wk, maTouchCount, rangeContractionRatio, rsLineDiffPct, volGreenRatio, upside, sortKey, sortDir]);
 
   function exportCsv() {
@@ -593,9 +627,10 @@ export default function CoilingReversalTable({
       "Ticker", "Industry", "Price", "Grand Score", "Label", "Flag Reasons",
       "% from 2Y High", "% from 6mo Low", "ROC 1mo", "ROC 3mo",
       "30wk MA", "Price vs 30wk MA", "30wk MA Slope", "Vol Ratio 10d/90d", "Up/Down Vol Ratio",
-      "BBW", "ATR%", "ATR Trend", "Weekly RSI", "RSI Floor 6mo", "RSI Divergence", "OBV Slope", "OBV Divergence", "MA Stack Score", "Lower Highs", "RS vs SPY 3mo",
+      "BBW", "ATR%", "ATR Trend", "Weekly RSI", "RSI Floor 6mo", "RSI Divergence", "RSI Divergence Weekly", "OBV Slope", "OBV Divergence", "MA Stack Score", "Lower Highs", "RS vs SPY 3mo",
       "Proximity Score", "Proximity Label", "Upside Score", "Upside Label", "Data Gaps", "Data Gap Count",
       "Master Score", "Master Label",
+      "RSS Daily Score", "RSS Weekly Score", "RSS OBV Slope Score", "RSS OBV Div Score", "Reversal Signal Score", "Reversal Signal Label",
     ];
     const data = rows.map((r) => [
       r.ticker,
@@ -619,6 +654,7 @@ export default function CoilingReversalTable({
       r.weeklyRsi?.toFixed(1) ?? "",
       r.rsiFloor6mo?.toFixed(1) ?? "",
       r.rsiDivergence?.toFixed(1) ?? "",
+      r.rsiDivergenceWeekly?.toFixed(1) ?? "",
       r.obvSlope?.toFixed(4) ?? "",
       r.obvDivergence?.toFixed(4) ?? "",
       r.maStackScore ?? "",
@@ -632,6 +668,12 @@ export default function CoilingReversalTable({
       r.allDataGaps.length,
       r.masterScore,
       r.master.masterLabel,
+      r.reversal.subScores.rsiDivDaily,
+      r.reversal.subScores.rsiDivWeekly,
+      r.reversal.subScores.obvSlope,
+      r.reversal.subScores.obvDivergence,
+      r.reversalSignalScore,
+      r.reversal.label,
     ]);
     downloadCsv(`coiling-reversal-${date}.csv`, headers, data);
   }
@@ -686,10 +728,11 @@ export default function CoilingReversalTable({
           <table className="min-w-full text-sm">
             <thead className="bg-gray-100 border-b border-gray-200 sticky top-0 z-10">
               <tr className="text-[10px] text-gray-400 uppercase tracking-wide">
-                <th colSpan={24} />
+                <th colSpan={25} />
                 <th colSpan={1} className="px-3 py-1 text-left border-l border-gray-200">Group 1: Breakout Proximity</th>
                 <th colSpan={1} className="px-3 py-1 text-left border-l border-gray-200">Group 2: Upside Potential</th>
                 <th colSpan={1} className="px-3 py-1 text-left border-l border-gray-200">Group 3: Master</th>
+                <th colSpan={1} className="px-3 py-1 text-left border-l border-gray-200">Group 4: Reversal Signal</th>
                 <th />
               </tr>
               <tr>
@@ -712,6 +755,7 @@ export default function CoilingReversalTable({
                 {th("Weekly RSI", "weeklyRsi")}
                 {th("RSI Floor 6mo", "rsiFloor6mo")}
                 {th("RSI Divergence", "rsiDivergence")}
+                {th("RSI Divergence Weekly", "rsiDivergenceWeekly")}
                 {th("OBV Slope", "obvSlope")}
                 {th("OBV Divergence", "obvDivergence")}
                 {th("MA Stack", "maStackScore")}
@@ -720,6 +764,7 @@ export default function CoilingReversalTable({
                 {th("Proximity", "proximityScore", "border-l border-gray-200")}
                 {th("Upside", "upsideScore")}
                 {th("Master", "masterScore")}
+                {th("Reversal Signal", "reversalSignalScore", "border-l border-gray-200")}
                 <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Remove</th>
               </tr>
             </thead>
@@ -766,13 +811,16 @@ export default function CoilingReversalTable({
                   </td>
                   <td className="px-3 py-2 text-gray-700">{r.rsiFloor6mo != null ? r.rsiFloor6mo.toFixed(1) : dash}</td>
                   <td className={`px-3 py-2 font-medium ${r.rsiDivergence == null ? "text-gray-400" : r.rsiDivergence > 0 ? "text-green-600" : "text-red-500"}`}>
-                    {r.rsiDivergence != null ? `${r.rsiDivergence >= 0 ? "+" : ""}${r.rsiDivergence.toFixed(1)}` : <span title="Data gap: RSI_divergence">{dash}</span>}
+                    {r.rsiDivergence != null ? `${r.rsiDivergence >= 0 ? "+" : ""}${r.rsiDivergence.toFixed(1)}` : <span title="Data gap: rsi_div_daily">{dash}</span>}
+                  </td>
+                  <td className={`px-3 py-2 font-medium ${r.rsiDivergenceWeekly == null ? "text-gray-400" : r.rsiDivergenceWeekly > 0 ? "text-green-600" : "text-red-500"}`}>
+                    {r.rsiDivergenceWeekly != null ? `${r.rsiDivergenceWeekly >= 0 ? "+" : ""}${r.rsiDivergenceWeekly.toFixed(1)}` : <span title="Data gap: rsi_div_weekly">{dash}</span>}
                   </td>
                   <td className={`px-3 py-2 font-medium ${r.obvSlope == null ? "text-gray-400" : r.obvSlope > 0 ? "text-green-600" : "text-red-500"}`}>
-                    {r.obvSlope != null ? `${r.obvSlope >= 0 ? "+" : ""}${r.obvSlope.toFixed(4)}` : <span title="Data gap: OBV">{dash}</span>}
+                    {r.obvSlope != null ? `${r.obvSlope >= 0 ? "+" : ""}${r.obvSlope.toFixed(4)}` : <span title="Data gap: obv_slope">{dash}</span>}
                   </td>
                   <td className={`px-3 py-2 font-medium ${r.obvDivergence == null ? "text-gray-400" : r.obvDivergence > 0 ? "text-green-600" : "text-red-500"}`}>
-                    {r.obvDivergence != null ? `${r.obvDivergence >= 0 ? "+" : ""}${r.obvDivergence.toFixed(4)}` : <span title="Data gap: OBV">{dash}</span>}
+                    {r.obvDivergence != null ? `${r.obvDivergence >= 0 ? "+" : ""}${r.obvDivergence.toFixed(4)}` : <span title="Data gap: obv_divergence">{dash}</span>}
                   </td>
                   <td className="px-3 py-2 text-gray-700">{r.maStackScore != null ? `${r.maStackScore}/3` : dash}</td>
                   <td className="px-3 py-2">
@@ -806,6 +854,14 @@ export default function CoilingReversalTable({
                         {r.master.masterLabel}
                       </span>
                     </div>
+                  </td>
+                  <td className="px-3 py-2 border-l border-gray-100">
+                    <CompositeBadge
+                      score={r.reversalSignalScore} max={12} label={r.reversal.label}
+                      labelStyle={REVERSAL_SIGNAL_LABEL_STYLES[r.reversal.label]}
+                      rows={REVERSAL_SIGNAL_ROW_LABELS} subScores={r.reversal.subScores}
+                      extraNote={r.reversal.dataGaps.length > 0 ? `Data gaps (${r.reversal.dataGaps.length}): ${r.reversal.dataGaps.join(", ")}` : undefined}
+                    />
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap">
                     <button onClick={() => onRemove(r.ticker)} className="text-xs text-red-500 hover:text-red-700 mr-2">Remove</button>

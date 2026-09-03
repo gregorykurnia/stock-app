@@ -221,6 +221,9 @@ interface CoilingResult {
   weeklyRsi: number | null;
   rsiFloor6mo: number | null;
   rsiDivergence: number | null;
+  rsiDivDailyConfirmed: boolean | null;
+  rsiDivergenceWeekly: number | null;
+  rsiDivWeeklyConfirmed: boolean | null;
   obvSlope: number | null;
   obvDivergence: number | null;
   maStackScore: number | null;
@@ -248,6 +251,7 @@ const EMPTY: CoilingResult = {
   ma30wk: null, priceVsMa30wk: null, ma30wkSlope: null,
   volRatio10_90: null, upDownVolRatio: null, bbw: null,
   atrPct: null, atrTrend: null, weeklyRsi: null, rsiFloor6mo: null, rsiDivergence: null,
+  rsiDivDailyConfirmed: null, rsiDivergenceWeekly: null, rsiDivWeeklyConfirmed: null,
   obvSlope: null, obvDivergence: null,
   maStackScore: null, lowerHighs: null, rsVsSpy3mo: null,
   capVolRatio: null, rsiFloor52wk: null, priceVs20dLow: null, dropSpeed: null, recoveryCandle: null,
@@ -334,6 +338,7 @@ async function fetchCoiling(ticker: string, spyReturn63: number | null, spyClose
   // (min close in the 40-20 days ago window). Positive = bullish divergence (price lower low,
   // RSI higher low). Requires at least 40 daily closes plus enough history for RSI to be defined.
   let rsiDivergence: number | null = null;
+  let rsiDivDailyConfirmed: boolean | null = null;
   {
     const dailyRsiArr = rsi(closes, 14);
     if (closes.length >= 40) {
@@ -349,7 +354,36 @@ async function fetchCoiling(ticker: string, spyReturn63: number | null, spyClose
       }
       const rsiAtLow1 = low1Idx >= 0 ? dailyRsiArr[low1Idx] : null;
       const rsiAtLow2 = low2Idx >= 0 ? dailyRsiArr[low2Idx] : null;
-      if (rsiAtLow1 != null && rsiAtLow2 != null) rsiDivergence = rsiAtLow2 - rsiAtLow1;
+      if (rsiAtLow1 != null && rsiAtLow2 != null) {
+        rsiDivergence = rsiAtLow2 - rsiAtLow1;
+        rsiDivDailyConfirmed = low2Val < low1Val && rsiAtLow2 > rsiAtLow1;
+      }
+    }
+  }
+
+  // RSI Divergence Weekly: same shape as the daily version above, but Low1/Low2 are drawn from
+  // weekly closes (16-8 weeks ago vs the last 8 weeks) and weekly RSI — reuses weeklyCloses /
+  // weeklyRsiArr already computed above, no extra request.
+  let rsiDivergenceWeekly: number | null = null;
+  let rsiDivWeeklyConfirmed: boolean | null = null;
+  {
+    if (weeklyCloses.length >= 16) {
+      const w1Start = weeklyCloses.length - 16, w1End = weeklyCloses.length - 8; // 16..8 weeks ago
+      const w2Start = weeklyCloses.length - 8, w2End = weeklyCloses.length; // last 8 weeks
+      let low1Idx = -1, low1Val = Infinity;
+      for (let i = w1Start; i < w1End; i++) {
+        if (weeklyCloses[i] < low1Val) { low1Val = weeklyCloses[i]; low1Idx = i; }
+      }
+      let low2Idx = -1, low2Val = Infinity;
+      for (let i = w2Start; i < w2End; i++) {
+        if (weeklyCloses[i] < low2Val) { low2Val = weeklyCloses[i]; low2Idx = i; }
+      }
+      const rsiAtLow1 = low1Idx >= 0 ? weeklyRsiArr[low1Idx] : null;
+      const rsiAtLow2 = low2Idx >= 0 ? weeklyRsiArr[low2Idx] : null;
+      if (rsiAtLow1 != null && rsiAtLow2 != null) {
+        rsiDivergenceWeekly = rsiAtLow2 - rsiAtLow1;
+        rsiDivWeeklyConfirmed = low2Val < low1Val && rsiAtLow2 > rsiAtLow1;
+      }
     }
   }
 
@@ -495,6 +529,7 @@ async function fetchCoiling(ticker: string, spyReturn63: number | null, spyClose
     ma30wk, priceVsMa30wk, ma30wkSlope,
     volRatio10_90, upDownVolRatio, bbw,
     atrPct, atrTrend, weeklyRsi, rsiFloor6mo, rsiDivergence,
+    rsiDivDailyConfirmed, rsiDivergenceWeekly, rsiDivWeeklyConfirmed,
     obvSlope, obvDivergence,
     maStackScore, lowerHighs, rsVsSpy3mo,
     capVolRatio, rsiFloor52wk, priceVs20dLow, dropSpeed, recoveryCandle,
@@ -554,6 +589,9 @@ export async function GET(req: NextRequest) {
   const weeklyRsi: Record<string, number | null> = {};
   const rsiFloor6mo: Record<string, number | null> = {};
   const rsiDivergence: Record<string, number | null> = {};
+  const rsiDivDailyConfirmed: Record<string, boolean | null> = {};
+  const rsiDivergenceWeekly: Record<string, number | null> = {};
+  const rsiDivWeeklyConfirmed: Record<string, boolean | null> = {};
   const obvSlope: Record<string, number | null> = {};
   const obvDivergence: Record<string, number | null> = {};
   const maStackScore: Record<string, number | null> = {};
@@ -596,6 +634,9 @@ export async function GET(req: NextRequest) {
       weeklyRsi[ticker] = r.weeklyRsi;
       rsiFloor6mo[ticker] = r.rsiFloor6mo;
       rsiDivergence[ticker] = r.rsiDivergence;
+      rsiDivDailyConfirmed[ticker] = r.rsiDivDailyConfirmed;
+      rsiDivergenceWeekly[ticker] = r.rsiDivergenceWeekly;
+      rsiDivWeeklyConfirmed[ticker] = r.rsiDivWeeklyConfirmed;
       obvSlope[ticker] = r.obvSlope;
       obvDivergence[ticker] = r.obvDivergence;
       maStackScore[ticker] = r.maStackScore;
@@ -621,7 +662,8 @@ export async function GET(req: NextRequest) {
     distFrom2yHigh, distFrom6moLow, roc1mo, roc3mo,
     ma30wk, priceVsMa30wk, ma30wkSlope,
     volRatio10_90, upDownVolRatio, bbw,
-    atrPct, atrTrend, weeklyRsi, rsiFloor6mo, rsiDivergence, obvSlope, obvDivergence,
+    atrPct, atrTrend, weeklyRsi, rsiFloor6mo, rsiDivergence,
+    rsiDivDailyConfirmed, rsiDivergenceWeekly, rsiDivWeeklyConfirmed, obvSlope, obvDivergence,
     slopeNow, slope4wk, slope8wk, maTouchCount, rangeContractionRatio, rsLineDiffPct, volGreenRatio,
     upside,
     maStackScore, lowerHighs, rsVsSpy3mo,

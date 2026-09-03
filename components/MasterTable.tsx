@@ -301,6 +301,9 @@ export default function MasterTable({
   const [coilingRsiDivergence, setCoilingRsiDivergence] = useState<Record<string, number | null>>({});
   const [coilingObvSlope, setCoilingObvSlope] = useState<Record<string, number | null>>({});
   const [coilingObvDivergence, setCoilingObvDivergence] = useState<Record<string, number | null>>({});
+  const [coilingRsiDivDailyConfirmed, setCoilingRsiDivDailyConfirmed] = useState<Record<string, boolean | null>>({});
+  const [coilingRsiDivergenceWeekly, setCoilingRsiDivergenceWeekly] = useState<Record<string, number | null>>({});
+  const [coilingRsiDivWeeklyConfirmed, setCoilingRsiDivWeeklyConfirmed] = useState<Record<string, boolean | null>>({});
   const [coilingMaStackScore, setCoilingMaStackScore] = useState<Record<string, number | null>>({});
   const [coilingLowerHighs, setCoilingLowerHighs] = useState<Record<string, boolean | null>>({});
   const [coilingRsVsSpy3mo, setCoilingRsVsSpy3mo] = useState<Record<string, number | null>>({});
@@ -349,6 +352,9 @@ export default function MasterTable({
         setCoilingRsiDivergence((p) => ({ ...p, ...(d.rsiDivergence ?? {}) }));
         setCoilingObvSlope((p) => ({ ...p, ...(d.obvSlope ?? {}) }));
         setCoilingObvDivergence((p) => ({ ...p, ...(d.obvDivergence ?? {}) }));
+        setCoilingRsiDivDailyConfirmed((p) => ({ ...p, ...(d.rsiDivDailyConfirmed ?? {}) }));
+        setCoilingRsiDivergenceWeekly((p) => ({ ...p, ...(d.rsiDivergenceWeekly ?? {}) }));
+        setCoilingRsiDivWeeklyConfirmed((p) => ({ ...p, ...(d.rsiDivWeeklyConfirmed ?? {}) }));
         setCoilingMaStackScore((p) => ({ ...p, ...(d.maStackScore ?? {}) }));
         setCoilingLowerHighs((p) => ({ ...p, ...(d.lowerHighs ?? {}) }));
         setCoilingRsVsSpy3mo((p) => ({ ...p, ...(d.rsVsSpy3mo ?? {}) }));
@@ -2604,6 +2610,9 @@ export default function MasterTable({
               rsiDivergence={coilingRsiDivergence}
               obvSlope={coilingObvSlope}
               obvDivergence={coilingObvDivergence}
+              rsiDivDailyConfirmed={coilingRsiDivDailyConfirmed}
+              rsiDivergenceWeekly={coilingRsiDivergenceWeekly}
+              rsiDivWeeklyConfirmed={coilingRsiDivWeeklyConfirmed}
               maStackScore={coilingMaStackScore}
               lowerHighs={coilingLowerHighs}
               rsVsSpy3mo={coilingRsVsSpy3mo}
