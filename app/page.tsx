@@ -999,23 +999,26 @@ export default function Home() {
                 : `${54 + customStocks.length} stocks · Weekly framework · AI verdicts`}
             </p>
           </div>
-          <div className="flex gap-2 flex-wrap items-center">
-            {!isIhsg && (
+          <div className="flex gap-3 flex-wrap items-center">
+            <div className="flex gap-2 flex-wrap items-center">
+              {!isIhsg && (
+                <button
+                  onClick={handleRefreshPeStats}
+                  disabled={peRefreshing}
+                  className="btn btn-ghost"
+                  title="Recompute 5Y P/E z-score for all stocks from SEC EDGAR + Yahoo Finance"
+                >
+                  {peRefreshing ? `Refreshing P/E… ${peProgress}` : "Refresh P/E Z-Scores"}
+                </button>
+              )}
               <button
-                onClick={handleRefreshPeStats}
-                disabled={peRefreshing}
-                className="btn btn-ghost"
-                title="Recompute 5Y P/E z-score for all stocks from SEC EDGAR + Yahoo Finance"
+                onClick={() => { setShowAdd(true); setAddError(""); }}
+                className="btn btn-secondary"
               >
-                {peRefreshing ? `Refreshing P/E… ${peProgress}` : "Refresh P/E Z-Scores"}
+                + Add Stock
               </button>
-            )}
-            <button
-              onClick={() => { setShowAdd(true); setAddError(""); }}
-              className="btn btn-secondary"
-            >
-              + Add Stock
-            </button>
+            </div>
+            <div className="w-px self-stretch bg-[var(--border)] hidden sm:block" />
             <form onSubmit={handleSearch} className="flex gap-2">
               <input
                 type="text"

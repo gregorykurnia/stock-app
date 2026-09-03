@@ -840,102 +840,112 @@ export default function USSwingTable({
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <form onSubmit={onAdd} className="flex gap-2">
-          <input
-            type="text"
-            placeholder="e.g. TSLA"
-            value={addTicker}
-            onChange={(e) => onAddTickerChange?.(e.target.value)}
-            autoCapitalize="characters"
-            autoCorrect="off"
-            autoComplete="off"
-            spellCheck={false}
-            className="input-field w-32 uppercase"
-          />
-          <button
-            type="submit"
-            disabled={addLoading}
-            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white px-3 py-1.5 rounded text-sm font-semibold"
-          >
-            {addLoading ? "Adding…" : "+ Add"}
-          </button>
-        </form>
-        {addError && <span className="text-xs text-red-500">{addError}</span>}
-        <div className="flex items-center gap-1.5">
-          <input
-            type="text"
-            placeholder="Search ticker or name…"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            autoCapitalize="characters"
-            autoCorrect="off"
-            autoComplete="off"
-            spellCheck={false}
-            className="input-field w-48"
-          />
-          {search && (
-            <span className={`text-xs font-medium whitespace-nowrap ${isOnList ? "text-green-600" : "text-gray-400"}`}>
-              {isOnList ? `✓ ${search} is on your list` : `${search} not on your list`}
-            </span>
-          )}
+      <div className="surface-card p-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <form onSubmit={onAdd} className="flex gap-2">
+            <input
+              type="text"
+              placeholder="e.g. TSLA"
+              value={addTicker}
+              onChange={(e) => onAddTickerChange?.(e.target.value)}
+              autoCapitalize="characters"
+              autoCorrect="off"
+              autoComplete="off"
+              spellCheck={false}
+              className="input-field w-28 uppercase"
+            />
+            <button
+              type="submit"
+              disabled={addLoading}
+              className="btn btn-primary text-sm px-3 py-1.5"
+            >
+              {addLoading ? "Adding…" : "+ Add"}
+            </button>
+          </form>
+          {addError && <span className="text-xs text-red-500">{addError}</span>}
+
+          <div className="w-px self-stretch bg-gray-200" />
+
+          <div className="flex items-center gap-1.5">
+            <input
+              type="text"
+              placeholder="Search ticker or name…"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              autoCapitalize="characters"
+              autoCorrect="off"
+              autoComplete="off"
+              spellCheck={false}
+              className="input-field w-48"
+            />
+            {search && (
+              <span className={`text-xs font-medium whitespace-nowrap ${isOnList ? "text-green-600" : "text-gray-400"}`}>
+                {isOnList ? `✓ ${search} is on your list` : `${search} not on your list`}
+              </span>
+            )}
+          </div>
+          {loading && <span className="text-xs text-gray-400 animate-pulse">Loading daily indicators…</span>}
         </div>
-        {loading && <span className="text-xs text-gray-400 animate-pulse">Loading daily indicators…</span>}
-        <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={starredOnly}
-            onChange={(e) => setStarredOnly(e.target.checked)}
-            className="accent-yellow-500"
-          />
-          ★ Starred only
-        </label>
-        <div className="relative">
-          <button
-            onClick={() => setCategoryMenuOpen((o) => !o)}
-            className={`text-xs px-3 py-1.5 rounded border flex items-center gap-1 ${categoryFilter.size > 0 ? "border-blue-400 text-blue-700 bg-blue-50" : "border-gray-300 text-gray-600 bg-white hover:border-gray-400 hover:text-gray-800"}`}
-          >
-            Category{categoryFilter.size > 0 ? ` (${categoryFilter.size})` : ""} ▾
-          </button>
-          {categoryMenuOpen && (
-            <>
-              <div className="fixed inset-0 z-40" onClick={() => setCategoryMenuOpen(false)} />
-              <div className="absolute z-50 top-full left-0 mt-1 w-80 rounded-md border border-gray-200 bg-white shadow-lg p-2">
-                <div className="flex items-center justify-between px-1 pb-1.5 mb-1 border-b border-gray-100">
-                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Filter by category</span>
-                  {categoryFilter.size > 0 && (
-                    <button onClick={() => setCategoryFilter(new Set())} className="text-xs text-blue-600 hover:underline">
-                      Clear
-                    </button>
-                  )}
-                </div>
-                {CATEGORY_DEFS.map((c) => (
-                  <label key={c.key} className="flex items-start gap-2 px-1 py-1.5 rounded hover:bg-gray-50 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={categoryFilter.has(c.key)}
-                      onChange={() => toggleCategoryFilter(c.key)}
-                      className="mt-0.5 accent-blue-600"
-                    />
-                    <span>
-                      <span className={`inline-flex items-center rounded-full ${c.badgeClass} text-xs font-semibold px-2 py-0.5 whitespace-nowrap`}>
-                        {c.label}
+
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none px-2 py-1.5 rounded border border-gray-300 bg-white hover:border-gray-400">
+            <input
+              type="checkbox"
+              checked={starredOnly}
+              onChange={(e) => setStarredOnly(e.target.checked)}
+              className="accent-yellow-500"
+            />
+            ★ Starred only
+          </label>
+          <div className="relative">
+            <button
+              onClick={() => setCategoryMenuOpen((o) => !o)}
+              className={`text-xs px-3 py-1.5 rounded border flex items-center gap-1 ${categoryFilter.size > 0 ? "border-blue-400 text-blue-700 bg-blue-50" : "border-gray-300 text-gray-600 bg-white hover:border-gray-400 hover:text-gray-800"}`}
+            >
+              Category{categoryFilter.size > 0 ? ` (${categoryFilter.size})` : ""} ▾
+            </button>
+            {categoryMenuOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setCategoryMenuOpen(false)} />
+                <div className="absolute z-50 top-full right-0 mt-1 w-80 rounded-md border border-gray-200 bg-white shadow-lg p-2">
+                  <div className="flex items-center justify-between px-1 pb-1.5 mb-1 border-b border-gray-100">
+                    <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Filter by category</span>
+                    {categoryFilter.size > 0 && (
+                      <button onClick={() => setCategoryFilter(new Set())} className="text-xs text-blue-600 hover:underline">
+                        Clear
+                      </button>
+                    )}
+                  </div>
+                  {CATEGORY_DEFS.map((c) => (
+                    <label key={c.key} className="flex items-start gap-2 px-1 py-1.5 rounded hover:bg-gray-50 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={categoryFilter.has(c.key)}
+                        onChange={() => toggleCategoryFilter(c.key)}
+                        className="mt-0.5 accent-blue-600"
+                      />
+                      <span>
+                        <span className={`inline-flex items-center rounded-full ${c.badgeClass} text-xs font-semibold px-2 py-0.5 whitespace-nowrap`}>
+                          {c.label}
+                        </span>
+                        <span className="block text-[11px] text-gray-500 mt-0.5">{c.description}</span>
                       </span>
-                      <span className="block text-[11px] text-gray-500 mt-0.5">{c.description}</span>
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </>
-          )}
+                    </label>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+          <button
+            onClick={exportCsv}
+            className="btn btn-ghost text-xs px-3 py-1.5"
+          >
+            Export CSV
+          </button>
         </div>
-        <span className="text-xs text-gray-400 ml-auto">{sortedRows.length} of {stocks.length} stocks · daily timeframe · independent from List</span>
-        <button
-          onClick={exportCsv}
-          className="btn btn-ghost text-xs px-3 py-1.5"
-        >
-          Export CSV
-        </button>
+      </div>
+      <div className="text-xs text-gray-400 text-right -mt-1">
+        {sortedRows.length} of {stocks.length} stocks · daily timeframe · independent from List
       </div>
       <div className="overflow-x-auto overflow-y-auto max-h-[72vh] rounded-lg border border-gray-200">
         <table className="w-full text-sm">
