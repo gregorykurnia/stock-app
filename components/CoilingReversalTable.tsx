@@ -600,11 +600,12 @@ export default function CoilingReversalTable({
 
   const th = (label: string, k: SortKey, extraClass = "") => {
     const tip = COLUMN_TIPS[k];
+    const sticky = k === "ticker";
     return (
       <th
         key={k}
         onClick={() => handleSort(k)}
-        className={`px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide cursor-pointer hover:text-gray-900 whitespace-nowrap select-none ${extraClass}`}
+        className={`px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide cursor-pointer hover:text-gray-900 whitespace-nowrap select-none ${sticky ? "sticky left-0 z-20 bg-gray-100 border-r border-gray-200" : ""} ${extraClass}`}
       >
         <span className="inline-flex items-center">
           {label} {sortKey === k && (sortDir === "asc" ? "▲" : "▼")}
@@ -683,8 +684,8 @@ export default function CoilingReversalTable({
             </thead>
             <tbody className="divide-y divide-gray-100">
               {rows.map((r) => (
-                <tr key={r.ticker} className="hover:bg-gray-50">
-                  <td className="px-3 py-2 font-semibold text-gray-900">
+                <tr key={r.ticker} className="hover:bg-gray-50 group">
+                  <td className="px-3 py-2 font-semibold text-gray-900 sticky left-0 z-10 bg-white group-hover:bg-gray-50 border-r border-gray-200">
                     {r.ticker}
                     {r.name && <div className="text-xs text-gray-400 font-normal">{r.name}</div>}
                   </td>
