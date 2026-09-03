@@ -2,11 +2,14 @@
 
 import { useMemo, useRef, useState, type FormEvent } from "react";
 import { downloadCsv } from "@/lib/exportCsv";
-import { scoreCoilingRows, type CoilingLabel, type CoilingSubScores } from "@/lib/coilingScore";
-import { scoreProximity, type ProximityLabel, type ProximitySubScores } from "@/lib/proximityScore";
-import { scoreUpside, type UpsideLabel, type UpsideSubScores, type UpsideInput } from "@/lib/upsideScore";
-import { computeMasterScore, type MasterLabel } from "@/lib/masterScore";
-import { scoreReversalSignal, type ReversalSignalLabel, type ReversalSignalSubScores } from "@/lib/reversalSignalScore";
+import {
+  scoreMasterV2Rows,
+  type MasterV2Label,
+  type PillarSubScores,
+  type AccumulationSubScores,
+  type FundamentalSubScores,
+} from "@/lib/masterScoreV2";
+import type { UpsideInput as UpsideRaw } from "@/lib/upsideScore";
 
 export interface CoilingStock {
   ticker: string;
@@ -16,71 +19,40 @@ export interface CoilingStock {
 }
 
 type SortKey =
-  | "ticker" | "industry" | "price" | "grandScore" | "distFrom2yHigh" | "distFrom6moLow" | "roc1mo" | "roc3mo"
-  | "ma30wk" | "priceVsMa30wk" | "ma30wkSlope" | "volRatio10_90" | "upDownVolRatio" | "bbw"
-  | "atrPct" | "atrTrend" | "weeklyRsi" | "rsiFloor6mo" | "rsiDivergence" | "rsiDivergenceWeekly" | "obvSlope" | "obvDivergence" | "maStackScore" | "lowerHighs" | "rsVsSpy3mo"
-  | "proximityScore" | "upsideScore" | "masterScore" | "reversalSignalScore";
+  | "ticker" | "industry" | "price" | "distFrom2yHigh"
+  | "pillar1Score" | "pillar2Score" | "pillar3Score" | "masterScore"
+  | "rsiDivergence" | "rsiDivergenceWeekly" | "obvDivergence" | "weeklyRsi" | "rsiFloor6mo";
 type SortDir = "asc" | "desc";
 
-const LABEL_STYLES: Record<CoilingLabel, string> = {
-  "High Conviction": "bg-green-100 text-green-700 border border-green-300",
-  "Interesting": "bg-blue-100 text-blue-700 border border-blue-300",
-  "Early / Incomplete": "bg-yellow-100 text-yellow-700 border border-yellow-300",
-  "Weak": "bg-orange-100 text-orange-700 border border-orange-300",
-  "Poor": "bg-red-100 text-red-700 border border-red-300",
-};
-
-const PROXIMITY_LABEL_STYLES: Record<ProximityLabel, string> = {
-  "Imminent": "bg-green-100 text-green-700 border border-green-300",
-  "Developing": "bg-blue-100 text-blue-700 border border-blue-300",
-  "Early": "bg-yellow-100 text-yellow-700 border border-yellow-300",
-  "Not Ready": "bg-red-100 text-red-700 border border-red-300",
-};
-
-const UPSIDE_LABEL_STYLES: Record<UpsideLabel, string> = {
-  "High Upside Potential": "bg-green-100 text-green-700 border border-green-300",
-  "Moderate Upside": "bg-blue-100 text-blue-700 border border-blue-300",
-  "Speculative": "bg-yellow-100 text-yellow-700 border border-yellow-300",
-  "Low Conviction": "bg-red-100 text-red-700 border border-red-300",
-};
-
-const REVERSAL_SIGNAL_LABEL_STYLES: Record<ReversalSignalLabel, string> = {
-  "Strong Accumulation": "bg-green-100 text-green-700 border border-green-300",
-  "Developing": "bg-blue-100 text-blue-700 border border-blue-300",
-  "Weak Signal": "bg-yellow-100 text-yellow-700 border border-yellow-300",
-  "No Signal": "bg-red-100 text-red-700 border border-red-300",
-};
-
-const MASTER_LABEL_STYLES: Record<MasterLabel, string> = {
-  "Tier 1: High Conviction Entry": "bg-green-100 text-green-700 border border-green-300",
+const MASTER_LABEL_STYLES: Record<MasterV2Label, string> = {
+  "Tier 1: High Conviction": "bg-green-100 text-green-700 border border-green-300",
   "Tier 2: Strong Candidate": "bg-blue-100 text-blue-700 border border-blue-300",
   "Tier 3: Watch Closely": "bg-yellow-100 text-yellow-700 border border-yellow-300",
   "Tier 4: Too Early": "bg-orange-100 text-orange-700 border border-orange-300",
   "Tier 5: Avoid": "bg-red-100 text-red-700 border border-red-300",
 };
 
-const PROXIMITY_ROW_LABELS: [keyof ProximitySubScores, string][] = [
-  ["slopeVelocity", "Slope Velocity"],
-  ["maTouchCount", "MA Touch Count"],
-  ["rangeContraction", "Range Contraction"],
-  ["rsLineDirection", "RS Line Direction"],
-  ["volumeGreenDays", "Volume on Green Days"],
+const SETUP_ROW_LABELS: [keyof PillarSubScores, string][] = [
+  ["distFrom2yHigh", "% from 2Y High"],
+  ["distFrom6moLow", "% from 6mo Low"],
+  ["ma30wkSlope", "30wk MA Slope"],
+  ["bbw", "BBW Percentile"],
+  ["atrPct", "ATR%"],
 ];
 
-const REVERSAL_SIGNAL_ROW_LABELS: [keyof ReversalSignalSubScores, string][] = [
+const ACCUMULATION_ROW_LABELS: [keyof AccumulationSubScores, string][] = [
   ["rsiDivDaily", "RSI Divergence (Daily)"],
   ["rsiDivWeekly", "RSI Divergence (Weekly)"],
-  ["obvSlope", "OBV Slope"],
   ["obvDivergence", "OBV Divergence"],
+  ["recoveryCandle", "Recovery Candle"],
 ];
 
-const UPSIDE_ROW_LABELS: [keyof UpsideSubScores, string][] = [
+const FUNDAMENTAL_ROW_LABELS: [keyof FundamentalSubScores, string][] = [
   ["grossMarginTrend", "Gross Margin Trend"],
-  ["revenueDeceleration", "Revenue Deceleration"],
-  ["cashRunway", "Cash Runway"],
-  ["epsRevision", "EPS Revision"],
+  ["revenueTrend", "Revenue Trend"],
+  ["fcfStatus", "FCF Status"],
   ["shortInterest", "Short Interest"],
-  ["insiderBuyCount", "Insider Buy Count"],
+  ["insiderBuying", "Insider Buying"],
 ];
 
 interface Props {
@@ -116,7 +88,8 @@ interface Props {
   rangeContractionRatio: Record<string, number | null>;
   rsLineDiffPct: Record<string, number | null>;
   volGreenRatio: Record<string, number | null>;
-  upside: Record<string, UpsideInput>;
+  recoveryCandle: Record<string, number | null>;
+  upside: Record<string, UpsideRaw>;
   loading?: boolean;
   addTicker: string;
   addLoading: boolean;
@@ -129,8 +102,6 @@ interface Props {
 
 const dash = <span className="text-gray-400">—</span>;
 
-// Colors a metric cell by its own tiered sub-score (0-3), not just its raw sign, so the
-// column color always agrees with how many points it actually contributed to Grand Score.
 const TIER_TEXT: Record<number, string> = {
   3: "text-green-600 font-semibold",
   2: "text-blue-600 font-medium",
@@ -144,20 +115,6 @@ const pctCell = (v: number | null, score: number | undefined, dec = 1) => {
   return <span className={tierColor(score)}>{v >= 0 ? "+" : ""}{v.toFixed(dec)}%</span>;
 };
 
-const SCORE_ROW_LABELS: [keyof CoilingSubScores, string][] = [
-  ["distFrom6moLow", "% from 6mo Low"],
-  ["distFrom2yHigh", "% from 2Y High"],
-  ["roc1mo", "ROC 1mo"],
-  ["priceVsMa30wk", "Price vs 30wk MA"],
-  ["ma30wkSlope", "30wk MA Slope"],
-  ["volRatio10_90", "Vol Ratio 10d/90d"],
-  ["weeklyRsi", "Weekly RSI"],
-  ["bbw", "BBW"],
-  ["atrPct", "ATR%"],
-  ["rsVsSpy3mo", "RS vs SPY 3mo"],
-  ["upDownVolRatio", "Up/Down Vol Ratio"],
-];
-
 interface TierRange { range: string; color: keyof typeof TIER_DOT; meaning: string }
 interface ColumnTip { definition: string; ranges: TierRange[] }
 
@@ -165,168 +122,71 @@ const TIER_DOT: Record<string, string> = {
   green: "bg-green-600", blue: "bg-blue-500", yellow: "bg-yellow-500", red: "bg-red-500", gray: "bg-gray-400",
 };
 
-// One entry per header that carries a tiered scoring rule (or an eliminator flag), shown as a
-// hover popover on the column title — same ranges/colors the cells below are actually shaded by.
 const COLUMN_TIPS: Partial<Record<SortKey, ColumnTip>> = {
-  grandScore: {
-    definition: "Sum of 11 tiered sub-scores (0-3 each, max 33). A row that trips a ⚑ flag rule still gets scored for transparency, but its Label is capped at Weak so it can never read as promising.",
+  masterScore: {
+    definition: "Sum of three equal pillars (Setup Quality + Accumulation Signal + Fundamental Health, max 10 each = max 30). No hard eliminators — every row is scored; issues surface as Flag Reasons only.",
     ranges: [
-      { range: "27–33", color: "green", meaning: "High Conviction" },
-      { range: "20–26", color: "blue", meaning: "Interesting" },
-      { range: "13–19", color: "yellow", meaning: "Early / Incomplete" },
-      { range: "7–12", color: "gray", meaning: "Weak" },
-      { range: "0–6", color: "red", meaning: "Poor" },
+      { range: "24–30", color: "green", meaning: "Tier 1: High Conviction" },
+      { range: "18–23", color: "blue", meaning: "Tier 2: Strong Candidate" },
+      { range: "12–17", color: "yellow", meaning: "Tier 3: Watch Closely" },
+      { range: "6–11", color: "gray", meaning: "Tier 4: Too Early" },
+      { range: "0–5", color: "red", meaning: "Tier 5: Avoid" },
     ],
   },
-  distFrom6moLow: {
-    definition: "Distance above the 6-month closing low — how far the recovery has already run.",
-    ranges: [
-      { range: "< 15%", color: "green", meaning: "3 pts — still early in the base" },
-      { range: "15–25%", color: "blue", meaning: "2 pts" },
-      { range: "25–35%", color: "yellow", meaning: "1 pt" },
-      { range: "> 35%", color: "red", meaning: "0 pts — already extended off the low" },
-    ],
+  pillar1Score: {
+    definition: "Setup Quality (max 10): is this stock coiling / forming a base? % from 2Y High + % from 6mo Low + 30wk MA Slope + BBW Percentile + ATR%.",
+    ranges: [],
+  },
+  pillar2Score: {
+    definition: "Accumulation Signal (max 10): is smart money already buying? RSI Divergence (Daily + Weekly) + OBV Divergence + Recovery Candle.",
+    ranges: [],
+  },
+  pillar3Score: {
+    definition: "Fundamental Health (max 10): is the business worth owning? Gross Margin Trend + Revenue Trend + FCF Status + Short Interest + Insider Buying.",
+    ranges: [],
   },
   distFrom2yHigh: {
-    definition: "Distance below the trailing 2-year high. Sweet spot is a deep-but-not-crushed drawdown. ⚑ Flag: > -15% (barely off its high at all — not a beaten-down setup regardless of how calm the other metrics look).",
+    definition: "Distance below the trailing 2-year high (discount depth). ⚑ Flag: > -15% (barely off its high — not beaten down).",
     ranges: [
-      { range: "-85% to -65%", color: "green", meaning: "3 pts" },
-      { range: "-65% to -50%", color: "blue", meaning: "2 pts" },
-      { range: "-50% to -40%", color: "yellow", meaning: "1 pt" },
-      { range: "> -40%", color: "red", meaning: "0 pts — not enough of a drawdown left to coil" },
+      { range: "< -60%", color: "green", meaning: "3 pts" },
+      { range: "-60% to -40%", color: "blue", meaning: "2 pts" },
+      { range: "-40% to -25%", color: "yellow", meaning: "1 pt" },
+      { range: "> -25%", color: "red", meaning: "0 pts" },
     ],
-  },
-  roc1mo: {
-    definition: "1-month rate of change. ⚑ Flag: outside -15% to +20% (too violent a move either way).",
-    ranges: [
-      { range: "-3% to +5%", color: "green", meaning: "3 pts — quiet, coiling" },
-      { range: "-8 to -3% or +5 to +8%", color: "blue", meaning: "2 pts" },
-      { range: "-12 to -8% or +8 to +12%", color: "yellow", meaning: "1 pt" },
-      { range: "outside that", color: "red", meaning: "0 pts" },
-    ],
-  },
-  roc3mo: {
-    definition: "3-month rate of change. ⚑ Flag: outside -30% to +30% (not scored directly, only used as an eliminator flag).",
-    ranges: [],
-  },
-  priceVsMa30wk: {
-    definition: "Price ÷ 30-week (150d) moving average. 1.00 = sitting right on the MA.",
-    ranges: [
-      { range: "0.95–1.02", color: "green", meaning: "3 pts" },
-      { range: "0.90–0.95 or 1.02–1.08", color: "blue", meaning: "2 pts" },
-      { range: "0.85–0.90 or 1.08–1.15", color: "yellow", meaning: "1 pt" },
-      { range: "outside that", color: "red", meaning: "0 pts" },
-    ],
-  },
-  ma30wkSlope: {
-    definition: "30-week MA now vs 20 sessions ago — is the base flattening out. ⚑ Flag: < -0.5 (still rolling over hard).",
-    ranges: [
-      { range: "-0.1 to +0.1", color: "green", meaning: "3 pts — flat, basing" },
-      { range: "-0.2 to -0.1 or +0.1 to +0.2", color: "blue", meaning: "2 pts" },
-      { range: "-0.3 to -0.2", color: "yellow", meaning: "1 pt" },
-      { range: "< -0.3", color: "red", meaning: "0 pts — still trending down" },
-    ],
-  },
-  volRatio10_90: {
-    definition: "10-day avg volume ÷ 90-day avg volume. Low = volume drying up (coiling). ⚑ Flag: > 1.2 (volume expanding, not coiling).",
-    ranges: [
-      { range: "< 0.55", color: "green", meaning: "3 pts" },
-      { range: "0.55–0.70", color: "blue", meaning: "2 pts" },
-      { range: "0.70–0.80", color: "yellow", meaning: "1 pt" },
-      { range: "> 0.80", color: "red", meaning: "0 pts" },
-    ],
-  },
-  upDownVolRatio: {
-    definition: "Volume on up days ÷ volume on down days, last 20 sessions.",
-    ranges: [
-      { range: "1.3–1.8", color: "green", meaning: "3 pts — accumulation" },
-      { range: "1.1–1.3 or 1.8–2.0", color: "blue", meaning: "2 pts" },
-      { range: "1.0–1.1", color: "yellow", meaning: "1 pt" },
-      { range: "< 1.0", color: "red", meaning: "0 pts — distribution" },
-    ],
-  },
-  bbw: {
-    definition: "Bollinger Band Width (20d, 2σ) — tighter bands = tighter coil. Scored against this list's own percentile spread, not fixed thresholds.",
-    ranges: [
-      { range: "Bottom 10th %ile", color: "green", meaning: "3 pts — tightest in the list" },
-      { range: "10th–20th %ile", color: "blue", meaning: "2 pts" },
-      { range: "20th–35th %ile", color: "yellow", meaning: "1 pt" },
-      { range: "> 35th %ile", color: "red", meaning: "0 pts" },
-    ],
-  },
-  atrPct: {
-    definition: "ATR(14) as a % of price — daily volatility.",
-    ranges: [
-      { range: "< 2.5%", color: "green", meaning: "3 pts" },
-      { range: "2.5–3.5%", color: "blue", meaning: "2 pts" },
-      { range: "3.5–4.5%", color: "yellow", meaning: "1 pt" },
-      { range: "> 4.5%", color: "red", meaning: "0 pts" },
-    ],
-  },
-  atrTrend: {
-    definition: "ATR(14) now vs 20 sessions ago. Negative = volatility contracting (coiling); positive = expanding. Not part of Grand Score.",
-    ranges: [],
-  },
-  weeklyRsi: {
-    definition: "RSI(14) on weekly closes. ⚑ Flag: outside 35–65 (overbought/oversold, not neutral basing).",
-    ranges: [
-      { range: "45–55", color: "green", meaning: "3 pts — neutral" },
-      { range: "40–45 or 55–58", color: "blue", meaning: "2 pts" },
-      { range: "37–40 or 58–62", color: "yellow", meaning: "1 pt" },
-      { range: "outside that", color: "red", meaning: "0 pts" },
-    ],
-  },
-  rsiFloor6mo: {
-    definition: "Lowest weekly RSI over the trailing 26 weeks — how oversold the stock got at worst. Not part of Grand Score.",
-    ranges: [],
   },
   rsiDivergence: {
-    definition: "Daily RSI(14, Wilder) at the 20-day low minus RSI at the 40-20-day-ago low. Positive = bullish divergence (price made a lower low but RSI made a higher low) — bigger is stronger. Feeds the Reversal Signal Score's Daily component (only scored when the price is at/near a double bottom — Low 2 within 5% below Low 1 — a 'confirmed' divergence). Not part of Grand Score. Logged as a Data Gap ('rsi_div_daily') when fewer than 40 daily bars are available.",
+    definition: "Daily RSI(14, Wilder) at the 20-day low minus RSI at the 40-20-day-ago low. Only scored when a double-bottom is confirmed (Low2 within 5% below Low1 and RSI at Low2 higher). Logged as a Data Gap when fewer than 40 daily bars are available.",
     ranges: [
-      { range: "> 0", color: "green", meaning: "Bullish divergence" },
-      { range: "≤ 0", color: "red", meaning: "No divergence / bearish" },
+      { range: "> 10", color: "green", meaning: "3 pts" },
+      { range: "5–10", color: "blue", meaning: "2 pts" },
+      { range: "2–5", color: "yellow", meaning: "1 pt" },
+      { range: "no divergence", color: "red", meaning: "0 pts" },
     ],
   },
   rsiDivergenceWeekly: {
-    definition: "Weekly RSI(14, Wilder) at the last-8-week low minus RSI at the 16-8-week-ago low. Same shape as RSI Divergence but on weekly closes. Feeds the Reversal Signal Score's Weekly component (only scored when the price is at/near a double bottom — Low 2 within 5% below Low 1 — a 'confirmed' divergence). Not part of Grand Score. Logged as a Data Gap ('rsi_div_weekly') when fewer than 16 weekly bars are available.",
+    definition: "Same shape as RSI Divergence but on weekly closes (16-8 weeks ago low vs last 8 weeks low).",
     ranges: [
-      { range: "> 0", color: "green", meaning: "Bullish divergence" },
-      { range: "≤ 0", color: "red", meaning: "No divergence / bearish" },
-    ],
-  },
-  obvSlope: {
-    definition: "Linear-regression slope of daily OBV over the last 20 sessions, normalized by mean OBV over that window so it's comparable across tickers. Feeds the Reversal Signal Score's OBV Slope component. Not part of Grand Score. Logged as a Data Gap ('obv_slope') when fewer than 20 sessions are available.",
-    ranges: [
-      { range: "> 0", color: "green", meaning: "OBV rising" },
-      { range: "≤ 0", color: "red", meaning: "OBV flat/falling" },
+      { range: "> 7", color: "green", meaning: "3 pts" },
+      { range: "3–7", color: "blue", meaning: "2 pts" },
+      { range: "1–3", color: "yellow", meaning: "1 pt" },
+      { range: "no divergence", color: "red", meaning: "0 pts" },
     ],
   },
   obvDivergence: {
-    definition: "Normalized OBV Slope minus normalized price slope (both over the last 20 sessions). Positive = OBV rising while price is flat or falling — accumulation signal. Feeds the Reversal Signal Score's OBV Divergence component. Not part of Grand Score. Logged as a Data Gap ('obv_divergence') when fewer than 20 sessions are available.",
+    definition: "Normalized OBV slope minus normalized price slope, last 20 sessions. Positive = OBV rising while price is flat/falling (accumulation).",
     ranges: [
-      { range: "> 0", color: "green", meaning: "Accumulation (OBV outpacing price)" },
-      { range: "≤ 0", color: "red", meaning: "No accumulation signal" },
+      { range: "> 0.03", color: "green", meaning: "2 pts" },
+      { range: "0.01–0.03", color: "blue", meaning: "1 pt" },
+      { range: "< 0.01", color: "red", meaning: "0 pts" },
     ],
   },
-  maStackScore: {
-    definition: "0–3: +1 EMA20 > EMA50, +1 EMA50 > EMA200, +1 Price > EMA200. A trend-structure check, not part of Grand Score.",
+  weeklyRsi: {
+    definition: "RSI(14) on weekly closes. ⚑ Flag: outside 35–65 (extreme reading).",
     ranges: [],
   },
-  lowerHighs: {
-    definition: "Last 3 swing highs over the trailing 20 weeks, each lower than the one before. ⚑ Flag: Yes (still in a downtrend).",
-    ranges: [
-      { range: "No", color: "green", meaning: "Structure not breaking down" },
-      { range: "Yes", color: "red", meaning: "Flagged — still making lower highs" },
-    ],
-  },
-  rsVsSpy3mo: {
-    definition: "Stock's 3-month return ÷ SPY's 3-month return. 1.0 = matching the market.",
-    ranges: [
-      { range: "1.0–1.2", color: "green", meaning: "3 pts — leading the market" },
-      { range: "0.9–1.0 or 1.2–1.3", color: "blue", meaning: "2 pts" },
-      { range: "0.8–0.9", color: "yellow", meaning: "1 pt" },
-      { range: "outside that", color: "red", meaning: "0 pts" },
-    ],
+  rsiFloor6mo: {
+    definition: "Lowest weekly RSI over the trailing 26 weeks — how oversold the stock got at worst. Informational only.",
+    ranges: [],
   },
 };
 
@@ -386,81 +246,11 @@ function HeaderTip({ tip }: { tip: ColumnTip }) {
   );
 }
 
-// Native `title` tooltips are unreliable across browsers/embedded webviews (can show the
-// help cursor with no text bubble), so the score breakdown uses the same custom
-// hover-popover pattern as the Bandar score tooltips elsewhere in this app.
-function ScoreBadge({ score, label, subScores, flagged, flagReasons }: {
-  score: number; label: CoilingLabel; subScores: CoilingSubScores; flagged: boolean; flagReasons: string[];
-}) {
-  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const anchorRef = useRef<HTMLSpanElement>(null);
-
-  function show() {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    if (anchorRef.current) {
-      const r = anchorRef.current.getBoundingClientRect();
-      setPos({ top: r.bottom + 6, left: Math.min(r.left, window.innerWidth - 260) });
-    }
-  }
-  function hide() {
-    timerRef.current = setTimeout(() => setPos(null), 120);
-  }
-
-  return (
-    <div className="flex items-center gap-1.5">
-      <span
-        ref={anchorRef}
-        onMouseEnter={show}
-        onMouseLeave={hide}
-        onClick={() => (pos ? setPos(null) : show())}
-        className="font-semibold text-gray-900 cursor-help underline decoration-dotted decoration-gray-300 underline-offset-2"
-      >
-        {score}
-      </span>
-      <span className={`inline-flex items-center rounded-full ${LABEL_STYLES[label]} text-xs font-semibold px-2 py-0.5 whitespace-nowrap`}>
-        {label}
-      </span>
-      {flagged && (
-        <span title={flagReasons.join("; ")} className="inline-flex items-center rounded-full bg-gray-100 text-gray-500 border border-gray-300 text-xs font-semibold px-1.5 py-0.5 whitespace-nowrap cursor-help">
-          ⚑
-        </span>
-      )}
-      {pos && (
-        <div
-          className="fixed z-[9999] w-60 bg-white border border-gray-200 rounded-lg shadow-xl p-3 text-left normal-case font-normal"
-          style={{ top: pos.top, left: pos.left }}
-          onMouseEnter={() => { if (timerRef.current) clearTimeout(timerRef.current); }}
-          onMouseLeave={hide}
-        >
-          <div className="text-xs font-semibold text-gray-900 mb-1.5">Score breakdown</div>
-          <table className="w-full text-[11px]">
-            <tbody>
-              {SCORE_ROW_LABELS.map(([key, rowLabel]) => (
-                <tr key={key} className="border-b border-gray-50 last:border-0">
-                  <td className="py-0.5 text-gray-500">{rowLabel}</td>
-                  <td className="py-0.5 text-right font-mono text-gray-800">{subScores[key]}/3</td>
-                </tr>
-              ))}
-              <tr className="border-t border-gray-200">
-                <td className="py-1 font-semibold text-gray-900">Total</td>
-                <td className="py-1 text-right font-mono font-semibold text-gray-900">{score}/33</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// Generic composite-score badge (score + label + hover breakdown), reused for Proximity,
-// Upside and Master scores the same way ScoreBadge does for Grand Score.
-function CompositeBadge<K extends string>({
-  score, max, label, labelStyle, rows, subScores, extraNote,
+// Generic pillar-score badge (score + hover breakdown), reused for Pillar 1/2/3.
+function PillarBadge<K extends string>({
+  score, max, rows, subScores, extraNote,
 }: {
-  score: number; max: number; label: string; labelStyle: string;
-  rows: [K, string][]; subScores: Record<K, number>; extraNote?: string;
+  score: number; max: number; rows: [K, string][]; subScores: Record<K, number>; extraNote?: string;
 }) {
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -486,10 +276,7 @@ function CompositeBadge<K extends string>({
         onClick={() => (pos ? setPos(null) : show())}
         className="font-semibold text-gray-900 cursor-help underline decoration-dotted decoration-gray-300 underline-offset-2"
       >
-        {score}
-      </span>
-      <span className={`inline-flex items-center rounded-full ${labelStyle} text-xs font-semibold px-2 py-0.5 whitespace-nowrap`}>
-        {label}
+        {score}/{max}
       </span>
       {pos && (
         <div
@@ -504,7 +291,7 @@ function CompositeBadge<K extends string>({
               {rows.map(([key, rowLabel]) => (
                 <tr key={key} className="border-b border-gray-50 last:border-0">
                   <td className="py-0.5 text-gray-500">{rowLabel}</td>
-                  <td className="py-0.5 text-right font-mono text-gray-800">{subScores[key]}/3</td>
+                  <td className="py-0.5 text-right font-mono text-gray-800">{subScores[key]}</td>
                 </tr>
               ))}
               <tr className="border-t border-gray-200">
@@ -520,16 +307,29 @@ function CompositeBadge<K extends string>({
   );
 }
 
+const EMPTY_UPSIDE: UpsideRaw = {
+  gmChanges: null, revenueGrowth: null, cash: null, avgQuarterlyFcf: null,
+  epsCurrent: null, epsNinetyDaysAgo: null, shortPercentOfFloat: null, insiderBuyCount: null,
+};
+
 export default function CoilingReversalTable({
   stocks, prices, distFrom2yHigh, distFrom6moLow, roc1mo, roc3mo,
   ma30wk, priceVsMa30wk, ma30wkSlope, volRatio10_90, upDownVolRatio, bbw,
   atrPct, atrTrend, weeklyRsi, rsiFloor6mo, rsiDivergence, rsiDivDailyConfirmed, rsiDivergenceWeekly, rsiDivWeeklyConfirmed,
   obvSlope, obvDivergence, maStackScore, lowerHighs, rsVsSpy3mo,
-  slopeNow, slope4wk, slope8wk, maTouchCount, rangeContractionRatio, rsLineDiffPct, volGreenRatio, upside,
+  slopeNow, slope4wk, slope8wk, maTouchCount, rangeContractionRatio, rsLineDiffPct, volGreenRatio, recoveryCandle, upside,
   loading, addTicker, addLoading, addError, onAddTickerChange, onAdd, onRemove, onMoveToExcluded,
 }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>("ticker");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
+
+  // roc3mo/ma30wk/priceVsMa30wk/volRatio10_90/upDownVolRatio/atrTrend/maStackScore/rsVsSpy3mo/
+  // slopeNow/slope4wk/slope8wk/maTouchCount/rangeContractionRatio/rsLineDiffPct/volGreenRatio/
+  // obvSlope are still fetched by the shared /api/coiling-daily route (Bagger Reversal reuses
+  // them) but are no longer part of the unified Master Score, so they're intentionally unused here.
+  void roc3mo; void ma30wk; void priceVsMa30wk; void volRatio10_90; void upDownVolRatio; void atrTrend;
+  void maStackScore; void rsVsSpy3mo; void slopeNow; void slope4wk; void slope8wk; void maTouchCount;
+  void rangeContractionRatio; void rsLineDiffPct; void volGreenRatio; void obvSlope;
 
   function handleSort(key: SortKey) {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -537,72 +337,38 @@ export default function CoilingReversalTable({
   }
 
   const rows = useMemo(() => {
-    const base = stocks.map((s) => ({
-      ...s,
-      price: prices[s.ticker] ?? null,
-      distFrom2yHigh: distFrom2yHigh[s.ticker] ?? null,
-      distFrom6moLow: distFrom6moLow[s.ticker] ?? null,
-      roc1mo: roc1mo[s.ticker] ?? null,
-      roc3mo: roc3mo[s.ticker] ?? null,
-      ma30wk: ma30wk[s.ticker] ?? null,
-      priceVsMa30wk: priceVsMa30wk[s.ticker] ?? null,
-      ma30wkSlope: ma30wkSlope[s.ticker] ?? null,
-      volRatio10_90: volRatio10_90[s.ticker] ?? null,
-      upDownVolRatio: upDownVolRatio[s.ticker] ?? null,
-      bbw: bbw[s.ticker] ?? null,
-      atrPct: atrPct[s.ticker] ?? null,
-      atrTrend: atrTrend[s.ticker] ?? null,
-      weeklyRsi: weeklyRsi[s.ticker] ?? null,
-      rsiFloor6mo: rsiFloor6mo[s.ticker] ?? null,
-      rsiDivergence: rsiDivergence[s.ticker] ?? null,
-      rsiDivDailyConfirmed: rsiDivDailyConfirmed[s.ticker] ?? null,
-      rsiDivergenceWeekly: rsiDivergenceWeekly[s.ticker] ?? null,
-      rsiDivWeeklyConfirmed: rsiDivWeeklyConfirmed[s.ticker] ?? null,
-      obvSlope: obvSlope[s.ticker] ?? null,
-      obvDivergence: obvDivergence[s.ticker] ?? null,
-      maStackScore: maStackScore[s.ticker] ?? null,
-      lowerHighs: lowerHighs[s.ticker] ?? null,
-      rsVsSpy3mo: rsVsSpy3mo[s.ticker] ?? null,
-      slopeNow: slopeNow[s.ticker] ?? null,
-      slope4wk: slope4wk[s.ticker] ?? null,
-      slope8wk: slope8wk[s.ticker] ?? null,
-      maTouchCount: maTouchCount[s.ticker] ?? null,
-      rangeContractionRatio: rangeContractionRatio[s.ticker] ?? null,
-      rsLineDiffPct: rsLineDiffPct[s.ticker] ?? null,
-      volGreenRatio: volGreenRatio[s.ticker] ?? null,
-      upsideRaw: upside[s.ticker],
-    }));
-    const scores = scoreCoilingRows(base);
-    const arr = base.map((r, i) => {
-      const grandScore = scores[i].totalScore;
-      const prox = scoreProximity({
-        slopeNow: r.slopeNow, slope4wk: r.slope4wk, slope8wk: r.slope8wk,
-        maTouchCount: r.maTouchCount, rangeContractionRatio: r.rangeContractionRatio,
-        rsLineDiffPct: r.rsLineDiffPct, volGreenRatio: r.volGreenRatio,
-      });
-      const up = scoreUpside(r.upsideRaw ?? {
-        gmChanges: null, revenueGrowth: null, cash: null, avgQuarterlyFcf: null,
-        epsCurrent: null, epsNinetyDaysAgo: null, shortPercentOfFloat: null, insiderBuyCount: null,
-      });
-      const master = computeMasterScore(grandScore, prox.totalScore, up.totalScore);
-      const reversal = scoreReversalSignal({
-        rsiDivDaily: r.rsiDivergence, rsiDivDailyConfirmed: r.rsiDivDailyConfirmed,
-        rsiDivWeekly: r.rsiDivergenceWeekly, rsiDivWeeklyConfirmed: r.rsiDivWeeklyConfirmed,
-        obvSlope: r.obvSlope, obvDivergence: r.obvDivergence,
-      });
-      // Data gaps merge the fundamentals gaps from scoreUpside with the Reversal Signal Score's
-      // own insufficient-history gaps — one combined "Data Gaps" list surfaced in the CSV export
-      // and the Upside tooltip.
-      const allDataGaps = [...up.dataGaps, ...reversal.dataGaps];
+    const base = stocks.map((s) => {
+      const u = upside[s.ticker] ?? EMPTY_UPSIDE;
       return {
-        ...r, ...scores[i], grandScore,
-        proximity: prox, proximityScore: prox.totalScore,
-        upsideResult: up, upsideScore: up.totalScore,
-        master, masterScore: master.masterScore,
-        reversal, reversalSignalScore: reversal.totalScore,
-        allDataGaps,
+        ...s,
+        price: prices[s.ticker] ?? null,
+        distFrom2yHigh: distFrom2yHigh[s.ticker] ?? null,
+        distFrom6moLow: distFrom6moLow[s.ticker] ?? null,
+        roc1mo: roc1mo[s.ticker] ?? null,
+        ma30wkSlope: ma30wkSlope[s.ticker] ?? null,
+        bbw: bbw[s.ticker] ?? null,
+        atrPct: atrPct[s.ticker] ?? null,
+        weeklyRsi: weeklyRsi[s.ticker] ?? null,
+        rsiFloor6mo: rsiFloor6mo[s.ticker] ?? null,
+        rsiDivergence: rsiDivergence[s.ticker] ?? null,
+        rsiDivDaily: rsiDivergence[s.ticker] ?? null,
+        rsiDivDailyConfirmed: rsiDivDailyConfirmed[s.ticker] ?? null,
+        rsiDivergenceWeekly: rsiDivergenceWeekly[s.ticker] ?? null,
+        rsiDivWeekly: rsiDivergenceWeekly[s.ticker] ?? null,
+        rsiDivWeeklyConfirmed: rsiDivWeeklyConfirmed[s.ticker] ?? null,
+        obvDivergence: obvDivergence[s.ticker] ?? null,
+        recoveryCandle: recoveryCandle[s.ticker] ?? null,
+        lowerHighs: lowerHighs[s.ticker] ?? null,
+        gmChanges: u.gmChanges ?? null,
+        revenueGrowth: u.revenueGrowth ?? null,
+        avgQuarterlyFcf: u.avgQuarterlyFcf ?? null,
+        cash: u.cash ?? null,
+        shortPercentOfFloat: u.shortPercentOfFloat ?? null,
+        insiderBuyCount: u.insiderBuyCount ?? null,
       };
     });
+    const scores = scoreMasterV2Rows(base);
+    const arr = base.map((r, i) => ({ ...r, ...scores[i] }));
     arr.sort((a, b) => {
       let av: string | number | boolean | null = null, bv: string | number | boolean | null = null;
       if (sortKey === "ticker" || sortKey === "industry") { av = a[sortKey] ?? ""; bv = b[sortKey] ?? ""; }
@@ -615,65 +381,37 @@ export default function CoilingReversalTable({
       return sortDir === "asc" ? an - bn : bn - an;
     });
     return arr;
-  }, [stocks, prices, distFrom2yHigh, distFrom6moLow, roc1mo, roc3mo, ma30wk, priceVsMa30wk, ma30wkSlope,
-      volRatio10_90, upDownVolRatio, bbw, atrPct, atrTrend, weeklyRsi, rsiFloor6mo, rsiDivergence,
-      rsiDivDailyConfirmed, rsiDivergenceWeekly, rsiDivWeeklyConfirmed, obvSlope, obvDivergence,
-      maStackScore, lowerHighs, rsVsSpy3mo,
-      slopeNow, slope4wk, slope8wk, maTouchCount, rangeContractionRatio, rsLineDiffPct, volGreenRatio, upside, sortKey, sortDir]);
+  }, [stocks, prices, distFrom2yHigh, distFrom6moLow, roc1mo, ma30wkSlope, bbw, atrPct, weeklyRsi,
+      rsiFloor6mo, rsiDivergence, rsiDivDailyConfirmed, rsiDivergenceWeekly, rsiDivWeeklyConfirmed,
+      obvDivergence, recoveryCandle, lowerHighs, upside, sortKey, sortDir]);
 
   function exportCsv() {
     const date = new Date().toISOString().slice(0, 10);
     const headers = [
-      "Ticker", "Industry", "Price", "Grand Score", "Label", "Flag Reasons",
-      "% from 2Y High", "% from 6mo Low", "ROC 1mo", "ROC 3mo",
-      "30wk MA", "Price vs 30wk MA", "30wk MA Slope", "Vol Ratio 10d/90d", "Up/Down Vol Ratio",
-      "BBW", "ATR%", "ATR Trend", "Weekly RSI", "RSI Floor 6mo", "RSI Divergence", "RSI Divergence Weekly", "OBV Slope", "OBV Divergence", "MA Stack Score", "Lower Highs", "RS vs SPY 3mo",
-      "Proximity Score", "Proximity Label", "Upside Score", "Upside Label", "Data Gaps", "Data Gap Count",
+      "Ticker", "Industry", "Price", "% from 2Y High",
+      "Pillar 1 Score", "Pillar 2 Score", "Pillar 3 Score",
       "Master Score", "Master Label",
-      "RSS Daily Score", "RSS Weekly Score", "RSS OBV Slope Score", "RSS OBV Div Score", "Reversal Signal Score", "Reversal Signal Label",
+      "RSI Divergence (raw)", "RSI Divergence Weekly (raw)",
+      "OBV Divergence (raw)", "Weekly RSI", "RSI Floor 6mo",
+      "Flag Reasons", "Data Gaps",
     ];
     const data = rows.map((r) => [
       r.ticker,
       r.industry ?? "",
       r.price?.toFixed(2) ?? "",
-      r.totalScore ?? "",
-      r.label ?? "",
-      r.flagReasons.join("; "),
       r.distFrom2yHigh?.toFixed(1) ?? "",
-      r.distFrom6moLow?.toFixed(1) ?? "",
-      r.roc1mo?.toFixed(1) ?? "",
-      r.roc3mo?.toFixed(1) ?? "",
-      r.ma30wk?.toFixed(2) ?? "",
-      r.priceVsMa30wk?.toFixed(2) ?? "",
-      r.ma30wkSlope?.toFixed(2) ?? "",
-      r.volRatio10_90?.toFixed(2) ?? "",
-      r.upDownVolRatio?.toFixed(2) ?? "",
-      r.bbw?.toFixed(3) ?? "",
-      r.atrPct?.toFixed(1) ?? "",
-      r.atrTrend?.toFixed(2) ?? "",
-      r.weeklyRsi?.toFixed(1) ?? "",
-      r.rsiFloor6mo?.toFixed(1) ?? "",
+      r.pillar1Score,
+      r.pillar2Score,
+      r.pillar3Score,
+      r.masterScore,
+      r.masterLabel,
       r.rsiDivergence?.toFixed(1) ?? "",
       r.rsiDivergenceWeekly?.toFixed(1) ?? "",
-      r.obvSlope?.toFixed(4) ?? "",
       r.obvDivergence?.toFixed(4) ?? "",
-      r.maStackScore ?? "",
-      r.lowerHighs == null ? "" : r.lowerHighs ? "Yes" : "No",
-      r.rsVsSpy3mo?.toFixed(2) ?? "",
-      r.proximityScore,
-      r.proximity.label,
-      r.upsideScore,
-      r.upsideResult.label,
-      r.allDataGaps.join(", "),
-      r.allDataGaps.length,
-      r.masterScore,
-      r.master.masterLabel,
-      r.reversal.subScores.rsiDivDaily,
-      r.reversal.subScores.rsiDivWeekly,
-      r.reversal.subScores.obvSlope,
-      r.reversal.subScores.obvDivergence,
-      r.reversalSignalScore,
-      r.reversal.label,
+      r.weeklyRsi?.toFixed(1) ?? "",
+      r.rsiFloor6mo?.toFixed(1) ?? "",
+      r.flagReasons.join("; "),
+      r.dataGaps.join(", "),
     ]);
     downloadCsv(`coiling-reversal-${date}.csv`, headers, data);
   }
@@ -727,44 +465,22 @@ export default function CoilingReversalTable({
         <div className="overflow-x-auto overflow-y-auto max-h-[72vh] rounded-lg border border-gray-200">
           <table className="min-w-full text-sm">
             <thead className="bg-gray-100 border-b border-gray-200 sticky top-0 z-10">
-              <tr className="text-[10px] text-gray-400 uppercase tracking-wide">
-                <th colSpan={25} />
-                <th colSpan={1} className="px-3 py-1 text-left border-l border-gray-200">Group 1: Breakout Proximity</th>
-                <th colSpan={1} className="px-3 py-1 text-left border-l border-gray-200">Group 2: Upside Potential</th>
-                <th colSpan={1} className="px-3 py-1 text-left border-l border-gray-200">Group 3: Master</th>
-                <th colSpan={1} className="px-3 py-1 text-left border-l border-gray-200">Group 4: Reversal Signal</th>
-                <th />
-              </tr>
               <tr>
                 {th("Ticker", "ticker")}
                 <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Industry</th>
                 <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Price</th>
-                {th("Grand Score", "grandScore")}
                 {th("% from 2Y High", "distFrom2yHigh")}
-                {th("% from 6mo Low", "distFrom6moLow")}
-                {th("ROC 1mo", "roc1mo")}
-                {th("ROC 3mo", "roc3mo")}
-                {th("30wk MA", "ma30wk")}
-                {th("Price vs 30wk MA", "priceVsMa30wk")}
-                {th("30wk MA Slope", "ma30wkSlope")}
-                {th("Vol Ratio 10d/90d", "volRatio10_90")}
-                {th("Up/Down Vol Ratio", "upDownVolRatio")}
-                {th("BBW", "bbw")}
-                {th("ATR%", "atrPct")}
-                {th("ATR Trend", "atrTrend")}
-                {th("Weekly RSI", "weeklyRsi")}
-                {th("RSI Floor 6mo", "rsiFloor6mo")}
+                {th("Pillar 1: Setup", "pillar1Score")}
+                {th("Pillar 2: Accumulation", "pillar2Score")}
+                {th("Pillar 3: Fundamental", "pillar3Score")}
+                {th("Master Score", "masterScore")}
                 {th("RSI Divergence", "rsiDivergence")}
                 {th("RSI Divergence Weekly", "rsiDivergenceWeekly")}
-                {th("OBV Slope", "obvSlope")}
                 {th("OBV Divergence", "obvDivergence")}
-                {th("MA Stack", "maStackScore")}
-                {th("Lower Highs", "lowerHighs")}
-                {th("RS vs SPY 3mo", "rsVsSpy3mo")}
-                {th("Proximity", "proximityScore", "border-l border-gray-200")}
-                {th("Upside", "upsideScore")}
-                {th("Master", "masterScore")}
-                {th("Reversal Signal", "reversalSignalScore", "border-l border-gray-200")}
+                {th("Weekly RSI", "weeklyRsi")}
+                {th("RSI Floor 6mo", "rsiFloor6mo")}
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Flag Reasons</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Data Gaps</th>
                 <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Remove</th>
               </tr>
             </thead>
@@ -777,91 +493,43 @@ export default function CoilingReversalTable({
                   </td>
                   <td className="px-3 py-2 text-gray-600">{r.industry}</td>
                   <td className="px-3 py-2 font-medium text-gray-900">{r.price != null ? `$${r.price.toFixed(2)}` : dash}</td>
+                  <td className="px-3 py-2">{pctCell(r.distFrom2yHigh, r.setupSubScores.distFrom2yHigh)}</td>
                   <td className="px-3 py-2">
-                    <ScoreBadge score={r.totalScore} label={r.label} subScores={r.subScores} flagged={r.flagged} flagReasons={r.flagReasons} />
-                  </td>
-                  <td className="px-3 py-2">{pctCell(r.distFrom2yHigh, r.subScores.distFrom2yHigh)}</td>
-                  <td className="px-3 py-2">{pctCell(r.distFrom6moLow, r.subScores.distFrom6moLow)}</td>
-                  <td className="px-3 py-2">{pctCell(r.roc1mo, r.subScores.roc1mo)}</td>
-                  <td className="px-3 py-2">{pctCell(r.roc3mo, undefined)}</td>
-                  <td className="px-3 py-2 text-gray-700">{r.ma30wk != null ? `$${r.ma30wk.toFixed(2)}` : dash}</td>
-                  <td className={`px-3 py-2 font-medium ${tierColor(r.subScores.priceVsMa30wk)}`}>
-                    {r.priceVsMa30wk != null ? r.priceVsMa30wk.toFixed(2) : dash}
-                  </td>
-                  <td className={`px-3 py-2 font-medium ${tierColor(r.subScores.ma30wkSlope)}`}>
-                    {r.ma30wkSlope != null ? r.ma30wkSlope.toFixed(2) : dash}
-                  </td>
-                  <td className={`px-3 py-2 font-medium ${tierColor(r.subScores.volRatio10_90)}`}>
-                    {r.volRatio10_90 != null ? `${r.volRatio10_90.toFixed(2)}x` : dash}
-                  </td>
-                  <td className={`px-3 py-2 font-medium ${tierColor(r.subScores.upDownVolRatio)}`}>
-                    {r.upDownVolRatio != null ? r.upDownVolRatio.toFixed(2) : dash}
-                  </td>
-                  <td className={`px-3 py-2 font-medium ${tierColor(r.subScores.bbw)}`}>
-                    {r.bbw != null ? r.bbw.toFixed(3) : dash}
-                  </td>
-                  <td className={`px-3 py-2 font-medium ${tierColor(r.subScores.atrPct)}`}>
-                    {r.atrPct != null ? `${r.atrPct.toFixed(1)}%` : dash}
-                  </td>
-                  <td className={`px-3 py-2 font-medium ${r.atrTrend == null ? "text-gray-400" : r.atrTrend < 0 ? "text-green-600" : "text-red-500"}`}>
-                    {r.atrTrend != null ? r.atrTrend.toFixed(2) : dash}
-                  </td>
-                  <td className={`px-3 py-2 font-medium ${tierColor(r.subScores.weeklyRsi)}`}>
-                    {r.weeklyRsi != null ? r.weeklyRsi.toFixed(1) : dash}
-                  </td>
-                  <td className="px-3 py-2 text-gray-700">{r.rsiFloor6mo != null ? r.rsiFloor6mo.toFixed(1) : dash}</td>
-                  <td className={`px-3 py-2 font-medium ${r.rsiDivergence == null ? "text-gray-400" : r.rsiDivergence > 0 ? "text-green-600" : "text-red-500"}`}>
-                    {r.rsiDivergence != null ? `${r.rsiDivergence >= 0 ? "+" : ""}${r.rsiDivergence.toFixed(1)}` : <span title="Data gap: rsi_div_daily">{dash}</span>}
-                  </td>
-                  <td className={`px-3 py-2 font-medium ${r.rsiDivergenceWeekly == null ? "text-gray-400" : r.rsiDivergenceWeekly > 0 ? "text-green-600" : "text-red-500"}`}>
-                    {r.rsiDivergenceWeekly != null ? `${r.rsiDivergenceWeekly >= 0 ? "+" : ""}${r.rsiDivergenceWeekly.toFixed(1)}` : <span title="Data gap: rsi_div_weekly">{dash}</span>}
-                  </td>
-                  <td className={`px-3 py-2 font-medium ${r.obvSlope == null ? "text-gray-400" : r.obvSlope > 0 ? "text-green-600" : "text-red-500"}`}>
-                    {r.obvSlope != null ? `${r.obvSlope >= 0 ? "+" : ""}${r.obvSlope.toFixed(4)}` : <span title="Data gap: obv_slope">{dash}</span>}
-                  </td>
-                  <td className={`px-3 py-2 font-medium ${r.obvDivergence == null ? "text-gray-400" : r.obvDivergence > 0 ? "text-green-600" : "text-red-500"}`}>
-                    {r.obvDivergence != null ? `${r.obvDivergence >= 0 ? "+" : ""}${r.obvDivergence.toFixed(4)}` : <span title="Data gap: obv_divergence">{dash}</span>}
-                  </td>
-                  <td className="px-3 py-2 text-gray-700">{r.maStackScore != null ? `${r.maStackScore}/3` : dash}</td>
-                  <td className="px-3 py-2">
-                    {r.lowerHighs == null ? dash : r.lowerHighs
-                      ? <span className="text-red-500 font-medium">Yes</span>
-                      : <span className="text-green-600 font-medium">No</span>}
-                  </td>
-                  <td className={`px-3 py-2 font-medium ${tierColor(r.subScores.rsVsSpy3mo)}`}>
-                    {r.rsVsSpy3mo != null ? r.rsVsSpy3mo.toFixed(2) : dash}
-                  </td>
-                  <td className="px-3 py-2 border-l border-gray-100">
-                    <CompositeBadge
-                      score={r.proximityScore} max={15} label={r.proximity.label}
-                      labelStyle={PROXIMITY_LABEL_STYLES[r.proximity.label]}
-                      rows={PROXIMITY_ROW_LABELS} subScores={r.proximity.subScores}
-                      extraNote={r.grandScore < 15 ? "Not active in Master Score — Grand Score below 15." : undefined}
-                    />
+                    <PillarBadge score={r.pillar1Score} max={10} rows={SETUP_ROW_LABELS} subScores={r.setupSubScores} />
                   </td>
                   <td className="px-3 py-2">
-                    <CompositeBadge
-                      score={r.upsideScore} max={18} label={r.upsideResult.label}
-                      labelStyle={UPSIDE_LABEL_STYLES[r.upsideResult.label]}
-                      rows={UPSIDE_ROW_LABELS} subScores={r.upsideResult.subScores}
-                      extraNote={r.allDataGaps.length > 0 ? `Data gaps (${r.allDataGaps.length}): ${r.allDataGaps.join(", ")}` : undefined}
+                    <PillarBadge score={r.pillar2Score} max={10} rows={ACCUMULATION_ROW_LABELS} subScores={r.accumulationSubScores} />
+                  </td>
+                  <td className="px-3 py-2">
+                    <PillarBadge
+                      score={r.pillar3Score} max={10} rows={FUNDAMENTAL_ROW_LABELS} subScores={r.fundamentalSubScores}
+                      extraNote={r.dataGaps.length > 0 ? `Data gaps (${r.dataGaps.length}): ${r.dataGaps.join(", ")}` : undefined}
                     />
                   </td>
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-1.5">
-                      <span className="font-semibold text-gray-900">{r.masterScore}</span>
-                      <span className={`inline-flex items-center rounded-full ${MASTER_LABEL_STYLES[r.master.masterLabel]} text-xs font-semibold px-2 py-0.5 whitespace-nowrap`}>
-                        {r.master.masterLabel}
+                      <span className="font-semibold text-gray-900">{r.masterScore}/30</span>
+                      <span className={`inline-flex items-center rounded-full ${MASTER_LABEL_STYLES[r.masterLabel]} text-xs font-semibold px-2 py-0.5 whitespace-nowrap`}>
+                        {r.masterLabel}
                       </span>
                     </div>
                   </td>
-                  <td className="px-3 py-2 border-l border-gray-100">
-                    <CompositeBadge
-                      score={r.reversalSignalScore} max={12} label={r.reversal.label}
-                      labelStyle={REVERSAL_SIGNAL_LABEL_STYLES[r.reversal.label]}
-                      rows={REVERSAL_SIGNAL_ROW_LABELS} subScores={r.reversal.subScores}
-                      extraNote={r.reversal.dataGaps.length > 0 ? `Data gaps (${r.reversal.dataGaps.length}): ${r.reversal.dataGaps.join(", ")}` : undefined}
-                    />
+                  <td className={`px-3 py-2 font-medium ${r.rsiDivergence == null ? "text-gray-400" : r.rsiDivergence > 0 ? "text-green-600" : "text-red-500"}`}>
+                    {r.rsiDivergence != null ? `${r.rsiDivergence >= 0 ? "+" : ""}${r.rsiDivergence.toFixed(1)}` : dash}
+                  </td>
+                  <td className={`px-3 py-2 font-medium ${r.rsiDivergenceWeekly == null ? "text-gray-400" : r.rsiDivergenceWeekly > 0 ? "text-green-600" : "text-red-500"}`}>
+                    {r.rsiDivergenceWeekly != null ? `${r.rsiDivergenceWeekly >= 0 ? "+" : ""}${r.rsiDivergenceWeekly.toFixed(1)}` : dash}
+                  </td>
+                  <td className={`px-3 py-2 font-medium ${r.obvDivergence == null ? "text-gray-400" : r.obvDivergence > 0 ? "text-green-600" : "text-red-500"}`}>
+                    {r.obvDivergence != null ? `${r.obvDivergence >= 0 ? "+" : ""}${r.obvDivergence.toFixed(4)}` : dash}
+                  </td>
+                  <td className="px-3 py-2 text-gray-700">{r.weeklyRsi != null ? r.weeklyRsi.toFixed(1) : dash}</td>
+                  <td className="px-3 py-2 text-gray-700">{r.rsiFloor6mo != null ? r.rsiFloor6mo.toFixed(1) : dash}</td>
+                  <td className="px-3 py-2 text-xs text-gray-500 max-w-xs">
+                    {r.flagReasons.length > 0 ? r.flagReasons.join("; ") : dash}
+                  </td>
+                  <td className="px-3 py-2 text-xs text-gray-400 max-w-xs">
+                    {r.dataGaps.length > 0 ? r.dataGaps.join(", ") : dash}
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap">
                     <button onClick={() => onRemove(r.ticker)} className="text-xs text-red-500 hover:text-red-700 mr-2">Remove</button>

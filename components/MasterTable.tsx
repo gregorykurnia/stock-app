@@ -2623,6 +2623,7 @@ export default function MasterTable({
               rangeContractionRatio={coilingRangeContractionRatio}
               rsLineDiffPct={coilingRsLineDiffPct}
               volGreenRatio={coilingVolGreenRatio}
+              recoveryCandle={coilingRecoveryCandle}
               upside={coilingUpside}
               loading={coilingLoading}
               addTicker={coilingAddTicker}
