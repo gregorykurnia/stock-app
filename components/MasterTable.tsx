@@ -12,6 +12,12 @@ import USSwingTable, { type USSwingStock, type CategoryKey, CATEGORY_DEFS, compu
 import SwingChat from "@/components/SwingChat";
 import PortfolioTable, { PORTFOLIO_DIVISIONS, type PortfolioStock, type PortfolioLevelField } from "@/components/PortfolioTable";
 import type { PortfolioDivision } from "@/lib/firestore";
+import {
+  getCoilingReversalStocks, saveCoilingReversalStock, removeCoilingReversalStock,
+  getBaggerReversalStocks, saveBaggerReversalStock, removeBaggerReversalStock,
+} from "@/lib/firestore";
+import CoilingReversalTable, { type CoilingStock } from "@/components/CoilingReversalTable";
+import BaggerReversalTable, { type BaggerStock } from "@/components/BaggerReversalTable";
 
 type SortKey =
   | "ticker" | "combined" | "val" | "fund" | "price" | "industry" | "urgency" | "atr"
@@ -258,9 +264,11 @@ export default function MasterTable({
   const isIhsg = market === "ihsg";
   // Currency prefix and price formatter
   const fmtPrice = (v: number) => isIhsg ? `Rp${Math.round(v).toLocaleString("id-ID")}` : `$${v.toFixed(2)}`;
-  type MainTab = "list" | "midterm" | "swing" | "portfolio";
+  type MainTab = "list" | "midterm" | "swing" | "portfolio" | "beatendown";
   const [mainTab, setMainTab] = useState<MainTab>("list");
   const [portfolioDivision, setPortfolioDivision] = useState<PortfolioDivision>("longterm");
+  type BeatenDownSubTab = "coiling" | "bagger";
+  const [beatenDownSubTab, setBeatenDownSubTab] = useState<BeatenDownSubTab>("coiling");
 
   useEffect(() => {
     if (!isIhsg && mainTab === "swing") onUsSwingTabOpen?.();
@@ -271,6 +279,186 @@ export default function MasterTable({
     if (!isIhsg && mainTab === "portfolio") onPortfolioTabOpen?.(portfolioDivision);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mainTab, isIhsg, portfolioDivision]);
+
+  // --- Beaten Down: Coiling Reversal + Potential Bagger Reversal (self-contained, manual ticker lists) ---
+  const [coilingStocks, setCoilingStocks] = useState<CoilingStock[]>([]);
+  const [coilingPrices, setCoilingPrices] = useState<Record<string, number | null>>({});
+  const [coilingDistFromAth, setCoilingDistFromAth] = useState<Record<string, number | null>>({});
+  const [coilingDistFrom6moLow, setCoilingDistFrom6moLow] = useState<Record<string, number | null>>({});
+  const [coilingRoc1mo, setCoilingRoc1mo] = useState<Record<string, number | null>>({});
+  const [coilingRoc3mo, setCoilingRoc3mo] = useState<Record<string, number | null>>({});
+  const [coilingMa30wk, setCoilingMa30wk] = useState<Record<string, number | null>>({});
+  const [coilingPriceVsMa30wk, setCoilingPriceVsMa30wk] = useState<Record<string, number | null>>({});
+  const [coilingMa30wkSlope, setCoilingMa30wkSlope] = useState<Record<string, number | null>>({});
+  const [coilingVolRatio, setCoilingVolRatio] = useState<Record<string, number | null>>({});
+  const [coilingUpDownVolRatio, setCoilingUpDownVolRatio] = useState<Record<string, number | null>>({});
+  const [coilingBbw, setCoilingBbw] = useState<Record<string, number | null>>({});
+  const [coilingAtrPct, setCoilingAtrPct] = useState<Record<string, number | null>>({});
+  const [coilingAtrTrend, setCoilingAtrTrend] = useState<Record<string, number | null>>({});
+  const [coilingWeeklyRsi, setCoilingWeeklyRsi] = useState<Record<string, number | null>>({});
+  const [coilingRsiFloor6mo, setCoilingRsiFloor6mo] = useState<Record<string, number | null>>({});
+  const [coilingMaStackScore, setCoilingMaStackScore] = useState<Record<string, number | null>>({});
+  const [coilingLowerHighs, setCoilingLowerHighs] = useState<Record<string, boolean | null>>({});
+  const [coilingRsVsSpy3mo, setCoilingRsVsSpy3mo] = useState<Record<string, number | null>>({});
+  const [coilingLoading, setCoilingLoading] = useState(false);
+  const [coilingLoaded, setCoilingLoaded] = useState(false);
+  const [coilingAddTicker, setCoilingAddTicker] = useState("");
+  const [coilingAddLoading, setCoilingAddLoading] = useState(false);
+  const [coilingAddError, setCoilingAddError] = useState("");
+
+  const [baggerStocks, setBaggerStocks] = useState<BaggerStock[]>([]);
+  const [baggerPrices, setBaggerPrices] = useState<Record<string, number | null>>({});
+  const [baggerLoading, setBaggerLoading] = useState(false);
+  const [baggerLoaded, setBaggerLoaded] = useState(false);
+  const [baggerAddTicker, setBaggerAddTicker] = useState("");
+  const [baggerAddLoading, setBaggerAddLoading] = useState(false);
+  const [baggerAddError, setBaggerAddError] = useState("");
+
+  function fetchCoilingDaily(tickers: string[]) {
+    if (tickers.length === 0) return;
+    fetch(`/api/coiling-daily?tickers=${tickers.join(",")}`)
+      .then((r) => r.json())
+      .then((d) => {
+        setCoilingDistFromAth((p) => ({ ...p, ...(d.distFromAth ?? {}) }));
+        setCoilingDistFrom6moLow((p) => ({ ...p, ...(d.distFrom6moLow ?? {}) }));
+        setCoilingRoc1mo((p) => ({ ...p, ...(d.roc1mo ?? {}) }));
+        setCoilingRoc3mo((p) => ({ ...p, ...(d.roc3mo ?? {}) }));
+        setCoilingMa30wk((p) => ({ ...p, ...(d.ma30wk ?? {}) }));
+        setCoilingPriceVsMa30wk((p) => ({ ...p, ...(d.priceVsMa30wk ?? {}) }));
+        setCoilingMa30wkSlope((p) => ({ ...p, ...(d.ma30wkSlope ?? {}) }));
+        setCoilingVolRatio((p) => ({ ...p, ...(d.volRatio10_90 ?? {}) }));
+        setCoilingUpDownVolRatio((p) => ({ ...p, ...(d.upDownVolRatio ?? {}) }));
+        setCoilingBbw((p) => ({ ...p, ...(d.bbw ?? {}) }));
+        setCoilingAtrPct((p) => ({ ...p, ...(d.atrPct ?? {}) }));
+        setCoilingAtrTrend((p) => ({ ...p, ...(d.atrTrend ?? {}) }));
+        setCoilingWeeklyRsi((p) => ({ ...p, ...(d.weeklyRsi ?? {}) }));
+        setCoilingRsiFloor6mo((p) => ({ ...p, ...(d.rsiFloor6mo ?? {}) }));
+        setCoilingMaStackScore((p) => ({ ...p, ...(d.maStackScore ?? {}) }));
+        setCoilingLowerHighs((p) => ({ ...p, ...(d.lowerHighs ?? {}) }));
+        setCoilingRsVsSpy3mo((p) => ({ ...p, ...(d.rsVsSpy3mo ?? {}) }));
+      })
+      .catch(() => {});
+  }
+
+  async function loadCoilingStocks() {
+    const data = await getCoilingReversalStocks().catch(() => ({}));
+    const list = Object.entries(data).map(([ticker, d]) => {
+      const raw = d as { name?: string | null; industry?: string | null; added_at?: string | null };
+      return { ticker, name: raw.name ?? null, industry: raw.industry ?? null, addedAt: raw.added_at ?? null } as CoilingStock;
+    });
+    list.sort((a, b) => a.ticker.localeCompare(b.ticker));
+    setCoilingStocks(list);
+    return list;
+  }
+
+  useEffect(() => {
+    if (isIhsg || mainTab !== "beatendown" || beatenDownSubTab !== "coiling" || coilingLoaded) return;
+    setCoilingLoaded(true);
+    setCoilingLoading(true);
+    loadCoilingStocks().then((list) => {
+      setCoilingLoading(false);
+      if (list.length === 0) return;
+      const tickers = list.map((s) => s.ticker);
+      fetch(`/api/prices?tickers=${tickers.join(",")}`)
+        .then((r) => r.json())
+        .then((d) => setCoilingPrices((p) => ({ ...p, ...(d.prices ?? {}) })))
+        .catch(() => {});
+      fetchCoilingDaily(tickers);
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isIhsg, mainTab, beatenDownSubTab, coilingLoaded]);
+
+  async function handleAddCoilingTicker(e: FormEvent) {
+    e.preventDefault();
+    const sym = coilingAddTicker.trim().toUpperCase();
+    if (!sym) return;
+    if (coilingStocks.some((s) => s.ticker === sym)) {
+      setCoilingAddError(`${sym} is already in the Coiling Reversal list.`);
+      return;
+    }
+    setCoilingAddLoading(true);
+    setCoilingAddError("");
+    try {
+      const res = await fetch(`/api/fundamentals?ticker=${sym}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to fetch data");
+      const nowIso = new Date().toISOString();
+      const entry: CoilingStock = { ticker: sym, name: data.name ?? null, industry: data.industry ?? data.sector ?? null, addedAt: nowIso };
+      await saveCoilingReversalStock(sym, { name: entry.name, industry: entry.industry, added_at: nowIso });
+      setCoilingStocks((prev) => [...prev.filter((s) => s.ticker !== sym), entry].sort((a, b) => a.ticker.localeCompare(b.ticker)));
+      if (data.price != null) setCoilingPrices((p) => ({ ...p, [sym]: data.price }));
+      fetchCoilingDaily([sym]);
+      setCoilingAddTicker("");
+    } catch (err) {
+      setCoilingAddError(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setCoilingAddLoading(false);
+    }
+  }
+
+  async function handleRemoveCoilingTicker(ticker: string) {
+    await removeCoilingReversalStock(ticker);
+    setCoilingStocks((prev) => prev.filter((s) => s.ticker !== ticker));
+  }
+
+  async function loadBaggerStocks() {
+    const data = await getBaggerReversalStocks().catch(() => ({}));
+    const list = Object.entries(data).map(([ticker, d]) => {
+      const raw = d as { name?: string | null; industry?: string | null; added_at?: string | null };
+      return { ticker, name: raw.name ?? null, industry: raw.industry ?? null, addedAt: raw.added_at ?? null } as BaggerStock;
+    });
+    list.sort((a, b) => a.ticker.localeCompare(b.ticker));
+    setBaggerStocks(list);
+    return list;
+  }
+
+  useEffect(() => {
+    if (isIhsg || mainTab !== "beatendown" || beatenDownSubTab !== "bagger" || baggerLoaded) return;
+    setBaggerLoaded(true);
+    setBaggerLoading(true);
+    loadBaggerStocks().then((list) => {
+      setBaggerLoading(false);
+      if (list.length === 0) return;
+      const tickers = list.map((s) => s.ticker);
+      fetch(`/api/prices?tickers=${tickers.join(",")}`)
+        .then((r) => r.json())
+        .then((d) => setBaggerPrices((p) => ({ ...p, ...(d.prices ?? {}) })))
+        .catch(() => {});
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isIhsg, mainTab, beatenDownSubTab, baggerLoaded]);
+
+  async function handleAddBaggerTicker(e: FormEvent) {
+    e.preventDefault();
+    const sym = baggerAddTicker.trim().toUpperCase();
+    if (!sym) return;
+    if (baggerStocks.some((s) => s.ticker === sym)) {
+      setBaggerAddError(`${sym} is already in the Potential Bagger Reversal list.`);
+      return;
+    }
+    setBaggerAddLoading(true);
+    setBaggerAddError("");
+    try {
+      const res = await fetch(`/api/fundamentals?ticker=${sym}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to fetch data");
+      const nowIso = new Date().toISOString();
+      const entry: BaggerStock = { ticker: sym, name: data.name ?? null, industry: data.industry ?? data.sector ?? null, addedAt: nowIso };
+      await saveBaggerReversalStock(sym, { name: entry.name, industry: entry.industry, added_at: nowIso });
+      setBaggerStocks((prev) => [...prev.filter((s) => s.ticker !== sym), entry].sort((a, b) => a.ticker.localeCompare(b.ticker)));
+      if (data.price != null) setBaggerPrices((p) => ({ ...p, [sym]: data.price }));
+      setBaggerAddTicker("");
+    } catch (err) {
+      setBaggerAddError(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setBaggerAddLoading(false);
+    }
+  }
+
+  async function handleRemoveBaggerTicker(ticker: string) {
+    await removeBaggerReversalStock(ticker);
+    setBaggerStocks((prev) => prev.filter((s) => s.ticker !== ticker));
+  }
   const [activeTab, setActiveTab] = useState<SubTab>("all");
   const [sortKey, setSortKey] = useState<SortKey>("combined");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
@@ -1572,6 +1760,14 @@ export default function MasterTable({
             Portfolio
           </button>
         )}
+        {!isIhsg && (
+          <button
+            onClick={() => setMainTab("beatendown")}
+            className={`segmented-btn ${mainTab === "beatendown" ? "is-active" : ""}`}
+          >
+            Beaten Down
+          </button>
+        )}
       </div>
 
       {mainTab === "list" && (
@@ -2381,6 +2577,75 @@ export default function MasterTable({
             onEntryChange={(ticker, field, value) => onPortfolioEntryChange?.(portfolioDivision, ticker, field, value)}
             onLevelChange={(ticker, field, value) => onPortfolioLevelChange?.(portfolioDivision, ticker, field, value)}
           />
+        </div>
+      )}
+
+      {/* BEATEN DOWN TAB (US only) — Coiling Reversal + Potential Bagger Reversal subtabs */}
+      {!isIhsg && mainTab === "beatendown" && (
+        <div className="space-y-3">
+          <div className="flex gap-1 border-b border-gray-200">
+            {([
+              { id: "coiling", label: "Coiling Reversal" },
+              { id: "bagger", label: "Potential Bagger Reversal" },
+            ] as { id: BeatenDownSubTab; label: string }[]).map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setBeatenDownSubTab(t.id)}
+                className={`px-3 py-1.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                  beatenDownSubTab === t.id
+                    ? "border-blue-600 text-blue-600"
+                    : "border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {beatenDownSubTab === "coiling" && (
+            <CoilingReversalTable
+              stocks={coilingStocks}
+              prices={coilingPrices}
+              distFromAth={coilingDistFromAth}
+              distFrom6moLow={coilingDistFrom6moLow}
+              roc1mo={coilingRoc1mo}
+              roc3mo={coilingRoc3mo}
+              ma30wk={coilingMa30wk}
+              priceVsMa30wk={coilingPriceVsMa30wk}
+              ma30wkSlope={coilingMa30wkSlope}
+              volRatio10_90={coilingVolRatio}
+              upDownVolRatio={coilingUpDownVolRatio}
+              bbw={coilingBbw}
+              atrPct={coilingAtrPct}
+              atrTrend={coilingAtrTrend}
+              weeklyRsi={coilingWeeklyRsi}
+              rsiFloor6mo={coilingRsiFloor6mo}
+              maStackScore={coilingMaStackScore}
+              lowerHighs={coilingLowerHighs}
+              rsVsSpy3mo={coilingRsVsSpy3mo}
+              loading={coilingLoading}
+              addTicker={coilingAddTicker}
+              addLoading={coilingAddLoading}
+              addError={coilingAddError}
+              onAddTickerChange={setCoilingAddTicker}
+              onAdd={handleAddCoilingTicker}
+              onRemove={handleRemoveCoilingTicker}
+            />
+          )}
+
+          {beatenDownSubTab === "bagger" && (
+            <BaggerReversalTable
+              stocks={baggerStocks}
+              prices={baggerPrices}
+              loading={baggerLoading}
+              addTicker={baggerAddTicker}
+              addLoading={baggerAddLoading}
+              addError={baggerAddError}
+              onAddTickerChange={setBaggerAddTicker}
+              onAdd={handleAddBaggerTicker}
+              onRemove={handleRemoveBaggerTicker}
+            />
+          )}
         </div>
       )}
     </div>

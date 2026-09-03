@@ -113,6 +113,38 @@ export async function updateUsSwingPortfolio(ticker: string, inPortfolio: boolea
   await setDoc(doc(db, "us_swing_stocks", ticker), { in_portfolio: inPortfolio }, { merge: true });
 }
 
+// Beaten Down — Coiling Reversal watchlist — a separate, manually-managed ticker list
+export async function getCoilingReversalStocks(): Promise<Record<string, object>> {
+  const snap = await getDocs(collection(db, "coiling_reversal_stocks"));
+  const result: Record<string, object> = {};
+  snap.forEach((d) => { result[d.id] = d.data(); });
+  return result;
+}
+
+export async function saveCoilingReversalStock(ticker: string, data: object) {
+  await setDoc(doc(db, "coiling_reversal_stocks", ticker), data);
+}
+
+export async function removeCoilingReversalStock(ticker: string) {
+  await deleteDoc(doc(db, "coiling_reversal_stocks", ticker));
+}
+
+// Beaten Down — Potential Bagger Reversal watchlist — a separate, manually-managed ticker list
+export async function getBaggerReversalStocks(): Promise<Record<string, object>> {
+  const snap = await getDocs(collection(db, "bagger_reversal_stocks"));
+  const result: Record<string, object> = {};
+  snap.forEach((d) => { result[d.id] = d.data(); });
+  return result;
+}
+
+export async function saveBaggerReversalStock(ticker: string, data: object) {
+  await setDoc(doc(db, "bagger_reversal_stocks", ticker), data);
+}
+
+export async function removeBaggerReversalStock(ticker: string) {
+  await deleteDoc(doc(db, "bagger_reversal_stocks", ticker));
+}
+
 // Screener Draft — raw imports from finviz screener runs, pending triage into US-Swing
 export async function getScreenerDraft(): Promise<Record<string, { company: string | null; added_at: string; rank?: number }>> {
   const snap = await getDocs(collection(db, "screener_draft"));

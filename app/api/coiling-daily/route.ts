@@ -1,0 +1,316 @@
+import { NextRequest, NextResponse } from "next/server";
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const YahooFinance = require("yahoo-finance2").default;
+const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
+
+interface Bar { date: Date; open: number; high: number; low: number; close: number; volume: number }
+
+function sma(values: number[], period: number): (number | null)[] {
+  const out: (number | null)[] = new Array(values.length).fill(null);
+  let sum = 0;
+  for (let i = 0; i < values.length; i++) {
+    sum += values[i];
+    if (i >= period) sum -= values[i - period];
+    if (i >= period - 1) out[i] = sum / period;
+  }
+  return out;
+}
+
+function ema(values: number[], period: number): (number | null)[] {
+  const out: (number | null)[] = new Array(values.length).fill(null);
+  const k = 2 / (period + 1);
+  let prev: number | null = null;
+  for (let i = 0; i < values.length; i++) {
+    if (i === period - 1) {
+      prev = values.slice(0, period).reduce((a, b) => a + b, 0) / period;
+      out[i] = prev;
+    } else if (i >= period && prev != null) {
+      prev = values[i] * k + prev * (1 - k);
+      out[i] = prev;
+    }
+  }
+  return out;
+}
+
+function rsi(values: number[], period = 14): (number | null)[] {
+  const out: (number | null)[] = new Array(values.length).fill(null);
+  if (values.length < period + 1) return out;
+  let gainSum = 0, lossSum = 0;
+  for (let i = 1; i <= period; i++) {
+    const change = values[i] - values[i - 1];
+    if (change >= 0) gainSum += change; else lossSum -= change;
+  }
+  let avgGain = gainSum / period;
+  let avgLoss = lossSum / period;
+  out[period] = avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss);
+  for (let i = period + 1; i < values.length; i++) {
+    const change = values[i] - values[i - 1];
+    const gain = change >= 0 ? change : 0;
+    const loss = change < 0 ? -change : 0;
+    avgGain = (avgGain * (period - 1) + gain) / period;
+    avgLoss = (avgLoss * (period - 1) + loss) / period;
+    out[i] = avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss);
+  }
+  return out;
+}
+
+function atr(bars: Bar[], period = 14): (number | null)[] {
+  const out: (number | null)[] = new Array(bars.length).fill(null);
+  if (bars.length < period + 1) return out;
+  const trs: number[] = [];
+  for (let i = 1; i < bars.length; i++) {
+    const { high, low } = bars[i];
+    const prevClose = bars[i - 1].close;
+    trs.push(Math.max(high - low, Math.abs(high - prevClose), Math.abs(low - prevClose)));
+  }
+  let val = trs.slice(0, period).reduce((a, b) => a + b, 0) / period;
+  out[period] = val;
+  for (let i = period; i < trs.length; i++) {
+    val = (val * (period - 1) + trs[i]) / period;
+    out[i + 1] = val;
+  }
+  return out;
+}
+
+function stdev(values: number[]): number {
+  const mean = values.reduce((a, b) => a + b, 0) / values.length;
+  return Math.sqrt(values.reduce((a, b) => a + (b - mean) ** 2, 0) / values.length);
+}
+
+// Groups daily bars into calendar weeks (Mon-Sun), returning one close-based OHLC per week.
+function toWeeklyCloses(bars: Bar[]): number[] {
+  const weeks = new Map<string, Bar[]>();
+  for (const b of bars) {
+    const d = b.date;
+    const day = d.getUTCDay();
+    const monday = new Date(d);
+    monday.setUTCDate(d.getUTCDate() - ((day + 6) % 7));
+    const key = monday.toISOString().slice(0, 10);
+    if (!weeks.has(key)) weeks.set(key, []);
+    weeks.get(key)!.push(b);
+  }
+  const keys = [...weeks.keys()].sort();
+  return keys.map((k) => {
+    const wk = weeks.get(k)!;
+    return wk[wk.length - 1].close;
+  });
+}
+
+interface CoilingResult {
+  distFromAth: number | null;
+  distFrom6moLow: number | null;
+  roc1mo: number | null;
+  roc3mo: number | null;
+  ma30wk: number | null;
+  priceVsMa30wk: number | null;
+  ma30wkSlope: number | null;
+  volRatio10_90: number | null;
+  upDownVolRatio: number | null;
+  bbw: number | null;
+  atrPct: number | null;
+  atrTrend: number | null;
+  weeklyRsi: number | null;
+  rsiFloor6mo: number | null;
+  maStackScore: number | null;
+  lowerHighs: boolean | null;
+  rsVsSpy3mo: number | null;
+}
+
+const EMPTY: CoilingResult = {
+  distFromAth: null, distFrom6moLow: null, roc1mo: null, roc3mo: null,
+  ma30wk: null, priceVsMa30wk: null, ma30wkSlope: null,
+  volRatio10_90: null, upDownVolRatio: null, bbw: null,
+  atrPct: null, atrTrend: null, weeklyRsi: null, rsiFloor6mo: null,
+  maStackScore: null, lowerHighs: null, rsVsSpy3mo: null,
+};
+
+async function fetchAth(ticker: string, lastClose: number | null): Promise<number | null> {
+  const now = new Date();
+  const start = new Date("1980-01-01");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const result: any = await yf.chart(ticker, { period1: start, period2: now, interval: "1mo" });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const highs = (result?.quotes ?? []).map((q: any) => q.high).filter((h: number) => h != null);
+  if (highs.length === 0 || lastClose == null) return null;
+  const ath = Math.max(...highs);
+  return ath > 0 ? ((lastClose - ath) / ath) * 100 : null;
+}
+
+async function fetchCoiling(ticker: string, spyReturn63: number | null): Promise<CoilingResult> {
+  const now = new Date();
+  const twoYearsAgo = new Date(now.getTime() - 2 * 365 * 24 * 3600 * 1000);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const result: any = await yf.chart(ticker, { period1: twoYearsAgo, period2: now, interval: "1d" });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const quotes = (result?.quotes ?? []).filter((q: any) =>
+    q.open != null && q.high != null && q.low != null && q.close != null && q.volume != null);
+  if (quotes.length === 0) return EMPTY;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const bars: Bar[] = quotes.map((q: any) => ({
+    date: q.date instanceof Date ? q.date : new Date(q.date),
+    open: q.open, high: q.high, low: q.low, close: q.close, volume: q.volume,
+  }));
+  const closes = bars.map((b) => b.close);
+  const lastClose = closes[closes.length - 1];
+
+  const distFromAth = await fetchAth(ticker, lastClose).catch(() => null);
+
+  const last126 = closes.slice(-126);
+  const low6mo = last126.length > 0 ? Math.min(...last126) : null;
+  const distFrom6moLow = low6mo != null && low6mo > 0 ? ((lastClose - low6mo) / low6mo) * 100 : null;
+
+  const roc1mo = closes.length > 20 && closes[closes.length - 21] > 0
+    ? ((lastClose - closes[closes.length - 21]) / closes[closes.length - 21]) * 100 : null;
+  const roc3mo = closes.length > 60 && closes[closes.length - 61] > 0
+    ? ((lastClose - closes[closes.length - 61]) / closes[closes.length - 61]) * 100 : null;
+
+  const sma150 = sma(closes, 150);
+  const ma30wk = sma150[sma150.length - 1];
+  const priceVsMa30wk = ma30wk != null && ma30wk > 0 ? lastClose / ma30wk : null;
+  const ma30wkAgo = sma150.length > 20 ? sma150[sma150.length - 21] : null;
+  const ma30wkSlope = ma30wk != null && ma30wkAgo != null ? ma30wk - ma30wkAgo : null;
+
+  const volumes = bars.map((b) => b.volume);
+  const avgVol10 = volumes.slice(-10).reduce((a, b) => a + b, 0) / Math.min(10, volumes.length);
+  const avgVol90 = volumes.slice(-90).reduce((a, b) => a + b, 0) / Math.min(90, volumes.length);
+  const volRatio10_90 = avgVol90 > 0 ? avgVol10 / avgVol90 : null;
+
+  const last20 = bars.slice(-20);
+  let upVol = 0, downVol = 0;
+  for (let i = 1; i < last20.length; i++) {
+    if (last20[i].close >= last20[i - 1].close) upVol += last20[i].volume;
+    else downVol += last20[i].volume;
+  }
+  const upDownVolRatio = downVol > 0 ? upVol / downVol : null;
+
+  const last20Closes = closes.slice(-20);
+  let bbw: number | null = null;
+  if (last20Closes.length === 20) {
+    const mid = last20Closes.reduce((a, b) => a + b, 0) / 20;
+    const sd = stdev(last20Closes);
+    const upper = mid + 2 * sd;
+    const lower = mid - 2 * sd;
+    bbw = mid > 0 ? (upper - lower) / mid : null;
+  }
+
+  const atr14 = atr(bars, 14);
+  const lastAtr = atr14[atr14.length - 1];
+  const atrPct = lastAtr != null && lastClose > 0 ? (lastAtr / lastClose) * 100 : null;
+  const atrAgo = atr14.length > 20 ? atr14[atr14.length - 21] : null;
+  const atrTrend = lastAtr != null && atrAgo != null ? lastAtr - atrAgo : null;
+
+  const weeklyCloses = toWeeklyCloses(bars);
+  const weeklyRsiArr = rsi(weeklyCloses, 14);
+  const weeklyRsi = weeklyRsiArr[weeklyRsiArr.length - 1];
+  const last26w = weeklyRsiArr.slice(-26).filter((v): v is number => v != null);
+  const rsiFloor6mo = last26w.length > 0 ? Math.min(...last26w) : null;
+
+  const ema20Arr = ema(closes, 20);
+  const ema50Arr = ema(closes, 50);
+  const ema200Arr = ema(closes, 200);
+  const ema20 = ema20Arr[ema20Arr.length - 1];
+  const ema50 = ema50Arr[ema50Arr.length - 1];
+  const ema200 = ema200Arr[ema200Arr.length - 1];
+  let maStackScore: number | null = null;
+  if (ema20 != null && ema50 != null && ema200 != null) {
+    maStackScore = (ema20 > ema50 ? 1 : 0) + (ema50 > ema200 ? 1 : 0) + (lastClose > ema200 ? 1 : 0);
+  }
+
+  // Swing highs over the trailing ~20 weeks (~100 sessions): local maxima (higher than the 5
+  // sessions on each side), most recent 3 compared in chronological order.
+  const window = bars.slice(-100);
+  const swingHighs: number[] = [];
+  for (let i = 5; i < window.length - 5; i++) {
+    const h = window[i].high;
+    const isPeak = window.slice(i - 5, i).every((b) => b.high <= h) && window.slice(i + 1, i + 6).every((b) => b.high <= h);
+    if (isPeak) swingHighs.push(h);
+  }
+  const lastThree = swingHighs.slice(-3);
+  const lowerHighs = lastThree.length === 3 ? lastThree[0] > lastThree[1] && lastThree[1] > lastThree[2] : null;
+
+  const stockReturn63 = closes.length > 63 && closes[closes.length - 64] > 0
+    ? (lastClose - closes[closes.length - 64]) / closes[closes.length - 64] : null;
+  const rsVsSpy3mo = stockReturn63 != null && spyReturn63 != null && spyReturn63 !== 0
+    ? stockReturn63 / spyReturn63 : null;
+
+  return {
+    distFromAth, distFrom6moLow, roc1mo, roc3mo,
+    ma30wk, priceVsMa30wk, ma30wkSlope,
+    volRatio10_90, upDownVolRatio, bbw,
+    atrPct, atrTrend, weeklyRsi, rsiFloor6mo,
+    maStackScore, lowerHighs, rsVsSpy3mo,
+  };
+}
+
+async function fetchSpyReturn63(): Promise<number | null> {
+  const now = new Date();
+  const start = new Date(now.getTime() - 200 * 24 * 3600 * 1000);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const result: any = await yf.chart("SPY", { period1: start, period2: now, interval: "1d" });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const closes = (result?.quotes ?? []).map((q: any) => q.close).filter((c: number) => c != null);
+  if (closes.length <= 63) return null;
+  const last = closes[closes.length - 1];
+  const prior = closes[closes.length - 64];
+  return prior > 0 ? (last - prior) / prior : null;
+}
+
+export async function GET(req: NextRequest) {
+  const param = req.nextUrl.searchParams.get("tickers");
+  if (!param) return NextResponse.json({ error: "tickers required" }, { status: 400 });
+
+  const tickers = param.split(",").map((t) => t.trim().toUpperCase()).filter(Boolean);
+  const spyReturn63 = await fetchSpyReturn63().catch(() => null);
+
+  const distFromAth: Record<string, number | null> = {};
+  const distFrom6moLow: Record<string, number | null> = {};
+  const roc1mo: Record<string, number | null> = {};
+  const roc3mo: Record<string, number | null> = {};
+  const ma30wk: Record<string, number | null> = {};
+  const priceVsMa30wk: Record<string, number | null> = {};
+  const ma30wkSlope: Record<string, number | null> = {};
+  const volRatio10_90: Record<string, number | null> = {};
+  const upDownVolRatio: Record<string, number | null> = {};
+  const bbw: Record<string, number | null> = {};
+  const atrPct: Record<string, number | null> = {};
+  const atrTrend: Record<string, number | null> = {};
+  const weeklyRsi: Record<string, number | null> = {};
+  const rsiFloor6mo: Record<string, number | null> = {};
+  const maStackScore: Record<string, number | null> = {};
+  const lowerHighs: Record<string, boolean | null> = {};
+  const rsVsSpy3mo: Record<string, number | null> = {};
+
+  const chunkSize = 8;
+  for (let i = 0; i < tickers.length; i += chunkSize) {
+    const chunk = tickers.slice(i, i + chunkSize);
+    await Promise.all(chunk.map(async (ticker) => {
+      const r = await fetchCoiling(ticker, spyReturn63).catch(() => EMPTY);
+      distFromAth[ticker] = r.distFromAth;
+      distFrom6moLow[ticker] = r.distFrom6moLow;
+      roc1mo[ticker] = r.roc1mo;
+      roc3mo[ticker] = r.roc3mo;
+      ma30wk[ticker] = r.ma30wk;
+      priceVsMa30wk[ticker] = r.priceVsMa30wk;
+      ma30wkSlope[ticker] = r.ma30wkSlope;
+      volRatio10_90[ticker] = r.volRatio10_90;
+      upDownVolRatio[ticker] = r.upDownVolRatio;
+      bbw[ticker] = r.bbw;
+      atrPct[ticker] = r.atrPct;
+      atrTrend[ticker] = r.atrTrend;
+      weeklyRsi[ticker] = r.weeklyRsi;
+      rsiFloor6mo[ticker] = r.rsiFloor6mo;
+      maStackScore[ticker] = r.maStackScore;
+      lowerHighs[ticker] = r.lowerHighs;
+      rsVsSpy3mo[ticker] = r.rsVsSpy3mo;
+    }));
+  }
+
+  return NextResponse.json({
+    distFromAth, distFrom6moLow, roc1mo, roc3mo,
+    ma30wk, priceVsMa30wk, ma30wkSlope,
+    volRatio10_90, upDownVolRatio, bbw,
+    atrPct, atrTrend, weeklyRsi, rsiFloor6mo,
+    maStackScore, lowerHighs, rsVsSpy3mo,
+  });
+}
