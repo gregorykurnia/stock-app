@@ -318,7 +318,7 @@ export default function MasterTable({
           shortFloat: usSwingShortFloats?.[s.ticker] ?? null, earningsDaysUntil,
         });
 
-        return { s, price, ema20, ema50, distEma20, distEma50, earningsDaysUntil, flags, categoryLabels, scores };
+        return { s, price, ema20, ema50, distEma20, distEma50, distLow6mo, distResistance, earningsDaysUntil, flags, categoryLabels, scores };
       })
       .filter(({ flags }) => activeSet.size === 0 || [...activeSet].some((k) => flags[k]));
   }, [
@@ -339,7 +339,7 @@ export default function MasterTable({
     const portfolioTickers = usSwingStocks.filter((s) => s.inPortfolio).map((s) => s.ticker);
     const portfolioNote = `CURRENT SWING PORTFOLIO (his actual live 6 slots right now, ground truth — not a suggestion): ${portfolioTickers.length ? portfolioTickers.join(", ") : "none set yet"}\n\n`;
     const body = usSwingChatFiltered
-      .map(({ s, price, distEma20, distEma50, earningsDaysUntil, categoryLabels, scores }) => {
+      .map(({ s, price, distEma20, distEma50, distLow6mo, distResistance, earningsDaysUntil, categoryLabels, scores }) => {
         const prevClose = usSwingPrevCloses[s.ticker] ?? null;
         const changePct = price != null && prevClose ? ((price - prevClose) / prevClose) * 100 : null;
         const status = portfolioSet.has(s.ticker) ? "OWNED" : watchlistSet.has(s.ticker) ? "watchlisted" : "not owned";
@@ -350,7 +350,7 @@ export default function MasterTable({
           `dist EMA20D ${pct(distEma20)}, dist EMA50D ${pct(distEma50)}`,
           `RSI ${fmt(usSwingRsis[s.ticker], 1)}, DI+ ${fmt(usSwingDiPluses?.[s.ticker], 1)}, DI- ${fmt(usSwingDiMinuses?.[s.ticker], 1)}, ADX ${fmt(usSwingAdxs?.[s.ticker], 1)}`,
           `ROC14 ${pct(usSwingRoc14s?.[s.ticker])}, ROC63 ${pct(usSwingRoc63s?.[s.ticker])}, ROC90 ${pct(usSwingRoc90s?.[s.ticker])}, Sortino3m ${fmt(usSwingSortinos?.[s.ticker], 2)}, Sortino6m ${fmt(usSwingSortino6mos?.[s.ticker], 2)}, MACD ${fmt(usSwingMacds[s.ticker], 2)}, ATR% ${fmt(usSwingAtrs[s.ticker], 2)}`,
-          `dist resistance ${pct(usSwingDistHigh5yrs?.[s.ticker])}, dist 1yr low ${pct(usSwingDistLow1yrs?.[s.ticker])}`,
+          `dist 6mo low ${pct(distLow6mo)}, dist 1yr low ${pct(usSwingDistLow1yrs?.[s.ticker])}, dist resistance ${pct(distResistance)}, dist 2Y high ${pct(usSwingDistHigh5yrs?.[s.ticker])}`,
           `rel volume ${fmt(usSwingRelVolumes[s.ticker], 2)}x, short float ${fmt(usSwingShortFloats?.[s.ticker], 1)}%, next earnings ${usSwingEarnings?.[s.ticker] ?? "—"}${earningsDaysUntil != null ? ` (${earningsDaysUntil}d)` : ""}`,
         ].join(" ");
       })
