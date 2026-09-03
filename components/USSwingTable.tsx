@@ -427,7 +427,7 @@ function ScoreCell({ groupLabel, data }: { groupLabel: string; data: { score: nu
   );
 }
 
-export type CategoryKey = "coiledBase" | "recentBreakout" | "strongUptrend" | "stableLongTerm" | "parabolicRecovery" | "stableRecovery" | "stableModerateUpside" | "parabolic";
+export type CategoryKey = "coiledBase" | "recentBreakout" | "strongUptrend" | "stableLongTerm" | "parabolicRecovery" | "moderateRecovery" | "stableRecovery" | "stableModerateUpside" | "parabolic";
 
 export interface CategoryInputs {
   price: number | null;
@@ -472,6 +472,10 @@ export function computeCategoryFlags(inp: CategoryInputs): Record<CategoryKey, b
       distLow6moVal != null && distLow6moVal <= 50
     ),
     parabolicRecovery: distLow6moVal != null && distLow6moVal > 47 && distHigh5yr != null && distHigh5yr <= -28,
+    moderateRecovery: (
+      distLow6moVal != null && distLow6moVal > 40 && distLow6moVal <= 47 &&
+      distHigh5yr != null && distHigh5yr <= -25
+    ),
     stableRecovery: (
       distEma20dVal != null && Math.abs(distEma20dVal) < 6 &&
       distLow6moVal != null && distLow6moVal <= 40 &&
@@ -506,6 +510,10 @@ export const CATEGORY_DEFS: { key: CategoryKey; label: string; badgeClass: strin
   {
     key: "parabolicRecovery", label: "Parabolic Recovery", badgeClass: "bg-rose-100 text-rose-700",
     description: "More than 47% above its 6mo low, but still 28% or more below its 2Y high (can be -28%, -50%, -80%, etc.) — a sharp bounce off the bottom that hasn't reclaimed the old high yet.",
+  },
+  {
+    key: "moderateRecovery", label: "Moderate Recovery", badgeClass: "bg-orange-100 text-orange-700",
+    description: "More than 40% and at most 47% above its 6mo low, and still 25% or more below its 2Y high — the middle zone between Stable Recovery and Parabolic Recovery, further off the low than a steady bounce but not yet a vertical run.",
   },
   {
     key: "stableRecovery", label: "Stable Recovery", badgeClass: "bg-lime-100 text-lime-700",

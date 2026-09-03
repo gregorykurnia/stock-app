@@ -207,6 +207,7 @@ Computed in `components/USSwingTable.tsx` for the "Stock Category" column. Separ
 | **Strong Uptrend** | At least 35% above its 6mo low, within 8% of EMA20D, ROC90 above 20%, made a new 2Y high within the last 60 days, and less than 300 days removed from its 1Y low. |
 | **Stable Long Term** | At least 300 days removed from its 1Y low, at least 45% above that 1Y low, made a new 2Y high within the last 45 days, at most 50% above its 6mo low. |
 | **Parabolic Recovery** | More than 50% above its 6mo low, but still 28% or more below its 2Y high (can be -28%, -50%, -80%, etc.) — a sharp bounce off the bottom that hasn't reclaimed the old high yet. |
+| **Moderate Recovery** | More than 40% and at most 47% above its 6mo low, and still 25% or more below its 2Y high — the middle zone between Stable Recovery and Parabolic Recovery, further off the low than a steady bounce but not yet a vertical run. |
 | **Stable Recovery** | Within 6% of EMA20D, at most 40% above its 6mo low, and still 25% or more below its 2Y high (can be -25%, -40%, -50%, etc.) — a steadier, less parabolic bounce off the bottom that's found footing near its short-term trend. |
 | **Stable Moderate Upside** | Within 6% of EMA20D, at most 50% above its 6mo low, and 15.01%–24.99% below its 2Y high — a middle zone between Stable Recovery and Limited Upside. |
 | **Parabolic** | More than 15% above its resistance level and more than 60% above its 6mo low — a vertical, overextended run well clear of its prior ceiling. |
@@ -618,6 +619,7 @@ Category definitions (reference only):
 - Strong Uptrend: 35%+ above 6mo low, within 8% of EMA20D, ROC90 > 20%, new 2Y high within 60 days, <300 days since 1Y low.
 - Stable Long Term: 300+ days since 1Y low, 45%+ above that low, new 2Y high within 45 days, at most 50% above 6mo low.
 - Parabolic Recovery: 47%+ above 6mo low but still 28%+ below 2Y high.
+- Moderate Recovery: more than 40% and at most 47% above 6mo low, still 25%+ below 2Y high.
 - Stable Recovery: within 6% of EMA20D, at most 40% above 6mo low, still 25%+ below 2Y high.
 - Stable Moderate Upside: within 6% of EMA20D, at most 50% above 6mo low, 15.01-24.99% below 2Y high.
 - Parabolic: more than 15% above resistance and more than 60% above 6mo low.
