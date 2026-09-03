@@ -4,7 +4,7 @@ import { useState } from "react";
 import {
   getScreenerDraft, importScreenerDraftEntries, updateScreenerDraftRanks, removeScreenerDraftEntry,
   getScreenerExcludedTickers, excludeScreenerTicker, excludeScreenerTickersBulk, unexcludeScreenerTicker,
-  getScreenerExclusionOverrides, addScreenerExclusionOverride,
+  getScreenerExclusionOverrides, addScreenerExclusionOverride, saveUsSwingStock, saveCoilingReversalStock,
   getScreenerDraftBeatenDown, importScreenerDraftEntriesBeatenDown, updateScreenerDraftRanksBeatenDown, removeScreenerDraftEntryBeatenDown,
   getScreenerExcludedTickersBeatenDown, excludeScreenerTickerBeatenDown, excludeScreenerTickersBulkBeatenDown, unexcludeScreenerTickerBeatenDown,
 } from "@/lib/firestore";
@@ -15,6 +15,7 @@ const SWING_CONFIG: ScreenerTabConfig = {
   criteriaText: "Market cap ≥ $1B, 0-3% below 50-day high, sorted by market cap desc — same criteria as the finviz screener.",
   useStaticExclusions: true,
   includeUsSwingInTracked: true,
+  promoteTarget: { label: "US-Swing", save: saveUsSwingStock },
   getDraft: getScreenerDraft,
   importDraftEntries: importScreenerDraftEntries,
   removeDraftEntry: removeScreenerDraftEntry,
@@ -32,6 +33,7 @@ const BEATEN_DOWN_CONFIG: ScreenerTabConfig = {
   criteriaText: "Market cap ≥ $1B, 40%+ below all-time high, sorted by market cap desc — same criteria as the finviz screener.",
   useStaticExclusions: false,
   includeUsSwingInTracked: false,
+  promoteTarget: { label: "Coiling Reversal", save: saveCoilingReversalStock },
   getDraft: getScreenerDraftBeatenDown,
   importDraftEntries: importScreenerDraftEntriesBeatenDown,
   removeDraftEntry: removeScreenerDraftEntryBeatenDown,

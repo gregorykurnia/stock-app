@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import {
-  getWatchlistTickers, getPortfolioTickers, getPortfolioDivisionStocks, getUsSwingStocks, saveUsSwingStock, getCustomStocks,
+  getWatchlistTickers, getPortfolioTickers, getPortfolioDivisionStocks, getUsSwingStocks, getCustomStocks,
 } from "@/lib/firestore";
 import { SCREENER_EXCLUDED_TICKERS } from "@/lib/screenerExclusions";
 import { SEED_STOCKS } from "@/lib/seedData";
@@ -25,6 +25,12 @@ export interface ScreenerTabConfig {
   // When false (Beaten Down Screener), US-Swing membership doesn't count toward "already
   // tracked" — US-Swing tracks Swing Screener candidates specifically, not beaten-down ones.
   includeUsSwingInTracked: boolean;
+  // Where "Add to X" / "Move to X" promotes a ticker to — US-Swing for the Swing Screener,
+  // a Beaten Down list (e.g. Coiling Reversal) for the Beaten Down Screener.
+  promoteTarget: {
+    label: string;
+    save: (ticker: string, data: { name: string | null; industry: string | null; added_at: string }) => Promise<void>;
+  };
   getDraft: () => Promise<Record<string, { company: string | null; added_at: string; rank?: number }>>;
   importDraftEntries: (entries: { ticker: string; company: string | null; rank?: number }[]) => Promise<void>;
   removeDraftEntry: (ticker: string) => Promise<void>;
@@ -39,7 +45,7 @@ export interface ScreenerTabConfig {
 
 export default function ScreenerTab({ config }: { config: ScreenerTabConfig }) {
   const {
-    apiRoute, criteriaText, useStaticExclusions, includeUsSwingInTracked,
+    apiRoute, criteriaText, useStaticExclusions, includeUsSwingInTracked, promoteTarget,
     getDraft, importDraftEntries, removeDraftEntry, updateDraftRanks,
     getExcluded, excludeTicker, excludeTickersBulk, unexcludeTicker,
     getExclusionOverrides, addExclusionOverride,
@@ -172,7 +178,7 @@ export default function ScreenerTab({ config }: { config: ScreenerTabConfig }) {
       return;
     }
     if (trackedTickers.has(ticker)) {
-      setManualError(`${ticker} is already tracked (watchlist/portfolio/US-Swing) — remove it from there first.`);
+      setManualError(`${ticker} is already tracked (watchlist/portfolio${includeUsSwingInTracked ? "/US-Swing" : ""}) — remove it from there first.`);
       return;
     }
     const reason = manualReason.trim() || null;
@@ -235,7 +241,7 @@ export default function ScreenerTab({ config }: { config: ScreenerTabConfig }) {
       const res = await fetch(`/api/fundamentals?ticker=${ticker}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to fetch data");
-      await saveUsSwingStock(ticker, {
+      await promoteTarget.save(ticker, {
         name: data.name ?? null,
         industry: data.industry ?? data.sector ?? null,
         added_at: new Date().toISOString(),
@@ -413,7 +419,7 @@ export default function ScreenerTab({ config }: { config: ScreenerTabConfig }) {
                         disabled={promoting.has(ticker)}
                         className="text-xs px-2.5 py-1 rounded-md bg-[var(--accent)] text-white font-medium mr-2 disabled:opacity-50"
                       >
-                        {promoting.has(ticker) ? "Adding..." : "Move to US-Swing"}
+                        {promoting.has(ticker) ? "Adding..." : `Move to ${promoteTarget.label}`}
                       </button>
                       <button
                         onClick={() => handleDeleteExcluded(ticker, d.fromDoc)}
@@ -466,7 +472,7 @@ export default function ScreenerTab({ config }: { config: ScreenerTabConfig }) {
                         disabled={promoting.has(row.ticker)}
                         className="text-xs px-2.5 py-1 rounded-md bg-[var(--accent)] text-white font-medium mr-2 disabled:opacity-50"
                       >
-                        {promoting.has(row.ticker) ? "Adding..." : "Add to US-Swing"}
+                        {promoting.has(row.ticker) ? "Adding..." : `Add to ${promoteTarget.label}`}
                       </button>
                     )}
                     {row.status === "new" ? (
