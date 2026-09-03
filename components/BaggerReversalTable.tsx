@@ -49,17 +49,17 @@ export default function BaggerReversalTable({
       )}
 
       {stocks.length > 0 && (
-        <div className="overflow-x-auto border rounded">
+        <div className="overflow-x-auto overflow-y-auto max-h-[72vh] rounded-lg border border-gray-200">
           <table className="min-w-full text-sm">
-            <thead className="bg-gray-50 border-b">
+            <thead className="bg-gray-100 border-b border-gray-200 sticky top-0 z-10">
               <tr>
-                <th className="px-3 py-2 text-left font-semibold text-gray-600">Ticker</th>
-                <th className="px-3 py-2 text-left font-semibold text-gray-600">Industry</th>
-                <th className="px-3 py-2 text-left font-semibold text-gray-600">Price</th>
-                <th className="px-3 py-2"></th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Ticker</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Industry</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Price</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Remove</th>
               </tr>
             </thead>
-            <tbody className="divide-y">
+            <tbody className="divide-y divide-gray-100">
               {stocks.map((r) => (
                 <tr key={r.ticker} className="hover:bg-gray-50">
                   <td className="px-3 py-2 font-semibold text-gray-900">

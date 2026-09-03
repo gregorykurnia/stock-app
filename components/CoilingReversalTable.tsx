@@ -108,7 +108,7 @@ export default function CoilingReversalTable({
       key={k}
       onClick={() => handleSort(k)}
       title={title}
-      className="px-3 py-2 text-left font-semibold text-gray-600 cursor-pointer select-none whitespace-nowrap hover:text-gray-900"
+      className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide cursor-pointer hover:text-gray-900 whitespace-nowrap select-none"
     >
       {label} {sortKey === k && (sortDir === "asc" ? "▲" : "▼")}
     </th>
@@ -135,13 +135,13 @@ export default function CoilingReversalTable({
       )}
 
       {stocks.length > 0 && (
-        <div className="overflow-x-auto border rounded">
+        <div className="overflow-x-auto overflow-y-auto max-h-[72vh] rounded-lg border border-gray-200">
           <table className="min-w-full text-sm">
-            <thead className="bg-gray-50 border-b">
+            <thead className="bg-gray-100 border-b border-gray-200 sticky top-0 z-10">
               <tr>
                 {th("Ticker", "ticker")}
-                <th className="px-3 py-2 text-left font-semibold text-gray-600">Industry</th>
-                <th className="px-3 py-2 text-left font-semibold text-gray-600">Price</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Industry</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Price</th>
                 {th("% from ATH", "distFromAth")}
                 {th("% from 6mo Low", "distFrom6moLow")}
                 {th("ROC 1mo", "roc1mo")}
@@ -159,10 +159,10 @@ export default function CoilingReversalTable({
                 {th("MA Stack", "maStackScore", "0-3: EMA20>EMA50, EMA50>EMA200, Price>EMA200")}
                 {th("Lower Highs", "lowerHighs", "Last 3 swing highs over 20wk each lower than the prior")}
                 {th("RS vs SPY 3mo", "rsVsSpy3mo")}
-                <th className="px-3 py-2"></th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Remove</th>
               </tr>
             </thead>
-            <tbody className="divide-y">
+            <tbody className="divide-y divide-gray-100">
               {rows.map((r) => (
                 <tr key={r.ticker} className="hover:bg-gray-50">
                   <td className="px-3 py-2 font-semibold text-gray-900">
