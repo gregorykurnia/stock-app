@@ -58,6 +58,7 @@ interface Props {
   onAdd?: (e: FormEvent) => void;
   onRemove?: (ticker: string) => void;
   onToggleStar?: (ticker: string) => void;
+  onCategoryFilterChange?: (keys: CategoryKey[]) => void;
 }
 
 const dash = <span className="text-gray-400">—</span>;
@@ -361,9 +362,67 @@ function ScoreCell({ groupLabel, data }: { groupLabel: string; data: { score: nu
   );
 }
 
-type CategoryKey = "coiledBase" | "recentBreakout" | "strongUptrend" | "stableLongTerm" | "parabolicRecovery" | "stableRecovery" | "stableModerateUpside" | "parabolic";
+export type CategoryKey = "coiledBase" | "recentBreakout" | "strongUptrend" | "stableLongTerm" | "parabolicRecovery" | "stableRecovery" | "stableModerateUpside" | "parabolic";
 
-const CATEGORY_DEFS: { key: CategoryKey; label: string; badgeClass: string; description: string }[] = [
+export interface CategoryInputs {
+  price: number | null;
+  ema20d: number | null;
+  low6mo: number | null;
+  resistance: number | null;
+  distHigh5yr: number | null;
+  daysSinceHigh5yr: number | null;
+  daysSinceResistance: number | null;
+  roc90: number | null;
+  daysSinceLow1yr: number | null;
+  distLow1yr: number | null;
+}
+
+// Single source of truth for the "Stock Category" tags — used both by the table's own
+// column and by anything summarizing this data externally (e.g. the chat assistant),
+// so the two never drift out of sync with each other.
+export function computeCategoryFlags(inp: CategoryInputs): Record<CategoryKey, boolean> {
+  const { price, ema20d, low6mo, resistance, distHigh5yr, daysSinceHigh5yr, daysSinceResistance, roc90, daysSinceLow1yr, distLow1yr } = inp;
+  const distEma20dVal = price != null && ema20d != null ? ((price - ema20d) / ema20d) * 100 : null;
+  const distLow6moVal = price != null && low6mo != null && low6mo > 0 ? ((price - low6mo) / low6mo) * 100 : null;
+  const distResistanceVal = price != null && resistance != null && resistance > 0 ? ((price - resistance) / resistance) * 100 : null;
+
+  return {
+    coiledBase: distHigh5yr != null && daysSinceHigh5yr != null && distHigh5yr >= -15 && distHigh5yr <= 0 && daysSinceHigh5yr > 75,
+    recentBreakout: (
+      daysSinceHigh5yr != null && daysSinceHigh5yr < 15 &&
+      distResistanceVal != null && distResistanceVal >= -1 && distResistanceVal <= 5 &&
+      daysSinceResistance != null && daysSinceResistance >= 100
+    ),
+    strongUptrend: (
+      distLow6moVal != null && distLow6moVal >= 35 &&
+      distEma20dVal != null && Math.abs(distEma20dVal) < 8 &&
+      roc90 != null && roc90 > 20 &&
+      daysSinceHigh5yr != null && daysSinceHigh5yr < 60 &&
+      daysSinceLow1yr != null && daysSinceLow1yr < 300
+    ),
+    stableLongTerm: (
+      daysSinceLow1yr != null && daysSinceLow1yr >= 300 &&
+      distLow1yr != null && distLow1yr >= 45 &&
+      daysSinceHigh5yr != null && daysSinceHigh5yr <= 45 &&
+      distLow6moVal != null && distLow6moVal <= 50 &&
+      !(distHigh5yr != null && distHigh5yr >= -0.5 && distHigh5yr <= 0)
+    ),
+    parabolicRecovery: distLow6moVal != null && distLow6moVal > 47 && distHigh5yr != null && distHigh5yr <= -28,
+    stableRecovery: (
+      distEma20dVal != null && Math.abs(distEma20dVal) < 6 &&
+      distLow6moVal != null && distLow6moVal <= 40 &&
+      distHigh5yr != null && distHigh5yr <= -25
+    ),
+    stableModerateUpside: (
+      distEma20dVal != null && Math.abs(distEma20dVal) <= 6 &&
+      distLow6moVal != null && distLow6moVal <= 50 &&
+      distHigh5yr != null && distHigh5yr >= -24.99 && distHigh5yr <= -15.01
+    ),
+    parabolic: distResistanceVal != null && distResistanceVal > 15 && distLow6moVal != null && distLow6moVal > 60,
+  };
+}
+
+export const CATEGORY_DEFS: { key: CategoryKey; label: string; badgeClass: string; description: string }[] = [
   {
     key: "coiledBase", label: "Limited Upside", badgeClass: "bg-amber-100 text-amber-700",
     description: "Within 15% below the 2-year high, but it's been more than 75 days since that high was set — sitting quietly under an old ceiling instead of chasing it or falling away from it.",
@@ -431,7 +490,7 @@ export default function USSwingTable({
   stocks, prices, prevCloses = {}, atrs, ema20s, ema50s, goldenCrossDates = {}, macds, roc14s = {}, roc63s = {}, roc90s = {}, sortinos = {}, sortino6mos = {}, rsis, diPluses = {}, diMinuses = {}, adxs = {}, low6mos, relVolumes,
   resistances = {}, daysSinceResistances = {}, high5yrs = {}, distHigh5yrs = {}, daysSinceHigh5yrs = {},
   low1yrs = {}, distLow1yrs = {}, daysSinceLow1yrs = {}, shortFloats = {}, advs = {}, earnings = {}, loading = false,
-  addTicker = "", addLoading = false, addError = "", onAddTickerChange, onAdd, onRemove, onToggleStar,
+  addTicker = "", addLoading = false, addError = "", onAddTickerChange, onAdd, onRemove, onToggleStar, onCategoryFilterChange,
 }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>("ticker");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -440,6 +499,10 @@ export default function USSwingTable({
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<Set<CategoryKey>>(new Set());
   const [categoryMenuOpen, setCategoryMenuOpen] = useState(false);
+
+  useEffect(() => {
+    onCategoryFilterChange?.([...categoryFilter]);
+  }, [categoryFilter, onCategoryFilterChange]);
 
   function toggleCategoryFilter(key: CategoryKey) {
     setCategoryFilter((prev) => {
@@ -543,79 +606,15 @@ export default function USSwingTable({
         high5yr: high5yrs[s.ticker] ?? null,
         distHigh5yr: distHigh5yrs[s.ticker] ?? null,
         daysSinceHigh5yr: daysSinceHigh5yrs[s.ticker] ?? null,
-        coiledBase: (() => {
-          const d = distHigh5yrs[s.ticker] ?? null;
-          const days = daysSinceHigh5yrs[s.ticker] ?? null;
-          return d != null && days != null && d >= -15 && d <= 0 && days > 75;
-        })(),
-        recentBreakout: (() => {
-          const daysSinceHigh = daysSinceHigh5yrs[s.ticker] ?? null;
-          const distResistanceVal = price != null && resistance != null && resistance > 0 ? ((price - resistance) / resistance) * 100 : null;
-          const daysSinceRes = daysSinceResistances[s.ticker] ?? null;
-          return (
-            daysSinceHigh != null && daysSinceHigh < 15 &&
-            distResistanceVal != null && distResistanceVal >= -1 && distResistanceVal <= 5 &&
-            daysSinceRes != null && daysSinceRes >= 100
-          );
-        })(),
-        strongUptrend: (() => {
-          const distLow6moVal = price != null && low6mo != null && low6mo > 0 ? ((price - low6mo) / low6mo) * 100 : null;
-          const distEma20dVal = price != null && ema20d != null ? ((price - ema20d) / ema20d) * 100 : null;
-          const roc90 = roc90s[s.ticker] ?? null;
-          const daysSinceHigh = daysSinceHigh5yrs[s.ticker] ?? null;
-          const daysSinceLow = daysSinceLow1yrs[s.ticker] ?? null;
-          return (
-            distLow6moVal != null && distLow6moVal >= 35 &&
-            distEma20dVal != null && Math.abs(distEma20dVal) < 8 &&
-            roc90 != null && roc90 > 20 &&
-            daysSinceHigh != null && daysSinceHigh < 60 &&
-            daysSinceLow != null && daysSinceLow < 300
-          );
-        })(),
-        stableLongTerm: (() => {
-          const daysSinceLow = daysSinceLow1yrs[s.ticker] ?? null;
-          const distLow1yrVal = distLow1yrs[s.ticker] ?? null;
-          const daysSinceHigh = daysSinceHigh5yrs[s.ticker] ?? null;
-          const distLow6moVal = price != null && low6mo != null && low6mo > 0 ? ((price - low6mo) / low6mo) * 100 : null;
-          const distHigh5yrVal = distHigh5yrs[s.ticker] ?? null;
-          return (
-            daysSinceLow != null && daysSinceLow >= 300 &&
-            distLow1yrVal != null && distLow1yrVal >= 45 &&
-            daysSinceHigh != null && daysSinceHigh <= 45 &&
-            distLow6moVal != null && distLow6moVal <= 50 &&
-            !(distHigh5yrVal != null && distHigh5yrVal >= -0.5 && distHigh5yrVal <= 0)
-          );
-        })(),
-        parabolicRecovery: (() => {
-          const distLow6moVal = price != null && low6mo != null && low6mo > 0 ? ((price - low6mo) / low6mo) * 100 : null;
-          const distHigh5yrVal = distHigh5yrs[s.ticker] ?? null;
-          return distLow6moVal != null && distLow6moVal > 47 && distHigh5yrVal != null && distHigh5yrVal <= -28;
-        })(),
-        stableRecovery: (() => {
-          const distEma20dVal = price != null && ema20d != null ? ((price - ema20d) / ema20d) * 100 : null;
-          const distLow6moVal = price != null && low6mo != null && low6mo > 0 ? ((price - low6mo) / low6mo) * 100 : null;
-          const distHigh5yrVal = distHigh5yrs[s.ticker] ?? null;
-          return (
-            distEma20dVal != null && Math.abs(distEma20dVal) < 6 &&
-            distLow6moVal != null && distLow6moVal <= 40 &&
-            distHigh5yrVal != null && distHigh5yrVal <= -25
-          );
-        })(),
-        stableModerateUpside: (() => {
-          const distEma20dVal = price != null && ema20d != null ? ((price - ema20d) / ema20d) * 100 : null;
-          const distLow6moVal = price != null && low6mo != null && low6mo > 0 ? ((price - low6mo) / low6mo) * 100 : null;
-          const distHigh5yrVal = distHigh5yrs[s.ticker] ?? null;
-          return (
-            distEma20dVal != null && Math.abs(distEma20dVal) <= 6 &&
-            distLow6moVal != null && distLow6moVal <= 50 &&
-            distHigh5yrVal != null && distHigh5yrVal >= -24.99 && distHigh5yrVal <= -15.01
-          );
-        })(),
-        parabolic: (() => {
-          const distResistanceVal = price != null && resistance != null && resistance > 0 ? ((price - resistance) / resistance) * 100 : null;
-          const distLow6moVal = price != null && low6mo != null && low6mo > 0 ? ((price - low6mo) / low6mo) * 100 : null;
-          return distResistanceVal != null && distResistanceVal > 15 && distLow6moVal != null && distLow6moVal > 60;
-        })(),
+        ...computeCategoryFlags({
+          price, ema20d, low6mo, resistance,
+          distHigh5yr: distHigh5yrs[s.ticker] ?? null,
+          daysSinceHigh5yr: daysSinceHigh5yrs[s.ticker] ?? null,
+          daysSinceResistance: daysSinceResistances[s.ticker] ?? null,
+          roc90: roc90s[s.ticker] ?? null,
+          daysSinceLow1yr: daysSinceLow1yrs[s.ticker] ?? null,
+          distLow1yr: distLow1yrs[s.ticker] ?? null,
+        }),
         low1yr: low1yrs[s.ticker] ?? null,
         distLow1yr: distLow1yrs[s.ticker] ?? null,
         daysSinceLow1yr: daysSinceLow1yrs[s.ticker] ?? null,

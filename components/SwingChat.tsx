@@ -6,19 +6,30 @@ import type { ChatMessage } from "@/lib/claude";
 interface Props {
   dataContext: string;
   tickerCount: number;
+  activeCategoryLabels?: string[];
 }
 
-export default function SwingChat({ dataContext, tickerCount }: Props) {
+export default function SwingChat({ dataContext, tickerCount, activeCategoryLabels = [] }: Props) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const categoryKey = activeCategoryLabels.join(",");
+  const prevCategoryKey = useRef(categoryKey);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, loading]);
+
+  // Filter changed mid-conversation — old messages reasoned about a different scope, so start fresh.
+  useEffect(() => {
+    if (prevCategoryKey.current !== categoryKey) {
+      prevCategoryKey.current = categoryKey;
+      setMessages([]);
+    }
+  }, [categoryKey]);
 
   const send = async () => {
     const text = input.trim();
@@ -66,9 +77,14 @@ export default function SwingChat({ dataContext, tickerCount }: Props) {
   return (
     <div className="fixed bottom-5 right-5 z-40 flex h-[560px] w-[380px] max-w-[calc(100vw-2.5rem)] flex-col rounded-xl border border-gray-200 bg-white shadow-2xl">
       <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3">
-        <div>
+        <div className="min-w-0">
           <div className="text-sm font-semibold text-gray-900">US-Swing Analyst</div>
-          <div className="text-xs text-gray-500">{tickerCount} tickers loaded</div>
+          <div className="text-xs text-gray-500 truncate">
+            {tickerCount} tickers loaded
+            {activeCategoryLabels.length > 0 && (
+              <span className="text-blue-600"> · filtered to {activeCategoryLabels.join(", ")}</span>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-2">
           {messages.length > 0 && (
@@ -89,7 +105,14 @@ export default function SwingChat({ dataContext, tickerCount }: Props) {
       <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-3">
         {messages.length === 0 && (
           <div className="text-sm text-gray-500 space-y-2">
-            <p>Ask about your US-Swing list — I can see live price, EMA20/50D, RSI, DI+/-, ADX, ROC, and distance from highs/lows/resistance for every ticker on it.</p>
+            <p>
+              Ask about your US-Swing list — I can see live price, EMA20/50D, RSI, DI+/-, ADX, ROC, distance from highs/lows/resistance, and stock category tags for every ticker
+              {activeCategoryLabels.length > 0 ? (
+                <> in your current <span className="font-medium text-blue-600">{activeCategoryLabels.join(", ")}</span> filter.</>
+              ) : (
+                <> on it.</>
+              )}
+            </p>
             <p className="text-gray-400">Try: &quot;what looks best to buy right now?&quot; or &quot;which of my starred names is closest to breaking down?&quot;</p>
           </div>
         )}

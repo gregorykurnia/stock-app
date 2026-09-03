@@ -8,7 +8,7 @@ import { atrLabel, type BandarScoreResult } from "@/lib/indicators";
 import { downloadCsv } from "@/lib/exportCsv";
 import type { CustomStock, PeStats } from "@/lib/types";
 import type { FundData } from "@/app/api/funddata/route";
-import USSwingTable, { type USSwingStock } from "@/components/USSwingTable";
+import USSwingTable, { type USSwingStock, type CategoryKey, CATEGORY_DEFS, computeCategoryFlags } from "@/components/USSwingTable";
 import SwingChat from "@/components/SwingChat";
 import PortfolioTable, { PORTFOLIO_DIVISIONS, type PortfolioStock, type PortfolioLevelField } from "@/components/PortfolioTable";
 import type { PortfolioDivision } from "@/lib/firestore";
@@ -279,21 +279,51 @@ export default function MasterTable({
   const [swingSortKey, setSwingSortKey] = useState<SwingSortKey>("ticker");
   const [swingSortDir, setSwingSortDir] = useState<SortDir>("asc");
 
-  const usSwingChatContext = useMemo(() => {
-    const fmt = (v: number | null | undefined, digits = 2) => (v == null ? "—" : v.toFixed(digits));
-    const pct = (v: number | null | undefined) => (v == null ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(1)}%`);
+  const [usSwingActiveCategories, setUsSwingActiveCategories] = useState<CategoryKey[]>([]);
+
+  const usSwingChatFiltered = useMemo(() => {
+    const activeSet = new Set(usSwingActiveCategories);
     return usSwingStocks
       .map((s) => {
         const price = usSwingPrices[s.ticker] ?? null;
+        const ema20 = usSwingEma20s[s.ticker] ?? null;
+        const low6mo = usSwingLow6mos[s.ticker] ?? null;
+        const resistance = usSwingResistances[s.ticker] ?? null;
+        const flags = computeCategoryFlags({
+          price, ema20d: ema20, low6mo, resistance,
+          distHigh5yr: usSwingDistHigh5yrs[s.ticker] ?? null,
+          daysSinceHigh5yr: usSwingDaysSinceHigh5yrs[s.ticker] ?? null,
+          daysSinceResistance: usSwingDaysSinceResistances[s.ticker] ?? null,
+          roc90: usSwingRoc90s[s.ticker] ?? null,
+          daysSinceLow1yr: usSwingDaysSinceLow1yrs[s.ticker] ?? null,
+          distLow1yr: usSwingDistLow1yrs[s.ticker] ?? null,
+        });
+        const categoryLabels = CATEGORY_DEFS.filter((c) => flags[c.key]).map((c) => c.label);
+        return { s, price, ema20, flags, categoryLabels };
+      })
+      .filter(({ flags }) => activeSet.size === 0 || [...activeSet].some((k) => flags[k]));
+  }, [
+    usSwingStocks, usSwingActiveCategories, usSwingPrices, usSwingEma20s, usSwingLow6mos, usSwingResistances,
+    usSwingDistHigh5yrs, usSwingDaysSinceHigh5yrs, usSwingDaysSinceResistances, usSwingRoc90s,
+    usSwingDaysSinceLow1yrs, usSwingDistLow1yrs,
+  ]);
+
+  const usSwingChatContext = useMemo(() => {
+    const fmt = (v: number | null | undefined, digits = 2) => (v == null ? "—" : v.toFixed(digits));
+    const pct = (v: number | null | undefined) => (v == null ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(1)}%`);
+    const filterNote = usSwingActiveCategories.length > 0
+      ? `NOTE: Greg currently has the table filtered to only these stock categories — treat the list below as the full scope of "my list" / "these stocks" for this conversation unless he names a ticker outside it: ${usSwingActiveCategories.map((k) => CATEGORY_DEFS.find((c) => c.key === k)?.label ?? k).join(", ")}\n\n`
+      : "";
+    const body = usSwingChatFiltered
+      .map(({ s, price, ema20, categoryLabels }) => {
         const prevClose = usSwingPrevCloses[s.ticker] ?? null;
         const changePct = price != null && prevClose ? ((price - prevClose) / prevClose) * 100 : null;
-        const ema20 = usSwingEma20s[s.ticker] ?? null;
         const ema50 = usSwingEma50s[s.ticker] ?? null;
         const distEma20 = price != null && ema20 ? ((price - ema20) / ema20) * 100 : null;
         const distEma50 = price != null && ema50 ? ((price - ema50) / ema50) * 100 : null;
         const status = portfolioSet.has(s.ticker) ? "OWNED" : watchlistSet.has(s.ticker) ? "watchlisted" : "not owned";
         return [
-          `${s.ticker}${s.starred ? " ★" : ""} (${s.industry ?? "?"}, ${status}):`,
+          `${s.ticker}${s.starred ? " ★" : ""} (${s.industry ?? "?"}, ${status}) [${categoryLabels.length ? categoryLabels.join(", ") : "no category tag"}]:`,
           `price $${fmt(price)} (${pct(changePct)}d)`,
           `dist EMA20D ${pct(distEma20)}, dist EMA50D ${pct(distEma50)}`,
           `RSI ${fmt(usSwingRsis[s.ticker], 1)}, DI+ ${fmt(usSwingDiPluses?.[s.ticker], 1)}, DI- ${fmt(usSwingDiMinuses?.[s.ticker], 1)}, ADX ${fmt(usSwingAdxs?.[s.ticker], 1)}`,
@@ -303,8 +333,9 @@ export default function MasterTable({
         ].join(" ");
       })
       .join("\n");
+    return filterNote + body;
   }, [
-    usSwingStocks, usSwingPrices, usSwingPrevCloses, usSwingEma20s, usSwingEma50s, usSwingRsis,
+    usSwingChatFiltered, usSwingActiveCategories, usSwingPrevCloses, usSwingEma50s, usSwingRsis,
     usSwingDiPluses, usSwingDiMinuses, usSwingAdxs, usSwingRoc14s, usSwingRoc63s, usSwingRoc90s,
     usSwingDistHigh5yrs, usSwingDistLow1yrs, usSwingRelVolumes, usSwingShortFloats, usSwingEarnings,
     portfolioSet, watchlistSet,
@@ -2281,11 +2312,16 @@ export default function MasterTable({
           onAdd={onUsSwingAdd}
           onRemove={onUsSwingRemove}
           onToggleStar={onUsSwingToggleStar}
+          onCategoryFilterChange={setUsSwingActiveCategories}
         />
       )}
 
       {!isIhsg && mainTab === "swing" && usSwingStocks.length > 0 && (
-        <SwingChat dataContext={usSwingChatContext} tickerCount={usSwingStocks.length} />
+        <SwingChat
+          dataContext={usSwingChatContext}
+          tickerCount={usSwingChatFiltered.length}
+          activeCategoryLabels={usSwingActiveCategories.map((k) => CATEGORY_DEFS.find((c) => c.key === k)?.label ?? k)}
+        />
       )}
 
       {/* PORTFOLIO TAB (US only) — three independent, manually-managed divisions */}
