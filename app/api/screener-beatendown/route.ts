@@ -62,7 +62,12 @@ async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: numbe
   }
 }
 
-async function fetchPage(page: number): Promise<{ ticker: string; company: string; rank: number }[]> {
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// r.jina.ai 403s intermittently when hit with a burst of concurrent requests from the same
+// source (Vercel's serverless IPs) — a couple of retries with backoff clears it almost every
+// time without needing to fall back to the direct fetch (which finviz blocks from Vercel).
+async function fetchPageAttempt(page: number): Promise<{ ticker: string; company: string; rank: number }[]> {
   const rowOffset = (page - 1) * ROWS_PER_PAGE + 1;
   const url = `${BASE_URL}&r=${rowOffset}`;
   const errors: string[] = [];
@@ -92,12 +97,38 @@ async function fetchPage(page: number): Promise<{ ticker: string; company: strin
   throw new Error(`page ${page} failed — ${errors.join("; ")}`);
 }
 
+async function fetchPage(page: number): Promise<{ ticker: string; company: string; rank: number }[]> {
+  const RETRIES = 3;
+  let lastErr: unknown;
+  for (let attempt = 0; attempt <= RETRIES; attempt++) {
+    if (attempt > 0) await sleep(800 * attempt);
+    try {
+      return await fetchPageAttempt(page);
+    } catch (err) {
+      lastErr = err;
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error(`page ${page} failed`);
+}
+
+// Fetching all 10 pages at once tends to trip r.jina.ai's rate limiting; a small concurrency
+// cap with a short stagger between batches avoids the burst while staying well inside maxDuration.
+const CONCURRENCY = 3;
+
+async function fetchAllPages(): Promise<{ ticker: string; company: string; rank: number }[]> {
+  const results: { ticker: string; company: string; rank: number }[][] = new Array(PAGES);
+  for (let i = 0; i < PAGES; i += CONCURRENCY) {
+    const batch = Array.from({ length: Math.min(CONCURRENCY, PAGES - i) }, (_, j) => i + j + 1);
+    const batchResults = await Promise.all(batch.map((page) => fetchPage(page)));
+    batch.forEach((page, j) => { results[page - 1] = batchResults[j]; });
+    if (i + CONCURRENCY < PAGES) await sleep(300);
+  }
+  return results.flat();
+}
+
 export async function GET() {
   try {
-    const pageResults = await Promise.all(
-      Array.from({ length: PAGES }, (_, i) => fetchPage(i + 1))
-    );
-    const all = pageResults.flat();
+    const all = await fetchAllPages();
     return NextResponse.json({ results: all });
   } catch (err) {
     return NextResponse.json(
