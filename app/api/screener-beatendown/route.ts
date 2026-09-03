@@ -73,7 +73,9 @@ async function fetchPageAttempt(page: number): Promise<{ ticker: string; company
   const errors: string[] = [];
 
   try {
-    const resp = await fetchWithTimeout(`https://r.jina.ai/${url}`, { headers: { Accept: "text/plain" } }, 20000);
+    const jinaHeaders: Record<string, string> = { Accept: "text/plain" };
+    if (process.env.JINA_API_KEY) jinaHeaders.Authorization = `Bearer ${process.env.JINA_API_KEY}`;
+    const resp = await fetchWithTimeout(`https://r.jina.ai/${url}`, { headers: jinaHeaders }, 20000);
     if (resp.ok) {
       const markdown = await resp.text();
       const rows = parseJinaMarkdown(markdown);
