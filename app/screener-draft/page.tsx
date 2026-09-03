@@ -28,6 +28,9 @@ export default function ScreenerDraftPage() {
   const [manualError, setManualError] = useState<string | null>(null);
   const [massExcluding, setMassExcluding] = useState(false);
   const [massExcludeError, setMassExcludeError] = useState<string | null>(null);
+  const [massExcludeDone, setMassExcludeDone] = useState<number | null>(null);
+  const [showMassExcludeConfirm, setShowMassExcludeConfirm] = useState(false);
+  const [massExcludeReason, setMassExcludeReason] = useState("");
 
   const load = useCallback(async (showLoading = false) => {
     if (showLoading) setLoading(true);
@@ -139,14 +142,18 @@ export default function ScreenerDraftPage() {
     await Promise.all([excludeScreenerTicker(ticker, reason), removeScreenerDraftEntry(ticker)]);
   }
 
+  // Deliberately avoids window.confirm/window.prompt for this action: after several
+  // window.prompt calls from single-ticker Exclude clicks in the same session, some
+  // browsers silently suppress further dialogs ("prevent this page from creating
+  // additional dialogs") — confirm() then returns false with zero visible feedback,
+  // which looks exactly like "the button doesn't work". An inline confirm step can't
+  // be suppressed that way.
   async function handleMassExclude() {
     setMassExcludeError(null);
+    setMassExcludeDone(null);
     const newTickers = entries.filter((e) => !trackedTickers.has(e.ticker)).map((e) => e.ticker);
     if (newTickers.length === 0) return;
-    if (!window.confirm(`Exclude all ${newTickers.length} "New" ticker(s)? This can be undone individually from the Excluded tab.`)) {
-      return;
-    }
-    const reason = window.prompt(`Reason for excluding all ${newTickers.length} tickers? (optional, applies to all)`, "") || null;
+    const reason = massExcludeReason.trim() || null;
     setMassExcluding(true);
     try {
       // Write to Firestore first — entries/excludedTickers state is only updated on success,
@@ -159,6 +166,9 @@ export default function ScreenerDraftPage() {
         for (const ticker of newTickers) next[ticker] = { reason, excluded_at: now };
         return next;
       });
+      setMassExcludeDone(newTickers.length);
+      setShowMassExcludeConfirm(false);
+      setMassExcludeReason("");
     } catch (err) {
       setMassExcludeError(err instanceof Error ? err.message : "Mass exclude failed — no tickers were changed.");
     } finally {
@@ -262,16 +272,47 @@ export default function ScreenerDraftPage() {
         ))}
       </div>
 
-      {filter === "new" && newCount > 0 && (
-        <div className="mb-4 flex items-center gap-3">
-          <button
-            onClick={handleMassExclude}
-            disabled={massExcluding}
-            className="text-xs px-3 py-1.5 rounded-md border border-red-300 text-red-600 hover:bg-red-50 font-medium disabled:opacity-50"
-          >
-            {massExcluding ? "Excluding..." : `Mass Exclude All (${newCount})`}
-          </button>
-          {massExcludeError && <span className="text-xs text-red-600">{massExcludeError}</span>}
+      {filter === "new" && (newCount > 0 || showMassExcludeConfirm || massExcludeError || massExcludeDone !== null) && (
+        <div className="mb-4">
+          {showMassExcludeConfirm ? (
+            <div className="rounded-lg border border-red-300 bg-red-50 p-3 flex flex-wrap items-end gap-3">
+              <div>
+                <p className="text-sm text-red-700 font-medium mb-2">
+                  Exclude all {newCount} &quot;New&quot; ticker(s)? Undo individually from the Excluded tab.
+                </p>
+                <label className="block text-xs font-medium text-[var(--muted)] mb-1">Reason (optional, applies to all)</label>
+                <input
+                  value={massExcludeReason}
+                  onChange={(e) => setMassExcludeReason(e.target.value)}
+                  placeholder="e.g. bulk cleanup"
+                  className="rounded-md border border-[var(--border)] px-3 py-1.5 text-sm w-64 focus:outline-none focus:ring-2 focus:ring-[var(--accent)]"
+                />
+              </div>
+              <button
+                onClick={handleMassExclude}
+                disabled={massExcluding}
+                className="text-xs px-3 py-1.5 rounded-md bg-red-600 text-white font-medium disabled:opacity-50"
+              >
+                {massExcluding ? "Excluding..." : `Confirm Exclude All (${newCount})`}
+              </button>
+              <button
+                onClick={() => { setShowMassExcludeConfirm(false); setMassExcludeReason(""); }}
+                disabled={massExcluding}
+                className="text-xs px-3 py-1.5 rounded-md text-[var(--muted)] hover:bg-black/[0.04] disabled:opacity-50"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : newCount > 0 ? (
+            <button
+              onClick={() => { setShowMassExcludeConfirm(true); setMassExcludeError(null); setMassExcludeDone(null); }}
+              className="text-xs px-3 py-1.5 rounded-md border border-red-300 text-red-600 hover:bg-red-50 font-medium"
+            >
+              Mass Exclude All ({newCount})
+            </button>
+          ) : null}
+          {massExcludeError && <p className="text-xs text-red-600 mt-2">{massExcludeError}</p>}
+          {massExcludeDone !== null && <p className="text-xs text-green-700 mt-2">Excluded {massExcludeDone} ticker(s).</p>}
         </div>
       )}
 
