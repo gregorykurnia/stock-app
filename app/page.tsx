@@ -9,7 +9,7 @@ import {
   loadStockData, getCustomStocks, saveCustomStock, removeCustomStock,
   getIhsgCustomStocks, saveIhsgCustomStock, removeIhsgCustomStock,
   getIhsgSwingStocks, saveIhsgSwingStock, removeIhsgSwingStock, updateIhsgSwingEntryPrice,
-  getUsSwingStocks, saveUsSwingStock, removeUsSwingStock, updateUsSwingStar,
+  getUsSwingStocks, saveUsSwingStock, removeUsSwingStock, updateUsSwingStar, updateUsSwingPortfolio,
   getPortfolioTickers, getWatchlistTickers,
   savePortfolioEntry, removePortfolioEntry,
   saveWatchlistEntry, removeWatchlistEntry,
@@ -61,7 +61,7 @@ export default function Home() {
   const [peProgress, setPeProgress] = useState("");
 
   // US "Swing" tab — separate, manually-managed ticker list, independent from List. Starts empty.
-  interface UsSwingStock { ticker: string; name: string | null; industry: string | null; starred?: boolean; addedAt?: string | null }
+  interface UsSwingStock { ticker: string; name: string | null; industry: string | null; starred?: boolean; inPortfolio?: boolean; addedAt?: string | null }
   const [usSwingStocks, setUsSwingStocks] = useState<UsSwingStock[]>([]);
   const [usSwingPrices, setUsSwingPrices] = useState<Record<string, number | null>>({});
   const [usSwingPrevCloses, setUsSwingPrevCloses] = useState<Record<string, number | null>>({});
@@ -231,8 +231,8 @@ export default function Home() {
   async function loadUsSwingStocks() {
     const data = await getUsSwingStocks().catch(() => ({}));
     const list = Object.entries(data).map(([ticker, d]) => {
-      const raw = d as { name?: string | null; industry?: string | null; starred?: boolean; added_at?: string | null };
-      return { ticker, name: raw.name ?? null, industry: raw.industry ?? null, starred: raw.starred ?? false, addedAt: raw.added_at ?? null } as UsSwingStock;
+      const raw = d as { name?: string | null; industry?: string | null; starred?: boolean; in_portfolio?: boolean; added_at?: string | null };
+      return { ticker, name: raw.name ?? null, industry: raw.industry ?? null, starred: raw.starred ?? false, inPortfolio: raw.in_portfolio ?? false, addedAt: raw.added_at ?? null } as UsSwingStock;
     });
     list.sort((a, b) => a.ticker.localeCompare(b.ticker));
     setUsSwingStocks(list);
@@ -244,6 +244,13 @@ export default function Home() {
     const next = !current;
     setUsSwingStocks((prev) => prev.map((s) => (s.ticker === ticker ? { ...s, starred: next } : s)));
     await updateUsSwingStar(ticker, next);
+  }
+
+  async function handleToggleUsSwingPortfolio(ticker: string) {
+    const current = usSwingStocks.find((s) => s.ticker === ticker)?.inPortfolio ?? false;
+    const next = !current;
+    setUsSwingStocks((prev) => prev.map((s) => (s.ticker === ticker ? { ...s, inPortfolio: next } : s)));
+    await updateUsSwingPortfolio(ticker, next);
   }
 
   function handleUsSwingTabOpen() {
@@ -1212,6 +1219,7 @@ export default function Home() {
             onUsSwingAdd={handleAddUsSwingTicker}
             onUsSwingRemove={handleRemoveUsSwingTicker}
             onUsSwingToggleStar={handleToggleUsSwingStar}
+            onUsSwingTogglePortfolio={handleToggleUsSwingPortfolio}
             portfolioStocks={portfolioStocks}
             portfolioPrices={portfolioPrices}
             portfolioPrevCloses={portfolioPrevCloses}

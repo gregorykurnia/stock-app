@@ -192,6 +192,7 @@ interface Props {
   onUsSwingAdd?: (e: FormEvent) => void;
   onUsSwingRemove?: (ticker: string) => void;
   onUsSwingToggleStar?: (ticker: string) => void;
+  onUsSwingTogglePortfolio?: (ticker: string) => void;
   // "Portfolio" tab — three independent, manually-managed divisions (Long Term / Index / Swing)
   portfolioStocks?: Record<PortfolioDivision, PortfolioStock[]>;
   portfolioPrices?: Record<string, number | null>;
@@ -247,7 +248,7 @@ export default function MasterTable({
   swingLoading = false, swingAddTicker = "", swingAddLoading = false, swingAddError = "", onSwingAddTickerChange, onSwingAdd, onSwingRemove, onSwingEntryPriceChange,
   usSwingStocks = [], usSwingPrices = {}, usSwingPrevCloses = {}, usSwingAtrs = {}, usSwingEma20s = {}, usSwingEma50s = {}, usSwingGoldenCrossDates = {}, usSwingMacds = {}, usSwingRoc14s = {}, usSwingRoc63s = {}, usSwingRoc90s = {}, usSwingSortinos = {}, usSwingSortino6mos = {}, usSwingRsis = {}, usSwingDiPluses = {}, usSwingDiMinuses = {}, usSwingAdxs = {}, usSwingLow6mos = {}, usSwingResistances = {}, usSwingDaysSinceResistances = {}, usSwingHigh5yrs = {}, usSwingDistHigh5yrs = {}, usSwingDaysSinceHigh5yrs = {}, usSwingLow1yrs = {}, usSwingDistLow1yrs = {}, usSwingDaysSinceLow1yrs = {}, usSwingRelVolumes = {},
   usSwingShortFloats = {}, usSwingAdvs = {}, usSwingEarnings = {}, usSwingLoading = false, onUsSwingTabOpen,
-  usSwingAddTicker = "", usSwingAddLoading = false, usSwingAddError = "", onUsSwingAddTickerChange, onUsSwingAdd, onUsSwingRemove, onUsSwingToggleStar,
+  usSwingAddTicker = "", usSwingAddLoading = false, usSwingAddError = "", onUsSwingAddTickerChange, onUsSwingAdd, onUsSwingRemove, onUsSwingToggleStar, onUsSwingTogglePortfolio,
   portfolioStocks = { longterm: [], index: [], swing: [] }, portfolioPrices = {}, portfolioPrevCloses = {},
   portfolioLoading = { longterm: false, index: false, swing: false }, onPortfolioTabOpen,
   portfolioAddTicker = { longterm: "", index: "", swing: "" }, portfolioAddLoading = { longterm: false, index: false, swing: false },
@@ -335,13 +336,15 @@ export default function MasterTable({
     const filterNote = usSwingActiveCategories.length > 0
       ? `NOTE: Greg currently has the table filtered to only these stock categories — treat the list below as the full scope of "my list" / "these stocks" for this conversation unless he names a ticker outside it: ${usSwingActiveCategories.map((k) => CATEGORY_DEFS.find((c) => c.key === k)?.label ?? k).join(", ")}\n\n`
       : "";
+    const portfolioTickers = usSwingStocks.filter((s) => s.inPortfolio).map((s) => s.ticker);
+    const portfolioNote = `CURRENT SWING PORTFOLIO (his actual live 6 slots right now, ground truth — not a suggestion): ${portfolioTickers.length ? portfolioTickers.join(", ") : "none set yet"}\n\n`;
     const body = usSwingChatFiltered
       .map(({ s, price, distEma20, distEma50, earningsDaysUntil, categoryLabels, scores }) => {
         const prevClose = usSwingPrevCloses[s.ticker] ?? null;
         const changePct = price != null && prevClose ? ((price - prevClose) / prevClose) * 100 : null;
         const status = portfolioSet.has(s.ticker) ? "OWNED" : watchlistSet.has(s.ticker) ? "watchlisted" : "not owned";
         return [
-          `${s.ticker}${s.starred ? " ★" : ""} (${s.industry ?? "?"}, ${status}) [${categoryLabels.length ? categoryLabels.join(", ") : "no category tag"}]:`,
+          `${s.ticker}${s.starred ? " ★" : ""}${s.inPortfolio ? " [IN PORTFOLIO]" : ""} (${s.industry ?? "?"}, ${status}) [${categoryLabels.length ? categoryLabels.join(", ") : "no category tag"}]:`,
           `Grand Score ${score(scores.grandScore.score)}/10 (Price&Trend ${score(scores.priceTrendScore.score)}, Momentum ${score(scores.momentumScore.score)}, TrendStrength ${score(scores.trendStrengthScore.score)}, PriceLevels ${score(scores.priceLevelsScore.score)}, Liquidity ${score(scores.liquidityScore.score)})`,
           `price $${fmt(price)} (${pct(changePct)}d)`,
           `dist EMA20D ${pct(distEma20)}, dist EMA50D ${pct(distEma50)}`,
@@ -352,9 +355,9 @@ export default function MasterTable({
         ].join(" ");
       })
       .join("\n");
-    return filterNote + body;
+    return filterNote + portfolioNote + body;
   }, [
-    usSwingChatFiltered, usSwingActiveCategories, usSwingPrevCloses, usSwingRsis,
+    usSwingChatFiltered, usSwingActiveCategories, usSwingStocks, usSwingPrevCloses, usSwingRsis,
     usSwingDiPluses, usSwingDiMinuses, usSwingAdxs, usSwingRoc14s, usSwingRoc63s, usSwingRoc90s,
     usSwingSortinos, usSwingSortino6mos, usSwingMacds, usSwingAtrs,
     usSwingDistHigh5yrs, usSwingDistLow1yrs, usSwingRelVolumes, usSwingShortFloats, usSwingEarnings,
@@ -2332,6 +2335,7 @@ export default function MasterTable({
           onAdd={onUsSwingAdd}
           onRemove={onUsSwingRemove}
           onToggleStar={onUsSwingToggleStar}
+          onTogglePortfolio={onUsSwingTogglePortfolio}
           onCategoryFilterChange={setUsSwingActiveCategories}
         />
       )}

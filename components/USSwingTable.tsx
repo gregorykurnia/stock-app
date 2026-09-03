@@ -8,6 +8,7 @@ export interface USSwingStock {
   name: string | null;
   industry: string | null;
   starred?: boolean;
+  inPortfolio?: boolean;
   addedAt?: string | null;
 }
 
@@ -58,6 +59,7 @@ interface Props {
   onAdd?: (e: FormEvent) => void;
   onRemove?: (ticker: string) => void;
   onToggleStar?: (ticker: string) => void;
+  onTogglePortfolio?: (ticker: string) => void;
   onCategoryFilterChange?: (keys: CategoryKey[]) => void;
 }
 
@@ -553,11 +555,12 @@ export default function USSwingTable({
   stocks, prices, prevCloses = {}, atrs, ema20s, ema50s, goldenCrossDates = {}, macds, roc14s = {}, roc63s = {}, roc90s = {}, sortinos = {}, sortino6mos = {}, rsis, diPluses = {}, diMinuses = {}, adxs = {}, low6mos, relVolumes,
   resistances = {}, daysSinceResistances = {}, high5yrs = {}, distHigh5yrs = {}, daysSinceHigh5yrs = {},
   low1yrs = {}, distLow1yrs = {}, daysSinceLow1yrs = {}, shortFloats = {}, advs = {}, earnings = {}, loading = false,
-  addTicker = "", addLoading = false, addError = "", onAddTickerChange, onAdd, onRemove, onToggleStar, onCategoryFilterChange,
+  addTicker = "", addLoading = false, addError = "", onAddTickerChange, onAdd, onRemove, onToggleStar, onTogglePortfolio, onCategoryFilterChange,
 }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>("ticker");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const [starredOnly, setStarredOnly] = useState(false);
+  const [portfolioOnly, setPortfolioOnly] = useState(false);
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<Set<CategoryKey>>(new Set());
@@ -678,10 +681,13 @@ export default function USSwingTable({
 
   const filteredRows = useMemo(() => {
     let out = starredOnly ? rows.filter((r) => r.starred) : rows;
+    if (portfolioOnly) out = out.filter((r) => r.inPortfolio);
     if (search) out = out.filter((r) => r.ticker.toUpperCase().includes(search) || r.name?.toUpperCase().includes(search));
     if (categoryFilter.size > 0) out = out.filter((r) => [...categoryFilter].some((key) => r[key]));
     return out;
-  }, [rows, starredOnly, search, categoryFilter]);
+  }, [rows, starredOnly, portfolioOnly, search, categoryFilter]);
+
+  const portfolioCount = useMemo(() => stocks.filter((s) => s.inPortfolio).length, [stocks]);
 
   const sortedRows = useMemo(() => {
     const getVal = (r: (typeof rows)[number]): number | string | null => {
@@ -830,7 +836,7 @@ export default function USSwingTable({
   const Th = ({ label, k, title, sticky, infoTiers, breakoutNote }: { label: string; k: SortKey; title?: string; sticky?: boolean; infoTiers?: Tier[]; breakoutNote?: string }) => (
     <th
       title={infoTiers ? undefined : title}
-      className={`px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide cursor-pointer hover:text-gray-900 whitespace-nowrap select-none${sticky ? " sticky left-9 z-20 bg-gray-100 after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-gray-300 after:content-['']" : ""}`}
+      className={`px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide cursor-pointer hover:text-gray-900 whitespace-nowrap select-none${sticky ? " sticky left-[4.5rem] z-20 bg-gray-100 after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-gray-300 after:content-['']" : ""}`}
       onClick={() => toggleSort(k)}
     >
       {label}{sortKey === k ? (sortDir === "desc" ? " ↓" : " ↑") : ""}
@@ -930,6 +936,15 @@ export default function USSwingTable({
             />
             ★ Starred only
           </label>
+          <label className={`flex items-center gap-1.5 text-xs cursor-pointer select-none px-2 py-1.5 rounded border ${portfolioCount > 6 ? "border-red-300 text-red-700 bg-red-50" : "border-gray-300 text-gray-600 bg-white hover:border-gray-400"}`}>
+            <input
+              type="checkbox"
+              checked={portfolioOnly}
+              onChange={(e) => setPortfolioOnly(e.target.checked)}
+              className="accent-blue-600"
+            />
+            💼 Portfolio ({portfolioCount}/6)
+          </label>
           <div className="relative">
             <button
               onClick={() => setCategoryMenuOpen((o) => !o)}
@@ -984,7 +999,7 @@ export default function USSwingTable({
         <table className="w-full text-sm">
           <thead className="bg-gray-100 border-b border-gray-200 sticky top-0 z-30">
             <tr className="border-b border-gray-200">
-              <th colSpan={2} className="px-2 py-1 sticky left-0 z-20 bg-gray-100" />
+              <th colSpan={3} className="px-2 py-1 sticky left-0 z-20 bg-gray-100" />
               <th colSpan={3} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Overview</th>
               <th colSpan={10} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Price &amp; Trend</th>
               <th colSpan={6} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Momentum</th>
@@ -995,6 +1010,7 @@ export default function USSwingTable({
             </tr>
             <tr>
               <th className="w-9 px-2 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap sticky left-0 z-20 bg-gray-100">★</th>
+              <th className="w-9 px-2 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap sticky left-9 z-20 bg-gray-100">💼</th>
               <Th label="Ticker" k="ticker" sticky />
               <Th label="Industry" k="industry" />
               <Th label="Added" k="addedAt" />
@@ -1044,10 +1060,10 @@ export default function USSwingTable({
           </thead>
           <tbody className="divide-y divide-gray-100">
             {sortedRows.length === 0 && (
-              <tr><td colSpan={45} className="px-3 py-6 text-center text-gray-400 text-sm">{starredOnly ? "No starred tickers." : "No tickers yet — add one above."}</td></tr>
+              <tr><td colSpan={46} className="px-3 py-6 text-center text-gray-400 text-sm">{portfolioOnly ? "No tickers in your portfolio." : starredOnly ? "No starred tickers." : "No tickers yet — add one above."}</td></tr>
             )}
             {sortedRows.map((r) => (
-              <tr key={r.ticker} className="hover:bg-gray-50">
+              <tr key={r.ticker} className={`hover:bg-gray-50 ${r.inPortfolio ? "bg-blue-50/50" : ""}`}>
                 <td className="w-9 px-2 py-2 sticky left-0 z-10 bg-white">
                   <button
                     onClick={() => onToggleStar?.(r.ticker)}
@@ -1057,7 +1073,17 @@ export default function USSwingTable({
                     {r.starred ? "★" : "☆"}
                   </button>
                 </td>
-                <td className="px-3 py-2 sticky left-9 z-10 bg-white after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-gray-200 after:content-['']">
+                <td className="w-9 px-2 py-2 sticky left-9 z-10 bg-white">
+                  <button
+                    onClick={() => onTogglePortfolio?.(r.ticker)}
+                    aria-label={r.inPortfolio ? `Remove ${r.ticker} from portfolio` : `Add ${r.ticker} to portfolio`}
+                    title={r.inPortfolio ? "In current swing portfolio" : "Not in current swing portfolio"}
+                    className={`text-base leading-none ${r.inPortfolio ? "text-blue-600" : "text-gray-300 hover:text-gray-400"}`}
+                  >
+                    💼
+                  </button>
+                </td>
+                <td className="px-3 py-2 sticky left-[4.5rem] z-10 bg-white after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-gray-200 after:content-['']">
                   <div className="font-semibold text-gray-900 flex items-center gap-1.5">
                     {r.ticker}
                     {r.addedAt && (Date.now() - new Date(r.addedAt).getTime()) / 86400000 <= 7 && (

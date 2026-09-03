@@ -109,6 +109,10 @@ export async function updateUsSwingStar(ticker: string, starred: boolean) {
   await setDoc(doc(db, "us_swing_stocks", ticker), { starred }, { merge: true });
 }
 
+export async function updateUsSwingPortfolio(ticker: string, inPortfolio: boolean) {
+  await setDoc(doc(db, "us_swing_stocks", ticker), { in_portfolio: inPortfolio }, { merge: true });
+}
+
 // Screener Draft — raw imports from finviz screener runs, pending triage into US-Swing
 export async function getScreenerDraft(): Promise<Record<string, { company: string | null; added_at: string; rank?: number }>> {
   const snap = await getDocs(collection(db, "screener_draft"));
