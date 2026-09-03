@@ -18,6 +18,7 @@ import {
   excludeScreenerTickerBeatenDown,
 } from "@/lib/firestore";
 import CoilingReversalTable, { type CoilingStock } from "@/components/CoilingReversalTable";
+import type { UpsideInput as UpsideRaw } from "@/lib/upsideScore";
 import BaggerReversalTable, { type BaggerStock } from "@/components/BaggerReversalTable";
 
 type SortKey =
@@ -301,6 +302,14 @@ export default function MasterTable({
   const [coilingMaStackScore, setCoilingMaStackScore] = useState<Record<string, number | null>>({});
   const [coilingLowerHighs, setCoilingLowerHighs] = useState<Record<string, boolean | null>>({});
   const [coilingRsVsSpy3mo, setCoilingRsVsSpy3mo] = useState<Record<string, number | null>>({});
+  const [coilingSlopeNow, setCoilingSlopeNow] = useState<Record<string, number | null>>({});
+  const [coilingSlope4wk, setCoilingSlope4wk] = useState<Record<string, number | null>>({});
+  const [coilingSlope8wk, setCoilingSlope8wk] = useState<Record<string, number | null>>({});
+  const [coilingMaTouchCount, setCoilingMaTouchCount] = useState<Record<string, number | null>>({});
+  const [coilingRangeContractionRatio, setCoilingRangeContractionRatio] = useState<Record<string, number | null>>({});
+  const [coilingRsLineDiffPct, setCoilingRsLineDiffPct] = useState<Record<string, number | null>>({});
+  const [coilingVolGreenRatio, setCoilingVolGreenRatio] = useState<Record<string, number | null>>({});
+  const [coilingUpside, setCoilingUpside] = useState<Record<string, UpsideRaw>>({});
   const [coilingLoading, setCoilingLoading] = useState(false);
   const [coilingLoaded, setCoilingLoaded] = useState(false);
   const [coilingAddTicker, setCoilingAddTicker] = useState("");
@@ -337,6 +346,14 @@ export default function MasterTable({
         setCoilingMaStackScore((p) => ({ ...p, ...(d.maStackScore ?? {}) }));
         setCoilingLowerHighs((p) => ({ ...p, ...(d.lowerHighs ?? {}) }));
         setCoilingRsVsSpy3mo((p) => ({ ...p, ...(d.rsVsSpy3mo ?? {}) }));
+        setCoilingSlopeNow((p) => ({ ...p, ...(d.slopeNow ?? {}) }));
+        setCoilingSlope4wk((p) => ({ ...p, ...(d.slope4wk ?? {}) }));
+        setCoilingSlope8wk((p) => ({ ...p, ...(d.slope8wk ?? {}) }));
+        setCoilingMaTouchCount((p) => ({ ...p, ...(d.maTouchCount ?? {}) }));
+        setCoilingRangeContractionRatio((p) => ({ ...p, ...(d.rangeContractionRatio ?? {}) }));
+        setCoilingRsLineDiffPct((p) => ({ ...p, ...(d.rsLineDiffPct ?? {}) }));
+        setCoilingVolGreenRatio((p) => ({ ...p, ...(d.volGreenRatio ?? {}) }));
+        setCoilingUpside((p) => ({ ...p, ...(d.upside ?? {}) }));
       })
       .catch(() => {});
   }
@@ -2638,6 +2655,14 @@ export default function MasterTable({
               maStackScore={coilingMaStackScore}
               lowerHighs={coilingLowerHighs}
               rsVsSpy3mo={coilingRsVsSpy3mo}
+              slopeNow={coilingSlopeNow}
+              slope4wk={coilingSlope4wk}
+              slope8wk={coilingSlope8wk}
+              maTouchCount={coilingMaTouchCount}
+              rangeContractionRatio={coilingRangeContractionRatio}
+              rsLineDiffPct={coilingRsLineDiffPct}
+              volGreenRatio={coilingVolGreenRatio}
+              upside={coilingUpside}
               loading={coilingLoading}
               addTicker={coilingAddTicker}
               addLoading={coilingAddLoading}

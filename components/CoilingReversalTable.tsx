@@ -3,6 +3,9 @@
 import { useMemo, useRef, useState, type FormEvent } from "react";
 import { downloadCsv } from "@/lib/exportCsv";
 import { scoreCoilingRows, type CoilingLabel, type CoilingSubScores } from "@/lib/coilingScore";
+import { scoreProximity, type ProximityLabel, type ProximitySubScores } from "@/lib/proximityScore";
+import { scoreUpside, type UpsideLabel, type UpsideSubScores, type UpsideInput } from "@/lib/upsideScore";
+import { computeMasterScore, type MasterLabel } from "@/lib/masterScore";
 
 export interface CoilingStock {
   ticker: string;
@@ -14,7 +17,8 @@ export interface CoilingStock {
 type SortKey =
   | "ticker" | "industry" | "price" | "grandScore" | "distFrom2yHigh" | "distFrom6moLow" | "roc1mo" | "roc3mo"
   | "ma30wk" | "priceVsMa30wk" | "ma30wkSlope" | "volRatio10_90" | "upDownVolRatio" | "bbw"
-  | "atrPct" | "atrTrend" | "weeklyRsi" | "rsiFloor6mo" | "maStackScore" | "lowerHighs" | "rsVsSpy3mo";
+  | "atrPct" | "atrTrend" | "weeklyRsi" | "rsiFloor6mo" | "maStackScore" | "lowerHighs" | "rsVsSpy3mo"
+  | "proximityScore" | "upsideScore" | "masterScore";
 type SortDir = "asc" | "desc";
 
 const LABEL_STYLES: Record<CoilingLabel, string> = {
@@ -24,6 +28,45 @@ const LABEL_STYLES: Record<CoilingLabel, string> = {
   "Weak": "bg-orange-100 text-orange-700 border border-orange-300",
   "Poor": "bg-red-100 text-red-700 border border-red-300",
 };
+
+const PROXIMITY_LABEL_STYLES: Record<ProximityLabel, string> = {
+  "Imminent": "bg-green-100 text-green-700 border border-green-300",
+  "Developing": "bg-blue-100 text-blue-700 border border-blue-300",
+  "Early": "bg-yellow-100 text-yellow-700 border border-yellow-300",
+  "Not Ready": "bg-red-100 text-red-700 border border-red-300",
+};
+
+const UPSIDE_LABEL_STYLES: Record<UpsideLabel, string> = {
+  "High Upside Potential": "bg-green-100 text-green-700 border border-green-300",
+  "Moderate Upside": "bg-blue-100 text-blue-700 border border-blue-300",
+  "Speculative": "bg-yellow-100 text-yellow-700 border border-yellow-300",
+  "Low Conviction": "bg-red-100 text-red-700 border border-red-300",
+};
+
+const MASTER_LABEL_STYLES: Record<MasterLabel, string> = {
+  "Tier 1: High Conviction Entry": "bg-green-100 text-green-700 border border-green-300",
+  "Tier 2: Strong Candidate": "bg-blue-100 text-blue-700 border border-blue-300",
+  "Tier 3: Watch Closely": "bg-yellow-100 text-yellow-700 border border-yellow-300",
+  "Tier 4: Too Early": "bg-orange-100 text-orange-700 border border-orange-300",
+  "Tier 5: Avoid": "bg-red-100 text-red-700 border border-red-300",
+};
+
+const PROXIMITY_ROW_LABELS: [keyof ProximitySubScores, string][] = [
+  ["slopeVelocity", "Slope Velocity"],
+  ["maTouchCount", "MA Touch Count"],
+  ["rangeContraction", "Range Contraction"],
+  ["rsLineDirection", "RS Line Direction"],
+  ["volumeGreenDays", "Volume on Green Days"],
+];
+
+const UPSIDE_ROW_LABELS: [keyof UpsideSubScores, string][] = [
+  ["grossMarginTrend", "Gross Margin Trend"],
+  ["revenueDeceleration", "Revenue Deceleration"],
+  ["cashRunway", "Cash Runway"],
+  ["epsRevision", "EPS Revision"],
+  ["shortInterest", "Short Interest"],
+  ["insiderBuyCount", "Insider Buy Count"],
+];
 
 interface Props {
   stocks: CoilingStock[];
@@ -45,6 +88,14 @@ interface Props {
   maStackScore: Record<string, number | null>;
   lowerHighs: Record<string, boolean | null>;
   rsVsSpy3mo: Record<string, number | null>;
+  slopeNow: Record<string, number | null>;
+  slope4wk: Record<string, number | null>;
+  slope8wk: Record<string, number | null>;
+  maTouchCount: Record<string, number | null>;
+  rangeContractionRatio: Record<string, number | null>;
+  rsLineDiffPct: Record<string, number | null>;
+  volGreenRatio: Record<string, number | null>;
+  upside: Record<string, UpsideInput>;
   loading?: boolean;
   addTicker: string;
   addLoading: boolean;
@@ -354,10 +405,77 @@ function ScoreBadge({ score, label, subScores, flagged, flagReasons }: {
   );
 }
 
+// Generic composite-score badge (score + label + hover breakdown), reused for Proximity,
+// Upside and Master scores the same way ScoreBadge does for Grand Score.
+function CompositeBadge<K extends string>({
+  score, max, label, labelStyle, rows, subScores, extraNote,
+}: {
+  score: number; max: number; label: string; labelStyle: string;
+  rows: [K, string][]; subScores: Record<K, number>; extraNote?: string;
+}) {
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const anchorRef = useRef<HTMLSpanElement>(null);
+
+  function show() {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (anchorRef.current) {
+      const r = anchorRef.current.getBoundingClientRect();
+      setPos({ top: r.bottom + 6, left: Math.min(r.left, window.innerWidth - 260) });
+    }
+  }
+  function hide() {
+    timerRef.current = setTimeout(() => setPos(null), 120);
+  }
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <span
+        ref={anchorRef}
+        onMouseEnter={show}
+        onMouseLeave={hide}
+        onClick={() => (pos ? setPos(null) : show())}
+        className="font-semibold text-gray-900 cursor-help underline decoration-dotted decoration-gray-300 underline-offset-2"
+      >
+        {score}
+      </span>
+      <span className={`inline-flex items-center rounded-full ${labelStyle} text-xs font-semibold px-2 py-0.5 whitespace-nowrap`}>
+        {label}
+      </span>
+      {pos && (
+        <div
+          className="fixed z-[9999] w-60 bg-white border border-gray-200 rounded-lg shadow-xl p-3 text-left normal-case font-normal"
+          style={{ top: pos.top, left: pos.left }}
+          onMouseEnter={() => { if (timerRef.current) clearTimeout(timerRef.current); }}
+          onMouseLeave={hide}
+        >
+          <div className="text-xs font-semibold text-gray-900 mb-1.5">Score breakdown</div>
+          <table className="w-full text-[11px]">
+            <tbody>
+              {rows.map(([key, rowLabel]) => (
+                <tr key={key} className="border-b border-gray-50 last:border-0">
+                  <td className="py-0.5 text-gray-500">{rowLabel}</td>
+                  <td className="py-0.5 text-right font-mono text-gray-800">{subScores[key]}/3</td>
+                </tr>
+              ))}
+              <tr className="border-t border-gray-200">
+                <td className="py-1 font-semibold text-gray-900">Total</td>
+                <td className="py-1 text-right font-mono font-semibold text-gray-900">{score}/{max}</td>
+              </tr>
+            </tbody>
+          </table>
+          {extraNote && <div className="text-[10px] text-gray-400 mt-1.5 leading-snug">{extraNote}</div>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function CoilingReversalTable({
   stocks, prices, distFrom2yHigh, distFrom6moLow, roc1mo, roc3mo,
   ma30wk, priceVsMa30wk, ma30wkSlope, volRatio10_90, upDownVolRatio, bbw,
   atrPct, atrTrend, weeklyRsi, rsiFloor6mo, maStackScore, lowerHighs, rsVsSpy3mo,
+  slopeNow, slope4wk, slope8wk, maTouchCount, rangeContractionRatio, rsLineDiffPct, volGreenRatio, upside,
   loading, addTicker, addLoading, addError, onAddTickerChange, onAdd, onRemove, onMoveToExcluded,
 }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>("ticker");
@@ -389,13 +507,39 @@ export default function CoilingReversalTable({
       maStackScore: maStackScore[s.ticker] ?? null,
       lowerHighs: lowerHighs[s.ticker] ?? null,
       rsVsSpy3mo: rsVsSpy3mo[s.ticker] ?? null,
+      slopeNow: slopeNow[s.ticker] ?? null,
+      slope4wk: slope4wk[s.ticker] ?? null,
+      slope8wk: slope8wk[s.ticker] ?? null,
+      maTouchCount: maTouchCount[s.ticker] ?? null,
+      rangeContractionRatio: rangeContractionRatio[s.ticker] ?? null,
+      rsLineDiffPct: rsLineDiffPct[s.ticker] ?? null,
+      volGreenRatio: volGreenRatio[s.ticker] ?? null,
+      upsideRaw: upside[s.ticker],
     }));
     const scores = scoreCoilingRows(base);
-    const arr = base.map((r, i) => ({ ...r, ...scores[i], grandScore: scores[i].totalScore }));
+    const arr = base.map((r, i) => {
+      const grandScore = scores[i].totalScore;
+      const prox = scoreProximity({
+        slopeNow: r.slopeNow, slope4wk: r.slope4wk, slope8wk: r.slope8wk,
+        maTouchCount: r.maTouchCount, rangeContractionRatio: r.rangeContractionRatio,
+        rsLineDiffPct: r.rsLineDiffPct, volGreenRatio: r.volGreenRatio,
+      });
+      const up = scoreUpside(r.upsideRaw ?? {
+        gmChanges: null, revenueGrowth: null, cash: null, avgQuarterlyFcf: null,
+        epsCurrent: null, epsNinetyDaysAgo: null, shortPercentOfFloat: null, insiderBuyCount: null,
+      });
+      const master = computeMasterScore(grandScore, prox.totalScore, up.totalScore);
+      return {
+        ...r, ...scores[i], grandScore,
+        proximity: prox, proximityScore: prox.totalScore,
+        upsideResult: up, upsideScore: up.totalScore,
+        master, masterScore: master.masterScore,
+      };
+    });
     arr.sort((a, b) => {
       let av: string | number | boolean | null = null, bv: string | number | boolean | null = null;
       if (sortKey === "ticker" || sortKey === "industry") { av = a[sortKey] ?? ""; bv = b[sortKey] ?? ""; }
-      else { av = a[sortKey]; bv = b[sortKey]; }
+      else { av = a[sortKey as keyof typeof a] as string | number | boolean | null; bv = b[sortKey as keyof typeof b] as string | number | boolean | null; }
       if (av == null && bv == null) return 0;
       if (av == null) return 1;
       if (bv == null) return -1;
@@ -405,7 +549,8 @@ export default function CoilingReversalTable({
     });
     return arr;
   }, [stocks, prices, distFrom2yHigh, distFrom6moLow, roc1mo, roc3mo, ma30wk, priceVsMa30wk, ma30wkSlope,
-      volRatio10_90, upDownVolRatio, bbw, atrPct, atrTrend, weeklyRsi, rsiFloor6mo, maStackScore, lowerHighs, rsVsSpy3mo, sortKey, sortDir]);
+      volRatio10_90, upDownVolRatio, bbw, atrPct, atrTrend, weeklyRsi, rsiFloor6mo, maStackScore, lowerHighs, rsVsSpy3mo,
+      slopeNow, slope4wk, slope8wk, maTouchCount, rangeContractionRatio, rsLineDiffPct, volGreenRatio, upside, sortKey, sortDir]);
 
   function exportCsv() {
     const date = new Date().toISOString().slice(0, 10);
@@ -414,6 +559,8 @@ export default function CoilingReversalTable({
       "% from 2Y High", "% from 6mo Low", "ROC 1mo", "ROC 3mo",
       "30wk MA", "Price vs 30wk MA", "30wk MA Slope", "Vol Ratio 10d/90d", "Up/Down Vol Ratio",
       "BBW", "ATR%", "ATR Trend", "Weekly RSI", "RSI Floor 6mo", "MA Stack Score", "Lower Highs", "RS vs SPY 3mo",
+      "Proximity Score", "Proximity Label", "Upside Score", "Upside Label", "Data Gaps", "Data Gap Count",
+      "Master Score", "Master Label",
     ];
     const data = rows.map((r) => [
       r.ticker,
@@ -439,17 +586,25 @@ export default function CoilingReversalTable({
       r.maStackScore ?? "",
       r.lowerHighs == null ? "" : r.lowerHighs ? "Yes" : "No",
       r.rsVsSpy3mo?.toFixed(2) ?? "",
+      r.proximityScore,
+      r.proximity.label,
+      r.upsideScore,
+      r.upsideResult.label,
+      r.upsideResult.dataGaps.join(", "),
+      r.upsideResult.dataGapCount,
+      r.masterScore,
+      r.master.masterLabel,
     ]);
     downloadCsv(`coiling-reversal-${date}.csv`, headers, data);
   }
 
-  const th = (label: string, k: SortKey) => {
+  const th = (label: string, k: SortKey, extraClass = "") => {
     const tip = COLUMN_TIPS[k];
     return (
       <th
         key={k}
         onClick={() => handleSort(k)}
-        className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide cursor-pointer hover:text-gray-900 whitespace-nowrap select-none"
+        className={`px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide cursor-pointer hover:text-gray-900 whitespace-nowrap select-none ${extraClass}`}
       >
         <span className="inline-flex items-center">
           {label} {sortKey === k && (sortDir === "asc" ? "▲" : "▼")}
@@ -491,6 +646,13 @@ export default function CoilingReversalTable({
         <div className="overflow-x-auto overflow-y-auto max-h-[72vh] rounded-lg border border-gray-200">
           <table className="min-w-full text-sm">
             <thead className="bg-gray-100 border-b border-gray-200 sticky top-0 z-10">
+              <tr className="text-[10px] text-gray-400 uppercase tracking-wide">
+                <th colSpan={21} />
+                <th colSpan={1} className="px-3 py-1 text-left border-l border-gray-200">Group 1: Breakout Proximity</th>
+                <th colSpan={1} className="px-3 py-1 text-left border-l border-gray-200">Group 2: Upside Potential</th>
+                <th colSpan={1} className="px-3 py-1 text-left border-l border-gray-200">Group 3: Master</th>
+                <th />
+              </tr>
               <tr>
                 {th("Ticker", "ticker")}
                 <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Industry</th>
@@ -513,6 +675,9 @@ export default function CoilingReversalTable({
                 {th("MA Stack", "maStackScore")}
                 {th("Lower Highs", "lowerHighs")}
                 {th("RS vs SPY 3mo", "rsVsSpy3mo")}
+                {th("Proximity", "proximityScore", "border-l border-gray-200")}
+                {th("Upside", "upsideScore")}
+                {th("Master", "masterScore")}
                 <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Remove</th>
               </tr>
             </thead>
@@ -566,6 +731,30 @@ export default function CoilingReversalTable({
                   </td>
                   <td className={`px-3 py-2 font-medium ${tierColor(r.subScores.rsVsSpy3mo)}`}>
                     {r.rsVsSpy3mo != null ? r.rsVsSpy3mo.toFixed(2) : dash}
+                  </td>
+                  <td className="px-3 py-2 border-l border-gray-100">
+                    <CompositeBadge
+                      score={r.proximityScore} max={15} label={r.proximity.label}
+                      labelStyle={PROXIMITY_LABEL_STYLES[r.proximity.label]}
+                      rows={PROXIMITY_ROW_LABELS} subScores={r.proximity.subScores}
+                      extraNote={r.grandScore < 15 ? "Not active in Master Score — Grand Score below 15." : undefined}
+                    />
+                  </td>
+                  <td className="px-3 py-2">
+                    <CompositeBadge
+                      score={r.upsideScore} max={18} label={r.upsideResult.label}
+                      labelStyle={UPSIDE_LABEL_STYLES[r.upsideResult.label]}
+                      rows={UPSIDE_ROW_LABELS} subScores={r.upsideResult.subScores}
+                      extraNote={r.upsideResult.dataGapCount > 0 ? `Data gaps (${r.upsideResult.dataGapCount}): ${r.upsideResult.dataGaps.join(", ")}` : undefined}
+                    />
+                  </td>
+                  <td className="px-3 py-2">
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-semibold text-gray-900">{r.masterScore}</span>
+                      <span className={`inline-flex items-center rounded-full ${MASTER_LABEL_STYLES[r.master.masterLabel]} text-xs font-semibold px-2 py-0.5 whitespace-nowrap`}>
+                        {r.master.masterLabel}
+                      </span>
+                    </div>
                   </td>
                   <td className="px-3 py-2 whitespace-nowrap">
                     <button onClick={() => onRemove(r.ticker)} className="text-xs text-red-500 hover:text-red-700 mr-2">Remove</button>

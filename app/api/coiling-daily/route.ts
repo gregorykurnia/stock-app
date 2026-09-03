@@ -3,6 +3,91 @@ import { NextRequest, NextResponse } from "next/server";
 const YahooFinance = require("yahoo-finance2").default;
 const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
 
+interface UpsideRaw {
+  gmChanges: number[] | null;
+  revenueGrowth: number[] | null;
+  cash: number | null;
+  avgQuarterlyFcf: number | null;
+  epsCurrent: number | null;
+  epsNinetyDaysAgo: number | null;
+  shortPercentOfFloat: number | null;
+  insiderBuyCount: number | null;
+}
+
+const EMPTY_UPSIDE: UpsideRaw = {
+  gmChanges: null, revenueGrowth: null, cash: null, avgQuarterlyFcf: null,
+  epsCurrent: null, epsNinetyDaysAgo: null, shortPercentOfFloat: null, insiderBuyCount: null,
+};
+
+// Column Group 2 raw fundamentals — quarterly financials/cash-flow/balance-sheet come from
+// fundamentalsTimeSeries (the old quoteSummary financial-statement modules return almost no
+// data since Nov 2024); short interest, EPS trend and insider transactions come from quoteSummary.
+async function fetchUpsideFundamentals(ticker: string): Promise<UpsideRaw> {
+  const now = new Date();
+  const start = new Date(now.getTime() - 700 * 24 * 3600 * 1000);
+  const period1 = start.toISOString().slice(0, 10);
+  const period2 = now.toISOString().slice(0, 10);
+
+  const [financials, cashFlow, balanceSheet, quoteSummary] = await Promise.all([
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    yf.fundamentalsTimeSeries(ticker, { period1, period2, type: "quarterly", module: "financials" }).catch(() => [] as any[]),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    yf.fundamentalsTimeSeries(ticker, { period1, period2, type: "quarterly", module: "cash-flow" }).catch(() => [] as any[]),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    yf.fundamentalsTimeSeries(ticker, { period1, period2, type: "quarterly", module: "balance-sheet" }).catch(() => [] as any[]),
+    yf.quoteSummary(ticker, { modules: ["defaultKeyStatistics", "earningsTrend", "insiderTransactions"] }).catch(() => null),
+  ]);
+
+  let gmChanges: number[] | null = null;
+  let revenueGrowth: number[] | null = null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const fin = (financials as any[]).filter((f) => f?.totalRevenue != null && f?.grossProfit != null).slice(-4);
+  if (fin.length === 4) {
+    const gm = fin.map((f) => (f.totalRevenue > 0 ? (f.grossProfit / f.totalRevenue) * 100 : null));
+    if (gm.every((v) => v != null)) {
+      gmChanges = [gm[1]! - gm[0]!, gm[2]! - gm[1]!, gm[3]! - gm[2]!];
+    }
+    const rev = fin.map((f) => f.totalRevenue as number);
+    if (rev.every((v) => v > 0)) {
+      revenueGrowth = [(rev[1] - rev[0]) / rev[0], (rev[2] - rev[1]) / rev[1], (rev[3] - rev[2]) / rev[2]];
+    }
+  }
+
+  let avgQuarterlyFcf: number | null = null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const cf = (cashFlow as any[]).filter((f) => f?.freeCashFlow != null).slice(-4);
+  if (cf.length > 0) avgQuarterlyFcf = cf.reduce((a, f) => a + f.freeCashFlow, 0) / cf.length;
+
+  let cash: number | null = null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const bs = (balanceSheet as any[]).slice(-1)[0];
+  if (bs) cash = bs.cashAndCashEquivalents ?? bs.cashCashEquivalentsAndShortTermInvestments ?? null;
+
+  const shortPercentOfFloat: number | null = quoteSummary?.defaultKeyStatistics?.shortPercentOfFloat ?? null;
+
+  let epsCurrent: number | null = null, epsNinetyDaysAgo: number | null = null;
+  const trend = quoteSummary?.earningsTrend?.trend?.find((t: { period?: string }) => t.period === "0q") ?? quoteSummary?.earningsTrend?.trend?.[0];
+  if (trend?.epsTrend) {
+    epsCurrent = trend.epsTrend.current ?? null;
+    epsNinetyDaysAgo = trend.epsTrend["90daysAgo"] ?? null;
+  }
+
+  let insiderBuyCount: number | null = null;
+  const transactions = quoteSummary?.insiderTransactions?.transactions;
+  if (Array.isArray(transactions)) {
+    const cutoff = now.getTime() - 180 * 24 * 3600 * 1000;
+    insiderBuyCount = transactions.filter((t: { transactionText?: string; startDate?: string | Date }) => {
+      const text = (t.transactionText ?? "").toLowerCase();
+      const isOpenMarketBuy = text.includes("purchase") && !text.includes("option") && !text.includes("exercise") && !text.includes("gift");
+      if (!isOpenMarketBuy) return false;
+      const d = t.startDate ? new Date(t.startDate).getTime() : null;
+      return d != null && d >= cutoff;
+    }).length;
+  }
+
+  return { gmChanges, revenueGrowth, cash, avgQuarterlyFcf, epsCurrent, epsNinetyDaysAgo, shortPercentOfFloat, insiderBuyCount };
+}
+
 interface Bar { date: Date; open: number; high: number; low: number; close: number; volume: number }
 
 function sma(values: number[], period: number): (number | null)[] {
@@ -114,6 +199,14 @@ interface CoilingResult {
   maStackScore: number | null;
   lowerHighs: boolean | null;
   rsVsSpy3mo: number | null;
+  // Column Group 1 (Breakout Proximity) raw inputs
+  slopeNow: number | null;
+  slope4wk: number | null;
+  slope8wk: number | null;
+  maTouchCount: number | null;
+  rangeContractionRatio: number | null;
+  rsLineDiffPct: number | null;
+  volGreenRatio: number | null;
 }
 
 const EMPTY: CoilingResult = {
@@ -122,9 +215,11 @@ const EMPTY: CoilingResult = {
   volRatio10_90: null, upDownVolRatio: null, bbw: null,
   atrPct: null, atrTrend: null, weeklyRsi: null, rsiFloor6mo: null,
   maStackScore: null, lowerHighs: null, rsVsSpy3mo: null,
+  slopeNow: null, slope4wk: null, slope8wk: null, maTouchCount: null,
+  rangeContractionRatio: null, rsLineDiffPct: null, volGreenRatio: null,
 };
 
-async function fetchCoiling(ticker: string, spyReturn63: number | null): Promise<CoilingResult> {
+async function fetchCoiling(ticker: string, spyReturn63: number | null, spyCloseByDate: Map<string, number>): Promise<CoilingResult> {
   const now = new Date();
   const twoYearsAgo = new Date(now.getTime() - 2 * 365 * 24 * 3600 * 1000);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -225,13 +320,95 @@ async function fetchCoiling(ticker: string, spyReturn63: number | null): Promise
   const rsVsSpy3mo = stockReturn63 != null && spyReturn63 != null && spyReturn63 !== 0
     ? stockReturn63 / spyReturn63 : null;
 
+  // --- Column Group 1: Breakout Proximity raw inputs ---
+
+  // Slope Velocity: 30wk MA slope at three consecutive 20-session windows.
+  const n = sma150.length;
+  const slopeNow = n > 20 && sma150[n - 1] != null && sma150[n - 21] != null ? sma150[n - 1]! - sma150[n - 21]! : null;
+  const slope4wk = n > 40 && sma150[n - 21] != null && sma150[n - 41] != null ? sma150[n - 21]! - sma150[n - 41]! : null;
+  const slope8wk = n > 60 && sma150[n - 41] != null && sma150[n - 61] != null ? sma150[n - 41]! - sma150[n - 61]! : null;
+
+  // MA Touch Count: sessions in the last 40 where Low <= SMA150*1.01 and Close >= SMA150*0.99.
+  let maTouchCount: number | null = null;
+  {
+    const last40 = bars.slice(-40);
+    const smaLast40 = sma150.slice(-40);
+    let count = 0, any = false;
+    for (let i = 0; i < last40.length; i++) {
+      const m = smaLast40[i];
+      if (m == null) continue;
+      any = true;
+      if (last40[i].low <= m * 1.01 && last40[i].close >= m * 0.99) count++;
+    }
+    maTouchCount = any ? count : null;
+  }
+
+  // Price Range Contraction: avg daily range last10 / avg daily range last40.
+  let rangeContractionRatio: number | null = null;
+  {
+    const range = (b: Bar) => b.high - b.low;
+    const last10 = bars.slice(-10), last40 = bars.slice(-40);
+    if (last10.length === 10 && last40.length === 40) {
+      const avg10 = last10.reduce((a, b) => a + range(b), 0) / 10;
+      const avg40 = last40.reduce((a, b) => a + range(b), 0) / 40;
+      rangeContractionRatio = avg40 > 0 ? avg10 / avg40 : null;
+    }
+  }
+
+  // RS Line Direction: (stock/SPY) daily ratio, 10-session avg vs 30-session avg.
+  let rsLineDiffPct: number | null = null;
+  {
+    const rsSeries: number[] = [];
+    let lastSpy: number | null = null;
+    for (const b of bars) {
+      const key = b.date.toISOString().slice(0, 10);
+      const spy: number | null = spyCloseByDate.get(key) ?? lastSpy;
+      if (spy != null) { lastSpy = spy; rsSeries.push(b.close / spy); }
+    }
+    const last10rs = rsSeries.slice(-10), last30rs = rsSeries.slice(-30);
+    if (last10rs.length === 10 && last30rs.length === 30) {
+      const avg10 = last10rs.reduce((a, b) => a + b, 0) / 10;
+      const avg30 = last30rs.reduce((a, b) => a + b, 0) / 30;
+      rsLineDiffPct = avg30 > 0 ? ((avg10 - avg30) / avg30) * 100 : null;
+    }
+  }
+
+  // Volume on Green Days: avg volume on up-close sessions, last10 vs last40.
+  let volGreenRatio: number | null = null;
+  {
+    const greenVol = (window: Bar[]) => {
+      const vols: number[] = [];
+      for (let i = 1; i < window.length; i++) if (window[i].close >= window[i - 1].close) vols.push(window[i].volume);
+      return vols.length > 0 ? vols.reduce((a, b) => a + b, 0) / vols.length : null;
+    };
+    const last10 = bars.slice(-11), last40 = bars.slice(-41);
+    const g10 = last10.length > 1 ? greenVol(last10) : null;
+    const g40 = last40.length > 1 ? greenVol(last40) : null;
+    volGreenRatio = g10 != null && g40 != null && g40 > 0 ? g10 / g40 : null;
+  }
+
   return {
     distFrom2yHigh, distFrom6moLow, roc1mo, roc3mo,
     ma30wk, priceVsMa30wk, ma30wkSlope,
     volRatio10_90, upDownVolRatio, bbw,
     atrPct, atrTrend, weeklyRsi, rsiFloor6mo,
     maStackScore, lowerHighs, rsVsSpy3mo,
+    slopeNow, slope4wk, slope8wk, maTouchCount, rangeContractionRatio, rsLineDiffPct, volGreenRatio,
   };
+}
+
+async function fetchSpyCloseByDate(): Promise<Map<string, number>> {
+  const now = new Date();
+  const twoYearsAgo = new Date(now.getTime() - 2 * 365 * 24 * 3600 * 1000);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const result: any = await yf.chart("SPY", { period1: twoYearsAgo, period2: now, interval: "1d" }).catch(() => null);
+  const map = new Map<string, number>();
+  for (const q of result?.quotes ?? []) {
+    if (q.close == null) continue;
+    const d = q.date instanceof Date ? q.date : new Date(q.date);
+    map.set(d.toISOString().slice(0, 10), q.close);
+  }
+  return map;
 }
 
 async function fetchSpyReturn63(): Promise<number | null> {
@@ -252,7 +429,10 @@ export async function GET(req: NextRequest) {
   if (!param) return NextResponse.json({ error: "tickers required" }, { status: 400 });
 
   const tickers = param.split(",").map((t) => t.trim().toUpperCase()).filter(Boolean);
-  const spyReturn63 = await fetchSpyReturn63().catch(() => null);
+  const [spyReturn63, spyCloseByDate] = await Promise.all([
+    fetchSpyReturn63().catch(() => null),
+    fetchSpyCloseByDate().catch(() => new Map<string, number>()),
+  ]);
 
   const distFrom2yHigh: Record<string, number | null> = {};
   const distFrom6moLow: Record<string, number | null> = {};
@@ -271,12 +451,23 @@ export async function GET(req: NextRequest) {
   const maStackScore: Record<string, number | null> = {};
   const lowerHighs: Record<string, boolean | null> = {};
   const rsVsSpy3mo: Record<string, number | null> = {};
+  const slopeNow: Record<string, number | null> = {};
+  const slope4wk: Record<string, number | null> = {};
+  const slope8wk: Record<string, number | null> = {};
+  const maTouchCount: Record<string, number | null> = {};
+  const rangeContractionRatio: Record<string, number | null> = {};
+  const rsLineDiffPct: Record<string, number | null> = {};
+  const volGreenRatio: Record<string, number | null> = {};
+  const upside: Record<string, UpsideRaw> = {};
 
   const chunkSize = 8;
   for (let i = 0; i < tickers.length; i += chunkSize) {
     const chunk = tickers.slice(i, i + chunkSize);
     await Promise.all(chunk.map(async (ticker) => {
-      const r = await fetchCoiling(ticker, spyReturn63).catch(() => EMPTY);
+      const [r, u] = await Promise.all([
+        fetchCoiling(ticker, spyReturn63, spyCloseByDate).catch(() => EMPTY),
+        fetchUpsideFundamentals(ticker).catch(() => EMPTY_UPSIDE),
+      ]);
       distFrom2yHigh[ticker] = r.distFrom2yHigh;
       distFrom6moLow[ticker] = r.distFrom6moLow;
       roc1mo[ticker] = r.roc1mo;
@@ -294,6 +485,14 @@ export async function GET(req: NextRequest) {
       maStackScore[ticker] = r.maStackScore;
       lowerHighs[ticker] = r.lowerHighs;
       rsVsSpy3mo[ticker] = r.rsVsSpy3mo;
+      slopeNow[ticker] = r.slopeNow;
+      slope4wk[ticker] = r.slope4wk;
+      slope8wk[ticker] = r.slope8wk;
+      maTouchCount[ticker] = r.maTouchCount;
+      rangeContractionRatio[ticker] = r.rangeContractionRatio;
+      rsLineDiffPct[ticker] = r.rsLineDiffPct;
+      volGreenRatio[ticker] = r.volGreenRatio;
+      upside[ticker] = u;
     }));
   }
 
@@ -302,6 +501,8 @@ export async function GET(req: NextRequest) {
     ma30wk, priceVsMa30wk, ma30wkSlope,
     volRatio10_90, upDownVolRatio, bbw,
     atrPct, atrTrend, weeklyRsi, rsiFloor6mo,
+    slopeNow, slope4wk, slope8wk, maTouchCount, rangeContractionRatio, rsLineDiffPct, volGreenRatio,
+    upside,
     maStackScore, lowerHighs, rsVsSpy3mo,
   });
 }
