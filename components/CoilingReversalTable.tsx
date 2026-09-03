@@ -96,7 +96,7 @@ const TIER_DOT: Record<string, string> = {
 // hover popover on the column title — same ranges/colors the cells below are actually shaded by.
 const COLUMN_TIPS: Partial<Record<SortKey, ColumnTip>> = {
   grandScore: {
-    definition: "Sum of 11 tiered sub-scores (0-3 each, max 33). A row that trips a hard-eliminator rule still gets scored, just flagged with ⚑.",
+    definition: "Sum of 11 tiered sub-scores (0-3 each, max 33). A row that trips a ⚑ flag rule still gets scored for transparency, but its Label is capped at Weak so it can never read as promising.",
     ranges: [
       { range: "27–33", color: "green", meaning: "High Conviction" },
       { range: "20–26", color: "blue", meaning: "Interesting" },
@@ -115,7 +115,7 @@ const COLUMN_TIPS: Partial<Record<SortKey, ColumnTip>> = {
     ],
   },
   distFromAth: {
-    definition: "Distance below the all-time high. Sweet spot is a deep-but-not-crushed drawdown.",
+    definition: "Distance below the all-time high. Sweet spot is a deep-but-not-crushed drawdown. ⚑ Flag: > -15% (barely off its high at all — not a beaten-down setup regardless of how calm the other metrics look).",
     ranges: [
       { range: "-85% to -65%", color: "green", meaning: "3 pts" },
       { range: "-65% to -50%", color: "blue", meaning: "2 pts" },

@@ -55,6 +55,11 @@ export function checkEliminators(row: CoilingScoreInput): string[] {
   if (row.weeklyRsi != null && (row.weeklyRsi < 35 || row.weeklyRsi > 65)) reasons.push("Weekly RSI out of range (<35 or >65)");
   if (row.ma30wkSlope != null && row.ma30wkSlope < -0.5) reasons.push("30wk MA Slope < -0.5");
   if (row.lowerHighs === true) reasons.push("Lower Highs");
+  // Not part of the original spec, added because names sitting within ~15% of their ATH (e.g.
+  // already back near highs after a strong run) were scoring "Interesting"/"Early / Incomplete"
+  // purely off calm short-term metrics (low ATR%, quiet ROC, low volume) despite never having
+  // actually pulled back — the opposite of what a "Beaten Down > Coiling Reversal" setup means.
+  if (row.distFromAth != null && row.distFromAth > -15) reasons.push("% from ATH > -15% (not beaten down)");
   return reasons;
 }
 
@@ -162,6 +167,16 @@ export function labelForScore(total: number): CoilingLabel {
   return "Poor";
 }
 
+// Worst-to-best order — used to cap a flagged row's label so a row that trips an eliminator
+// rule can never read as promising just because its other, unrelated metrics look calm.
+const LABEL_RANK: CoilingLabel[] = ["Poor", "Weak", "Early / Incomplete", "Interesting", "High Conviction"];
+const MAX_FLAGGED_LABEL: CoilingLabel = "Weak";
+
+function capLabelIfFlagged(label: CoilingLabel, flagged: boolean): CoilingLabel {
+  if (!flagged) return label;
+  return LABEL_RANK.indexOf(label) > LABEL_RANK.indexOf(MAX_FLAGGED_LABEL) ? MAX_FLAGGED_LABEL : label;
+}
+
 export function percentile(values: number[], p: number): number | null {
   if (values.length === 0) return null;
   const sorted = [...values].sort((a, b) => a - b);
@@ -196,6 +211,7 @@ export function scoreCoilingRows<T extends CoilingScoreInput>(rows: T[]): Coilin
       upDownVolRatio: scoreUpDownVolRatio(row.upDownVolRatio),
     };
     const totalScore = Object.values(subScores).reduce((a, b) => a + b, 0);
-    return { flagged: flagReasons.length > 0, flagReasons, subScores, totalScore, label: labelForScore(totalScore) };
+    const flagged = flagReasons.length > 0;
+    return { flagged, flagReasons, subScores, totalScore, label: capLabelIfFlagged(labelForScore(totalScore), flagged) };
   });
 }
