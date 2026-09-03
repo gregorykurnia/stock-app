@@ -22,6 +22,9 @@ export interface ScreenerTabConfig {
   // When false (Beaten Down Screener), no static doc-sourced exclusion list applies —
   // everything is fair game except what's already been excluded from this tab.
   useStaticExclusions: boolean;
+  // When false (Beaten Down Screener), US-Swing membership doesn't count toward "already
+  // tracked" — US-Swing tracks Swing Screener candidates specifically, not beaten-down ones.
+  includeUsSwingInTracked: boolean;
   getDraft: () => Promise<Record<string, { company: string | null; added_at: string; rank?: number }>>;
   importDraftEntries: (entries: { ticker: string; company: string | null; rank?: number }[]) => Promise<void>;
   removeDraftEntry: (ticker: string) => Promise<void>;
@@ -36,7 +39,7 @@ export interface ScreenerTabConfig {
 
 export default function ScreenerTab({ config }: { config: ScreenerTabConfig }) {
   const {
-    apiRoute, criteriaText, useStaticExclusions,
+    apiRoute, criteriaText, useStaticExclusions, includeUsSwingInTracked,
     getDraft, importDraftEntries, removeDraftEntry, updateDraftRanks,
     getExcluded, excludeTicker, excludeTickersBulk, unexcludeTicker,
     getExclusionOverrides, addExclusionOverride,
@@ -79,7 +82,7 @@ export default function ScreenerTab({ config }: { config: ScreenerTabConfig }) {
         ...[...watchlist].filter((t) => !listTickers.has(t)),
         ...Object.keys(portfolioLongTerm),
         ...[...portfolio].filter((t) => !listTickers.has(t)),
-        ...Object.keys(usSwing),
+        ...(includeUsSwingInTracked ? Object.keys(usSwing) : []),
       ]);
       setTrackedTickers(tracked);
       setExcludedTickers(excluded);
@@ -103,7 +106,7 @@ export default function ScreenerTab({ config }: { config: ScreenerTabConfig }) {
       setLoading(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apiRoute]);
+  }, [apiRoute, includeUsSwingInTracked]);
 
   useEffect(() => { load(true); }, [load]);
 
