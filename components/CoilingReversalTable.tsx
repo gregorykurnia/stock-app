@@ -281,14 +281,14 @@ const COLUMN_TIPS: Partial<Record<SortKey, ColumnTip>> = {
     ranges: [],
   },
   rsiDivergence: {
-    definition: "Daily RSI(14, Wilder) at the 20-day low minus RSI at the 40-20-day-ago low. Positive = bullish divergence (price made a lower low but RSI made a higher low) — bigger is stronger. Feeds the Reversal Signal Score's Daily component (only scored when the price also made a lower low — a 'confirmed' divergence). Not part of Grand Score. Logged as a Data Gap ('rsi_div_daily') when fewer than 40 daily bars are available.",
+    definition: "Daily RSI(14, Wilder) at the 20-day low minus RSI at the 40-20-day-ago low. Positive = bullish divergence (price made a lower low but RSI made a higher low) — bigger is stronger. Feeds the Reversal Signal Score's Daily component (only scored when the price is at/near a double bottom — Low 2 within 5% below Low 1 — a 'confirmed' divergence). Not part of Grand Score. Logged as a Data Gap ('rsi_div_daily') when fewer than 40 daily bars are available.",
     ranges: [
       { range: "> 0", color: "green", meaning: "Bullish divergence" },
       { range: "≤ 0", color: "red", meaning: "No divergence / bearish" },
     ],
   },
   rsiDivergenceWeekly: {
-    definition: "Weekly RSI(14, Wilder) at the last-8-week low minus RSI at the 16-8-week-ago low. Same shape as RSI Divergence but on weekly closes. Feeds the Reversal Signal Score's Weekly component (only scored when the price also made a lower low — a 'confirmed' divergence). Not part of Grand Score. Logged as a Data Gap ('rsi_div_weekly') when fewer than 16 weekly bars are available.",
+    definition: "Weekly RSI(14, Wilder) at the last-8-week low minus RSI at the 16-8-week-ago low. Same shape as RSI Divergence but on weekly closes. Feeds the Reversal Signal Score's Weekly component (only scored when the price is at/near a double bottom — Low 2 within 5% below Low 1 — a 'confirmed' divergence). Not part of Grand Score. Logged as a Data Gap ('rsi_div_weekly') when fewer than 16 weekly bars are available.",
     ranges: [
       { range: "> 0", color: "green", meaning: "Bullish divergence" },
       { range: "≤ 0", color: "red", meaning: "No divergence / bearish" },

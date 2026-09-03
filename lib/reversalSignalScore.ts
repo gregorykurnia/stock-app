@@ -9,14 +9,15 @@ export interface SubResult { score: number; gap: boolean }
 
 // --- Component 1: RSI Divergence Daily ---
 // value = RSI at Low2 (last 20d low) - RSI at Low1 (40-20d-ago low), already computed upstream.
-// confirmed = low2 price < low1 price AND rsi at low2 > rsi at low1 (i.e. a real bullish
-// divergence, not just a positive RSI delta with no lower low in price).
+// confirmed = low2 price < low1 price * 1.05 AND rsi at low2 > rsi at low1 — a near-double-bottom
+// tolerance rather than a strict lower low, since this screener's universe is already filtered to
+// recovering names where a fresh lower low in the last 20 days is rare.
 export function scoreRsiDivDaily(value: number | null, confirmed: boolean | null): SubResult {
   if (value == null || confirmed == null) return { score: 0, gap: true };
   if (!confirmed) return { score: 0, gap: false };
-  if (value > 15) return { score: 3, gap: false };
-  if (value >= 8) return { score: 2, gap: false };
-  if (value >= 3) return { score: 1, gap: false };
+  if (value > 10) return { score: 3, gap: false };
+  if (value >= 5) return { score: 2, gap: false };
+  if (value >= 2) return { score: 1, gap: false };
   return { score: 0, gap: false };
 }
 
@@ -26,9 +27,9 @@ export function scoreRsiDivDaily(value: number | null, confirmed: boolean | null
 export function scoreRsiDivWeekly(value: number | null, confirmed: boolean | null): SubResult {
   if (value == null || confirmed == null) return { score: 0, gap: true };
   if (!confirmed) return { score: 0, gap: false };
-  if (value > 10) return { score: 3, gap: false };
-  if (value >= 5) return { score: 2, gap: false };
-  if (value >= 2) return { score: 1, gap: false };
+  if (value > 7) return { score: 3, gap: false };
+  if (value >= 3) return { score: 2, gap: false };
+  if (value >= 1) return { score: 1, gap: false };
   return { score: 0, gap: false };
 }
 

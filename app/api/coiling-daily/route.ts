@@ -356,7 +356,10 @@ async function fetchCoiling(ticker: string, spyReturn63: number | null, spyClose
       const rsiAtLow2 = low2Idx >= 0 ? dailyRsiArr[low2Idx] : null;
       if (rsiAtLow1 != null && rsiAtLow2 != null) {
         rsiDivergence = rsiAtLow2 - rsiAtLow1;
-        rsiDivDailyConfirmed = low2Val < low1Val && rsiAtLow2 > rsiAtLow1;
+        // Relaxed from a strict lower low (low2 < low1) to a near-double-bottom tolerance —
+        // this screener's universe is already filtered to recovering names, where a fresh
+        // lower low in the last 20 days is rare even when RSI is clearly diverging bullishly.
+        rsiDivDailyConfirmed = low2Val < low1Val * 1.05 && rsiAtLow2 > rsiAtLow1;
       }
     }
   }
@@ -382,7 +385,8 @@ async function fetchCoiling(ticker: string, spyReturn63: number | null, spyClose
       const rsiAtLow2 = low2Idx >= 0 ? weeklyRsiArr[low2Idx] : null;
       if (rsiAtLow1 != null && rsiAtLow2 != null) {
         rsiDivergenceWeekly = rsiAtLow2 - rsiAtLow1;
-        rsiDivWeeklyConfirmed = low2Val < low1Val && rsiAtLow2 > rsiAtLow1;
+        // Same near-double-bottom tolerance as the daily version above.
+        rsiDivWeeklyConfirmed = low2Val < low1Val * 1.05 && rsiAtLow2 > rsiAtLow1;
       }
     }
   }
