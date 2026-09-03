@@ -16,20 +16,10 @@ export default function SwingChat({ dataContext, tickerCount, activeCategoryLabe
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const categoryKey = activeCategoryLabels.join(",");
-  const prevCategoryKey = useRef(categoryKey);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, loading]);
-
-  // Filter changed mid-conversation — old messages reasoned about a different scope, so start fresh.
-  useEffect(() => {
-    if (prevCategoryKey.current !== categoryKey) {
-      prevCategoryKey.current = categoryKey;
-      setMessages([]);
-    }
-  }, [categoryKey]);
 
   const send = async () => {
     const text = input.trim();
