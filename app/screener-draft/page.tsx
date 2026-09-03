@@ -3,20 +3,21 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   getScreenerDraft, importScreenerDraftEntries, updateScreenerDraftRanks, removeScreenerDraftEntry,
-  getWatchlistTickers, getPortfolioTickers, getUsSwingStocks, saveUsSwingStock, getCustomStocks,
+  getWatchlistTickers, getPortfolioTickers, getPortfolioDivisionStocks, getUsSwingStocks, saveUsSwingStock, getCustomStocks,
   getScreenerExcludedTickers, excludeScreenerTicker, excludeScreenerTickersBulk, unexcludeScreenerTicker,
   getScreenerExclusionOverrides, addScreenerExclusionOverride,
 } from "@/lib/firestore";
 import { SCREENER_EXCLUDED_TICKERS } from "@/lib/screenerExclusions";
 import { SEED_STOCKS } from "@/lib/seedData";
-
-// portfolio/watchlist are the US "List" tab's own owned/watchlisted bookkeeping (every List
-// stock sits in exactly one) — not a swing-candidate tracker, so List membership there
-// shouldn't mark a screener ticker "already tracked". us_swing_stocks is the real tracker.
-const LIST_TICKERS = new Set(SEED_STOCKS.map((s) => s.ticker));
 import type { ScreenerDraftEntry } from "@/lib/types";
 
 type Status = "new" | "tracked";
+
+// portfolio/watchlist are the US "List" tab's own owned/watchlisted bookkeeping (every List
+// stock sits in exactly one) — not a swing-candidate tracker, so List membership there
+// shouldn't mark a screener ticker "already tracked". us_swing_stocks and the Portfolio tab's
+// Long Term division are real trackers, so those still count.
+const LIST_TICKERS = new Set(SEED_STOCKS.map((s) => s.ticker));
 
 export default function ScreenerDraftPage() {
   const [entries, setEntries] = useState<ScreenerDraftEntry[]>([]);
@@ -41,11 +42,12 @@ export default function ScreenerDraftPage() {
   const load = useCallback(async (showLoading = false) => {
     if (showLoading) setLoading(true);
     try {
-      const [draft, watchlist, portfolio, usSwing, customStocks, excluded, overrides] = await Promise.all([
+      const [draft, watchlist, portfolio, usSwing, portfolioLongTerm, customStocks, excluded, overrides] = await Promise.all([
         getScreenerDraft(),
         getWatchlistTickers(),
         getPortfolioTickers(),
         getUsSwingStocks(),
+        getPortfolioDivisionStocks("longterm"),
         getCustomStocks(),
         getScreenerExcludedTickers(),
         getScreenerExclusionOverrides(),
@@ -53,6 +55,7 @@ export default function ScreenerDraftPage() {
       const listTickers = new Set([...LIST_TICKERS, ...Object.keys(customStocks)]);
       const tracked = new Set<string>([
         ...[...watchlist].filter((t) => !listTickers.has(t)),
+        ...Object.keys(portfolioLongTerm),
         ...[...portfolio].filter((t) => !listTickers.has(t)),
         ...Object.keys(usSwing),
       ]);
