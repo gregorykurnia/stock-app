@@ -199,6 +199,13 @@ interface CoilingResult {
   maStackScore: number | null;
   lowerHighs: boolean | null;
   rsVsSpy3mo: number | null;
+  // Potential Bagger Reversal (capitulation) unique raw inputs — reuse this same 2yr daily
+  // fetch instead of a second request per ticker.
+  capVolRatio: number | null;
+  rsiFloor52wk: number | null;
+  priceVs20dLow: number | null;
+  dropSpeed: number | null;
+  recoveryCandle: number | null;
   // Column Group 1 (Breakout Proximity) raw inputs
   slopeNow: number | null;
   slope4wk: number | null;
@@ -215,6 +222,7 @@ const EMPTY: CoilingResult = {
   volRatio10_90: null, upDownVolRatio: null, bbw: null,
   atrPct: null, atrTrend: null, weeklyRsi: null, rsiFloor6mo: null,
   maStackScore: null, lowerHighs: null, rsVsSpy3mo: null,
+  capVolRatio: null, rsiFloor52wk: null, priceVs20dLow: null, dropSpeed: null, recoveryCandle: null,
   slopeNow: null, slope4wk: null, slope8wk: null, maTouchCount: null,
   rangeContractionRatio: null, rsLineDiffPct: null, volGreenRatio: null,
 };
@@ -291,6 +299,8 @@ async function fetchCoiling(ticker: string, spyReturn63: number | null, spyClose
   const weeklyRsi = weeklyRsiArr[weeklyRsiArr.length - 1];
   const last26w = weeklyRsiArr.slice(-26).filter((v): v is number => v != null);
   const rsiFloor6mo = last26w.length > 0 ? Math.min(...last26w) : null;
+  const last52w = weeklyRsiArr.slice(-52).filter((v): v is number => v != null);
+  const rsiFloor52wk = last52w.length > 0 ? Math.min(...last52w) : null;
 
   const ema20Arr = ema(closes, 20);
   const ema50Arr = ema(closes, 50);
@@ -319,6 +329,25 @@ async function fetchCoiling(ticker: string, spyReturn63: number | null, spyClose
     ? (lastClose - closes[closes.length - 64]) / closes[closes.length - 64] : null;
   const rsVsSpy3mo = stockReturn63 != null && spyReturn63 != null && spyReturn63 !== 0
     ? stockReturn63 / spyReturn63 : null;
+
+  // --- Potential Bagger Reversal (capitulation) unique inputs ---
+
+  const last20Vols = volumes.slice(-20);
+  const capVolRatio = last20Vols.length > 0 && avgVol90 > 0 ? Math.max(...last20Vols) / avgVol90 : null;
+
+  const last20ClosesForLow = closes.slice(-20);
+  const low20d = last20ClosesForLow.length > 0 ? Math.min(...last20ClosesForLow) : null;
+  const priceVs20dLow = low20d != null && low20d > 0 ? ((lastClose - low20d) / low20d) * 100 : null;
+
+  const dropSpeed = closes.length > 30 && closes[closes.length - 31] > 0
+    ? ((closes[closes.length - 31] - closes[closes.length - 11]) / closes[closes.length - 31]) * 100 : null;
+
+  const last20Bars = bars.slice(-20);
+  let recoveryCandle: number | null = null;
+  if (last20Bars.length > 0) {
+    const peakVolBar = last20Bars.reduce((max, b) => (b.volume > max.volume ? b : max), last20Bars[0]);
+    recoveryCandle = peakVolBar.high === peakVolBar.low ? 0 : (peakVolBar.close - peakVolBar.low) / (peakVolBar.high - peakVolBar.low);
+  }
 
   // --- Column Group 1: Breakout Proximity raw inputs ---
 
@@ -393,6 +422,7 @@ async function fetchCoiling(ticker: string, spyReturn63: number | null, spyClose
     volRatio10_90, upDownVolRatio, bbw,
     atrPct, atrTrend, weeklyRsi, rsiFloor6mo,
     maStackScore, lowerHighs, rsVsSpy3mo,
+    capVolRatio, rsiFloor52wk, priceVs20dLow, dropSpeed, recoveryCandle,
     slopeNow, slope4wk, slope8wk, maTouchCount, rangeContractionRatio, rsLineDiffPct, volGreenRatio,
   };
 }
@@ -451,6 +481,11 @@ export async function GET(req: NextRequest) {
   const maStackScore: Record<string, number | null> = {};
   const lowerHighs: Record<string, boolean | null> = {};
   const rsVsSpy3mo: Record<string, number | null> = {};
+  const capVolRatio: Record<string, number | null> = {};
+  const rsiFloor52wk: Record<string, number | null> = {};
+  const priceVs20dLow: Record<string, number | null> = {};
+  const dropSpeed: Record<string, number | null> = {};
+  const recoveryCandle: Record<string, number | null> = {};
   const slopeNow: Record<string, number | null> = {};
   const slope4wk: Record<string, number | null> = {};
   const slope8wk: Record<string, number | null> = {};
@@ -485,6 +520,11 @@ export async function GET(req: NextRequest) {
       maStackScore[ticker] = r.maStackScore;
       lowerHighs[ticker] = r.lowerHighs;
       rsVsSpy3mo[ticker] = r.rsVsSpy3mo;
+      capVolRatio[ticker] = r.capVolRatio;
+      rsiFloor52wk[ticker] = r.rsiFloor52wk;
+      priceVs20dLow[ticker] = r.priceVs20dLow;
+      dropSpeed[ticker] = r.dropSpeed;
+      recoveryCandle[ticker] = r.recoveryCandle;
       slopeNow[ticker] = r.slopeNow;
       slope4wk[ticker] = r.slope4wk;
       slope8wk[ticker] = r.slope8wk;
@@ -504,5 +544,6 @@ export async function GET(req: NextRequest) {
     slopeNow, slope4wk, slope8wk, maTouchCount, rangeContractionRatio, rsLineDiffPct, volGreenRatio,
     upside,
     maStackScore, lowerHighs, rsVsSpy3mo,
+    capVolRatio, rsiFloor52wk, priceVs20dLow, dropSpeed, recoveryCandle,
   });
 }

@@ -318,6 +318,16 @@ export default function MasterTable({
 
   const [baggerStocks, setBaggerStocks] = useState<BaggerStock[]>([]);
   const [baggerPrices, setBaggerPrices] = useState<Record<string, number | null>>({});
+  const [baggerDistFromAth, setBaggerDistFromAth] = useState<Record<string, number | null>>({});
+  const [baggerRoc1mo, setBaggerRoc1mo] = useState<Record<string, number | null>>({});
+  const [baggerRsVsSpy3mo, setBaggerRsVsSpy3mo] = useState<Record<string, number | null>>({});
+  const [baggerWeeklyRsi, setBaggerWeeklyRsi] = useState<Record<string, number | null>>({});
+  const [baggerVolRatio, setBaggerVolRatio] = useState<Record<string, number | null>>({});
+  const [baggerCapVolRatio, setBaggerCapVolRatio] = useState<Record<string, number | null>>({});
+  const [baggerRsiFloor52wk, setBaggerRsiFloor52wk] = useState<Record<string, number | null>>({});
+  const [baggerPriceVs20dLow, setBaggerPriceVs20dLow] = useState<Record<string, number | null>>({});
+  const [baggerDropSpeed, setBaggerDropSpeed] = useState<Record<string, number | null>>({});
+  const [baggerRecoveryCandle, setBaggerRecoveryCandle] = useState<Record<string, number | null>>({});
   const [baggerLoading, setBaggerLoading] = useState(false);
   const [baggerLoaded, setBaggerLoaded] = useState(false);
   const [baggerAddTicker, setBaggerAddTicker] = useState("");
@@ -354,6 +364,28 @@ export default function MasterTable({
         setCoilingRsLineDiffPct((p) => ({ ...p, ...(d.rsLineDiffPct ?? {}) }));
         setCoilingVolGreenRatio((p) => ({ ...p, ...(d.volGreenRatio ?? {}) }));
         setCoilingUpside((p) => ({ ...p, ...(d.upside ?? {}) }));
+      })
+      .catch(() => {});
+  }
+
+  // Potential Bagger Reversal reuses the same /api/coiling-daily route (2yr daily fetch) —
+  // shared columns (% from ATH, ROC 1mo, RS vs SPY 3mo, Weekly RSI, Vol Ratio 10d/90d) come
+  // from the same raw fields Coiling Reversal already computes.
+  function fetchBaggerDaily(tickers: string[]) {
+    if (tickers.length === 0) return;
+    fetch(`/api/coiling-daily?tickers=${tickers.join(",")}`)
+      .then((r) => r.json())
+      .then((d) => {
+        setBaggerDistFromAth((p) => ({ ...p, ...(d.distFrom2yHigh ?? {}) }));
+        setBaggerRoc1mo((p) => ({ ...p, ...(d.roc1mo ?? {}) }));
+        setBaggerRsVsSpy3mo((p) => ({ ...p, ...(d.rsVsSpy3mo ?? {}) }));
+        setBaggerWeeklyRsi((p) => ({ ...p, ...(d.weeklyRsi ?? {}) }));
+        setBaggerVolRatio((p) => ({ ...p, ...(d.volRatio10_90 ?? {}) }));
+        setBaggerCapVolRatio((p) => ({ ...p, ...(d.capVolRatio ?? {}) }));
+        setBaggerRsiFloor52wk((p) => ({ ...p, ...(d.rsiFloor52wk ?? {}) }));
+        setBaggerPriceVs20dLow((p) => ({ ...p, ...(d.priceVs20dLow ?? {}) }));
+        setBaggerDropSpeed((p) => ({ ...p, ...(d.dropSpeed ?? {}) }));
+        setBaggerRecoveryCandle((p) => ({ ...p, ...(d.recoveryCandle ?? {}) }));
       })
       .catch(() => {});
   }
@@ -450,6 +482,7 @@ export default function MasterTable({
         .then((r) => r.json())
         .then((d) => setBaggerPrices((p) => ({ ...p, ...(d.prices ?? {}) })))
         .catch(() => {});
+      fetchBaggerDaily(tickers);
     });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isIhsg, mainTab, beatenDownSubTab, baggerLoaded]);
@@ -473,6 +506,7 @@ export default function MasterTable({
       await saveBaggerReversalStock(sym, { name: entry.name, industry: entry.industry, added_at: nowIso });
       setBaggerStocks((prev) => [...prev.filter((s) => s.ticker !== sym), entry].sort((a, b) => a.ticker.localeCompare(b.ticker)));
       if (data.price != null) setBaggerPrices((p) => ({ ...p, [sym]: data.price }));
+      fetchBaggerDaily([sym]);
       setBaggerAddTicker("");
     } catch (err) {
       setBaggerAddError(err instanceof Error ? err.message : "Unknown error");
@@ -2678,6 +2712,16 @@ export default function MasterTable({
             <BaggerReversalTable
               stocks={baggerStocks}
               prices={baggerPrices}
+              distFromAth={baggerDistFromAth}
+              roc1mo={baggerRoc1mo}
+              rsVsSpy3mo={baggerRsVsSpy3mo}
+              weeklyRsi={baggerWeeklyRsi}
+              volRatio10_90={baggerVolRatio}
+              capVolRatio={baggerCapVolRatio}
+              rsiFloor52wk={baggerRsiFloor52wk}
+              priceVs20dLow={baggerPriceVs20dLow}
+              dropSpeed={baggerDropSpeed}
+              recoveryCandle={baggerRecoveryCandle}
               loading={baggerLoading}
               addTicker={baggerAddTicker}
               addLoading={baggerAddLoading}
