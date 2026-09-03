@@ -167,16 +167,6 @@ export function labelForScore(total: number): CoilingLabel {
   return "Poor";
 }
 
-// Worst-to-best order — used to cap a flagged row's label so a row that trips an eliminator
-// rule can never read as promising just because its other, unrelated metrics look calm.
-const LABEL_RANK: CoilingLabel[] = ["Poor", "Weak", "Early / Incomplete", "Interesting", "High Conviction"];
-const MAX_FLAGGED_LABEL: CoilingLabel = "Weak";
-
-function capLabelIfFlagged(label: CoilingLabel, flagged: boolean): CoilingLabel {
-  if (!flagged) return label;
-  return LABEL_RANK.indexOf(label) > LABEL_RANK.indexOf(MAX_FLAGGED_LABEL) ? MAX_FLAGGED_LABEL : label;
-}
-
 export function percentile(values: number[], p: number): number | null {
   if (values.length === 0) return null;
   const sorted = [...values].sort((a, b) => a - b);
@@ -212,6 +202,8 @@ export function scoreCoilingRows<T extends CoilingScoreInput>(rows: T[]): Coilin
     };
     const totalScore = Object.values(subScores).reduce((a, b) => a + b, 0);
     const flagged = flagReasons.length > 0;
-    return { flagged, flagReasons, subScores, totalScore, label: capLabelIfFlagged(labelForScore(totalScore), flagged) };
+    // Flags are informational only (shown as "Flag Reasons") — they no longer cap the label,
+    // which comes straight from the Grand Score total.
+    return { flagged, flagReasons, subScores, totalScore, label: labelForScore(totalScore) };
   });
 }
