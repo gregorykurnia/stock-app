@@ -469,8 +469,7 @@ export function computeCategoryFlags(inp: CategoryInputs): Record<CategoryKey, b
       daysSinceLow1yr != null && daysSinceLow1yr >= 300 &&
       distLow1yr != null && distLow1yr >= 45 &&
       daysSinceHigh5yr != null && daysSinceHigh5yr <= 45 &&
-      distLow6moVal != null && distLow6moVal <= 50 &&
-      !(distHigh5yr != null && distHigh5yr >= -0.5 && distHigh5yr <= 0)
+      distLow6moVal != null && distLow6moVal <= 50
     ),
     parabolicRecovery: distLow6moVal != null && distLow6moVal > 47 && distHigh5yr != null && distHigh5yr <= -28,
     stableRecovery: (
@@ -502,7 +501,7 @@ export const CATEGORY_DEFS: { key: CategoryKey; label: string; badgeClass: strin
   },
   {
     key: "stableLongTerm", label: "Stable Long Term", badgeClass: "bg-teal-100 text-teal-700",
-    description: "At least 300 days removed from its 1Y low, at least 45% above that 1Y low, made a new 2Y high within the last 45 days, is at most 50% above its 6mo low, and excludes ones sitting within -0.5% to 0% of their 2Y high (i.e. already at a fresh 2Y high).",
+    description: "At least 300 days removed from its 1Y low, at least 45% above that 1Y low, made a new 2Y high within the last 45 days, is at most 50% above its 6mo low.",
   },
   {
     key: "parabolicRecovery", label: "Parabolic Recovery", badgeClass: "bg-rose-100 text-rose-700",

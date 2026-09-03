@@ -205,7 +205,7 @@ Computed in `components/USSwingTable.tsx` for the "Stock Category" column. Separ
 | **Limited Upside** | Within 15% below the 5-year high, but it's been more than 75 days since that high was set — sitting quietly under an old ceiling instead of chasing it or falling away from it. |
 | **Recent Breakout** | Made a new 2Y high within the last 15 days, is between -1% and 5% from its resistance level, and that resistance was set at least 100 days ago. |
 | **Strong Uptrend** | At least 35% above its 6mo low, within 8% of EMA20D, ROC90 above 20%, made a new 2Y high within the last 60 days, and less than 300 days removed from its 1Y low. |
-| **Stable Long Term** | At least 300 days removed from its 1Y low, at least 45% above that 1Y low, made a new 2Y high within the last 45 days, at most 50% above its 6mo low, excluding stocks already at a fresh 2Y high (within -0.5% to 0% of it). |
+| **Stable Long Term** | At least 300 days removed from its 1Y low, at least 45% above that 1Y low, made a new 2Y high within the last 45 days, at most 50% above its 6mo low. |
 | **Parabolic Recovery** | More than 50% above its 6mo low, but still 28% or more below its 2Y high (can be -28%, -50%, -80%, etc.) — a sharp bounce off the bottom that hasn't reclaimed the old high yet. |
 | **Stable Recovery** | Within 6% of EMA20D, at most 40% above its 6mo low, and still 25% or more below its 2Y high (can be -25%, -40%, -50%, etc.) — a steadier, less parabolic bounce off the bottom that's found footing near its short-term trend. |
 | **Stable Moderate Upside** | Within 6% of EMA20D, at most 50% above its 6mo low, and 15.01%–24.99% below its 2Y high — a middle zone between Stable Recovery and Limited Upside. |
@@ -616,7 +616,7 @@ Category definitions (reference only):
 - Limited Upside: within 15% below the 2Y high, 75+ days since that high.
 - Recent Breakout: new 2Y high within 15 days, -1% to 5% from resistance, resistance set 100+ days ago.
 - Strong Uptrend: 35%+ above 6mo low, within 8% of EMA20D, ROC90 > 20%, new 2Y high within 60 days, <300 days since 1Y low.
-- Stable Long Term: 300+ days since 1Y low, 45%+ above that low, new 2Y high within 45 days, at most 50% above 6mo low, excluding names already at a fresh 2Y high.
+- Stable Long Term: 300+ days since 1Y low, 45%+ above that low, new 2Y high within 45 days, at most 50% above 6mo low.
 - Parabolic Recovery: 47%+ above 6mo low but still 28%+ below 2Y high.
 - Stable Recovery: within 6% of EMA20D, at most 40% above 6mo low, still 25%+ below 2Y high.
 - Stable Moderate Upside: within 6% of EMA20D, at most 50% above 6mo low, 15.01-24.99% below 2Y high.
