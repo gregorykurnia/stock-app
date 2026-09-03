@@ -1,0 +1,108 @@
+import { NextResponse } from "next/server";
+import * as cheerio from "cheerio";
+
+// Mirrors app/api/screener/route.ts (Swing Screener), same fetch/parse strategy —
+// only the finviz filter differs: 40%+ below all-time high instead of 0-3% below 50-day high.
+export const maxDuration = 60;
+
+// https://finviz.com/screener?v=111&f=ta_alltime_b40h&ft=3&o=-marketcap — Market Cap >= $1B,
+// 40%+ below all-time high, sorted by Market Cap desc, 10 pages of 20 rows (200 tickers max).
+const BASE_URL =
+  "https://finviz.com/screener.ashx?v=111&f=cap_1000to,ta_alltime_b40h&ft=3&o=-marketcap";
+const ROWS_PER_PAGE = 20;
+const PAGES = 10;
+
+const HEADERS = {
+  "User-Agent":
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+  Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+  "Accept-Language": "en-US,en;q=0.5",
+  Referer: "https://finviz.com/",
+};
+
+function parseJinaMarkdown(markdown: string): { ticker: string; company: string; rank: number }[] {
+  const rowRe =
+    /\[(\d+)\]\(https:\/\/finviz\.com\/stock\?t=([A-Z.\-]+)&ty=c&p=d&b=1\)[\s\S]*?\[\2\]\(https:\/\/finviz\.com\/stock\?t=\2&ty=c&p=d&b=1\) \| \[([^\]]+)\]\(/g;
+  const results: { ticker: string; company: string; rank: number }[] = [];
+  let m: RegExpExecArray | null;
+  while ((m = rowRe.exec(markdown))) {
+    results.push({ ticker: m[2], company: m[3], rank: Number(m[1]) });
+  }
+  return results;
+}
+
+function parseScreenerHtml(html: string): { ticker: string; company: string; rank: number }[] {
+  const $ = cheerio.load(html);
+  const table = $("table#screener-content").length ? $("table#screener-content") : $("table.screener_table");
+  if (table.length === 0) return [];
+
+  const results: { ticker: string; company: string; rank: number }[] = [];
+  table.find("tr").each((_, row) => {
+    const cells = $(row).find("td");
+    if (cells.length < 3) return;
+    const first = $(cells[0]).text().trim();
+    if (!/^\d+$/.test(first)) return;
+
+    const rawTicker = $(cells[1]).text().trim();
+    const ticker = rawTicker.length > 1 ? rawTicker.slice(1) : rawTicker;
+    const company = $(cells[2]).text().trim();
+    results.push({ ticker, company, rank: Number(first) });
+  });
+
+  return results;
+}
+
+async function fetchWithTimeout(url: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function fetchPage(page: number): Promise<{ ticker: string; company: string; rank: number }[]> {
+  const rowOffset = (page - 1) * ROWS_PER_PAGE + 1;
+  const url = `${BASE_URL}&r=${rowOffset}`;
+  const errors: string[] = [];
+
+  try {
+    const resp = await fetchWithTimeout(`https://r.jina.ai/${url}`, { headers: { Accept: "text/plain" } }, 20000);
+    if (resp.ok) {
+      const markdown = await resp.text();
+      const rows = parseJinaMarkdown(markdown);
+      if (rows.length > 0) return rows;
+      errors.push(`jina: parsed 0 rows (${markdown.length} chars)`);
+    } else {
+      errors.push(`jina: HTTP ${resp.status}`);
+    }
+  } catch (err) {
+    errors.push(`jina: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  try {
+    const resp = await fetchWithTimeout(url, { headers: HEADERS }, 15000);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    return parseScreenerHtml(await resp.text());
+  } catch (err) {
+    errors.push(`direct: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  throw new Error(`page ${page} failed — ${errors.join("; ")}`);
+}
+
+export async function GET() {
+  try {
+    const pageResults = await Promise.all(
+      Array.from({ length: PAGES }, (_, i) => fetchPage(i + 1))
+    );
+    const all = pageResults.flat();
+    return NextResponse.json({ results: all });
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Screener fetch failed" },
+      { status: 502 }
+    );
+  }
+}

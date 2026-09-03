@@ -228,6 +228,71 @@ export async function addScreenerExclusionOverride(ticker: string) {
   await setDoc(doc(db, "screener_exclusion_overrides", ticker), { added_at: new Date().toISOString() });
 }
 
+// Beaten Down Screener Draft — same shape as Screener Draft above, but sourced from the
+// 40%+-below-all-time-high finviz screener instead of the near-52wk-high one. Kept in
+// separate collections since it's a fully parallel triage list with its own Excluded set —
+// no static doc-sourced exclusion list here, everything is fair game except what's already
+// been excluded from this tab.
+export async function getScreenerDraftBeatenDown(): Promise<Record<string, { company: string | null; added_at: string; rank?: number }>> {
+  const snap = await getDocs(collection(db, "screener_draft_beatendown"));
+  const result: Record<string, { company: string | null; added_at: string; rank?: number }> = {};
+  snap.forEach((d) => { result[d.id] = d.data() as { company: string | null; added_at: string; rank?: number }; });
+  return result;
+}
+
+export async function importScreenerDraftEntriesBeatenDown(entries: { ticker: string; company: string | null; rank?: number }[]) {
+  const batch = writeBatch(db);
+  const now = new Date().toISOString();
+  for (const { ticker, company, rank } of entries) {
+    batch.set(doc(db, "screener_draft_beatendown", ticker), { company, added_at: now, ...(rank !== undefined ? { rank } : {}) });
+  }
+  await batch.commit();
+}
+
+export async function removeScreenerDraftEntryBeatenDown(ticker: string) {
+  await deleteDoc(doc(db, "screener_draft_beatendown", ticker));
+}
+
+export async function updateScreenerDraftRanksBeatenDown(entries: { ticker: string; company: string | null; rank?: number }[]) {
+  const chunkSize = 400;
+  for (let i = 0; i < entries.length; i += chunkSize) {
+    const batch = writeBatch(db);
+    for (const { ticker, company, rank } of entries.slice(i, i + chunkSize)) {
+      batch.set(doc(db, "screener_draft_beatendown", ticker), { company, ...(rank !== undefined ? { rank } : {}) }, { merge: true });
+    }
+    await batch.commit();
+  }
+}
+
+export async function getScreenerExcludedTickersBeatenDown(): Promise<Record<string, { reason: string | null; excluded_at: string }>> {
+  const snap = await getDocs(collection(db, "screener_excluded_beatendown"));
+  const result: Record<string, { reason: string | null; excluded_at: string }> = {};
+  snap.forEach((d) => { result[d.id] = d.data() as { reason: string | null; excluded_at: string }; });
+  return result;
+}
+
+export async function excludeScreenerTickerBeatenDown(ticker: string, reason: string | null = null) {
+  await setDoc(doc(db, "screener_excluded_beatendown", ticker), { reason, excluded_at: new Date().toISOString() });
+}
+
+export async function excludeScreenerTickersBulkBeatenDown(tickers: string[], reason: string | null = null) {
+  const now = new Date().toISOString();
+  const chunkSize = 250;
+  for (let i = 0; i < tickers.length; i += chunkSize) {
+    const chunk = tickers.slice(i, i + chunkSize);
+    const batch = writeBatch(db);
+    for (const ticker of chunk) {
+      batch.set(doc(db, "screener_excluded_beatendown", ticker), { reason, excluded_at: now });
+      batch.delete(doc(db, "screener_draft_beatendown", ticker));
+    }
+    await batch.commit();
+  }
+}
+
+export async function unexcludeScreenerTickerBeatenDown(ticker: string) {
+  await deleteDoc(doc(db, "screener_excluded_beatendown", ticker));
+}
+
 // Portfolio
 export async function getPortfolio(): Promise<Record<string, object>> {
   const snap = await getDocs(collection(db, "portfolio"));

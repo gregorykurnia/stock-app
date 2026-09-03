@@ -20,12 +20,13 @@ interface Props {
   onAddTickerChange: (v: string) => void;
   onAdd: (e: FormEvent) => void;
   onRemove: (ticker: string) => void;
+  onMoveToExcluded: (ticker: string) => void;
 }
 
 const dash = <span className="text-gray-400">—</span>;
 
 export default function BaggerReversalTable({
-  stocks, prices, loading, addTicker, addLoading, addError, onAddTickerChange, onAdd, onRemove,
+  stocks, prices, loading, addTicker, addLoading, addError, onAddTickerChange, onAdd, onRemove, onMoveToExcluded,
 }: Props) {
   function exportCsv() {
     const date = new Date().toISOString().slice(0, 10);
@@ -88,8 +89,9 @@ export default function BaggerReversalTable({
                   </td>
                   <td className="px-3 py-2 text-gray-600">{r.industry}</td>
                   <td className="px-3 py-2 font-medium text-gray-900">{prices[r.ticker] != null ? `$${prices[r.ticker]!.toFixed(2)}` : dash}</td>
-                  <td className="px-3 py-2">
-                    <button onClick={() => onRemove(r.ticker)} className="text-xs text-red-500 hover:text-red-700">Remove</button>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <button onClick={() => onRemove(r.ticker)} className="text-xs text-red-500 hover:text-red-700 mr-2">Remove</button>
+                    <button onClick={() => onMoveToExcluded(r.ticker)} className="text-xs text-[var(--muted)] hover:text-red-600">Move to Excluded</button>
                   </td>
                 </tr>
               ))}

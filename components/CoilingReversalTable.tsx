@@ -52,6 +52,7 @@ interface Props {
   onAddTickerChange: (v: string) => void;
   onAdd: (e: FormEvent) => void;
   onRemove: (ticker: string) => void;
+  onMoveToExcluded: (ticker: string) => void;
 }
 
 const dash = <span className="text-gray-400">—</span>;
@@ -357,7 +358,7 @@ export default function CoilingReversalTable({
   stocks, prices, distFrom2yHigh, distFrom6moLow, roc1mo, roc3mo,
   ma30wk, priceVsMa30wk, ma30wkSlope, volRatio10_90, upDownVolRatio, bbw,
   atrPct, atrTrend, weeklyRsi, rsiFloor6mo, maStackScore, lowerHighs, rsVsSpy3mo,
-  loading, addTicker, addLoading, addError, onAddTickerChange, onAdd, onRemove,
+  loading, addTicker, addLoading, addError, onAddTickerChange, onAdd, onRemove, onMoveToExcluded,
 }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>("ticker");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -566,8 +567,9 @@ export default function CoilingReversalTable({
                   <td className={`px-3 py-2 font-medium ${tierColor(r.subScores.rsVsSpy3mo)}`}>
                     {r.rsVsSpy3mo != null ? r.rsVsSpy3mo.toFixed(2) : dash}
                   </td>
-                  <td className="px-3 py-2">
-                    <button onClick={() => onRemove(r.ticker)} className="text-xs text-red-500 hover:text-red-700">Remove</button>
+                  <td className="px-3 py-2 whitespace-nowrap">
+                    <button onClick={() => onRemove(r.ticker)} className="text-xs text-red-500 hover:text-red-700 mr-2">Remove</button>
+                    <button onClick={() => onMoveToExcluded(r.ticker)} className="text-xs text-[var(--muted)] hover:text-red-600">Move to Excluded</button>
                   </td>
                 </tr>
               ))}

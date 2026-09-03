@@ -15,6 +15,7 @@ import type { PortfolioDivision } from "@/lib/firestore";
 import {
   getCoilingReversalStocks, saveCoilingReversalStock, removeCoilingReversalStock,
   getBaggerReversalStocks, saveBaggerReversalStock, removeBaggerReversalStock,
+  excludeScreenerTickerBeatenDown,
 } from "@/lib/firestore";
 import CoilingReversalTable, { type CoilingStock } from "@/components/CoilingReversalTable";
 import BaggerReversalTable, { type BaggerStock } from "@/components/BaggerReversalTable";
@@ -401,6 +402,14 @@ export default function MasterTable({
     setCoilingStocks((prev) => prev.filter((s) => s.ticker !== ticker));
   }
 
+  // Moves a ticker straight into the Beaten Down Screener's "Excluded" list (screener_excluded_beatendown)
+  // instead of a plain Remove — so it won't resurface next time that screener is re-run.
+  async function handleMoveCoilingToExcluded(ticker: string) {
+    await excludeScreenerTickerBeatenDown(ticker, "Moved from Coiling Reversal");
+    await removeCoilingReversalStock(ticker);
+    setCoilingStocks((prev) => prev.filter((s) => s.ticker !== ticker));
+  }
+
   async function loadBaggerStocks() {
     const data = await getBaggerReversalStocks().catch(() => ({}));
     const list = Object.entries(data).map(([ticker, d]) => {
@@ -456,6 +465,12 @@ export default function MasterTable({
   }
 
   async function handleRemoveBaggerTicker(ticker: string) {
+    await removeBaggerReversalStock(ticker);
+    setBaggerStocks((prev) => prev.filter((s) => s.ticker !== ticker));
+  }
+
+  async function handleMoveBaggerToExcluded(ticker: string) {
+    await excludeScreenerTickerBeatenDown(ticker, "Moved from Potential Bagger Reversal");
     await removeBaggerReversalStock(ticker);
     setBaggerStocks((prev) => prev.filter((s) => s.ticker !== ticker));
   }
@@ -2630,6 +2645,7 @@ export default function MasterTable({
               onAddTickerChange={setCoilingAddTicker}
               onAdd={handleAddCoilingTicker}
               onRemove={handleRemoveCoilingTicker}
+              onMoveToExcluded={handleMoveCoilingToExcluded}
             />
           )}
 
@@ -2644,6 +2660,7 @@ export default function MasterTable({
               onAddTickerChange={setBaggerAddTicker}
               onAdd={handleAddBaggerTicker}
               onRemove={handleRemoveBaggerTicker}
+              onMoveToExcluded={handleMoveBaggerToExcluded}
             />
           )}
         </div>
