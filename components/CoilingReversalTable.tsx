@@ -2,7 +2,7 @@
 
 import { useMemo, useState, type FormEvent } from "react";
 import { downloadCsv } from "@/lib/exportCsv";
-import { scoreCoilingRows, type CoilingLabel } from "@/lib/coilingScore";
+import { scoreCoilingRows, type CoilingLabel, type CoilingSubScores } from "@/lib/coilingScore";
 
 export interface CoilingStock {
   ticker: string;
@@ -56,11 +56,40 @@ interface Props {
 
 const dash = <span className="text-gray-400">—</span>;
 
-const pctCell = (v: number | null, dec = 1, positiveGood = true) => {
-  if (v == null) return dash;
-  const good = positiveGood ? v >= 0 : v <= 0;
-  return <span className={good ? "text-green-600 font-medium" : "text-red-500 font-medium"}>{v >= 0 ? "+" : ""}{v.toFixed(dec)}%</span>;
+// Colors a metric cell by its own tiered sub-score (0-3), not just its raw sign, so the
+// column color always agrees with how many points it actually contributed to Grand Score.
+const TIER_TEXT: Record<number, string> = {
+  3: "text-green-600 font-semibold",
+  2: "text-blue-600 font-medium",
+  1: "text-yellow-600 font-medium",
+  0: "text-red-500 font-medium",
 };
+const tierColor = (score: number | undefined) => (score == null ? "text-gray-400" : TIER_TEXT[score] ?? "text-gray-400");
+
+const pctCell = (v: number | null, score: number | undefined, dec = 1) => {
+  if (v == null) return dash;
+  return <span className={tierColor(score)}>{v >= 0 ? "+" : ""}{v.toFixed(dec)}%</span>;
+};
+
+const SCORE_ROW_LABELS: [keyof CoilingSubScores, string][] = [
+  ["distFrom6moLow", "% from 6mo Low"],
+  ["distFromAth", "% from ATH"],
+  ["roc1mo", "ROC 1mo"],
+  ["priceVsMa30wk", "Price vs 30wk MA"],
+  ["ma30wkSlope", "30wk MA Slope"],
+  ["volRatio10_90", "Vol Ratio 10d/90d"],
+  ["weeklyRsi", "Weekly RSI"],
+  ["bbw", "BBW"],
+  ["atrPct", "ATR%"],
+  ["rsVsSpy3mo", "RS vs SPY 3mo"],
+  ["upDownVolRatio", "Up/Down Vol Ratio"],
+];
+
+function scoreBreakdown(subScores: CoilingSubScores, total: number): string {
+  const lines = SCORE_ROW_LABELS.map(([key, label]) => `${label}: ${subScores[key]}/3`);
+  lines.push(`Total: ${total}/33`);
+  return lines.join("\n");
+}
 
 export default function CoilingReversalTable({
   stocks, prices, distFromAth, distFrom6moLow, roc1mo, roc3mo,
@@ -230,7 +259,9 @@ export default function CoilingReversalTable({
                   <td className="px-3 py-2 font-medium text-gray-900">{r.price != null ? `$${r.price.toFixed(2)}` : dash}</td>
                   <td className="px-3 py-2">
                     <div className="flex items-center gap-1.5">
-                      <span className="font-semibold text-gray-900">{r.totalScore}</span>
+                      <span title={scoreBreakdown(r.subScores, r.totalScore)} className="font-semibold text-gray-900 cursor-help underline decoration-dotted decoration-gray-300 underline-offset-2">
+                        {r.totalScore}
+                      </span>
                       <span className={`inline-flex items-center rounded-full ${LABEL_STYLES[r.label]} text-xs font-semibold px-2 py-0.5 whitespace-nowrap`}>
                         {r.label}
                       </span>
@@ -241,25 +272,35 @@ export default function CoilingReversalTable({
                       )}
                     </div>
                   </td>
-                  <td className="px-3 py-2">{pctCell(r.distFromAth, 1, false)}</td>
-                  <td className="px-3 py-2">{pctCell(r.distFrom6moLow)}</td>
-                  <td className="px-3 py-2">{pctCell(r.roc1mo)}</td>
-                  <td className="px-3 py-2">{pctCell(r.roc3mo)}</td>
+                  <td className="px-3 py-2">{pctCell(r.distFromAth, r.subScores.distFromAth)}</td>
+                  <td className="px-3 py-2">{pctCell(r.distFrom6moLow, r.subScores.distFrom6moLow)}</td>
+                  <td className="px-3 py-2">{pctCell(r.roc1mo, r.subScores.roc1mo)}</td>
+                  <td className="px-3 py-2">{pctCell(r.roc3mo, undefined)}</td>
                   <td className="px-3 py-2 text-gray-700">{r.ma30wk != null ? `$${r.ma30wk.toFixed(2)}` : dash}</td>
-                  <td className={`px-3 py-2 font-medium ${r.priceVsMa30wk == null ? "text-gray-400" : r.priceVsMa30wk >= 1 ? "text-green-600" : "text-red-500"}`}>
+                  <td className={`px-3 py-2 font-medium ${tierColor(r.subScores.priceVsMa30wk)}`}>
                     {r.priceVsMa30wk != null ? r.priceVsMa30wk.toFixed(2) : dash}
                   </td>
-                  <td className={`px-3 py-2 font-medium ${r.ma30wkSlope == null ? "text-gray-400" : r.ma30wkSlope >= 0 ? "text-green-600" : "text-red-500"}`}>
+                  <td className={`px-3 py-2 font-medium ${tierColor(r.subScores.ma30wkSlope)}`}>
                     {r.ma30wkSlope != null ? r.ma30wkSlope.toFixed(2) : dash}
                   </td>
-                  <td className="px-3 py-2 text-gray-700">{r.volRatio10_90 != null ? `${r.volRatio10_90.toFixed(2)}x` : dash}</td>
-                  <td className="px-3 py-2 text-gray-700">{r.upDownVolRatio != null ? r.upDownVolRatio.toFixed(2) : dash}</td>
-                  <td className="px-3 py-2 text-gray-700">{r.bbw != null ? r.bbw.toFixed(3) : dash}</td>
-                  <td className="px-3 py-2 text-gray-700">{r.atrPct != null ? `${r.atrPct.toFixed(1)}%` : dash}</td>
+                  <td className={`px-3 py-2 font-medium ${tierColor(r.subScores.volRatio10_90)}`}>
+                    {r.volRatio10_90 != null ? `${r.volRatio10_90.toFixed(2)}x` : dash}
+                  </td>
+                  <td className={`px-3 py-2 font-medium ${tierColor(r.subScores.upDownVolRatio)}`}>
+                    {r.upDownVolRatio != null ? r.upDownVolRatio.toFixed(2) : dash}
+                  </td>
+                  <td className={`px-3 py-2 font-medium ${tierColor(r.subScores.bbw)}`}>
+                    {r.bbw != null ? r.bbw.toFixed(3) : dash}
+                  </td>
+                  <td className={`px-3 py-2 font-medium ${tierColor(r.subScores.atrPct)}`}>
+                    {r.atrPct != null ? `${r.atrPct.toFixed(1)}%` : dash}
+                  </td>
                   <td className={`px-3 py-2 font-medium ${r.atrTrend == null ? "text-gray-400" : r.atrTrend < 0 ? "text-green-600" : "text-red-500"}`}>
                     {r.atrTrend != null ? r.atrTrend.toFixed(2) : dash}
                   </td>
-                  <td className="px-3 py-2 text-gray-700">{r.weeklyRsi != null ? r.weeklyRsi.toFixed(1) : dash}</td>
+                  <td className={`px-3 py-2 font-medium ${tierColor(r.subScores.weeklyRsi)}`}>
+                    {r.weeklyRsi != null ? r.weeklyRsi.toFixed(1) : dash}
+                  </td>
                   <td className="px-3 py-2 text-gray-700">{r.rsiFloor6mo != null ? r.rsiFloor6mo.toFixed(1) : dash}</td>
                   <td className="px-3 py-2 text-gray-700">{r.maStackScore != null ? `${r.maStackScore}/3` : dash}</td>
                   <td className="px-3 py-2">
@@ -267,7 +308,7 @@ export default function CoilingReversalTable({
                       ? <span className="text-red-500 font-medium">Yes</span>
                       : <span className="text-green-600 font-medium">No</span>}
                   </td>
-                  <td className={`px-3 py-2 font-medium ${r.rsVsSpy3mo == null ? "text-gray-400" : r.rsVsSpy3mo >= 1 ? "text-green-600" : "text-red-500"}`}>
+                  <td className={`px-3 py-2 font-medium ${tierColor(r.subScores.rsVsSpy3mo)}`}>
                     {r.rsVsSpy3mo != null ? r.rsVsSpy3mo.toFixed(2) : dash}
                   </td>
                   <td className="px-3 py-2">
