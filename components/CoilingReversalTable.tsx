@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useMemo, useRef, useState, type FormEvent } from "react";
 import { downloadCsv } from "@/lib/exportCsv";
 import { scoreCoilingRows, type CoilingLabel, type CoilingSubScores } from "@/lib/coilingScore";
 
@@ -85,10 +85,72 @@ const SCORE_ROW_LABELS: [keyof CoilingSubScores, string][] = [
   ["upDownVolRatio", "Up/Down Vol Ratio"],
 ];
 
-function scoreBreakdown(subScores: CoilingSubScores, total: number): string {
-  const lines = SCORE_ROW_LABELS.map(([key, label]) => `${label}: ${subScores[key]}/3`);
-  lines.push(`Total: ${total}/33`);
-  return lines.join("\n");
+// Native `title` tooltips are unreliable across browsers/embedded webviews (can show the
+// help cursor with no text bubble), so the score breakdown uses the same custom
+// hover-popover pattern as the Bandar score tooltips elsewhere in this app.
+function ScoreBadge({ score, label, subScores, flagged, flagReasons }: {
+  score: number; label: CoilingLabel; subScores: CoilingSubScores; flagged: boolean; flagReasons: string[];
+}) {
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const anchorRef = useRef<HTMLSpanElement>(null);
+
+  function show() {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (anchorRef.current) {
+      const r = anchorRef.current.getBoundingClientRect();
+      setPos({ top: r.bottom + 6, left: Math.min(r.left, window.innerWidth - 260) });
+    }
+  }
+  function hide() {
+    timerRef.current = setTimeout(() => setPos(null), 120);
+  }
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <span
+        ref={anchorRef}
+        onMouseEnter={show}
+        onMouseLeave={hide}
+        onClick={() => (pos ? setPos(null) : show())}
+        className="font-semibold text-gray-900 cursor-help underline decoration-dotted decoration-gray-300 underline-offset-2"
+      >
+        {score}
+      </span>
+      <span className={`inline-flex items-center rounded-full ${LABEL_STYLES[label]} text-xs font-semibold px-2 py-0.5 whitespace-nowrap`}>
+        {label}
+      </span>
+      {flagged && (
+        <span title={flagReasons.join("; ")} className="inline-flex items-center rounded-full bg-gray-100 text-gray-500 border border-gray-300 text-xs font-semibold px-1.5 py-0.5 whitespace-nowrap cursor-help">
+          ⚑
+        </span>
+      )}
+      {pos && (
+        <div
+          className="fixed z-[9999] w-60 bg-white border border-gray-200 rounded-lg shadow-xl p-3 text-left normal-case font-normal"
+          style={{ top: pos.top, left: pos.left }}
+          onMouseEnter={() => { if (timerRef.current) clearTimeout(timerRef.current); }}
+          onMouseLeave={hide}
+        >
+          <div className="text-xs font-semibold text-gray-900 mb-1.5">Score breakdown</div>
+          <table className="w-full text-[11px]">
+            <tbody>
+              {SCORE_ROW_LABELS.map(([key, rowLabel]) => (
+                <tr key={key} className="border-b border-gray-50 last:border-0">
+                  <td className="py-0.5 text-gray-500">{rowLabel}</td>
+                  <td className="py-0.5 text-right font-mono text-gray-800">{subScores[key]}/3</td>
+                </tr>
+              ))}
+              <tr className="border-t border-gray-200">
+                <td className="py-1 font-semibold text-gray-900">Total</td>
+                <td className="py-1 text-right font-mono font-semibold text-gray-900">{score}/33</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function CoilingReversalTable({
@@ -258,19 +320,7 @@ export default function CoilingReversalTable({
                   <td className="px-3 py-2 text-gray-600">{r.industry}</td>
                   <td className="px-3 py-2 font-medium text-gray-900">{r.price != null ? `$${r.price.toFixed(2)}` : dash}</td>
                   <td className="px-3 py-2">
-                    <div className="flex items-center gap-1.5">
-                      <span title={scoreBreakdown(r.subScores, r.totalScore)} className="font-semibold text-gray-900 cursor-help underline decoration-dotted decoration-gray-300 underline-offset-2">
-                        {r.totalScore}
-                      </span>
-                      <span className={`inline-flex items-center rounded-full ${LABEL_STYLES[r.label]} text-xs font-semibold px-2 py-0.5 whitespace-nowrap`}>
-                        {r.label}
-                      </span>
-                      {r.flagged && (
-                        <span title={r.flagReasons.join("; ")} className="inline-flex items-center rounded-full bg-gray-100 text-gray-500 border border-gray-300 text-xs font-semibold px-1.5 py-0.5 whitespace-nowrap cursor-help">
-                          ⚑
-                        </span>
-                      )}
-                    </div>
+                    <ScoreBadge score={r.totalScore} label={r.label} subScores={r.subScores} flagged={r.flagged} flagReasons={r.flagReasons} />
                   </td>
                   <td className="px-3 py-2">{pctCell(r.distFromAth, r.subScores.distFromAth)}</td>
                   <td className="px-3 py-2">{pctCell(r.distFrom6moLow, r.subScores.distFrom6moLow)}</td>
