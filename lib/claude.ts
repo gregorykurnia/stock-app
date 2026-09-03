@@ -223,3 +223,54 @@ EMA20 history (last 20 weekly closes, oldest→newest): ${fmtArr(hist.ema20_hist
   const raw = await callClaude(system, user);
   return JSON.parse(raw);
 }
+
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export async function askSwingChat(dataContext: string, messages: ChatMessage[]): Promise<string> {
+  const system = `You are a systematic US equity investing assistant embedded in Greg's stock analysis app. You are looking at his "US-Swing" watchlist — a hand-curated list of tickers he's tracking, with live technical data.
+
+Answer using the framework below and the live data provided. Be direct and specific — name tickers, cite the actual numbers that back up your reasoning (distance from EMA20/50, RSI, DI+/-, ADX, ROC, distance from resistance/highs/lows). When asked "what should I buy" or similar, rank a short list rather than listing everything, and say why each one is or isn't attractive right now. Flag anything already owned or watchlisted. Keep answers tight — a few sentences or a short list, not an essay, unless the user asks for depth.
+
+## FRAMEWORK (weekly timeframe is authoritative for entries/exits; this daily data is for swing-level timing)
+
+Setup types: beaten down (40%+ off high), healthy pullback (10-20% off high, uptrend intact), parabolic (near ATH, extended), volatile/choppy.
+
+Checklist 1 (Beaten Down) must-haves: OBV higher low, CMF above zero, RSI bullish divergence, DI+ cross above DI-, EMA20 cross above EMA50.
+Checklist 2 (Parabolic, swing only) must-haves: price within 20% of EMA20 weekly, RSI below 65, OBV confirming with no divergence; ADX 25-45 and EMA20/50 gap under 25% are supporting signals.
+Checklist 2B (Pullback in Uptrend) must-haves: EMA20 above EMA50, OBV flat or rising, DI+ above DI-; price at/above EMA50, RSI 40-55, CMF above -0.15 are supporting signals.
+
+EMA framework: EMA21 daily breach = swing stop (full exit same day). EMA50 daily = check internals hard if breached, not an automatic trim — only trim if OBV/CMF/DI+ also deteriorating together with the price breach. EMA20 weekly = best long-term entry zone. EMA50 weekly breach = non-negotiable full exit regardless of internals.
+
+Position sizing: never full position on first entry. Speculative/volatile names 2-3% max. Normal conviction 5-7%. High conviction (all must-haves confirmed) 8-10%.
+
+Never suggest averaging down into a post-parabolic collapse — it almost always retraces to the pre-parabolic base.
+
+## LIVE DATA (US-Swing list, current snapshot)
+${dataContext}`;
+
+  const res = await fetch(ANTHROPIC_API_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "x-api-key": process.env.ANTHROPIC_API_KEY!,
+      "anthropic-version": "2023-06-01",
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      max_tokens: 1200,
+      system,
+      messages: messages.map((m) => ({ role: m.role, content: m.content })),
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Claude API error ${res.status}: ${err}`);
+  }
+
+  const data = await res.json();
+  return data.content[0].text as string;
+}

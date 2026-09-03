@@ -9,6 +9,7 @@ import { downloadCsv } from "@/lib/exportCsv";
 import type { CustomStock, PeStats } from "@/lib/types";
 import type { FundData } from "@/app/api/funddata/route";
 import USSwingTable, { type USSwingStock } from "@/components/USSwingTable";
+import SwingChat from "@/components/SwingChat";
 import PortfolioTable, { PORTFOLIO_DIVISIONS, type PortfolioStock, type PortfolioLevelField } from "@/components/PortfolioTable";
 import type { PortfolioDivision } from "@/lib/firestore";
 
@@ -277,6 +278,38 @@ export default function MasterTable({
   const [search, setSearch] = useState("");
   const [swingSortKey, setSwingSortKey] = useState<SwingSortKey>("ticker");
   const [swingSortDir, setSwingSortDir] = useState<SortDir>("asc");
+
+  const usSwingChatContext = useMemo(() => {
+    const fmt = (v: number | null | undefined, digits = 2) => (v == null ? "—" : v.toFixed(digits));
+    const pct = (v: number | null | undefined) => (v == null ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(1)}%`);
+    return usSwingStocks
+      .map((s) => {
+        const price = usSwingPrices[s.ticker] ?? null;
+        const prevClose = usSwingPrevCloses[s.ticker] ?? null;
+        const changePct = price != null && prevClose ? ((price - prevClose) / prevClose) * 100 : null;
+        const ema20 = usSwingEma20s[s.ticker] ?? null;
+        const ema50 = usSwingEma50s[s.ticker] ?? null;
+        const distEma20 = price != null && ema20 ? ((price - ema20) / ema20) * 100 : null;
+        const distEma50 = price != null && ema50 ? ((price - ema50) / ema50) * 100 : null;
+        const status = portfolioSet.has(s.ticker) ? "OWNED" : watchlistSet.has(s.ticker) ? "watchlisted" : "not owned";
+        return [
+          `${s.ticker}${s.starred ? " ★" : ""} (${s.industry ?? "?"}, ${status}):`,
+          `price $${fmt(price)} (${pct(changePct)}d)`,
+          `dist EMA20D ${pct(distEma20)}, dist EMA50D ${pct(distEma50)}`,
+          `RSI ${fmt(usSwingRsis[s.ticker], 1)}, DI+ ${fmt(usSwingDiPluses?.[s.ticker], 1)}, DI- ${fmt(usSwingDiMinuses?.[s.ticker], 1)}, ADX ${fmt(usSwingAdxs?.[s.ticker], 1)}`,
+          `ROC14 ${pct(usSwingRoc14s?.[s.ticker])}, ROC63 ${pct(usSwingRoc63s?.[s.ticker])}, ROC90 ${pct(usSwingRoc90s?.[s.ticker])}`,
+          `dist resistance ${pct(usSwingDistHigh5yrs?.[s.ticker])}, dist 1yr low ${pct(usSwingDistLow1yrs?.[s.ticker])}`,
+          `rel volume ${fmt(usSwingRelVolumes[s.ticker], 2)}x, short float ${fmt(usSwingShortFloats?.[s.ticker], 1)}%, next earnings ${usSwingEarnings?.[s.ticker] ?? "—"}`,
+        ].join(" ");
+      })
+      .join("\n");
+  }, [
+    usSwingStocks, usSwingPrices, usSwingPrevCloses, usSwingEma20s, usSwingEma50s, usSwingRsis,
+    usSwingDiPluses, usSwingDiMinuses, usSwingAdxs, usSwingRoc14s, usSwingRoc63s, usSwingRoc90s,
+    usSwingDistHigh5yrs, usSwingDistLow1yrs, usSwingRelVolumes, usSwingShortFloats, usSwingEarnings,
+    portfolioSet, watchlistSet,
+  ]);
+
   const allRows = useMemo((): TableRow[] => {
     if (isIhsg) {
       const seedStocks = ihsgStocks ?? IHSG_STOCKS;
@@ -2249,6 +2282,10 @@ export default function MasterTable({
           onRemove={onUsSwingRemove}
           onToggleStar={onUsSwingToggleStar}
         />
+      )}
+
+      {!isIhsg && mainTab === "swing" && usSwingStocks.length > 0 && (
+        <SwingChat dataContext={usSwingChatContext} tickerCount={usSwingStocks.length} />
       )}
 
       {/* PORTFOLIO TAB (US only) — three independent, manually-managed divisions */}
