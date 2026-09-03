@@ -2,6 +2,7 @@
 
 import { useMemo, useState, type FormEvent } from "react";
 import { downloadCsv } from "@/lib/exportCsv";
+import { scoreCoilingRows, type CoilingLabel } from "@/lib/coilingScore";
 
 export interface CoilingStock {
   ticker: string;
@@ -11,10 +12,18 @@ export interface CoilingStock {
 }
 
 type SortKey =
-  | "ticker" | "industry" | "price" | "distFromAth" | "distFrom6moLow" | "roc1mo" | "roc3mo"
+  | "ticker" | "industry" | "price" | "grandScore" | "distFromAth" | "distFrom6moLow" | "roc1mo" | "roc3mo"
   | "ma30wk" | "priceVsMa30wk" | "ma30wkSlope" | "volRatio10_90" | "upDownVolRatio" | "bbw"
   | "atrPct" | "atrTrend" | "weeklyRsi" | "rsiFloor6mo" | "maStackScore" | "lowerHighs" | "rsVsSpy3mo";
 type SortDir = "asc" | "desc";
+
+const LABEL_STYLES: Record<CoilingLabel, string> = {
+  "High Conviction": "bg-green-100 text-green-700 border border-green-300",
+  "Interesting": "bg-blue-100 text-blue-700 border border-blue-300",
+  "Early / Incomplete": "bg-yellow-100 text-yellow-700 border border-yellow-300",
+  "Weak": "bg-orange-100 text-orange-700 border border-orange-300",
+  "Poor": "bg-red-100 text-red-700 border border-red-300",
+};
 
 interface Props {
   stocks: CoilingStock[];
@@ -68,7 +77,7 @@ export default function CoilingReversalTable({
   }
 
   const rows = useMemo(() => {
-    const arr = stocks.map((s) => ({
+    const base = stocks.map((s) => ({
       ...s,
       price: prices[s.ticker] ?? null,
       distFromAth: distFromAth[s.ticker] ?? null,
@@ -89,6 +98,8 @@ export default function CoilingReversalTable({
       lowerHighs: lowerHighs[s.ticker] ?? null,
       rsVsSpy3mo: rsVsSpy3mo[s.ticker] ?? null,
     }));
+    const scores = scoreCoilingRows(base);
+    const arr = base.map((r, i) => ({ ...r, ...scores[i], grandScore: scores[i].totalScore }));
     arr.sort((a, b) => {
       let av: string | number | boolean | null = null, bv: string | number | boolean | null = null;
       if (sortKey === "ticker" || sortKey === "industry") { av = a[sortKey] ?? ""; bv = b[sortKey] ?? ""; }
@@ -107,7 +118,8 @@ export default function CoilingReversalTable({
   function exportCsv() {
     const date = new Date().toISOString().slice(0, 10);
     const headers = [
-      "Ticker", "Industry", "Price", "% from ATH", "% from 6mo Low", "ROC 1mo", "ROC 3mo",
+      "Ticker", "Industry", "Price", "Grand Score", "Label", "Eliminated Reason",
+      "% from ATH", "% from 6mo Low", "ROC 1mo", "ROC 3mo",
       "30wk MA", "Price vs 30wk MA", "30wk MA Slope", "Vol Ratio 10d/90d", "Up/Down Vol Ratio",
       "BBW", "ATR%", "ATR Trend", "Weekly RSI", "RSI Floor 6mo", "MA Stack Score", "Lower Highs", "RS vs SPY 3mo",
     ];
@@ -115,6 +127,9 @@ export default function CoilingReversalTable({
       r.ticker,
       r.industry ?? "",
       r.price?.toFixed(2) ?? "",
+      r.totalScore ?? "",
+      r.label ?? "",
+      r.eliminatedReason ?? "",
       r.distFromAth?.toFixed(1) ?? "",
       r.distFrom6moLow?.toFixed(1) ?? "",
       r.roc1mo?.toFixed(1) ?? "",
@@ -183,6 +198,7 @@ export default function CoilingReversalTable({
                 {th("Ticker", "ticker")}
                 <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Industry</th>
                 <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Price</th>
+                {th("Grand Score", "grandScore", "Stage 1 coiling score: hard eliminators then 11 tiered rules, 0-33")}
                 {th("% from ATH", "distFromAth")}
                 {th("% from 6mo Low", "distFrom6moLow")}
                 {th("ROC 1mo", "roc1mo")}
@@ -205,13 +221,27 @@ export default function CoilingReversalTable({
             </thead>
             <tbody className="divide-y divide-gray-100">
               {rows.map((r) => (
-                <tr key={r.ticker} className="hover:bg-gray-50">
+                <tr key={r.ticker} className={`hover:bg-gray-50 ${r.eliminated ? "opacity-50" : ""}`}>
                   <td className="px-3 py-2 font-semibold text-gray-900">
                     {r.ticker}
                     {r.name && <div className="text-xs text-gray-400 font-normal">{r.name}</div>}
                   </td>
                   <td className="px-3 py-2 text-gray-600">{r.industry}</td>
                   <td className="px-3 py-2 font-medium text-gray-900">{r.price != null ? `$${r.price.toFixed(2)}` : dash}</td>
+                  <td className="px-3 py-2">
+                    {r.eliminated ? (
+                      <span title={r.eliminatedReason ?? undefined} className="inline-flex items-center rounded-full bg-gray-100 text-gray-500 border border-gray-300 text-xs font-semibold px-2 py-0.5 whitespace-nowrap cursor-help">
+                        Eliminated
+                      </span>
+                    ) : r.label != null ? (
+                      <div className="flex items-center gap-1.5">
+                        <span className="font-semibold text-gray-900">{r.totalScore}</span>
+                        <span className={`inline-flex items-center rounded-full ${LABEL_STYLES[r.label]} text-xs font-semibold px-2 py-0.5 whitespace-nowrap`}>
+                          {r.label}
+                        </span>
+                      </div>
+                    ) : dash}
+                  </td>
                   <td className="px-3 py-2">{pctCell(r.distFromAth, 1, false)}</td>
                   <td className="px-3 py-2">{pctCell(r.distFrom6moLow)}</td>
                   <td className="px-3 py-2">{pctCell(r.roc1mo)}</td>

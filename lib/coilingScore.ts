@@ -1,0 +1,203 @@
+// Stage 1 "coiling" tiered scoring for the Coiling Reversal screener.
+// Mirrors the Python spec 1:1 — each rule is its own function so thresholds
+// can be adjusted independently. Step 1 (hard eliminators) short-circuits
+// Step 2 (soft scoring); Step 3 turns the sum into a Label.
+
+export interface CoilingScoreInput {
+  distFromAth: number | null;
+  distFrom6moLow: number | null;
+  roc1mo: number | null;
+  roc3mo: number | null;
+  priceVsMa30wk: number | null;
+  ma30wkSlope: number | null;
+  volRatio10_90: number | null;
+  upDownVolRatio: number | null;
+  bbw: number | null;
+  atrPct: number | null;
+  weeklyRsi: number | null;
+  rsVsSpy3mo: number | null;
+  lowerHighs: boolean | null;
+}
+
+export interface CoilingSubScores {
+  distFrom6moLow: number;
+  distFromAth: number;
+  roc1mo: number;
+  priceVsMa30wk: number;
+  ma30wkSlope: number;
+  volRatio10_90: number;
+  weeklyRsi: number;
+  bbw: number;
+  atrPct: number;
+  rsVsSpy3mo: number;
+  upDownVolRatio: number;
+}
+
+export type CoilingLabel = "High Conviction" | "Interesting" | "Early / Incomplete" | "Weak" | "Poor";
+
+export interface CoilingScoreResult {
+  eliminated: boolean;
+  eliminatedReason: string | null;
+  subScores: CoilingSubScores | null;
+  totalScore: number | null;
+  label: CoilingLabel | null;
+}
+
+// --- Step 1: hard eliminators ---
+
+export function checkEliminators(row: CoilingScoreInput): string | null {
+  if (row.roc1mo != null && (row.roc1mo < -15 || row.roc1mo > 20)) return "ROC 1mo out of range (<-15 or >20)";
+  if (row.roc3mo != null && (row.roc3mo < -30 || row.roc3mo > 30)) return "ROC 3mo out of range (<-30 or >30)";
+  if (row.volRatio10_90 != null && row.volRatio10_90 > 1.2) return "Vol Ratio 10d/90d > 1.2";
+  if (row.weeklyRsi != null && (row.weeklyRsi < 35 || row.weeklyRsi > 65)) return "Weekly RSI out of range (<35 or >65)";
+  if (row.ma30wkSlope != null && row.ma30wkSlope < -0.5) return "30wk MA Slope < -0.5";
+  if (row.lowerHighs === true) return "Lower Highs";
+  return null;
+}
+
+// --- Step 2: tiered soft scoring (0-3 each) ---
+
+function inRange(v: number, lo: number, hi: number) { return v >= lo && v <= hi; }
+
+function scoreDistFrom6moLow(v: number | null): number {
+  if (v == null) return 0;
+  if (v < 15) return 3;
+  if (v <= 25) return 2;
+  if (v <= 35) return 1;
+  return 0;
+}
+
+function scoreDistFromAth(v: number | null): number {
+  if (v == null) return 0;
+  if (inRange(v, -85, -65)) return 3;
+  if (v > -65 && v <= -50) return 2;
+  if (v > -50 && v <= -40) return 1;
+  return 0; // includes > -40
+}
+
+function scoreRoc1mo(v: number | null): number {
+  if (v == null) return 0;
+  if (inRange(v, -3, 5)) return 3;
+  if (inRange(v, -8, -3) || inRange(v, 5, 8)) return 2;
+  if (inRange(v, -12, -8) || inRange(v, 8, 12)) return 1;
+  return 0;
+}
+
+function scorePriceVsMa30wk(v: number | null): number {
+  if (v == null) return 0;
+  if (inRange(v, 0.95, 1.02)) return 3;
+  if (inRange(v, 0.90, 0.95) || inRange(v, 1.02, 1.08)) return 2;
+  if (inRange(v, 0.85, 0.90) || inRange(v, 1.08, 1.15)) return 1;
+  return 0;
+}
+
+function scoreMa30wkSlope(v: number | null): number {
+  if (v == null) return 0;
+  if (inRange(v, -0.1, 0.1)) return 3;
+  if (inRange(v, -0.2, -0.1) || inRange(v, 0.1, 0.2)) return 2;
+  if (inRange(v, -0.3, -0.2)) return 1;
+  return 0; // includes < -0.3
+}
+
+function scoreVolRatio(v: number | null): number {
+  if (v == null) return 0;
+  if (v < 0.55) return 3;
+  if (v <= 0.70) return 2;
+  if (v <= 0.80) return 1;
+  return 0;
+}
+
+function scoreWeeklyRsi(v: number | null): number {
+  if (v == null) return 0;
+  if (inRange(v, 45, 55)) return 3;
+  if (inRange(v, 40, 45) || inRange(v, 55, 58)) return 2;
+  if (inRange(v, 37, 40) || inRange(v, 58, 62)) return 1;
+  return 0;
+}
+
+// BBW is relative to the dataset — percentile thresholds are computed once
+// across all passing rows and passed in.
+function scoreBbw(v: number | null, p10: number | null, p20: number | null, p35: number | null): number {
+  if (v == null || p10 == null || p20 == null || p35 == null) return 0;
+  if (v <= p10) return 3;
+  if (v <= p20) return 2;
+  if (v <= p35) return 1;
+  return 0;
+}
+
+function scoreAtrPct(v: number | null): number {
+  if (v == null) return 0;
+  if (v < 2.5) return 3;
+  if (v <= 3.5) return 2;
+  if (v <= 4.5) return 1;
+  return 0;
+}
+
+function scoreRsVsSpy3mo(v: number | null): number {
+  if (v == null) return 0;
+  if (inRange(v, 1.0, 1.2)) return 3;
+  if (inRange(v, 0.9, 1.0) || inRange(v, 1.2, 1.3)) return 2;
+  if (inRange(v, 0.8, 0.9)) return 1;
+  return 0;
+}
+
+function scoreUpDownVolRatio(v: number | null): number {
+  if (v == null) return 0;
+  if (inRange(v, 1.3, 1.8)) return 3;
+  if (inRange(v, 1.1, 1.3) || inRange(v, 1.8, 2.0)) return 2;
+  if (inRange(v, 1.0, 1.1)) return 1;
+  return 0; // includes < 1.0
+}
+
+// --- Step 3: labels ---
+
+export function labelForScore(total: number): CoilingLabel {
+  if (total >= 27) return "High Conviction";
+  if (total >= 20) return "Interesting";
+  if (total >= 13) return "Early / Incomplete";
+  if (total >= 7) return "Weak";
+  return "Poor";
+}
+
+export function percentile(values: number[], p: number): number | null {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const idx = (p / 100) * (sorted.length - 1);
+  const lo = Math.floor(idx), hi = Math.ceil(idx);
+  if (lo === hi) return sorted[lo];
+  return sorted[lo] + (sorted[hi] - sorted[lo]) * (idx - lo);
+}
+
+// Computes eliminator status + tiered score for every row. BBW percentiles
+// (10th/20th/35th) are derived from the BBW values of rows that pass Step 1,
+// matching the Python spec's "across all rows in the dataset" — scoped to
+// the passing set since eliminated rows never reach Step 2.
+export function scoreCoilingRows<T extends CoilingScoreInput>(rows: T[]): CoilingScoreResult[] {
+  const passing = rows.filter((r) => checkEliminators(r) == null);
+  const bbwValues = passing.map((r) => r.bbw).filter((v): v is number => v != null);
+  const p10 = percentile(bbwValues, 10);
+  const p20 = percentile(bbwValues, 20);
+  const p35 = percentile(bbwValues, 35);
+
+  return rows.map((row) => {
+    const eliminatedReason = checkEliminators(row);
+    if (eliminatedReason != null) {
+      return { eliminated: true, eliminatedReason, subScores: null, totalScore: null, label: null };
+    }
+    const subScores: CoilingSubScores = {
+      distFrom6moLow: scoreDistFrom6moLow(row.distFrom6moLow),
+      distFromAth: scoreDistFromAth(row.distFromAth),
+      roc1mo: scoreRoc1mo(row.roc1mo),
+      priceVsMa30wk: scorePriceVsMa30wk(row.priceVsMa30wk),
+      ma30wkSlope: scoreMa30wkSlope(row.ma30wkSlope),
+      volRatio10_90: scoreVolRatio(row.volRatio10_90),
+      weeklyRsi: scoreWeeklyRsi(row.weeklyRsi),
+      bbw: scoreBbw(row.bbw, p10, p20, p35),
+      atrPct: scoreAtrPct(row.atrPct),
+      rsVsSpy3mo: scoreRsVsSpy3mo(row.rsVsSpy3mo),
+      upDownVolRatio: scoreUpDownVolRatio(row.upDownVolRatio),
+    };
+    const totalScore = Object.values(subScores).reduce((a, b) => a + b, 0);
+    return { eliminated: false, eliminatedReason: null, subScores, totalScore, label: labelForScore(totalScore) };
+  });
+}
