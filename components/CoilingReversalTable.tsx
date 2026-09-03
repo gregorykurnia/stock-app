@@ -21,7 +21,7 @@ export interface CoilingStock {
 type SortKey =
   | "ticker" | "industry" | "price" | "distFrom2yHigh"
   | "pillar1Score" | "pillar2Score" | "pillar3Score" | "masterScore"
-  | "rsiDivergence" | "rsiDivergenceWeekly" | "obvDivergence" | "weeklyRsi" | "rsiFloor6mo";
+  | "rsiDivergence" | "rsiDivergenceWeekly" | "obvDivergence" | "weeklyRsi" | "rsiFloor6mo" | "atrPct";
 type SortDir = "asc" | "desc";
 
 const MASTER_LABEL_STYLES: Record<MasterV2Label, string> = {
@@ -186,6 +186,10 @@ const COLUMN_TIPS: Partial<Record<SortKey, ColumnTip>> = {
   },
   rsiFloor6mo: {
     definition: "Lowest weekly RSI over the trailing 26 weeks — how oversold the stock got at worst. Informational only.",
+    ranges: [],
+  },
+  atrPct: {
+    definition: "ATR(14) as a % of price — daily volatility. Shown for reference only; not part of Master Score beyond the Pillar 1 < 3% / ≥ 3% split.",
     ranges: [],
   },
 };
@@ -392,7 +396,7 @@ export default function CoilingReversalTable({
       "Pillar 1 Score", "Pillar 2 Score", "Pillar 3 Score",
       "Master Score", "Master Label",
       "RSI Divergence (raw)", "RSI Divergence Weekly (raw)",
-      "OBV Divergence (raw)", "Weekly RSI", "RSI Floor 6mo",
+      "OBV Divergence (raw)", "Weekly RSI", "RSI Floor 6mo", "ATR%",
       "Flag Reasons", "Data Gaps",
     ];
     const data = rows.map((r) => [
@@ -410,6 +414,7 @@ export default function CoilingReversalTable({
       r.obvDivergence?.toFixed(4) ?? "",
       r.weeklyRsi?.toFixed(1) ?? "",
       r.rsiFloor6mo?.toFixed(1) ?? "",
+      r.atrPct?.toFixed(1) ?? "",
       r.flagReasons.join("; "),
       r.dataGaps.join(", "),
     ]);
@@ -479,6 +484,7 @@ export default function CoilingReversalTable({
                 {th("OBV Divergence", "obvDivergence")}
                 {th("Weekly RSI", "weeklyRsi")}
                 {th("RSI Floor 6mo", "rsiFloor6mo")}
+                {th("ATR%", "atrPct")}
                 <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Flag Reasons</th>
                 <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Data Gaps</th>
                 <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Remove</th>
@@ -525,6 +531,7 @@ export default function CoilingReversalTable({
                   </td>
                   <td className="px-3 py-2 text-gray-700">{r.weeklyRsi != null ? r.weeklyRsi.toFixed(1) : dash}</td>
                   <td className="px-3 py-2 text-gray-700">{r.rsiFloor6mo != null ? r.rsiFloor6mo.toFixed(1) : dash}</td>
+                  <td className="px-3 py-2 text-gray-700">{r.atrPct != null ? `${r.atrPct.toFixed(1)}%` : dash}</td>
                   <td className="px-3 py-2 text-xs text-gray-500 max-w-xs">
                     {r.flagReasons.length > 0 ? r.flagReasons.join("; ") : dash}
                   </td>
