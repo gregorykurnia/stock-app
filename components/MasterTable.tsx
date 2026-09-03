@@ -8,7 +8,7 @@ import { atrLabel, type BandarScoreResult } from "@/lib/indicators";
 import { downloadCsv } from "@/lib/exportCsv";
 import type { CustomStock, PeStats } from "@/lib/types";
 import type { FundData } from "@/app/api/funddata/route";
-import USSwingTable, { type USSwingStock, type CategoryKey, CATEGORY_DEFS, computeCategoryFlags } from "@/components/USSwingTable";
+import USSwingTable, { type USSwingStock, type CategoryKey, CATEGORY_DEFS, computeCategoryFlags, computeGrandScore, daysUntilEarnings } from "@/components/USSwingTable";
 import SwingChat from "@/components/SwingChat";
 import PortfolioTable, { PORTFOLIO_DIVISIONS, type PortfolioStock, type PortfolioLevelField } from "@/components/PortfolioTable";
 import type { PortfolioDivision } from "@/lib/firestore";
@@ -287,8 +287,15 @@ export default function MasterTable({
       .map((s) => {
         const price = usSwingPrices[s.ticker] ?? null;
         const ema20 = usSwingEma20s[s.ticker] ?? null;
+        const ema50 = usSwingEma50s[s.ticker] ?? null;
         const low6mo = usSwingLow6mos[s.ticker] ?? null;
         const resistance = usSwingResistances[s.ticker] ?? null;
+        const distEma20 = price != null && ema20 ? ((price - ema20) / ema20) * 100 : null;
+        const distEma50 = price != null && ema50 ? ((price - ema50) / ema50) * 100 : null;
+        const distLow6mo = price != null && low6mo != null && low6mo > 0 ? ((price - low6mo) / low6mo) * 100 : null;
+        const distResistance = price != null && resistance != null && resistance > 0 ? ((price - resistance) / resistance) * 100 : null;
+        const earningsDaysUntil = daysUntilEarnings(usSwingEarnings?.[s.ticker] ?? null);
+
         const flags = computeCategoryFlags({
           price, ema20d: ema20, low6mo, resistance,
           distHigh5yr: usSwingDistHigh5yrs[s.ticker] ?? null,
@@ -299,44 +306,57 @@ export default function MasterTable({
           distLow1yr: usSwingDistLow1yrs[s.ticker] ?? null,
         });
         const categoryLabels = CATEGORY_DEFS.filter((c) => flags[c.key]).map((c) => c.label);
-        return { s, price, ema20, flags, categoryLabels };
+
+        const scores = computeGrandScore({
+          distEma20d: distEma20, distEma50d: distEma50, macd: usSwingMacds[s.ticker] ?? null, atr: usSwingAtrs[s.ticker] ?? null,
+          roc14: usSwingRoc14s?.[s.ticker] ?? null, roc63: usSwingRoc63s?.[s.ticker] ?? null,
+          sortino3mo: usSwingSortinos?.[s.ticker] ?? null, sortino6mo: usSwingSortino6mos?.[s.ticker] ?? null,
+          rsi: usSwingRsis[s.ticker] ?? null, adx: usSwingAdxs?.[s.ticker] ?? null,
+          diPlus: usSwingDiPluses?.[s.ticker] ?? null, diMinus: usSwingDiMinuses?.[s.ticker] ?? null,
+          distLow6mo, distResistance,
+          shortFloat: usSwingShortFloats?.[s.ticker] ?? null, earningsDaysUntil,
+        });
+
+        return { s, price, ema20, ema50, distEma20, distEma50, earningsDaysUntil, flags, categoryLabels, scores };
       })
       .filter(({ flags }) => activeSet.size === 0 || [...activeSet].some((k) => flags[k]));
   }, [
-    usSwingStocks, usSwingActiveCategories, usSwingPrices, usSwingEma20s, usSwingLow6mos, usSwingResistances,
+    usSwingStocks, usSwingActiveCategories, usSwingPrices, usSwingEma20s, usSwingEma50s, usSwingLow6mos, usSwingResistances,
     usSwingDistHigh5yrs, usSwingDaysSinceHigh5yrs, usSwingDaysSinceResistances, usSwingRoc90s,
-    usSwingDaysSinceLow1yrs, usSwingDistLow1yrs,
+    usSwingDaysSinceLow1yrs, usSwingDistLow1yrs, usSwingMacds, usSwingAtrs, usSwingRoc14s, usSwingRoc63s,
+    usSwingSortinos, usSwingSortino6mos, usSwingRsis, usSwingAdxs, usSwingDiPluses, usSwingDiMinuses,
+    usSwingShortFloats, usSwingEarnings,
   ]);
 
   const usSwingChatContext = useMemo(() => {
     const fmt = (v: number | null | undefined, digits = 2) => (v == null ? "—" : v.toFixed(digits));
     const pct = (v: number | null | undefined) => (v == null ? "—" : `${v > 0 ? "+" : ""}${v.toFixed(1)}%`);
+    const score = (v: number | null | undefined) => (v == null ? "—" : v.toFixed(1));
     const filterNote = usSwingActiveCategories.length > 0
       ? `NOTE: Greg currently has the table filtered to only these stock categories — treat the list below as the full scope of "my list" / "these stocks" for this conversation unless he names a ticker outside it: ${usSwingActiveCategories.map((k) => CATEGORY_DEFS.find((c) => c.key === k)?.label ?? k).join(", ")}\n\n`
       : "";
     const body = usSwingChatFiltered
-      .map(({ s, price, ema20, categoryLabels }) => {
+      .map(({ s, price, distEma20, distEma50, earningsDaysUntil, categoryLabels, scores }) => {
         const prevClose = usSwingPrevCloses[s.ticker] ?? null;
         const changePct = price != null && prevClose ? ((price - prevClose) / prevClose) * 100 : null;
-        const ema50 = usSwingEma50s[s.ticker] ?? null;
-        const distEma20 = price != null && ema20 ? ((price - ema20) / ema20) * 100 : null;
-        const distEma50 = price != null && ema50 ? ((price - ema50) / ema50) * 100 : null;
         const status = portfolioSet.has(s.ticker) ? "OWNED" : watchlistSet.has(s.ticker) ? "watchlisted" : "not owned";
         return [
           `${s.ticker}${s.starred ? " ★" : ""} (${s.industry ?? "?"}, ${status}) [${categoryLabels.length ? categoryLabels.join(", ") : "no category tag"}]:`,
+          `Grand Score ${score(scores.grandScore.score)}/10 (Price&Trend ${score(scores.priceTrendScore.score)}, Momentum ${score(scores.momentumScore.score)}, TrendStrength ${score(scores.trendStrengthScore.score)}, PriceLevels ${score(scores.priceLevelsScore.score)}, Liquidity ${score(scores.liquidityScore.score)})`,
           `price $${fmt(price)} (${pct(changePct)}d)`,
           `dist EMA20D ${pct(distEma20)}, dist EMA50D ${pct(distEma50)}`,
           `RSI ${fmt(usSwingRsis[s.ticker], 1)}, DI+ ${fmt(usSwingDiPluses?.[s.ticker], 1)}, DI- ${fmt(usSwingDiMinuses?.[s.ticker], 1)}, ADX ${fmt(usSwingAdxs?.[s.ticker], 1)}`,
-          `ROC14 ${pct(usSwingRoc14s?.[s.ticker])}, ROC63 ${pct(usSwingRoc63s?.[s.ticker])}, ROC90 ${pct(usSwingRoc90s?.[s.ticker])}`,
+          `ROC14 ${pct(usSwingRoc14s?.[s.ticker])}, ROC63 ${pct(usSwingRoc63s?.[s.ticker])}, ROC90 ${pct(usSwingRoc90s?.[s.ticker])}, Sortino3m ${fmt(usSwingSortinos?.[s.ticker], 2)}, Sortino6m ${fmt(usSwingSortino6mos?.[s.ticker], 2)}, MACD ${fmt(usSwingMacds[s.ticker], 2)}, ATR% ${fmt(usSwingAtrs[s.ticker], 2)}`,
           `dist resistance ${pct(usSwingDistHigh5yrs?.[s.ticker])}, dist 1yr low ${pct(usSwingDistLow1yrs?.[s.ticker])}`,
-          `rel volume ${fmt(usSwingRelVolumes[s.ticker], 2)}x, short float ${fmt(usSwingShortFloats?.[s.ticker], 1)}%, next earnings ${usSwingEarnings?.[s.ticker] ?? "—"}`,
+          `rel volume ${fmt(usSwingRelVolumes[s.ticker], 2)}x, short float ${fmt(usSwingShortFloats?.[s.ticker], 1)}%, next earnings ${usSwingEarnings?.[s.ticker] ?? "—"}${earningsDaysUntil != null ? ` (${earningsDaysUntil}d)` : ""}`,
         ].join(" ");
       })
       .join("\n");
     return filterNote + body;
   }, [
-    usSwingChatFiltered, usSwingActiveCategories, usSwingPrevCloses, usSwingEma50s, usSwingRsis,
+    usSwingChatFiltered, usSwingActiveCategories, usSwingPrevCloses, usSwingRsis,
     usSwingDiPluses, usSwingDiMinuses, usSwingAdxs, usSwingRoc14s, usSwingRoc63s, usSwingRoc90s,
+    usSwingSortinos, usSwingSortino6mos, usSwingMacds, usSwingAtrs,
     usSwingDistHigh5yrs, usSwingDistLow1yrs, usSwingRelVolumes, usSwingShortFloats, usSwingEarnings,
     portfolioSet, watchlistSet,
   ]);

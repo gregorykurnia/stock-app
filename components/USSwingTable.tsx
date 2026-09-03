@@ -334,6 +334,69 @@ function ptsEventRisk(shortFloat: number | null, earningsDaysUntil: number | nul
   return Math.max(0, 4 + penaltyShortFloat(shortFloat) + penaltyEarnings(earningsDaysUntil));
 }
 
+export function daysUntilEarnings(earningsDate: string | null): number | null {
+  if (!earningsDate) return null;
+  const today = new Date().toISOString().slice(0, 10);
+  return Math.round((new Date(earningsDate + "T00:00:00Z").getTime() - new Date(today + "T00:00:00Z").getTime()) / 86400000);
+}
+
+export interface GrandScoreInputs {
+  distEma20d: number | null;
+  distEma50d: number | null;
+  macd: number | null;
+  atr: number | null;
+  roc14: number | null;
+  roc63: number | null;
+  sortino3mo: number | null;
+  sortino6mo: number | null;
+  rsi: number | null;
+  adx: number | null;
+  diPlus: number | null;
+  diMinus: number | null;
+  distLow6mo: number | null;
+  distResistance: number | null;
+  shortFloat: number | null;
+  earningsDaysUntil: number | null;
+}
+
+// Single source of truth for the Grand Score + its 5 component scores — used both by the
+// table's own columns and by anything summarizing this data externally (e.g. the chat
+// assistant), so the two never drift out of sync with each other.
+export function computeGrandScore(inp: GrandScoreInputs) {
+  const priceTrendScore = combineScore([
+    comp("Dist EMA20D", ptsDistEma20d(inp.distEma20d), 3),
+    comp("Dist EMA50D", ptsDistEma50d(inp.distEma50d), 3),
+    comp("MACD", ptsMacd(inp.macd), 2),
+    comp("ATR%", ptsAtr(inp.atr), 3),
+  ]);
+  const momentumScore = combineScore([
+    comp("ROC14", ptsRoc14(inp.roc14), 3),
+    comp("ROC63", ptsRoc63(inp.roc63), 2),
+    comp("Sortino (3mo)", ptsSortino3mo(inp.sortino3mo), 3),
+    comp("Sortino (6mo)", ptsSortino6mo(inp.sortino6mo), 2),
+  ]);
+  const trendStrengthScore = combineScore([
+    comp("RSI", ptsRsi(inp.rsi), 3),
+    comp("ADX", ptsAdx(inp.adx), 3),
+    comp("DI+ > DI-", ptsDiCross(inp.diPlus, inp.diMinus), 2),
+  ]);
+  const priceLevelsScore = combineScore([
+    comp("Dist from 6mo Low", ptsDistLow6mo(inp.distLow6mo), 3),
+    comp("Dist from 1Y Resistance", ptsDistResistance(inp.distResistance), 3),
+  ]);
+  const liquidityScore = combineScore([
+    comp("Event Risk", ptsEventRisk(inp.shortFloat, inp.earningsDaysUntil), 4),
+  ]);
+  const grandScore = weightedScore([
+    { label: "Price & Trend", score: priceTrendScore.score, weight: 0.30 },
+    { label: "Trend Strength", score: trendStrengthScore.score, weight: 0.25 },
+    { label: "Momentum", score: momentumScore.score, weight: 0.22 },
+    { label: "Price Levels", score: priceLevelsScore.score, weight: 0.18 },
+    { label: "Liquidity & Events", score: liquidityScore.score, weight: 0.05 },
+  ]);
+  return { priceTrendScore, momentumScore, trendStrengthScore, priceLevelsScore, liquidityScore, grandScore };
+}
+
 function scoreColorClass(score: number | null): string {
   if (score == null) return "text-gray-400";
   if (score >= 7) return "text-green-600 font-semibold";
@@ -540,44 +603,15 @@ export default function USSwingTable({
       const distEma50dVal = price != null && ema50d != null ? ((price - ema50d) / ema50d) * 100 : null;
       const distLow6moVal = price != null && low6mo != null && low6mo > 0 ? ((price - low6mo) / low6mo) * 100 : null;
       const distResistanceVal = price != null && resistance != null && resistance > 0 ? ((price - resistance) / resistance) * 100 : null;
-      const earningsDaysUntil = (() => {
-        const e = earnings[s.ticker] ?? null;
-        if (!e) return null;
-        const today = new Date().toISOString().slice(0, 10);
-        return Math.round((new Date(e + "T00:00:00Z").getTime() - new Date(today + "T00:00:00Z").getTime()) / 86400000);
-      })();
+      const earningsDaysUntil = daysUntilEarnings(earnings[s.ticker] ?? null);
 
-      const priceTrendScore = combineScore([
-        comp("Dist EMA20D", ptsDistEma20d(distEma20dVal), 3),
-        comp("Dist EMA50D", ptsDistEma50d(distEma50dVal), 3),
-        comp("MACD", ptsMacd(macds[s.ticker] ?? null), 2),
-        comp("ATR%", ptsAtr(atrs[s.ticker] ?? null), 3),
-      ]);
-      const momentumScore = combineScore([
-        comp("ROC14", ptsRoc14(roc14s[s.ticker] ?? null), 3),
-        comp("ROC63", ptsRoc63(roc63s[s.ticker] ?? null), 2),
-        comp("Sortino (3mo)", ptsSortino3mo(sortinos[s.ticker] ?? null), 3),
-        comp("Sortino (6mo)", ptsSortino6mo(sortino6mos[s.ticker] ?? null), 2),
-      ]);
-      const trendStrengthScore = combineScore([
-        comp("RSI", ptsRsi(rsis[s.ticker] ?? null), 3),
-        comp("ADX", ptsAdx(adxs[s.ticker] ?? null), 3),
-        comp("DI+ > DI-", ptsDiCross(diPluses[s.ticker] ?? null, diMinuses[s.ticker] ?? null), 2),
-      ]);
-      const priceLevelsScore = combineScore([
-        comp("Dist from 6mo Low", ptsDistLow6mo(distLow6moVal), 3),
-        comp("Dist from 1Y Resistance", ptsDistResistance(distResistanceVal), 3),
-      ]);
-      const liquidityScore = combineScore([
-        comp("Event Risk", ptsEventRisk(shortFloats[s.ticker] ?? null, earningsDaysUntil), 4),
-      ]);
-      const grandScore = weightedScore([
-        { label: "Price & Trend", score: priceTrendScore.score, weight: 0.30 },
-        { label: "Trend Strength", score: trendStrengthScore.score, weight: 0.25 },
-        { label: "Momentum", score: momentumScore.score, weight: 0.22 },
-        { label: "Price Levels", score: priceLevelsScore.score, weight: 0.18 },
-        { label: "Liquidity & Events", score: liquidityScore.score, weight: 0.05 },
-      ]);
+      const { priceTrendScore, momentumScore, trendStrengthScore, priceLevelsScore, liquidityScore, grandScore } = computeGrandScore({
+        distEma20d: distEma20dVal, distEma50d: distEma50dVal, macd: macds[s.ticker] ?? null, atr: atrs[s.ticker] ?? null,
+        roc14: roc14s[s.ticker] ?? null, roc63: roc63s[s.ticker] ?? null, sortino3mo: sortinos[s.ticker] ?? null, sortino6mo: sortino6mos[s.ticker] ?? null,
+        rsi: rsis[s.ticker] ?? null, adx: adxs[s.ticker] ?? null, diPlus: diPluses[s.ticker] ?? null, diMinus: diMinuses[s.ticker] ?? null,
+        distLow6mo: distLow6moVal, distResistance: distResistanceVal,
+        shortFloat: shortFloats[s.ticker] ?? null, earningsDaysUntil,
+      });
 
       return {
         ...s,
