@@ -85,6 +85,206 @@ const SCORE_ROW_LABELS: [keyof CoilingSubScores, string][] = [
   ["upDownVolRatio", "Up/Down Vol Ratio"],
 ];
 
+interface TierRange { range: string; color: keyof typeof TIER_DOT; meaning: string }
+interface ColumnTip { definition: string; ranges: TierRange[] }
+
+const TIER_DOT: Record<string, string> = {
+  green: "bg-green-600", blue: "bg-blue-500", yellow: "bg-yellow-500", red: "bg-red-500", gray: "bg-gray-400",
+};
+
+// One entry per header that carries a tiered scoring rule (or an eliminator flag), shown as a
+// hover popover on the column title — same ranges/colors the cells below are actually shaded by.
+const COLUMN_TIPS: Partial<Record<SortKey, ColumnTip>> = {
+  grandScore: {
+    definition: "Sum of 11 tiered sub-scores (0-3 each, max 33). A row that trips a hard-eliminator rule still gets scored, just flagged with ⚑.",
+    ranges: [
+      { range: "27–33", color: "green", meaning: "High Conviction" },
+      { range: "20–26", color: "blue", meaning: "Interesting" },
+      { range: "13–19", color: "yellow", meaning: "Early / Incomplete" },
+      { range: "7–12", color: "gray", meaning: "Weak" },
+      { range: "0–6", color: "red", meaning: "Poor" },
+    ],
+  },
+  distFrom6moLow: {
+    definition: "Distance above the 6-month closing low — how far the recovery has already run.",
+    ranges: [
+      { range: "< 15%", color: "green", meaning: "3 pts — still early in the base" },
+      { range: "15–25%", color: "blue", meaning: "2 pts" },
+      { range: "25–35%", color: "yellow", meaning: "1 pt" },
+      { range: "> 35%", color: "red", meaning: "0 pts — already extended off the low" },
+    ],
+  },
+  distFromAth: {
+    definition: "Distance below the all-time high. Sweet spot is a deep-but-not-crushed drawdown.",
+    ranges: [
+      { range: "-85% to -65%", color: "green", meaning: "3 pts" },
+      { range: "-65% to -50%", color: "blue", meaning: "2 pts" },
+      { range: "-50% to -40%", color: "yellow", meaning: "1 pt" },
+      { range: "> -40%", color: "red", meaning: "0 pts — not enough of a drawdown left to coil" },
+    ],
+  },
+  roc1mo: {
+    definition: "1-month rate of change. ⚑ Flag: outside -15% to +20% (too violent a move either way).",
+    ranges: [
+      { range: "-3% to +5%", color: "green", meaning: "3 pts — quiet, coiling" },
+      { range: "-8 to -3% or +5 to +8%", color: "blue", meaning: "2 pts" },
+      { range: "-12 to -8% or +8 to +12%", color: "yellow", meaning: "1 pt" },
+      { range: "outside that", color: "red", meaning: "0 pts" },
+    ],
+  },
+  roc3mo: {
+    definition: "3-month rate of change. ⚑ Flag: outside -30% to +30% (not scored directly, only used as an eliminator flag).",
+    ranges: [],
+  },
+  priceVsMa30wk: {
+    definition: "Price ÷ 30-week (150d) moving average. 1.00 = sitting right on the MA.",
+    ranges: [
+      { range: "0.95–1.02", color: "green", meaning: "3 pts" },
+      { range: "0.90–0.95 or 1.02–1.08", color: "blue", meaning: "2 pts" },
+      { range: "0.85–0.90 or 1.08–1.15", color: "yellow", meaning: "1 pt" },
+      { range: "outside that", color: "red", meaning: "0 pts" },
+    ],
+  },
+  ma30wkSlope: {
+    definition: "30-week MA now vs 20 sessions ago — is the base flattening out. ⚑ Flag: < -0.5 (still rolling over hard).",
+    ranges: [
+      { range: "-0.1 to +0.1", color: "green", meaning: "3 pts — flat, basing" },
+      { range: "-0.2 to -0.1 or +0.1 to +0.2", color: "blue", meaning: "2 pts" },
+      { range: "-0.3 to -0.2", color: "yellow", meaning: "1 pt" },
+      { range: "< -0.3", color: "red", meaning: "0 pts — still trending down" },
+    ],
+  },
+  volRatio10_90: {
+    definition: "10-day avg volume ÷ 90-day avg volume. Low = volume drying up (coiling). ⚑ Flag: > 1.2 (volume expanding, not coiling).",
+    ranges: [
+      { range: "< 0.55", color: "green", meaning: "3 pts" },
+      { range: "0.55–0.70", color: "blue", meaning: "2 pts" },
+      { range: "0.70–0.80", color: "yellow", meaning: "1 pt" },
+      { range: "> 0.80", color: "red", meaning: "0 pts" },
+    ],
+  },
+  upDownVolRatio: {
+    definition: "Volume on up days ÷ volume on down days, last 20 sessions.",
+    ranges: [
+      { range: "1.3–1.8", color: "green", meaning: "3 pts — accumulation" },
+      { range: "1.1–1.3 or 1.8–2.0", color: "blue", meaning: "2 pts" },
+      { range: "1.0–1.1", color: "yellow", meaning: "1 pt" },
+      { range: "< 1.0", color: "red", meaning: "0 pts — distribution" },
+    ],
+  },
+  bbw: {
+    definition: "Bollinger Band Width (20d, 2σ) — tighter bands = tighter coil. Scored against this list's own percentile spread, not fixed thresholds.",
+    ranges: [
+      { range: "Bottom 10th %ile", color: "green", meaning: "3 pts — tightest in the list" },
+      { range: "10th–20th %ile", color: "blue", meaning: "2 pts" },
+      { range: "20th–35th %ile", color: "yellow", meaning: "1 pt" },
+      { range: "> 35th %ile", color: "red", meaning: "0 pts" },
+    ],
+  },
+  atrPct: {
+    definition: "ATR(14) as a % of price — daily volatility.",
+    ranges: [
+      { range: "< 2.5%", color: "green", meaning: "3 pts" },
+      { range: "2.5–3.5%", color: "blue", meaning: "2 pts" },
+      { range: "3.5–4.5%", color: "yellow", meaning: "1 pt" },
+      { range: "> 4.5%", color: "red", meaning: "0 pts" },
+    ],
+  },
+  atrTrend: {
+    definition: "ATR(14) now vs 20 sessions ago. Negative = volatility contracting (coiling); positive = expanding. Not part of Grand Score.",
+    ranges: [],
+  },
+  weeklyRsi: {
+    definition: "RSI(14) on weekly closes. ⚑ Flag: outside 35–65 (overbought/oversold, not neutral basing).",
+    ranges: [
+      { range: "45–55", color: "green", meaning: "3 pts — neutral" },
+      { range: "40–45 or 55–58", color: "blue", meaning: "2 pts" },
+      { range: "37–40 or 58–62", color: "yellow", meaning: "1 pt" },
+      { range: "outside that", color: "red", meaning: "0 pts" },
+    ],
+  },
+  rsiFloor6mo: {
+    definition: "Lowest weekly RSI over the trailing 26 weeks — how oversold the stock got at worst. Not part of Grand Score.",
+    ranges: [],
+  },
+  maStackScore: {
+    definition: "0–3: +1 EMA20 > EMA50, +1 EMA50 > EMA200, +1 Price > EMA200. A trend-structure check, not part of Grand Score.",
+    ranges: [],
+  },
+  lowerHighs: {
+    definition: "Last 3 swing highs over the trailing 20 weeks, each lower than the one before. ⚑ Flag: Yes (still in a downtrend).",
+    ranges: [
+      { range: "No", color: "green", meaning: "Structure not breaking down" },
+      { range: "Yes", color: "red", meaning: "Flagged — still making lower highs" },
+    ],
+  },
+  rsVsSpy3mo: {
+    definition: "Stock's 3-month return ÷ SPY's 3-month return. 1.0 = matching the market.",
+    ranges: [
+      { range: "1.0–1.2", color: "green", meaning: "3 pts — leading the market" },
+      { range: "0.9–1.0 or 1.2–1.3", color: "blue", meaning: "2 pts" },
+      { range: "0.8–0.9", color: "yellow", meaning: "1 pt" },
+      { range: "outside that", color: "red", meaning: "0 pts" },
+    ],
+  },
+};
+
+function HeaderTip({ tip }: { tip: ColumnTip }) {
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const iconRef = useRef<HTMLSpanElement>(null);
+
+  function show() {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    if (iconRef.current) {
+      const r = iconRef.current.getBoundingClientRect();
+      setPos({ top: r.bottom + 6, left: Math.min(r.left, window.innerWidth - 320) });
+    }
+  }
+  function hide() {
+    timerRef.current = setTimeout(() => setPos(null), 120);
+  }
+
+  return (
+    <span className="inline-flex items-center">
+      <span
+        ref={iconRef}
+        onClick={(e) => { e.stopPropagation(); pos ? setPos(null) : show(); }}
+        onMouseEnter={show}
+        onMouseLeave={hide}
+        className="ml-1 inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-gray-300 text-gray-600 text-[9px] font-bold cursor-default leading-none"
+      >
+        i
+      </span>
+      {pos && (
+        <div
+          className="fixed z-[9999] w-[300px] bg-white border border-gray-200 rounded-lg shadow-xl p-3 text-left normal-case tracking-normal font-normal"
+          style={{ top: pos.top, left: pos.left }}
+          onMouseEnter={() => { if (timerRef.current) clearTimeout(timerRef.current); }}
+          onMouseLeave={hide}
+        >
+          <p className="text-[11px] text-gray-500 leading-snug mb-2 whitespace-normal">{tip.definition}</p>
+          {tip.ranges.length > 0 && (
+            <table className="w-full text-[11px] border-collapse">
+              <tbody>
+                {tip.ranges.map((row, i) => (
+                  <tr key={i} className="border-b border-gray-50 last:border-0">
+                    <td className="py-0.5 pr-2 align-top">
+                      <span className={`inline-block w-2 h-2 rounded-full ${TIER_DOT[row.color]} mr-1.5 align-middle`} />
+                    </td>
+                    <td className="py-0.5 pr-2 text-gray-700 font-mono whitespace-nowrap align-top">{row.range}</td>
+                    <td className="py-0.5 text-gray-500 leading-snug whitespace-normal break-words align-top">{row.meaning}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+    </span>
+  );
+}
+
 // Native `title` tooltips are unreliable across browsers/embedded webviews (can show the
 // help cursor with no text bubble), so the score breakdown uses the same custom
 // hover-popover pattern as the Bandar score tooltips elsewhere in this app.
@@ -242,16 +442,21 @@ export default function CoilingReversalTable({
     downloadCsv(`coiling-reversal-${date}.csv`, headers, data);
   }
 
-  const th = (label: string, k: SortKey, title?: string) => (
-    <th
-      key={k}
-      onClick={() => handleSort(k)}
-      title={title}
-      className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide cursor-pointer hover:text-gray-900 whitespace-nowrap select-none"
-    >
-      {label} {sortKey === k && (sortDir === "asc" ? "▲" : "▼")}
-    </th>
-  );
+  const th = (label: string, k: SortKey) => {
+    const tip = COLUMN_TIPS[k];
+    return (
+      <th
+        key={k}
+        onClick={() => handleSort(k)}
+        className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide cursor-pointer hover:text-gray-900 whitespace-nowrap select-none"
+      >
+        <span className="inline-flex items-center">
+          {label} {sortKey === k && (sortDir === "asc" ? "▲" : "▼")}
+          {tip && <HeaderTip tip={tip} />}
+        </span>
+      </th>
+    );
+  };
 
   return (
     <div className="space-y-3">
@@ -289,7 +494,7 @@ export default function CoilingReversalTable({
                 {th("Ticker", "ticker")}
                 <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Industry</th>
                 <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Price</th>
-                {th("Grand Score", "grandScore", "Stage 1 coiling score: 11 tiered rules, 0-33. ⚑ marks rows that trip a hard-eliminator rule, but they're still scored")}
+                {th("Grand Score", "grandScore")}
                 {th("% from ATH", "distFromAth")}
                 {th("% from 6mo Low", "distFrom6moLow")}
                 {th("ROC 1mo", "roc1mo")}
@@ -299,13 +504,13 @@ export default function CoilingReversalTable({
                 {th("30wk MA Slope", "ma30wkSlope")}
                 {th("Vol Ratio 10d/90d", "volRatio10_90")}
                 {th("Up/Down Vol Ratio", "upDownVolRatio")}
-                {th("BBW", "bbw", "Bollinger Band Width (20d, 2 std dev)")}
+                {th("BBW", "bbw")}
                 {th("ATR%", "atrPct")}
-                {th("ATR Trend", "atrTrend", "ATR(14) now vs 20d ago; negative = contracting")}
+                {th("ATR Trend", "atrTrend")}
                 {th("Weekly RSI", "weeklyRsi")}
                 {th("RSI Floor 6mo", "rsiFloor6mo")}
-                {th("MA Stack", "maStackScore", "0-3: EMA20>EMA50, EMA50>EMA200, Price>EMA200")}
-                {th("Lower Highs", "lowerHighs", "Last 3 swing highs over 20wk each lower than the prior")}
+                {th("MA Stack", "maStackScore")}
+                {th("Lower Highs", "lowerHighs")}
                 {th("RS vs SPY 3mo", "rsVsSpy3mo")}
                 <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Remove</th>
               </tr>
