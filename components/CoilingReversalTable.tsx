@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, type FormEvent } from "react";
+import { downloadCsv } from "@/lib/exportCsv";
 
 export interface CoilingStock {
   ticker: string;
@@ -103,6 +104,38 @@ export default function CoilingReversalTable({
   }, [stocks, prices, distFromAth, distFrom6moLow, roc1mo, roc3mo, ma30wk, priceVsMa30wk, ma30wkSlope,
       volRatio10_90, upDownVolRatio, bbw, atrPct, atrTrend, weeklyRsi, rsiFloor6mo, maStackScore, lowerHighs, rsVsSpy3mo, sortKey, sortDir]);
 
+  function exportCsv() {
+    const date = new Date().toISOString().slice(0, 10);
+    const headers = [
+      "Ticker", "Industry", "Price", "% from ATH", "% from 6mo Low", "ROC 1mo", "ROC 3mo",
+      "30wk MA", "Price vs 30wk MA", "30wk MA Slope", "Vol Ratio 10d/90d", "Up/Down Vol Ratio",
+      "BBW", "ATR%", "ATR Trend", "Weekly RSI", "RSI Floor 6mo", "MA Stack Score", "Lower Highs", "RS vs SPY 3mo",
+    ];
+    const data = rows.map((r) => [
+      r.ticker,
+      r.industry ?? "",
+      r.price?.toFixed(2) ?? "",
+      r.distFromAth?.toFixed(1) ?? "",
+      r.distFrom6moLow?.toFixed(1) ?? "",
+      r.roc1mo?.toFixed(1) ?? "",
+      r.roc3mo?.toFixed(1) ?? "",
+      r.ma30wk?.toFixed(2) ?? "",
+      r.priceVsMa30wk?.toFixed(2) ?? "",
+      r.ma30wkSlope?.toFixed(2) ?? "",
+      r.volRatio10_90?.toFixed(2) ?? "",
+      r.upDownVolRatio?.toFixed(2) ?? "",
+      r.bbw?.toFixed(3) ?? "",
+      r.atrPct?.toFixed(1) ?? "",
+      r.atrTrend?.toFixed(2) ?? "",
+      r.weeklyRsi?.toFixed(1) ?? "",
+      r.rsiFloor6mo?.toFixed(1) ?? "",
+      r.maStackScore ?? "",
+      r.lowerHighs == null ? "" : r.lowerHighs ? "Yes" : "No",
+      r.rsVsSpy3mo?.toFixed(2) ?? "",
+    ]);
+    downloadCsv(`coiling-reversal-${date}.csv`, headers, data);
+  }
+
   const th = (label: string, k: SortKey, title?: string) => (
     <th
       key={k}
@@ -127,6 +160,14 @@ export default function CoilingReversalTable({
           {addLoading ? "Adding..." : "Add"}
         </button>
         {addError && <span className="text-xs text-red-500">{addError}</span>}
+        {stocks.length > 0 && (
+          <button
+            onClick={exportCsv}
+            className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded text-sm font-semibold ml-auto"
+          >
+            Export CSV
+          </button>
+        )}
       </form>
 
       {loading && <div className="text-sm text-gray-400">Loading...</div>}

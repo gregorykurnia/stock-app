@@ -1,6 +1,7 @@
 "use client";
 
 import type { FormEvent } from "react";
+import { downloadCsv } from "@/lib/exportCsv";
 
 export interface BaggerStock {
   ticker: string;
@@ -26,6 +27,17 @@ const dash = <span className="text-gray-400">—</span>;
 export default function BaggerReversalTable({
   stocks, prices, loading, addTicker, addLoading, addError, onAddTickerChange, onAdd, onRemove,
 }: Props) {
+  function exportCsv() {
+    const date = new Date().toISOString().slice(0, 10);
+    const headers = ["Ticker", "Industry", "Price"];
+    const data = stocks.map((r) => [
+      r.ticker,
+      r.industry ?? "",
+      prices[r.ticker]?.toFixed(2) ?? "",
+    ]);
+    downloadCsv(`bagger-reversal-${date}.csv`, headers, data);
+  }
+
   return (
     <div className="space-y-3">
       <form onSubmit={onAdd} className="flex items-center gap-2">
@@ -39,6 +51,14 @@ export default function BaggerReversalTable({
           {addLoading ? "Adding..." : "Add"}
         </button>
         {addError && <span className="text-xs text-red-500">{addError}</span>}
+        {stocks.length > 0 && (
+          <button
+            onClick={exportCsv}
+            className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded text-sm font-semibold ml-auto"
+          >
+            Export CSV
+          </button>
+        )}
       </form>
 
       <div className="text-xs text-gray-400">Columns for this view are still being defined — for now this just tracks the ticker list.</div>
