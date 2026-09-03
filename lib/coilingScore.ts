@@ -4,7 +4,7 @@
 // Step 2 (soft scoring); Step 3 turns the sum into a Label.
 
 export interface CoilingScoreInput {
-  distFromAth: number | null;
+  distFrom2yHigh: number | null;
   distFrom6moLow: number | null;
   roc1mo: number | null;
   roc3mo: number | null;
@@ -21,7 +21,7 @@ export interface CoilingScoreInput {
 
 export interface CoilingSubScores {
   distFrom6moLow: number;
-  distFromAth: number;
+  distFrom2yHigh: number;
   roc1mo: number;
   priceVsMa30wk: number;
   ma30wkSlope: number;
@@ -55,11 +55,11 @@ export function checkEliminators(row: CoilingScoreInput): string[] {
   if (row.weeklyRsi != null && (row.weeklyRsi < 35 || row.weeklyRsi > 65)) reasons.push("Weekly RSI out of range (<35 or >65)");
   if (row.ma30wkSlope != null && row.ma30wkSlope < -0.5) reasons.push("30wk MA Slope < -0.5");
   if (row.lowerHighs === true) reasons.push("Lower Highs");
-  // Not part of the original spec, added because names sitting within ~15% of their ATH (e.g.
-  // already back near highs after a strong run) were scoring "Interesting"/"Early / Incomplete"
-  // purely off calm short-term metrics (low ATR%, quiet ROC, low volume) despite never having
-  // actually pulled back — the opposite of what a "Beaten Down > Coiling Reversal" setup means.
-  if (row.distFromAth != null && row.distFromAth > -15) reasons.push("% from ATH > -15% (not beaten down)");
+  // Not part of the original spec, added because names sitting within ~15% of their trailing 2Y
+  // high (e.g. already back near highs after a strong run) were scoring "Interesting"/"Early /
+  // Incomplete" purely off calm short-term metrics (low ATR%, quiet ROC, low volume) despite never
+  // having actually pulled back — the opposite of what a "Beaten Down > Coiling Reversal" setup means.
+  if (row.distFrom2yHigh != null && row.distFrom2yHigh > -15) reasons.push("% from 2Y High > -15% (not beaten down)");
   return reasons;
 }
 
@@ -75,7 +75,7 @@ function scoreDistFrom6moLow(v: number | null): number {
   return 0;
 }
 
-function scoreDistFromAth(v: number | null): number {
+function scoreDistFrom2yHigh(v: number | null): number {
   if (v == null) return 0;
   if (inRange(v, -85, -65)) return 3;
   if (v > -65 && v <= -50) return 2;
@@ -199,7 +199,7 @@ export function scoreCoilingRows<T extends CoilingScoreInput>(rows: T[]): Coilin
     const flagReasons = checkEliminators(row);
     const subScores: CoilingSubScores = {
       distFrom6moLow: scoreDistFrom6moLow(row.distFrom6moLow),
-      distFromAth: scoreDistFromAth(row.distFromAth),
+      distFrom2yHigh: scoreDistFrom2yHigh(row.distFrom2yHigh),
       roc1mo: scoreRoc1mo(row.roc1mo),
       priceVsMa30wk: scorePriceVsMa30wk(row.priceVsMa30wk),
       ma30wkSlope: scoreMa30wkSlope(row.ma30wkSlope),

@@ -97,7 +97,7 @@ function toWeeklyCloses(bars: Bar[]): number[] {
 }
 
 interface CoilingResult {
-  distFromAth: number | null;
+  distFrom2yHigh: number | null;
   distFrom6moLow: number | null;
   roc1mo: number | null;
   roc3mo: number | null;
@@ -117,24 +117,12 @@ interface CoilingResult {
 }
 
 const EMPTY: CoilingResult = {
-  distFromAth: null, distFrom6moLow: null, roc1mo: null, roc3mo: null,
+  distFrom2yHigh: null, distFrom6moLow: null, roc1mo: null, roc3mo: null,
   ma30wk: null, priceVsMa30wk: null, ma30wkSlope: null,
   volRatio10_90: null, upDownVolRatio: null, bbw: null,
   atrPct: null, atrTrend: null, weeklyRsi: null, rsiFloor6mo: null,
   maStackScore: null, lowerHighs: null, rsVsSpy3mo: null,
 };
-
-async function fetchAth(ticker: string, lastClose: number | null): Promise<number | null> {
-  const now = new Date();
-  const start = new Date("1980-01-01");
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const result: any = await yf.chart(ticker, { period1: start, period2: now, interval: "1mo" });
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const highs = (result?.quotes ?? []).map((q: any) => q.high).filter((h: number) => h != null);
-  if (highs.length === 0 || lastClose == null) return null;
-  const ath = Math.max(...highs);
-  return ath > 0 ? ((lastClose - ath) / ath) * 100 : null;
-}
 
 async function fetchCoiling(ticker: string, spyReturn63: number | null): Promise<CoilingResult> {
   const now = new Date();
@@ -154,7 +142,10 @@ async function fetchCoiling(ticker: string, spyReturn63: number | null): Promise
   const closes = bars.map((b) => b.close);
   const lastClose = closes[closes.length - 1];
 
-  const distFromAth = await fetchAth(ticker, lastClose).catch(() => null);
+  // 2Y high, from the same 2-year daily window already fetched above — no extra request needed.
+  const highs = bars.map((b) => b.high);
+  const high2yr = highs.length > 0 ? Math.max(...highs) : null;
+  const distFrom2yHigh = high2yr != null && high2yr > 0 ? ((lastClose - high2yr) / high2yr) * 100 : null;
 
   const last126 = closes.slice(-126);
   const low6mo = last126.length > 0 ? Math.min(...last126) : null;
@@ -235,7 +226,7 @@ async function fetchCoiling(ticker: string, spyReturn63: number | null): Promise
     ? stockReturn63 / spyReturn63 : null;
 
   return {
-    distFromAth, distFrom6moLow, roc1mo, roc3mo,
+    distFrom2yHigh, distFrom6moLow, roc1mo, roc3mo,
     ma30wk, priceVsMa30wk, ma30wkSlope,
     volRatio10_90, upDownVolRatio, bbw,
     atrPct, atrTrend, weeklyRsi, rsiFloor6mo,
@@ -263,7 +254,7 @@ export async function GET(req: NextRequest) {
   const tickers = param.split(",").map((t) => t.trim().toUpperCase()).filter(Boolean);
   const spyReturn63 = await fetchSpyReturn63().catch(() => null);
 
-  const distFromAth: Record<string, number | null> = {};
+  const distFrom2yHigh: Record<string, number | null> = {};
   const distFrom6moLow: Record<string, number | null> = {};
   const roc1mo: Record<string, number | null> = {};
   const roc3mo: Record<string, number | null> = {};
@@ -286,7 +277,7 @@ export async function GET(req: NextRequest) {
     const chunk = tickers.slice(i, i + chunkSize);
     await Promise.all(chunk.map(async (ticker) => {
       const r = await fetchCoiling(ticker, spyReturn63).catch(() => EMPTY);
-      distFromAth[ticker] = r.distFromAth;
+      distFrom2yHigh[ticker] = r.distFrom2yHigh;
       distFrom6moLow[ticker] = r.distFrom6moLow;
       roc1mo[ticker] = r.roc1mo;
       roc3mo[ticker] = r.roc3mo;
@@ -307,7 +298,7 @@ export async function GET(req: NextRequest) {
   }
 
   return NextResponse.json({
-    distFromAth, distFrom6moLow, roc1mo, roc3mo,
+    distFrom2yHigh, distFrom6moLow, roc1mo, roc3mo,
     ma30wk, priceVsMa30wk, ma30wkSlope,
     volRatio10_90, upDownVolRatio, bbw,
     atrPct, atrTrend, weeklyRsi, rsiFloor6mo,

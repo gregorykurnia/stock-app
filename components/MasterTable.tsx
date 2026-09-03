@@ -283,7 +283,7 @@ export default function MasterTable({
   // --- Beaten Down: Coiling Reversal + Potential Bagger Reversal (self-contained, manual ticker lists) ---
   const [coilingStocks, setCoilingStocks] = useState<CoilingStock[]>([]);
   const [coilingPrices, setCoilingPrices] = useState<Record<string, number | null>>({});
-  const [coilingDistFromAth, setCoilingDistFromAth] = useState<Record<string, number | null>>({});
+  const [coilingDistFrom2yHigh, setCoilingDistFromAth] = useState<Record<string, number | null>>({});
   const [coilingDistFrom6moLow, setCoilingDistFrom6moLow] = useState<Record<string, number | null>>({});
   const [coilingRoc1mo, setCoilingRoc1mo] = useState<Record<string, number | null>>({});
   const [coilingRoc3mo, setCoilingRoc3mo] = useState<Record<string, number | null>>({});
@@ -319,7 +319,7 @@ export default function MasterTable({
     fetch(`/api/coiling-daily?tickers=${tickers.join(",")}`)
       .then((r) => r.json())
       .then((d) => {
-        setCoilingDistFromAth((p) => ({ ...p, ...(d.distFromAth ?? {}) }));
+        setCoilingDistFromAth((p) => ({ ...p, ...(d.distFrom2yHigh ?? {}) }));
         setCoilingDistFrom6moLow((p) => ({ ...p, ...(d.distFrom6moLow ?? {}) }));
         setCoilingRoc1mo((p) => ({ ...p, ...(d.roc1mo ?? {}) }));
         setCoilingRoc3mo((p) => ({ ...p, ...(d.roc3mo ?? {}) }));
@@ -2606,7 +2606,7 @@ export default function MasterTable({
             <CoilingReversalTable
               stocks={coilingStocks}
               prices={coilingPrices}
-              distFromAth={coilingDistFromAth}
+              distFrom2yHigh={coilingDistFrom2yHigh}
               distFrom6moLow={coilingDistFrom6moLow}
               roc1mo={coilingRoc1mo}
               roc3mo={coilingRoc3mo}

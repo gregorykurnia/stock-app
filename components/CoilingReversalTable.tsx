@@ -12,7 +12,7 @@ export interface CoilingStock {
 }
 
 type SortKey =
-  | "ticker" | "industry" | "price" | "grandScore" | "distFromAth" | "distFrom6moLow" | "roc1mo" | "roc3mo"
+  | "ticker" | "industry" | "price" | "grandScore" | "distFrom2yHigh" | "distFrom6moLow" | "roc1mo" | "roc3mo"
   | "ma30wk" | "priceVsMa30wk" | "ma30wkSlope" | "volRatio10_90" | "upDownVolRatio" | "bbw"
   | "atrPct" | "atrTrend" | "weeklyRsi" | "rsiFloor6mo" | "maStackScore" | "lowerHighs" | "rsVsSpy3mo";
 type SortDir = "asc" | "desc";
@@ -28,7 +28,7 @@ const LABEL_STYLES: Record<CoilingLabel, string> = {
 interface Props {
   stocks: CoilingStock[];
   prices: Record<string, number | null>;
-  distFromAth: Record<string, number | null>;
+  distFrom2yHigh: Record<string, number | null>;
   distFrom6moLow: Record<string, number | null>;
   roc1mo: Record<string, number | null>;
   roc3mo: Record<string, number | null>;
@@ -73,7 +73,7 @@ const pctCell = (v: number | null, score: number | undefined, dec = 1) => {
 
 const SCORE_ROW_LABELS: [keyof CoilingSubScores, string][] = [
   ["distFrom6moLow", "% from 6mo Low"],
-  ["distFromAth", "% from ATH"],
+  ["distFrom2yHigh", "% from 2Y High"],
   ["roc1mo", "ROC 1mo"],
   ["priceVsMa30wk", "Price vs 30wk MA"],
   ["ma30wkSlope", "30wk MA Slope"],
@@ -114,8 +114,8 @@ const COLUMN_TIPS: Partial<Record<SortKey, ColumnTip>> = {
       { range: "> 35%", color: "red", meaning: "0 pts — already extended off the low" },
     ],
   },
-  distFromAth: {
-    definition: "Distance below the all-time high. Sweet spot is a deep-but-not-crushed drawdown. ⚑ Flag: > -15% (barely off its high at all — not a beaten-down setup regardless of how calm the other metrics look).",
+  distFrom2yHigh: {
+    definition: "Distance below the trailing 2-year high. Sweet spot is a deep-but-not-crushed drawdown. ⚑ Flag: > -15% (barely off its high at all — not a beaten-down setup regardless of how calm the other metrics look).",
     ranges: [
       { range: "-85% to -65%", color: "green", meaning: "3 pts" },
       { range: "-65% to -50%", color: "blue", meaning: "2 pts" },
@@ -354,7 +354,7 @@ function ScoreBadge({ score, label, subScores, flagged, flagReasons }: {
 }
 
 export default function CoilingReversalTable({
-  stocks, prices, distFromAth, distFrom6moLow, roc1mo, roc3mo,
+  stocks, prices, distFrom2yHigh, distFrom6moLow, roc1mo, roc3mo,
   ma30wk, priceVsMa30wk, ma30wkSlope, volRatio10_90, upDownVolRatio, bbw,
   atrPct, atrTrend, weeklyRsi, rsiFloor6mo, maStackScore, lowerHighs, rsVsSpy3mo,
   loading, addTicker, addLoading, addError, onAddTickerChange, onAdd, onRemove,
@@ -371,7 +371,7 @@ export default function CoilingReversalTable({
     const base = stocks.map((s) => ({
       ...s,
       price: prices[s.ticker] ?? null,
-      distFromAth: distFromAth[s.ticker] ?? null,
+      distFrom2yHigh: distFrom2yHigh[s.ticker] ?? null,
       distFrom6moLow: distFrom6moLow[s.ticker] ?? null,
       roc1mo: roc1mo[s.ticker] ?? null,
       roc3mo: roc3mo[s.ticker] ?? null,
@@ -403,14 +403,14 @@ export default function CoilingReversalTable({
       return sortDir === "asc" ? an - bn : bn - an;
     });
     return arr;
-  }, [stocks, prices, distFromAth, distFrom6moLow, roc1mo, roc3mo, ma30wk, priceVsMa30wk, ma30wkSlope,
+  }, [stocks, prices, distFrom2yHigh, distFrom6moLow, roc1mo, roc3mo, ma30wk, priceVsMa30wk, ma30wkSlope,
       volRatio10_90, upDownVolRatio, bbw, atrPct, atrTrend, weeklyRsi, rsiFloor6mo, maStackScore, lowerHighs, rsVsSpy3mo, sortKey, sortDir]);
 
   function exportCsv() {
     const date = new Date().toISOString().slice(0, 10);
     const headers = [
       "Ticker", "Industry", "Price", "Grand Score", "Label", "Flag Reasons",
-      "% from ATH", "% from 6mo Low", "ROC 1mo", "ROC 3mo",
+      "% from 2Y High", "% from 6mo Low", "ROC 1mo", "ROC 3mo",
       "30wk MA", "Price vs 30wk MA", "30wk MA Slope", "Vol Ratio 10d/90d", "Up/Down Vol Ratio",
       "BBW", "ATR%", "ATR Trend", "Weekly RSI", "RSI Floor 6mo", "MA Stack Score", "Lower Highs", "RS vs SPY 3mo",
     ];
@@ -421,7 +421,7 @@ export default function CoilingReversalTable({
       r.totalScore ?? "",
       r.label ?? "",
       r.flagReasons.join("; "),
-      r.distFromAth?.toFixed(1) ?? "",
+      r.distFrom2yHigh?.toFixed(1) ?? "",
       r.distFrom6moLow?.toFixed(1) ?? "",
       r.roc1mo?.toFixed(1) ?? "",
       r.roc3mo?.toFixed(1) ?? "",
@@ -495,7 +495,7 @@ export default function CoilingReversalTable({
                 <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Industry</th>
                 <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Price</th>
                 {th("Grand Score", "grandScore")}
-                {th("% from ATH", "distFromAth")}
+                {th("% from 2Y High", "distFrom2yHigh")}
                 {th("% from 6mo Low", "distFrom6moLow")}
                 {th("ROC 1mo", "roc1mo")}
                 {th("ROC 3mo", "roc3mo")}
@@ -527,7 +527,7 @@ export default function CoilingReversalTable({
                   <td className="px-3 py-2">
                     <ScoreBadge score={r.totalScore} label={r.label} subScores={r.subScores} flagged={r.flagged} flagReasons={r.flagReasons} />
                   </td>
-                  <td className="px-3 py-2">{pctCell(r.distFromAth, r.subScores.distFromAth)}</td>
+                  <td className="px-3 py-2">{pctCell(r.distFrom2yHigh, r.subScores.distFrom2yHigh)}</td>
                   <td className="px-3 py-2">{pctCell(r.distFrom6moLow, r.subScores.distFrom6moLow)}</td>
                   <td className="px-3 py-2">{pctCell(r.roc1mo, r.subScores.roc1mo)}</td>
                   <td className="px-3 py-2">{pctCell(r.roc3mo, undefined)}</td>
