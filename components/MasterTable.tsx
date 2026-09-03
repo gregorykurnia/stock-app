@@ -14,12 +14,11 @@ import PortfolioTable, { PORTFOLIO_DIVISIONS, type PortfolioStock, type Portfoli
 import type { PortfolioDivision } from "@/lib/firestore";
 import {
   getCoilingReversalStocks, saveCoilingReversalStock, removeCoilingReversalStock,
-  getBaggerReversalStocks, saveBaggerReversalStock, removeBaggerReversalStock,
   excludeScreenerTickerBeatenDown,
 } from "@/lib/firestore";
 import CoilingReversalTable, { type CoilingStock } from "@/components/CoilingReversalTable";
 import type { UpsideInput as UpsideRaw } from "@/lib/upsideScore";
-import BaggerReversalTable, { type BaggerStock } from "@/components/BaggerReversalTable";
+import BaggerReversalTable from "@/components/BaggerReversalTable";
 
 type SortKey =
   | "ticker" | "combined" | "val" | "fund" | "price" | "industry" | "urgency" | "atr"
@@ -302,6 +301,11 @@ export default function MasterTable({
   const [coilingMaStackScore, setCoilingMaStackScore] = useState<Record<string, number | null>>({});
   const [coilingLowerHighs, setCoilingLowerHighs] = useState<Record<string, boolean | null>>({});
   const [coilingRsVsSpy3mo, setCoilingRsVsSpy3mo] = useState<Record<string, number | null>>({});
+  const [coilingCapVolRatio, setCoilingCapVolRatio] = useState<Record<string, number | null>>({});
+  const [coilingRsiFloor52wk, setCoilingRsiFloor52wk] = useState<Record<string, number | null>>({});
+  const [coilingPriceVs20dLow, setCoilingPriceVs20dLow] = useState<Record<string, number | null>>({});
+  const [coilingDropSpeed, setCoilingDropSpeed] = useState<Record<string, number | null>>({});
+  const [coilingRecoveryCandle, setCoilingRecoveryCandle] = useState<Record<string, number | null>>({});
   const [coilingSlopeNow, setCoilingSlopeNow] = useState<Record<string, number | null>>({});
   const [coilingSlope4wk, setCoilingSlope4wk] = useState<Record<string, number | null>>({});
   const [coilingSlope8wk, setCoilingSlope8wk] = useState<Record<string, number | null>>({});
@@ -316,23 +320,9 @@ export default function MasterTable({
   const [coilingAddLoading, setCoilingAddLoading] = useState(false);
   const [coilingAddError, setCoilingAddError] = useState("");
 
-  const [baggerStocks, setBaggerStocks] = useState<BaggerStock[]>([]);
-  const [baggerPrices, setBaggerPrices] = useState<Record<string, number | null>>({});
-  const [baggerDistFromAth, setBaggerDistFromAth] = useState<Record<string, number | null>>({});
-  const [baggerRoc1mo, setBaggerRoc1mo] = useState<Record<string, number | null>>({});
-  const [baggerRsVsSpy3mo, setBaggerRsVsSpy3mo] = useState<Record<string, number | null>>({});
-  const [baggerWeeklyRsi, setBaggerWeeklyRsi] = useState<Record<string, number | null>>({});
-  const [baggerVolRatio, setBaggerVolRatio] = useState<Record<string, number | null>>({});
-  const [baggerCapVolRatio, setBaggerCapVolRatio] = useState<Record<string, number | null>>({});
-  const [baggerRsiFloor52wk, setBaggerRsiFloor52wk] = useState<Record<string, number | null>>({});
-  const [baggerPriceVs20dLow, setBaggerPriceVs20dLow] = useState<Record<string, number | null>>({});
-  const [baggerDropSpeed, setBaggerDropSpeed] = useState<Record<string, number | null>>({});
-  const [baggerRecoveryCandle, setBaggerRecoveryCandle] = useState<Record<string, number | null>>({});
-  const [baggerLoading, setBaggerLoading] = useState(false);
-  const [baggerLoaded, setBaggerLoaded] = useState(false);
-  const [baggerAddTicker, setBaggerAddTicker] = useState("");
-  const [baggerAddLoading, setBaggerAddLoading] = useState(false);
-  const [baggerAddError, setBaggerAddError] = useState("");
+  // Potential Bagger Reversal shares the exact same ticker list as Coiling Reversal (see
+  // coilingStocks above) rather than its own manually-managed list — it's a different scoring
+  // lens on the same beaten-down candidates, not a separate watchlist.
 
   function fetchCoilingDaily(tickers: string[]) {
     if (tickers.length === 0) return;
@@ -356,6 +346,11 @@ export default function MasterTable({
         setCoilingMaStackScore((p) => ({ ...p, ...(d.maStackScore ?? {}) }));
         setCoilingLowerHighs((p) => ({ ...p, ...(d.lowerHighs ?? {}) }));
         setCoilingRsVsSpy3mo((p) => ({ ...p, ...(d.rsVsSpy3mo ?? {}) }));
+        setCoilingCapVolRatio((p) => ({ ...p, ...(d.capVolRatio ?? {}) }));
+        setCoilingRsiFloor52wk((p) => ({ ...p, ...(d.rsiFloor52wk ?? {}) }));
+        setCoilingPriceVs20dLow((p) => ({ ...p, ...(d.priceVs20dLow ?? {}) }));
+        setCoilingDropSpeed((p) => ({ ...p, ...(d.dropSpeed ?? {}) }));
+        setCoilingRecoveryCandle((p) => ({ ...p, ...(d.recoveryCandle ?? {}) }));
         setCoilingSlopeNow((p) => ({ ...p, ...(d.slopeNow ?? {}) }));
         setCoilingSlope4wk((p) => ({ ...p, ...(d.slope4wk ?? {}) }));
         setCoilingSlope8wk((p) => ({ ...p, ...(d.slope8wk ?? {}) }));
@@ -364,28 +359,6 @@ export default function MasterTable({
         setCoilingRsLineDiffPct((p) => ({ ...p, ...(d.rsLineDiffPct ?? {}) }));
         setCoilingVolGreenRatio((p) => ({ ...p, ...(d.volGreenRatio ?? {}) }));
         setCoilingUpside((p) => ({ ...p, ...(d.upside ?? {}) }));
-      })
-      .catch(() => {});
-  }
-
-  // Potential Bagger Reversal reuses the same /api/coiling-daily route (2yr daily fetch) —
-  // shared columns (% from ATH, ROC 1mo, RS vs SPY 3mo, Weekly RSI, Vol Ratio 10d/90d) come
-  // from the same raw fields Coiling Reversal already computes.
-  function fetchBaggerDaily(tickers: string[]) {
-    if (tickers.length === 0) return;
-    fetch(`/api/coiling-daily?tickers=${tickers.join(",")}`)
-      .then((r) => r.json())
-      .then((d) => {
-        setBaggerDistFromAth((p) => ({ ...p, ...(d.distFrom2yHigh ?? {}) }));
-        setBaggerRoc1mo((p) => ({ ...p, ...(d.roc1mo ?? {}) }));
-        setBaggerRsVsSpy3mo((p) => ({ ...p, ...(d.rsVsSpy3mo ?? {}) }));
-        setBaggerWeeklyRsi((p) => ({ ...p, ...(d.weeklyRsi ?? {}) }));
-        setBaggerVolRatio((p) => ({ ...p, ...(d.volRatio10_90 ?? {}) }));
-        setBaggerCapVolRatio((p) => ({ ...p, ...(d.capVolRatio ?? {}) }));
-        setBaggerRsiFloor52wk((p) => ({ ...p, ...(d.rsiFloor52wk ?? {}) }));
-        setBaggerPriceVs20dLow((p) => ({ ...p, ...(d.priceVs20dLow ?? {}) }));
-        setBaggerDropSpeed((p) => ({ ...p, ...(d.dropSpeed ?? {}) }));
-        setBaggerRecoveryCandle((p) => ({ ...p, ...(d.recoveryCandle ?? {}) }));
       })
       .catch(() => {});
   }
@@ -402,7 +375,9 @@ export default function MasterTable({
   }
 
   useEffect(() => {
-    if (isIhsg || mainTab !== "beatendown" || beatenDownSubTab !== "coiling" || coilingLoaded) return;
+    // Bagger tab shows the same tickers as Coiling Reversal, so opening either subtab loads
+    // the shared list + indicator data once.
+    if (isIhsg || mainTab !== "beatendown" || (beatenDownSubTab !== "coiling" && beatenDownSubTab !== "bagger") || coilingLoaded) return;
     setCoilingLoaded(true);
     setCoilingLoading(true);
     loadCoilingStocks().then((list) => {
@@ -459,72 +434,6 @@ export default function MasterTable({
     setCoilingStocks((prev) => prev.filter((s) => s.ticker !== ticker));
   }
 
-  async function loadBaggerStocks() {
-    const data = await getBaggerReversalStocks().catch(() => ({}));
-    const list = Object.entries(data).map(([ticker, d]) => {
-      const raw = d as { name?: string | null; industry?: string | null; added_at?: string | null };
-      return { ticker, name: raw.name ?? null, industry: raw.industry ?? null, addedAt: raw.added_at ?? null } as BaggerStock;
-    });
-    list.sort((a, b) => a.ticker.localeCompare(b.ticker));
-    setBaggerStocks(list);
-    return list;
-  }
-
-  useEffect(() => {
-    if (isIhsg || mainTab !== "beatendown" || beatenDownSubTab !== "bagger" || baggerLoaded) return;
-    setBaggerLoaded(true);
-    setBaggerLoading(true);
-    loadBaggerStocks().then((list) => {
-      setBaggerLoading(false);
-      if (list.length === 0) return;
-      const tickers = list.map((s) => s.ticker);
-      fetch(`/api/prices?tickers=${tickers.join(",")}`)
-        .then((r) => r.json())
-        .then((d) => setBaggerPrices((p) => ({ ...p, ...(d.prices ?? {}) })))
-        .catch(() => {});
-      fetchBaggerDaily(tickers);
-    });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isIhsg, mainTab, beatenDownSubTab, baggerLoaded]);
-
-  async function handleAddBaggerTicker(e: FormEvent) {
-    e.preventDefault();
-    const sym = baggerAddTicker.trim().toUpperCase();
-    if (!sym) return;
-    if (baggerStocks.some((s) => s.ticker === sym)) {
-      setBaggerAddError(`${sym} is already in the Potential Bagger Reversal list.`);
-      return;
-    }
-    setBaggerAddLoading(true);
-    setBaggerAddError("");
-    try {
-      const res = await fetch(`/api/fundamentals?ticker=${sym}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Failed to fetch data");
-      const nowIso = new Date().toISOString();
-      const entry: BaggerStock = { ticker: sym, name: data.name ?? null, industry: data.industry ?? data.sector ?? null, addedAt: nowIso };
-      await saveBaggerReversalStock(sym, { name: entry.name, industry: entry.industry, added_at: nowIso });
-      setBaggerStocks((prev) => [...prev.filter((s) => s.ticker !== sym), entry].sort((a, b) => a.ticker.localeCompare(b.ticker)));
-      if (data.price != null) setBaggerPrices((p) => ({ ...p, [sym]: data.price }));
-      fetchBaggerDaily([sym]);
-      setBaggerAddTicker("");
-    } catch (err) {
-      setBaggerAddError(err instanceof Error ? err.message : "Unknown error");
-    } finally {
-      setBaggerAddLoading(false);
-    }
-  }
-
-  async function handleRemoveBaggerTicker(ticker: string) {
-    await removeBaggerReversalStock(ticker);
-    setBaggerStocks((prev) => prev.filter((s) => s.ticker !== ticker));
-  }
-
-  async function handleMoveBaggerToExcluded(ticker: string) {
-    await excludeScreenerTickerBeatenDown(ticker, "Moved from Potential Bagger Reversal");
-    await removeBaggerReversalStock(ticker);
-    setBaggerStocks((prev) => prev.filter((s) => s.ticker !== ticker));
-  }
   const [activeTab, setActiveTab] = useState<SubTab>("all");
   const [sortKey, setSortKey] = useState<SortKey>("combined");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
@@ -2710,26 +2619,26 @@ export default function MasterTable({
 
           {beatenDownSubTab === "bagger" && (
             <BaggerReversalTable
-              stocks={baggerStocks}
-              prices={baggerPrices}
-              distFromAth={baggerDistFromAth}
-              roc1mo={baggerRoc1mo}
-              rsVsSpy3mo={baggerRsVsSpy3mo}
-              weeklyRsi={baggerWeeklyRsi}
-              volRatio10_90={baggerVolRatio}
-              capVolRatio={baggerCapVolRatio}
-              rsiFloor52wk={baggerRsiFloor52wk}
-              priceVs20dLow={baggerPriceVs20dLow}
-              dropSpeed={baggerDropSpeed}
-              recoveryCandle={baggerRecoveryCandle}
-              loading={baggerLoading}
-              addTicker={baggerAddTicker}
-              addLoading={baggerAddLoading}
-              addError={baggerAddError}
-              onAddTickerChange={setBaggerAddTicker}
-              onAdd={handleAddBaggerTicker}
-              onRemove={handleRemoveBaggerTicker}
-              onMoveToExcluded={handleMoveBaggerToExcluded}
+              stocks={coilingStocks}
+              prices={coilingPrices}
+              distFromAth={coilingDistFrom2yHigh}
+              roc1mo={coilingRoc1mo}
+              rsVsSpy3mo={coilingRsVsSpy3mo}
+              weeklyRsi={coilingWeeklyRsi}
+              volRatio10_90={coilingVolRatio}
+              capVolRatio={coilingCapVolRatio}
+              rsiFloor52wk={coilingRsiFloor52wk}
+              priceVs20dLow={coilingPriceVs20dLow}
+              dropSpeed={coilingDropSpeed}
+              recoveryCandle={coilingRecoveryCandle}
+              loading={coilingLoading}
+              addTicker={coilingAddTicker}
+              addLoading={coilingAddLoading}
+              addError={coilingAddError}
+              onAddTickerChange={setCoilingAddTicker}
+              onAdd={handleAddCoilingTicker}
+              onRemove={handleRemoveCoilingTicker}
+              onMoveToExcluded={handleMoveCoilingToExcluded}
             />
           )}
         </div>
