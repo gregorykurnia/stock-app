@@ -298,6 +298,7 @@ export default function MasterTable({
   const [coilingAtrTrend, setCoilingAtrTrend] = useState<Record<string, number | null>>({});
   const [coilingWeeklyRsi, setCoilingWeeklyRsi] = useState<Record<string, number | null>>({});
   const [coilingRsiFloor6mo, setCoilingRsiFloor6mo] = useState<Record<string, number | null>>({});
+  const [coilingRsiDivergence, setCoilingRsiDivergence] = useState<Record<string, number | null>>({});
   const [coilingMaStackScore, setCoilingMaStackScore] = useState<Record<string, number | null>>({});
   const [coilingLowerHighs, setCoilingLowerHighs] = useState<Record<string, boolean | null>>({});
   const [coilingRsVsSpy3mo, setCoilingRsVsSpy3mo] = useState<Record<string, number | null>>({});
@@ -343,6 +344,7 @@ export default function MasterTable({
         setCoilingAtrTrend((p) => ({ ...p, ...(d.atrTrend ?? {}) }));
         setCoilingWeeklyRsi((p) => ({ ...p, ...(d.weeklyRsi ?? {}) }));
         setCoilingRsiFloor6mo((p) => ({ ...p, ...(d.rsiFloor6mo ?? {}) }));
+        setCoilingRsiDivergence((p) => ({ ...p, ...(d.rsiDivergence ?? {}) }));
         setCoilingMaStackScore((p) => ({ ...p, ...(d.maStackScore ?? {}) }));
         setCoilingLowerHighs((p) => ({ ...p, ...(d.lowerHighs ?? {}) }));
         setCoilingRsVsSpy3mo((p) => ({ ...p, ...(d.rsVsSpy3mo ?? {}) }));
@@ -2595,6 +2597,7 @@ export default function MasterTable({
               atrTrend={coilingAtrTrend}
               weeklyRsi={coilingWeeklyRsi}
               rsiFloor6mo={coilingRsiFloor6mo}
+              rsiDivergence={coilingRsiDivergence}
               maStackScore={coilingMaStackScore}
               lowerHighs={coilingLowerHighs}
               rsVsSpy3mo={coilingRsVsSpy3mo}

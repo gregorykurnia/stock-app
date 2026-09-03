@@ -17,7 +17,7 @@ export interface CoilingStock {
 type SortKey =
   | "ticker" | "industry" | "price" | "grandScore" | "distFrom2yHigh" | "distFrom6moLow" | "roc1mo" | "roc3mo"
   | "ma30wk" | "priceVsMa30wk" | "ma30wkSlope" | "volRatio10_90" | "upDownVolRatio" | "bbw"
-  | "atrPct" | "atrTrend" | "weeklyRsi" | "rsiFloor6mo" | "maStackScore" | "lowerHighs" | "rsVsSpy3mo"
+  | "atrPct" | "atrTrend" | "weeklyRsi" | "rsiFloor6mo" | "rsiDivergence" | "maStackScore" | "lowerHighs" | "rsVsSpy3mo"
   | "proximityScore" | "upsideScore" | "masterScore";
 type SortDir = "asc" | "desc";
 
@@ -85,6 +85,7 @@ interface Props {
   atrTrend: Record<string, number | null>;
   weeklyRsi: Record<string, number | null>;
   rsiFloor6mo: Record<string, number | null>;
+  rsiDivergence: Record<string, number | null>;
   maStackScore: Record<string, number | null>;
   lowerHighs: Record<string, boolean | null>;
   rsVsSpy3mo: Record<string, number | null>;
@@ -258,6 +259,13 @@ const COLUMN_TIPS: Partial<Record<SortKey, ColumnTip>> = {
   rsiFloor6mo: {
     definition: "Lowest weekly RSI over the trailing 26 weeks — how oversold the stock got at worst. Not part of Grand Score.",
     ranges: [],
+  },
+  rsiDivergence: {
+    definition: "Daily RSI(14, Wilder) at the 20-day low minus RSI at the 40-20-day-ago low. Positive = bullish divergence (price made a lower low but RSI made a higher low) — bigger is stronger. Not part of Grand Score.",
+    ranges: [
+      { range: "> 0", color: "green", meaning: "Bullish divergence" },
+      { range: "≤ 0", color: "red", meaning: "No divergence / bearish" },
+    ],
   },
   maStackScore: {
     definition: "0–3: +1 EMA20 > EMA50, +1 EMA50 > EMA200, +1 Price > EMA200. A trend-structure check, not part of Grand Score.",
@@ -474,7 +482,7 @@ function CompositeBadge<K extends string>({
 export default function CoilingReversalTable({
   stocks, prices, distFrom2yHigh, distFrom6moLow, roc1mo, roc3mo,
   ma30wk, priceVsMa30wk, ma30wkSlope, volRatio10_90, upDownVolRatio, bbw,
-  atrPct, atrTrend, weeklyRsi, rsiFloor6mo, maStackScore, lowerHighs, rsVsSpy3mo,
+  atrPct, atrTrend, weeklyRsi, rsiFloor6mo, rsiDivergence, maStackScore, lowerHighs, rsVsSpy3mo,
   slopeNow, slope4wk, slope8wk, maTouchCount, rangeContractionRatio, rsLineDiffPct, volGreenRatio, upside,
   loading, addTicker, addLoading, addError, onAddTickerChange, onAdd, onRemove, onMoveToExcluded,
 }: Props) {
@@ -504,6 +512,7 @@ export default function CoilingReversalTable({
       atrTrend: atrTrend[s.ticker] ?? null,
       weeklyRsi: weeklyRsi[s.ticker] ?? null,
       rsiFloor6mo: rsiFloor6mo[s.ticker] ?? null,
+      rsiDivergence: rsiDivergence[s.ticker] ?? null,
       maStackScore: maStackScore[s.ticker] ?? null,
       lowerHighs: lowerHighs[s.ticker] ?? null,
       rsVsSpy3mo: rsVsSpy3mo[s.ticker] ?? null,
@@ -549,7 +558,7 @@ export default function CoilingReversalTable({
     });
     return arr;
   }, [stocks, prices, distFrom2yHigh, distFrom6moLow, roc1mo, roc3mo, ma30wk, priceVsMa30wk, ma30wkSlope,
-      volRatio10_90, upDownVolRatio, bbw, atrPct, atrTrend, weeklyRsi, rsiFloor6mo, maStackScore, lowerHighs, rsVsSpy3mo,
+      volRatio10_90, upDownVolRatio, bbw, atrPct, atrTrend, weeklyRsi, rsiFloor6mo, rsiDivergence, maStackScore, lowerHighs, rsVsSpy3mo,
       slopeNow, slope4wk, slope8wk, maTouchCount, rangeContractionRatio, rsLineDiffPct, volGreenRatio, upside, sortKey, sortDir]);
 
   function exportCsv() {
@@ -558,7 +567,7 @@ export default function CoilingReversalTable({
       "Ticker", "Industry", "Price", "Grand Score", "Label", "Flag Reasons",
       "% from 2Y High", "% from 6mo Low", "ROC 1mo", "ROC 3mo",
       "30wk MA", "Price vs 30wk MA", "30wk MA Slope", "Vol Ratio 10d/90d", "Up/Down Vol Ratio",
-      "BBW", "ATR%", "ATR Trend", "Weekly RSI", "RSI Floor 6mo", "MA Stack Score", "Lower Highs", "RS vs SPY 3mo",
+      "BBW", "ATR%", "ATR Trend", "Weekly RSI", "RSI Floor 6mo", "RSI Divergence", "MA Stack Score", "Lower Highs", "RS vs SPY 3mo",
       "Proximity Score", "Proximity Label", "Upside Score", "Upside Label", "Data Gaps", "Data Gap Count",
       "Master Score", "Master Label",
     ];
@@ -583,6 +592,7 @@ export default function CoilingReversalTable({
       r.atrTrend?.toFixed(2) ?? "",
       r.weeklyRsi?.toFixed(1) ?? "",
       r.rsiFloor6mo?.toFixed(1) ?? "",
+      r.rsiDivergence?.toFixed(1) ?? "",
       r.maStackScore ?? "",
       r.lowerHighs == null ? "" : r.lowerHighs ? "Yes" : "No",
       r.rsVsSpy3mo?.toFixed(2) ?? "",
@@ -648,7 +658,7 @@ export default function CoilingReversalTable({
           <table className="min-w-full text-sm">
             <thead className="bg-gray-100 border-b border-gray-200 sticky top-0 z-10">
               <tr className="text-[10px] text-gray-400 uppercase tracking-wide">
-                <th colSpan={21} />
+                <th colSpan={22} />
                 <th colSpan={1} className="px-3 py-1 text-left border-l border-gray-200">Group 1: Breakout Proximity</th>
                 <th colSpan={1} className="px-3 py-1 text-left border-l border-gray-200">Group 2: Upside Potential</th>
                 <th colSpan={1} className="px-3 py-1 text-left border-l border-gray-200">Group 3: Master</th>
@@ -673,6 +683,7 @@ export default function CoilingReversalTable({
                 {th("ATR Trend", "atrTrend")}
                 {th("Weekly RSI", "weeklyRsi")}
                 {th("RSI Floor 6mo", "rsiFloor6mo")}
+                {th("RSI Divergence", "rsiDivergence")}
                 {th("MA Stack", "maStackScore")}
                 {th("Lower Highs", "lowerHighs")}
                 {th("RS vs SPY 3mo", "rsVsSpy3mo")}
@@ -724,6 +735,9 @@ export default function CoilingReversalTable({
                     {r.weeklyRsi != null ? r.weeklyRsi.toFixed(1) : dash}
                   </td>
                   <td className="px-3 py-2 text-gray-700">{r.rsiFloor6mo != null ? r.rsiFloor6mo.toFixed(1) : dash}</td>
+                  <td className={`px-3 py-2 font-medium ${r.rsiDivergence == null ? "text-gray-400" : r.rsiDivergence > 0 ? "text-green-600" : "text-red-500"}`}>
+                    {r.rsiDivergence != null ? `${r.rsiDivergence >= 0 ? "+" : ""}${r.rsiDivergence.toFixed(1)}` : dash}
+                  </td>
                   <td className="px-3 py-2 text-gray-700">{r.maStackScore != null ? `${r.maStackScore}/3` : dash}</td>
                   <td className="px-3 py-2">
                     {r.lowerHighs == null ? dash : r.lowerHighs

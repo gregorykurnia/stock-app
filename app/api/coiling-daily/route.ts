@@ -196,6 +196,7 @@ interface CoilingResult {
   atrTrend: number | null;
   weeklyRsi: number | null;
   rsiFloor6mo: number | null;
+  rsiDivergence: number | null;
   maStackScore: number | null;
   lowerHighs: boolean | null;
   rsVsSpy3mo: number | null;
@@ -220,7 +221,7 @@ const EMPTY: CoilingResult = {
   distFrom2yHigh: null, distFrom6moLow: null, roc1mo: null, roc3mo: null,
   ma30wk: null, priceVsMa30wk: null, ma30wkSlope: null,
   volRatio10_90: null, upDownVolRatio: null, bbw: null,
-  atrPct: null, atrTrend: null, weeklyRsi: null, rsiFloor6mo: null,
+  atrPct: null, atrTrend: null, weeklyRsi: null, rsiFloor6mo: null, rsiDivergence: null,
   maStackScore: null, lowerHighs: null, rsVsSpy3mo: null,
   capVolRatio: null, rsiFloor52wk: null, priceVs20dLow: null, dropSpeed: null, recoveryCandle: null,
   slopeNow: null, slope4wk: null, slope8wk: null, maTouchCount: null,
@@ -301,6 +302,29 @@ async function fetchCoiling(ticker: string, spyReturn63: number | null, spyClose
   const rsiFloor6mo = last26w.length > 0 ? Math.min(...last26w) : null;
   const last52w = weeklyRsiArr.slice(-52).filter((v): v is number => v != null);
   const rsiFloor52wk = last52w.length > 0 ? Math.min(...last52w) : null;
+
+  // RSI Divergence: daily RSI(14, Wilder) at Low2 (min close in last 20 days) minus RSI at Low1
+  // (min close in the 40-20 days ago window). Positive = bullish divergence (price lower low,
+  // RSI higher low). Requires at least 40 daily closes plus enough history for RSI to be defined.
+  let rsiDivergence: number | null = null;
+  {
+    const dailyRsiArr = rsi(closes, 14);
+    if (closes.length >= 40) {
+      const w1Start = closes.length - 40, w1End = closes.length - 20; // 40..20 days ago
+      const w2Start = closes.length - 20, w2End = closes.length; // last 20 days
+      let low1Idx = -1, low1Val = Infinity;
+      for (let i = w1Start; i < w1End; i++) {
+        if (closes[i] < low1Val) { low1Val = closes[i]; low1Idx = i; }
+      }
+      let low2Idx = -1, low2Val = Infinity;
+      for (let i = w2Start; i < w2End; i++) {
+        if (closes[i] < low2Val) { low2Val = closes[i]; low2Idx = i; }
+      }
+      const rsiAtLow1 = low1Idx >= 0 ? dailyRsiArr[low1Idx] : null;
+      const rsiAtLow2 = low2Idx >= 0 ? dailyRsiArr[low2Idx] : null;
+      if (rsiAtLow1 != null && rsiAtLow2 != null) rsiDivergence = rsiAtLow2 - rsiAtLow1;
+    }
+  }
 
   const ema20Arr = ema(closes, 20);
   const ema50Arr = ema(closes, 50);
@@ -420,7 +444,7 @@ async function fetchCoiling(ticker: string, spyReturn63: number | null, spyClose
     distFrom2yHigh, distFrom6moLow, roc1mo, roc3mo,
     ma30wk, priceVsMa30wk, ma30wkSlope,
     volRatio10_90, upDownVolRatio, bbw,
-    atrPct, atrTrend, weeklyRsi, rsiFloor6mo,
+    atrPct, atrTrend, weeklyRsi, rsiFloor6mo, rsiDivergence,
     maStackScore, lowerHighs, rsVsSpy3mo,
     capVolRatio, rsiFloor52wk, priceVs20dLow, dropSpeed, recoveryCandle,
     slopeNow, slope4wk, slope8wk, maTouchCount, rangeContractionRatio, rsLineDiffPct, volGreenRatio,
@@ -478,6 +502,7 @@ export async function GET(req: NextRequest) {
   const atrTrend: Record<string, number | null> = {};
   const weeklyRsi: Record<string, number | null> = {};
   const rsiFloor6mo: Record<string, number | null> = {};
+  const rsiDivergence: Record<string, number | null> = {};
   const maStackScore: Record<string, number | null> = {};
   const lowerHighs: Record<string, boolean | null> = {};
   const rsVsSpy3mo: Record<string, number | null> = {};
@@ -517,6 +542,7 @@ export async function GET(req: NextRequest) {
       atrTrend[ticker] = r.atrTrend;
       weeklyRsi[ticker] = r.weeklyRsi;
       rsiFloor6mo[ticker] = r.rsiFloor6mo;
+      rsiDivergence[ticker] = r.rsiDivergence;
       maStackScore[ticker] = r.maStackScore;
       lowerHighs[ticker] = r.lowerHighs;
       rsVsSpy3mo[ticker] = r.rsVsSpy3mo;
@@ -540,7 +566,7 @@ export async function GET(req: NextRequest) {
     distFrom2yHigh, distFrom6moLow, roc1mo, roc3mo,
     ma30wk, priceVsMa30wk, ma30wkSlope,
     volRatio10_90, upDownVolRatio, bbw,
-    atrPct, atrTrend, weeklyRsi, rsiFloor6mo,
+    atrPct, atrTrend, weeklyRsi, rsiFloor6mo, rsiDivergence,
     slopeNow, slope4wk, slope8wk, maTouchCount, rangeContractionRatio, rsLineDiffPct, volGreenRatio,
     upside,
     maStackScore, lowerHighs, rsVsSpy3mo,
