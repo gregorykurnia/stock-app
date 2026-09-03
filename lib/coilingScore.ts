@@ -36,23 +36,26 @@ export interface CoilingSubScores {
 export type CoilingLabel = "High Conviction" | "Interesting" | "Early / Incomplete" | "Weak" | "Poor";
 
 export interface CoilingScoreResult {
-  eliminated: boolean;
-  eliminatedReason: string | null;
-  subScores: CoilingSubScores | null;
-  totalScore: number | null;
-  label: CoilingLabel | null;
+  flagged: boolean;
+  flagReasons: string[];
+  subScores: CoilingSubScores;
+  totalScore: number;
+  label: CoilingLabel;
 }
 
-// --- Step 1: hard eliminators ---
+// --- Step 1 rules, now used as a soft "flag" rather than a hard eliminator:
+// a row that trips one of these still gets scored and labeled normally, it
+// just carries a warning tag listing every rule it tripped.
 
-export function checkEliminators(row: CoilingScoreInput): string | null {
-  if (row.roc1mo != null && (row.roc1mo < -15 || row.roc1mo > 20)) return "ROC 1mo out of range (<-15 or >20)";
-  if (row.roc3mo != null && (row.roc3mo < -30 || row.roc3mo > 30)) return "ROC 3mo out of range (<-30 or >30)";
-  if (row.volRatio10_90 != null && row.volRatio10_90 > 1.2) return "Vol Ratio 10d/90d > 1.2";
-  if (row.weeklyRsi != null && (row.weeklyRsi < 35 || row.weeklyRsi > 65)) return "Weekly RSI out of range (<35 or >65)";
-  if (row.ma30wkSlope != null && row.ma30wkSlope < -0.5) return "30wk MA Slope < -0.5";
-  if (row.lowerHighs === true) return "Lower Highs";
-  return null;
+export function checkEliminators(row: CoilingScoreInput): string[] {
+  const reasons: string[] = [];
+  if (row.roc1mo != null && (row.roc1mo < -15 || row.roc1mo > 20)) reasons.push("ROC 1mo out of range (<-15 or >20)");
+  if (row.roc3mo != null && (row.roc3mo < -30 || row.roc3mo > 30)) reasons.push("ROC 3mo out of range (<-30 or >30)");
+  if (row.volRatio10_90 != null && row.volRatio10_90 > 1.2) reasons.push("Vol Ratio 10d/90d > 1.2");
+  if (row.weeklyRsi != null && (row.weeklyRsi < 35 || row.weeklyRsi > 65)) reasons.push("Weekly RSI out of range (<35 or >65)");
+  if (row.ma30wkSlope != null && row.ma30wkSlope < -0.5) reasons.push("30wk MA Slope < -0.5");
+  if (row.lowerHighs === true) reasons.push("Lower Highs");
+  return reasons;
 }
 
 // --- Step 2: tiered soft scoring (0-3 each) ---
@@ -169,21 +172,16 @@ export function percentile(values: number[], p: number): number | null {
 }
 
 // Computes eliminator status + tiered score for every row. BBW percentiles
-// (10th/20th/35th) are derived from the BBW values of rows that pass Step 1,
-// matching the Python spec's "across all rows in the dataset" — scoped to
-// the passing set since eliminated rows never reach Step 2.
+// (10th/20th/35th) are derived from the BBW values across every row — nothing
+// is dropped from scoring, the Step 1 rules are only a warning flag now.
 export function scoreCoilingRows<T extends CoilingScoreInput>(rows: T[]): CoilingScoreResult[] {
-  const passing = rows.filter((r) => checkEliminators(r) == null);
-  const bbwValues = passing.map((r) => r.bbw).filter((v): v is number => v != null);
+  const bbwValues = rows.map((r) => r.bbw).filter((v): v is number => v != null);
   const p10 = percentile(bbwValues, 10);
   const p20 = percentile(bbwValues, 20);
   const p35 = percentile(bbwValues, 35);
 
   return rows.map((row) => {
-    const eliminatedReason = checkEliminators(row);
-    if (eliminatedReason != null) {
-      return { eliminated: true, eliminatedReason, subScores: null, totalScore: null, label: null };
-    }
+    const flagReasons = checkEliminators(row);
     const subScores: CoilingSubScores = {
       distFrom6moLow: scoreDistFrom6moLow(row.distFrom6moLow),
       distFromAth: scoreDistFromAth(row.distFromAth),
@@ -198,6 +196,6 @@ export function scoreCoilingRows<T extends CoilingScoreInput>(rows: T[]): Coilin
       upDownVolRatio: scoreUpDownVolRatio(row.upDownVolRatio),
     };
     const totalScore = Object.values(subScores).reduce((a, b) => a + b, 0);
-    return { eliminated: false, eliminatedReason: null, subScores, totalScore, label: labelForScore(totalScore) };
+    return { flagged: flagReasons.length > 0, flagReasons, subScores, totalScore, label: labelForScore(totalScore) };
   });
 }

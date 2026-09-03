@@ -118,7 +118,7 @@ export default function CoilingReversalTable({
   function exportCsv() {
     const date = new Date().toISOString().slice(0, 10);
     const headers = [
-      "Ticker", "Industry", "Price", "Grand Score", "Label", "Eliminated Reason",
+      "Ticker", "Industry", "Price", "Grand Score", "Label", "Flag Reasons",
       "% from ATH", "% from 6mo Low", "ROC 1mo", "ROC 3mo",
       "30wk MA", "Price vs 30wk MA", "30wk MA Slope", "Vol Ratio 10d/90d", "Up/Down Vol Ratio",
       "BBW", "ATR%", "ATR Trend", "Weekly RSI", "RSI Floor 6mo", "MA Stack Score", "Lower Highs", "RS vs SPY 3mo",
@@ -129,7 +129,7 @@ export default function CoilingReversalTable({
       r.price?.toFixed(2) ?? "",
       r.totalScore ?? "",
       r.label ?? "",
-      r.eliminatedReason ?? "",
+      r.flagReasons.join("; "),
       r.distFromAth?.toFixed(1) ?? "",
       r.distFrom6moLow?.toFixed(1) ?? "",
       r.roc1mo?.toFixed(1) ?? "",
@@ -198,7 +198,7 @@ export default function CoilingReversalTable({
                 {th("Ticker", "ticker")}
                 <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Industry</th>
                 <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Price</th>
-                {th("Grand Score", "grandScore", "Stage 1 coiling score: hard eliminators then 11 tiered rules, 0-33")}
+                {th("Grand Score", "grandScore", "Stage 1 coiling score: 11 tiered rules, 0-33. ⚑ marks rows that trip a hard-eliminator rule, but they're still scored")}
                 {th("% from ATH", "distFromAth")}
                 {th("% from 6mo Low", "distFrom6moLow")}
                 {th("ROC 1mo", "roc1mo")}
@@ -221,7 +221,7 @@ export default function CoilingReversalTable({
             </thead>
             <tbody className="divide-y divide-gray-100">
               {rows.map((r) => (
-                <tr key={r.ticker} className={`hover:bg-gray-50 ${r.eliminated ? "opacity-50" : ""}`}>
+                <tr key={r.ticker} className="hover:bg-gray-50">
                   <td className="px-3 py-2 font-semibold text-gray-900">
                     {r.ticker}
                     {r.name && <div className="text-xs text-gray-400 font-normal">{r.name}</div>}
@@ -229,18 +229,17 @@ export default function CoilingReversalTable({
                   <td className="px-3 py-2 text-gray-600">{r.industry}</td>
                   <td className="px-3 py-2 font-medium text-gray-900">{r.price != null ? `$${r.price.toFixed(2)}` : dash}</td>
                   <td className="px-3 py-2">
-                    {r.eliminated ? (
-                      <span title={r.eliminatedReason ?? undefined} className="inline-flex items-center rounded-full bg-gray-100 text-gray-500 border border-gray-300 text-xs font-semibold px-2 py-0.5 whitespace-nowrap cursor-help">
-                        Eliminated
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-semibold text-gray-900">{r.totalScore}</span>
+                      <span className={`inline-flex items-center rounded-full ${LABEL_STYLES[r.label]} text-xs font-semibold px-2 py-0.5 whitespace-nowrap`}>
+                        {r.label}
                       </span>
-                    ) : r.label != null ? (
-                      <div className="flex items-center gap-1.5">
-                        <span className="font-semibold text-gray-900">{r.totalScore}</span>
-                        <span className={`inline-flex items-center rounded-full ${LABEL_STYLES[r.label]} text-xs font-semibold px-2 py-0.5 whitespace-nowrap`}>
-                          {r.label}
+                      {r.flagged && (
+                        <span title={r.flagReasons.join("; ")} className="inline-flex items-center rounded-full bg-gray-100 text-gray-500 border border-gray-300 text-xs font-semibold px-1.5 py-0.5 whitespace-nowrap cursor-help">
+                          ⚑
                         </span>
-                      </div>
-                    ) : dash}
+                      )}
+                    </div>
                   </td>
                   <td className="px-3 py-2">{pctCell(r.distFromAth, 1, false)}</td>
                   <td className="px-3 py-2">{pctCell(r.distFrom6moLow)}</td>
