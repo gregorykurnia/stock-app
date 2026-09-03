@@ -8,13 +8,14 @@ export interface USSwingStock {
   name: string | null;
   industry: string | null;
   starred?: boolean;
+  addedAt?: string | null;
 }
 
 type SortKey =
   | "ticker" | "industry" | "price" | "priceChangePct" | "atr"
   | "ema20d" | "distEma20d" | "ema50d" | "distEma50d" | "goldenCross"
   | "macd" | "roc14" | "roc63" | "roc90" | "sortino" | "sortino6mo" | "low6mo" | "distLow6mo" | "resistance" | "distResistance" | "daysSinceResistance" | "high5yr" | "distHigh5yr" | "daysSinceHigh5yr"
-  | "low1yr" | "daysSinceLow1yr" | "distLow1yr" | "cagrLow1yr" | "rsi" | "diPlus" | "diMinus" | "adx" | "shortFloat" | "adv" | "relVolume" | "earnings" | "coiledBase" | "recentBreakout" | "strongUptrend" | "stableLongTerm" | "parabolicRecovery" | "stableRecovery" | "stableModerateUpside" | "parabolic"
+  | "low1yr" | "daysSinceLow1yr" | "distLow1yr" | "cagrLow1yr" | "rsi" | "diPlus" | "diMinus" | "adx" | "shortFloat" | "adv" | "relVolume" | "earnings" | "coiledBase" | "recentBreakout" | "strongUptrend" | "stableLongTerm" | "parabolicRecovery" | "stableRecovery" | "stableModerateUpside" | "parabolic" | "addedAt"
   | "priceTrendScore" | "momentumScore" | "trendStrengthScore" | "priceLevelsScore" | "liquidityScore" | "grandScore";
 type SortDir = "asc" | "desc";
 
@@ -654,6 +655,7 @@ export default function USSwingTable({
       switch (sortKey) {
         case "ticker": return r.ticker;
         case "industry": return r.industry;
+        case "addedAt": return r.addedAt ?? null;
         case "price": return r.price;
         case "priceChangePct": return r.priceChangePct;
         case "atr": return r.atr;
@@ -730,7 +732,7 @@ export default function USSwingTable({
 
   function exportCsv() {
     const date = new Date().toISOString().slice(0, 10);
-    const headers = ["Ticker", "Starred", "Name", "Industry", "Stock Category", "Grand Score",
+    const headers = ["Ticker", "Starred", "Name", "Industry", "Added", "Stock Category", "Grand Score",
       "Price & Trend Score", "Price", "Price Change%", "ATR%", "EMA20D", "Dist EMA20D%",
       "EMA50D", "Dist EMA50D%", "Golden Cross", "MACD",
       "Momentum Score", "ROC14", "ROC63", "ROC90", "Sortino (3mo)", "Sortino (6mo)",
@@ -748,7 +750,7 @@ export default function USSwingTable({
         ? Math.round((new Date(new Date().toISOString().slice(0, 10) + "T00:00:00Z").getTime() - new Date(r.goldenCrossDate + "T00:00:00Z").getTime()) / 86400000)
         : null;
       return [
-        r.ticker, r.starred ? "Yes" : "", r.name ?? "", r.industry,
+        r.ticker, r.starred ? "Yes" : "", r.name ?? "", r.industry, r.addedAt ? r.addedAt.slice(0, 10) : "",
         CATEGORY_DEFS.filter((c) => r[c.key]).map((c) => c.label).join(" / "),
         r.grandScore.score?.toFixed(1) ?? "",
         r.priceTrendScore.score?.toFixed(1) ?? "",
@@ -952,6 +954,7 @@ export default function USSwingTable({
               <th className="w-9 px-2 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap sticky left-0 z-20 bg-gray-100">★</th>
               <Th label="Ticker" k="ticker" sticky />
               <Th label="Industry" k="industry" />
+              <Th label="Added" k="addedAt" />
               <Th label="Stock Category" k="coiledBase" title={CATEGORY_DEFS.map((c) => `${c.label}: ${c.description}`).join(" ")} />
               <Th label="Grand Score" k="grandScore" title="Weighted blend of all 5 group scores: Price & Trend 30%, Trend Strength 25%, Momentum 22%, Price Levels 18%, Liquidity & Events 5% — hover for the breakdown" />
               <Th label="Score" k="priceTrendScore" title="Composite 0-10 score from Dist EMA20D, Dist EMA50D, MACD and ATR% — hover a score cell for the breakdown" />
@@ -1012,10 +1015,21 @@ export default function USSwingTable({
                   </button>
                 </td>
                 <td className="px-3 py-2 sticky left-9 z-10 bg-white after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-gray-200 after:content-['']">
-                  <div className="font-semibold text-gray-900">{r.ticker}</div>
+                  <div className="font-semibold text-gray-900 flex items-center gap-1.5">
+                    {r.ticker}
+                    {r.addedAt && (Date.now() - new Date(r.addedAt).getTime()) / 86400000 <= 7 && (
+                      <span
+                        title={`Added ${r.addedAt.slice(0, 10)}`}
+                        className="inline-flex items-center rounded-full bg-green-100 text-green-700 text-[10px] font-semibold px-1.5 py-0.5 leading-none"
+                      >
+                        NEW
+                      </span>
+                    )}
+                  </div>
                   {r.name && <div className="text-xs text-gray-400">{r.name}</div>}
                 </td>
                 <td className="px-3 py-2 text-gray-600">{r.industry}</td>
+                <td className="px-3 py-2 text-gray-600 text-xs whitespace-nowrap">{r.addedAt ? r.addedAt.slice(0, 10) : dash}</td>
                 <td className="px-3 py-2">
                   <div className="flex flex-col gap-1 items-start">
                     {CATEGORY_DEFS.filter((c) => r[c.key]).map((c) => (

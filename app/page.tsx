@@ -61,7 +61,7 @@ export default function Home() {
   const [peProgress, setPeProgress] = useState("");
 
   // US "Swing" tab — separate, manually-managed ticker list, independent from List. Starts empty.
-  interface UsSwingStock { ticker: string; name: string | null; industry: string | null; starred?: boolean }
+  interface UsSwingStock { ticker: string; name: string | null; industry: string | null; starred?: boolean; addedAt?: string | null }
   const [usSwingStocks, setUsSwingStocks] = useState<UsSwingStock[]>([]);
   const [usSwingPrices, setUsSwingPrices] = useState<Record<string, number | null>>({});
   const [usSwingPrevCloses, setUsSwingPrevCloses] = useState<Record<string, number | null>>({});
@@ -231,8 +231,8 @@ export default function Home() {
   async function loadUsSwingStocks() {
     const data = await getUsSwingStocks().catch(() => ({}));
     const list = Object.entries(data).map(([ticker, d]) => {
-      const raw = d as { name?: string | null; industry?: string | null; starred?: boolean };
-      return { ticker, name: raw.name ?? null, industry: raw.industry ?? null, starred: raw.starred ?? false } as UsSwingStock;
+      const raw = d as { name?: string | null; industry?: string | null; starred?: boolean; added_at?: string | null };
+      return { ticker, name: raw.name ?? null, industry: raw.industry ?? null, starred: raw.starred ?? false, addedAt: raw.added_at ?? null } as UsSwingStock;
     });
     list.sort((a, b) => a.ticker.localeCompare(b.ticker));
     setUsSwingStocks(list);
@@ -303,8 +303,9 @@ export default function Home() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Failed to fetch data");
 
-      const entry: UsSwingStock = { ticker: sym, name: data.name ?? null, industry: data.industry ?? data.sector ?? null };
-      await saveUsSwingStock(sym, { name: entry.name, industry: entry.industry, added_at: new Date().toISOString() });
+      const nowIso = new Date().toISOString();
+      const entry: UsSwingStock = { ticker: sym, name: data.name ?? null, industry: data.industry ?? data.sector ?? null, addedAt: nowIso };
+      await saveUsSwingStock(sym, { name: entry.name, industry: entry.industry, added_at: nowIso });
       setUsSwingStocks((prev) => [...prev.filter((s) => s.ticker !== sym), entry].sort((a, b) => a.ticker.localeCompare(b.ticker)));
       if (data.price != null) setUsSwingPrices((p) => ({ ...p, [sym]: data.price }));
       fetch(`/api/prices?tickers=${sym}`)
