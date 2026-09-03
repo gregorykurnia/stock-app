@@ -3,11 +3,17 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   getScreenerDraft, importScreenerDraftEntries, updateScreenerDraftRanks, removeScreenerDraftEntry,
-  getWatchlistTickers, getPortfolioTickers, getUsSwingStocks, saveUsSwingStock,
+  getWatchlistTickers, getPortfolioTickers, getUsSwingStocks, saveUsSwingStock, getCustomStocks,
   getScreenerExcludedTickers, excludeScreenerTicker, excludeScreenerTickersBulk, unexcludeScreenerTicker,
   getScreenerExclusionOverrides, addScreenerExclusionOverride,
 } from "@/lib/firestore";
 import { SCREENER_EXCLUDED_TICKERS } from "@/lib/screenerExclusions";
+import { SEED_STOCKS } from "@/lib/seedData";
+
+// portfolio/watchlist are the US "List" tab's own owned/watchlisted bookkeeping (every List
+// stock sits in exactly one) — not a swing-candidate tracker, so List membership there
+// shouldn't mark a screener ticker "already tracked". us_swing_stocks is the real tracker.
+const LIST_TICKERS = new Set(SEED_STOCKS.map((s) => s.ticker));
 import type { ScreenerDraftEntry } from "@/lib/types";
 
 type Status = "new" | "tracked";
@@ -35,15 +41,21 @@ export default function ScreenerDraftPage() {
   const load = useCallback(async (showLoading = false) => {
     if (showLoading) setLoading(true);
     try {
-      const [draft, watchlist, portfolio, usSwing, excluded, overrides] = await Promise.all([
+      const [draft, watchlist, portfolio, usSwing, customStocks, excluded, overrides] = await Promise.all([
         getScreenerDraft(),
         getWatchlistTickers(),
         getPortfolioTickers(),
         getUsSwingStocks(),
+        getCustomStocks(),
         getScreenerExcludedTickers(),
         getScreenerExclusionOverrides(),
       ]);
-      const tracked = new Set<string>([...watchlist, ...portfolio, ...Object.keys(usSwing)]);
+      const listTickers = new Set([...LIST_TICKERS, ...Object.keys(customStocks)]);
+      const tracked = new Set<string>([
+        ...[...watchlist].filter((t) => !listTickers.has(t)),
+        ...[...portfolio].filter((t) => !listTickers.has(t)),
+        ...Object.keys(usSwing),
+      ]);
       setTrackedTickers(tracked);
       setExcludedTickers(excluded);
       setExclusionOverrides(overrides);
