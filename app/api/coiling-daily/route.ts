@@ -162,6 +162,30 @@ function stdev(values: number[]): number {
   return Math.sqrt(values.reduce((a, b) => a + (b - mean) ** 2, 0) / values.length);
 }
 
+function obv(bars: Bar[]): number[] {
+  const out: number[] = new Array(bars.length).fill(0);
+  for (let i = 1; i < bars.length; i++) {
+    if (bars[i].close > bars[i - 1].close) out[i] = out[i - 1] + bars[i].volume;
+    else if (bars[i].close < bars[i - 1].close) out[i] = out[i - 1] - bars[i].volume;
+    else out[i] = out[i - 1];
+  }
+  return out;
+}
+
+// Least-squares linear regression slope (numpy.polyfit(x, y, 1) equivalent), x = 0..n-1.
+function linregSlope(values: number[]): number | null {
+  const n = values.length;
+  if (n < 2) return null;
+  const xMean = (n - 1) / 2;
+  const yMean = values.reduce((a, b) => a + b, 0) / n;
+  let num = 0, den = 0;
+  for (let i = 0; i < n; i++) {
+    num += (i - xMean) * (values[i] - yMean);
+    den += (i - xMean) ** 2;
+  }
+  return den === 0 ? null : num / den;
+}
+
 // Groups daily bars into calendar weeks (Mon-Sun), returning one close-based OHLC per week.
 function toWeeklyCloses(bars: Bar[]): number[] {
   const weeks = new Map<string, Bar[]>();
@@ -197,6 +221,8 @@ interface CoilingResult {
   weeklyRsi: number | null;
   rsiFloor6mo: number | null;
   rsiDivergence: number | null;
+  obvSlope: number | null;
+  obvDivergence: number | null;
   maStackScore: number | null;
   lowerHighs: boolean | null;
   rsVsSpy3mo: number | null;
@@ -222,6 +248,7 @@ const EMPTY: CoilingResult = {
   ma30wk: null, priceVsMa30wk: null, ma30wkSlope: null,
   volRatio10_90: null, upDownVolRatio: null, bbw: null,
   atrPct: null, atrTrend: null, weeklyRsi: null, rsiFloor6mo: null, rsiDivergence: null,
+  obvSlope: null, obvDivergence: null,
   maStackScore: null, lowerHighs: null, rsVsSpy3mo: null,
   capVolRatio: null, rsiFloor52wk: null, priceVs20dLow: null, dropSpeed: null, recoveryCandle: null,
   slopeNow: null, slope4wk: null, slope8wk: null, maTouchCount: null,
@@ -323,6 +350,29 @@ async function fetchCoiling(ticker: string, spyReturn63: number | null, spyClose
       const rsiAtLow1 = low1Idx >= 0 ? dailyRsiArr[low1Idx] : null;
       const rsiAtLow2 = low2Idx >= 0 ? dailyRsiArr[low2Idx] : null;
       if (rsiAtLow1 != null && rsiAtLow2 != null) rsiDivergence = rsiAtLow2 - rsiAtLow1;
+    }
+  }
+
+  // OBV Slope: linear-regression slope of OBV over the last 20 sessions, normalized by mean
+  // OBV over that window so it's comparable across tickers. OBV Divergence subtracts the
+  // same normalized slope computed on closing price — positive means OBV is rising while
+  // price is flat/falling (accumulation). Both null when fewer than 20 sessions are available
+  // or the normalizing mean is ~0 (undefined ratio).
+  let obvSlope: number | null = null;
+  let obvDivergence: number | null = null;
+  {
+    const last20Obv = obv(bars).slice(-20);
+    const last20ClosesForObv = closes.slice(-20);
+    if (last20Obv.length === 20 && last20ClosesForObv.length === 20) {
+      const obvMean = last20Obv.reduce((a, b) => a + b, 0) / 20;
+      const priceMean = last20ClosesForObv.reduce((a, b) => a + b, 0) / 20;
+      const obvSlopeRaw = linregSlope(last20Obv);
+      const priceSlopeRaw = linregSlope(last20ClosesForObv);
+      if (obvSlopeRaw != null && obvMean !== 0) obvSlope = obvSlopeRaw / Math.abs(obvMean);
+      if (obvSlope != null && priceSlopeRaw != null && priceMean !== 0) {
+        const priceSlopeNorm = priceSlopeRaw / Math.abs(priceMean);
+        obvDivergence = obvSlope - priceSlopeNorm;
+      }
     }
   }
 
@@ -445,6 +495,7 @@ async function fetchCoiling(ticker: string, spyReturn63: number | null, spyClose
     ma30wk, priceVsMa30wk, ma30wkSlope,
     volRatio10_90, upDownVolRatio, bbw,
     atrPct, atrTrend, weeklyRsi, rsiFloor6mo, rsiDivergence,
+    obvSlope, obvDivergence,
     maStackScore, lowerHighs, rsVsSpy3mo,
     capVolRatio, rsiFloor52wk, priceVs20dLow, dropSpeed, recoveryCandle,
     slopeNow, slope4wk, slope8wk, maTouchCount, rangeContractionRatio, rsLineDiffPct, volGreenRatio,
@@ -503,6 +554,8 @@ export async function GET(req: NextRequest) {
   const weeklyRsi: Record<string, number | null> = {};
   const rsiFloor6mo: Record<string, number | null> = {};
   const rsiDivergence: Record<string, number | null> = {};
+  const obvSlope: Record<string, number | null> = {};
+  const obvDivergence: Record<string, number | null> = {};
   const maStackScore: Record<string, number | null> = {};
   const lowerHighs: Record<string, boolean | null> = {};
   const rsVsSpy3mo: Record<string, number | null> = {};
@@ -543,6 +596,8 @@ export async function GET(req: NextRequest) {
       weeklyRsi[ticker] = r.weeklyRsi;
       rsiFloor6mo[ticker] = r.rsiFloor6mo;
       rsiDivergence[ticker] = r.rsiDivergence;
+      obvSlope[ticker] = r.obvSlope;
+      obvDivergence[ticker] = r.obvDivergence;
       maStackScore[ticker] = r.maStackScore;
       lowerHighs[ticker] = r.lowerHighs;
       rsVsSpy3mo[ticker] = r.rsVsSpy3mo;
@@ -566,7 +621,7 @@ export async function GET(req: NextRequest) {
     distFrom2yHigh, distFrom6moLow, roc1mo, roc3mo,
     ma30wk, priceVsMa30wk, ma30wkSlope,
     volRatio10_90, upDownVolRatio, bbw,
-    atrPct, atrTrend, weeklyRsi, rsiFloor6mo, rsiDivergence,
+    atrPct, atrTrend, weeklyRsi, rsiFloor6mo, rsiDivergence, obvSlope, obvDivergence,
     slopeNow, slope4wk, slope8wk, maTouchCount, rangeContractionRatio, rsLineDiffPct, volGreenRatio,
     upside,
     maStackScore, lowerHighs, rsVsSpy3mo,
