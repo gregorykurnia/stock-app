@@ -5,6 +5,7 @@ import {
   getScreenerDraft, importScreenerDraftEntries, updateScreenerDraftRanks, removeScreenerDraftEntry,
   getScreenerExcludedTickers, excludeScreenerTicker, excludeScreenerTickersBulk, unexcludeScreenerTicker,
   getScreenerExclusionOverrides, addScreenerExclusionOverride, saveUsSwingStock, saveCoilingReversalStock,
+  getCoilingReversalStocks,
   getScreenerDraftBeatenDown, importScreenerDraftEntriesBeatenDown, updateScreenerDraftRanksBeatenDown, removeScreenerDraftEntryBeatenDown,
   getScreenerExcludedTickersBeatenDown, excludeScreenerTickerBeatenDown, excludeScreenerTickersBulkBeatenDown, unexcludeScreenerTickerBeatenDown,
 } from "@/lib/firestore";
@@ -33,6 +34,7 @@ const BEATEN_DOWN_CONFIG: ScreenerTabConfig = {
   criteriaText: "Market cap ≥ $1B, 40%+ below all-time high, sorted by market cap desc — same criteria as the finviz screener.",
   useStaticExclusions: false,
   includeUsSwingInTracked: false,
+  getExtraTracked: getCoilingReversalStocks,
   promoteTarget: { label: "Coiling Reversal", save: saveCoilingReversalStock },
   getDraft: getScreenerDraftBeatenDown,
   importDraftEntries: importScreenerDraftEntriesBeatenDown,

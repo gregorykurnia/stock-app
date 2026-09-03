@@ -25,6 +25,9 @@ export interface ScreenerTabConfig {
   // When false (Beaten Down Screener), US-Swing membership doesn't count toward "already
   // tracked" — US-Swing tracks Swing Screener candidates specifically, not beaten-down ones.
   includeUsSwingInTracked: boolean;
+  // Extra "already tracked" source beyond watchlist/portfolio/US-Swing — e.g. Coiling
+  // Reversal tickers for the Beaten Down Screener, since that's where it promotes to.
+  getExtraTracked?: () => Promise<Record<string, object>>;
   // Where "Add to X" / "Move to X" promotes a ticker to — US-Swing for the Swing Screener,
   // a Beaten Down list (e.g. Coiling Reversal) for the Beaten Down Screener.
   promoteTarget: {
@@ -45,7 +48,7 @@ export interface ScreenerTabConfig {
 
 export default function ScreenerTab({ config }: { config: ScreenerTabConfig }) {
   const {
-    apiRoute, criteriaText, useStaticExclusions, includeUsSwingInTracked, promoteTarget,
+    apiRoute, criteriaText, useStaticExclusions, includeUsSwingInTracked, getExtraTracked, promoteTarget,
     getDraft, importDraftEntries, removeDraftEntry, updateDraftRanks,
     getExcluded, excludeTicker, excludeTickersBulk, unexcludeTicker,
     getExclusionOverrides, addExclusionOverride,
@@ -73,7 +76,7 @@ export default function ScreenerTab({ config }: { config: ScreenerTabConfig }) {
   const load = useCallback(async (showLoading = false) => {
     if (showLoading) setLoading(true);
     try {
-      const [draft, watchlist, portfolio, usSwing, portfolioLongTerm, customStocks, excluded, overrides] = await Promise.all([
+      const [draft, watchlist, portfolio, usSwing, portfolioLongTerm, customStocks, excluded, overrides, extraTracked] = await Promise.all([
         getDraft(),
         getWatchlistTickers(),
         getPortfolioTickers(),
@@ -82,6 +85,7 @@ export default function ScreenerTab({ config }: { config: ScreenerTabConfig }) {
         getCustomStocks(),
         getExcluded(),
         getExclusionOverrides ? getExclusionOverrides() : Promise.resolve(new Set<string>()),
+        getExtraTracked ? getExtraTracked() : Promise.resolve({} as Record<string, object>),
       ]);
       const listTickers = new Set([...LIST_TICKERS, ...Object.keys(customStocks)]);
       const tracked = new Set<string>([
@@ -89,6 +93,7 @@ export default function ScreenerTab({ config }: { config: ScreenerTabConfig }) {
         ...Object.keys(portfolioLongTerm),
         ...[...portfolio].filter((t) => !listTickers.has(t)),
         ...(includeUsSwingInTracked ? Object.keys(usSwing) : []),
+        ...Object.keys(extraTracked),
       ]);
       setTrackedTickers(tracked);
       setExcludedTickers(excluded);
@@ -112,7 +117,7 @@ export default function ScreenerTab({ config }: { config: ScreenerTabConfig }) {
       setLoading(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apiRoute, includeUsSwingInTracked]);
+  }, [apiRoute, includeUsSwingInTracked, getExtraTracked]);
 
   useEffect(() => { load(true); }, [load]);
 
@@ -178,7 +183,7 @@ export default function ScreenerTab({ config }: { config: ScreenerTabConfig }) {
       return;
     }
     if (trackedTickers.has(ticker)) {
-      setManualError(`${ticker} is already tracked (watchlist/portfolio${includeUsSwingInTracked ? "/US-Swing" : ""}) — remove it from there first.`);
+      setManualError(`${ticker} is already tracked (watchlist/portfolio${includeUsSwingInTracked ? "/US-Swing" : ""}${getExtraTracked ? `/${promoteTarget.label}` : ""}) — remove it from there first.`);
       return;
     }
     const reason = manualReason.trim() || null;
