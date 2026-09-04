@@ -69,7 +69,7 @@ function InfoDot({ text }: { text: string }) {
       >
         i
       </span>
-      <span className={`invisible opacity-0 group-hover/info:visible group-hover/info:opacity-100 transition-opacity absolute z-50 top-full ${align === "right" ? "right-0" : "left-0"} mt-1 w-64 rounded-md border border-gray-200 bg-white shadow-lg p-2 text-left normal-case font-normal text-[11px] text-gray-700 leading-snug`}>
+      <span className={`invisible opacity-0 group-hover/info:visible group-hover/info:opacity-100 transition-opacity absolute z-50 top-full ${align === "right" ? "right-0" : "left-0"} mt-1 w-64 whitespace-normal rounded-md border border-gray-200 bg-white shadow-lg p-2 text-left normal-case font-normal text-[11px] text-gray-700 leading-snug`}>
         {text}
       </span>
     </span>
