@@ -181,7 +181,7 @@ async function fetchBreakoutDaily(ticker: string): Promise<BreakoutResult> {
   const lastHist = hist[n - 1];
 
   const { score: breakoutScore } = calcBreakoutScore({
-    rsiDivergencePct, rsiBandDepthPct, histCompression, status,
+    rsiDivergencePct, rsiBandDepthPct, histCompression, declineFromHighPct, status,
     daysLowToCross, pctAboveLowAtCross, distEma50AtCross, relVolumeAtCross,
   });
 

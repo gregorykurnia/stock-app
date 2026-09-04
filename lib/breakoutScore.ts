@@ -12,6 +12,7 @@ export interface BreakoutScoreInput {
   rsiDivergencePct: number | null;
   rsiBandDepthPct: number | null;
   histCompression: number | null;
+  declineFromHighPct: number | null;
   status: "no_divergence" | "watching" | "confirmed" | "failed" | null;
   daysLowToCross: number | null;
   pctAboveLowAtCross: number | null;
@@ -25,6 +26,7 @@ export interface BreakoutScoreResult {
     divergence: number;
     bandDepth: number;
     histComp: number;
+    decline: number;
     speed: number;
     entryCost: number;
     trendStage: number;
@@ -33,13 +35,14 @@ export interface BreakoutScoreResult {
 }
 
 const WEIGHTS = {
-  divergence: 0.25,
-  bandDepth: 0.20,
-  histComp: 0.25,
-  speed: 0.10,
-  entryCost: 0.10,
-  trendStage: 0.05,
-  volume: 0.05,
+  divergence: 0.22,
+  bandDepth: 0.18,
+  histComp: 0.22,
+  decline: 0.12,
+  speed: 0.09,
+  entryCost: 0.09,
+  trendStage: 0.04,
+  volume: 0.04,
 };
 
 export function calcBreakoutScore(d: BreakoutScoreInput): BreakoutScoreResult {
@@ -53,6 +56,13 @@ export function calcBreakoutScore(d: BreakoutScoreInput): BreakoutScoreResult {
   if (d.histCompression == null) histComp = 0;
   else if (d.histCompression < 0) histComp = Math.max(0, 3 + d.histCompression);
   else histComp = Math.min(d.histCompression, 3) / 3 * 10;
+
+  // Every confirmed benchmark fell 43-84% from its pre-low high before bottoming; the two weakest
+  // "New" scores (AMT -30%, GRAB -49%) both fell short of that. 0 credit at <=30% decline, full
+  // credit at >=70% — independent signal, only moderately correlated with band depth/divergence.
+  const decline = d.declineFromHighPct != null
+    ? Math.min(Math.max(-d.declineFromHighPct - 30, 0), 40) / 40 * 10
+    : 0;
 
   const confirmed = d.status === "confirmed";
 
@@ -70,11 +80,12 @@ export function calcBreakoutScore(d: BreakoutScoreInput): BreakoutScoreResult {
     volume = d.relVolumeAtCross != null ? Math.min(d.relVolumeAtCross, 1.0) / 1.0 * 10 : 5;
   }
 
-  const parts = { divergence, bandDepth, histComp, speed, entryCost, trendStage, volume };
+  const parts = { divergence, bandDepth, histComp, decline, speed, entryCost, trendStage, volume };
   const score =
     parts.divergence * WEIGHTS.divergence +
     parts.bandDepth * WEIGHTS.bandDepth +
     parts.histComp * WEIGHTS.histComp +
+    parts.decline * WEIGHTS.decline +
     parts.speed * WEIGHTS.speed +
     parts.entryCost * WEIGHTS.entryCost +
     parts.trendStage * WEIGHTS.trendStage +
