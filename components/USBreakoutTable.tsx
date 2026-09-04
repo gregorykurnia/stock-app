@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
 export interface USBreakoutStock {
   ticker: string;
@@ -50,15 +50,26 @@ interface Props {
 const dash = <span className="text-gray-400">—</span>;
 
 function InfoDot({ text }: { text: string }) {
+  const wrapRef = useRef<HTMLSpanElement>(null);
+  const [align, setAlign] = useState<"left" | "right">("left");
+
+  function handleEnter() {
+    const el = wrapRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    // Tooltip is w-64 (256px); flip to right-aligned if there isn't enough room to its right.
+    setAlign(window.innerWidth - rect.left < 280 ? "right" : "left");
+  }
+
   return (
-    <span className="relative inline-block group/info align-middle ml-1">
+    <span ref={wrapRef} onMouseEnter={handleEnter} className="relative inline-block group/info align-middle ml-1">
       <span
         onClick={(e) => e.stopPropagation()}
         className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-gray-400 text-[9px] leading-none text-gray-400 group-hover/info:text-gray-700 group-hover/info:border-gray-700 normal-case font-normal cursor-help"
       >
         i
       </span>
-      <span className="invisible opacity-0 group-hover/info:visible group-hover/info:opacity-100 transition-opacity absolute z-50 top-full left-0 mt-1 w-64 rounded-md border border-gray-200 bg-white shadow-lg p-2 text-left normal-case font-normal text-[11px] text-gray-700 leading-snug">
+      <span className={`invisible opacity-0 group-hover/info:visible group-hover/info:opacity-100 transition-opacity absolute z-50 top-full ${align === "right" ? "right-0" : "left-0"} mt-1 w-64 rounded-md border border-gray-200 bg-white shadow-lg p-2 text-left normal-case font-normal text-[11px] text-gray-700 leading-snug`}>
         {text}
       </span>
     </span>
