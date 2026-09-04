@@ -72,13 +72,15 @@ const EMPTY: BreakoutResult = {
   ema20d: null, ema50d: null, rsiCurrent: null, macdHistCurrent: null,
 };
 
-// Single 2-year daily chart fetch per ticker: the full 2Y window is scanned for the swing low,
-// and the RSI-divergence anchor is searched for anywhere before it in that same history.
+// Fetches a 6-month buffer beyond the 2Y swing-low window per ticker: the swing low is scanned
+// for only within the trailing 2Y, while the extra buffer gives RSI warmup room and lets the
+// divergence anchor be searched further back when the 2Y low sits near the start of that window.
 async function fetchBreakoutDaily(ticker: string): Promise<BreakoutResult> {
   const now = new Date();
   const twoYearsAgo = new Date(now.getTime() - 2 * 365 * 24 * 3600 * 1000);
+  const fetchStart = new Date(now.getTime() - 2.5 * 365 * 24 * 3600 * 1000);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const result: any = await yf.chart(ticker, { period1: twoYearsAgo, period2: now, interval: "1d" });
+  const result: any = await yf.chart(ticker, { period1: fetchStart, period2: now, interval: "1d" });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const quotes = (result?.quotes ?? []).filter((q: any) => q.open != null && q.high != null && q.low != null && q.close != null && q.volume != null);
   if (quotes.length < 60) return EMPTY;
@@ -102,8 +104,11 @@ async function fetchBreakoutDaily(ticker: string): Promise<BreakoutResult> {
 
   const n = bars.length;
 
-  // Full trailing 2Y window (the entire fetched history) — where the swing low is scanned for.
-  const windowStart = 0;
+  // Trailing 2Y window (dates, not index 0) — where the swing low is scanned for. The extra
+  // fetched buffer before this stays available for RSI warmup and the anchor search below.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let windowStart = quotes.findIndex((q: any) => (q.date instanceof Date ? q.date : new Date(q.date)) >= twoYearsAgo);
+  if (windowStart < 0) windowStart = 0;
   let swingLowIdx = windowStart;
   for (let i = windowStart; i < n; i++) {
     if (closes[i] < closes[swingLowIdx]) swingLowIdx = i;
