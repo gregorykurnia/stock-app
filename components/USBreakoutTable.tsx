@@ -8,6 +8,7 @@ export interface USBreakoutStock {
   industry: string | null;
   starred?: boolean;
   addedAt?: string | null;
+  breakoutType?: "benchmark" | "new";
 }
 
 export type BreakoutStatus = "no_divergence" | "watching" | "confirmed" | "failed" | null;
@@ -45,6 +46,7 @@ interface Props {
   onAdd?: (e: FormEvent) => void;
   onRemove?: (ticker: string) => void;
   onToggleStar?: (ticker: string) => void;
+  onTypeChange?: (ticker: string, breakoutType: "benchmark" | "new") => void;
 }
 
 const dash = <span className="text-gray-400">—</span>;
@@ -184,7 +186,7 @@ function EarningsCell({ dateStr }: { dateStr: string | null }) {
 
 export default function USBreakoutTable({
   stocks, prices, data, shortFloats = {}, advs = {}, earnings = {}, loading = false,
-  addTicker = "", addLoading = false, addError = "", onAddTickerChange, onAdd, onRemove, onToggleStar,
+  addTicker = "", addLoading = false, addError = "", onAddTickerChange, onAdd, onRemove, onToggleStar, onTypeChange,
 }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>("status");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
@@ -397,7 +399,7 @@ export default function USBreakoutTable({
           <thead className="bg-gray-100 border-b border-gray-200 sticky top-0 z-30">
             <tr className="border-b border-gray-200">
               <th colSpan={2} className="px-2 py-1 sticky left-0 z-20 bg-gray-100" />
-              <th colSpan={5} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Overview</th>
+              <th colSpan={6} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Overview</th>
               <th colSpan={9} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">RSI / MACD Divergence</th>
               <th colSpan={7} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Confirmation (MACD Cross)</th>
               <th colSpan={3} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Risk</th>
@@ -409,6 +411,7 @@ export default function USBreakoutTable({
               <Th label="Industry" k="industry" info="Sector/industry classification." />
               <Th label="Added" k="addedAt" info="Date this ticker was added to your Breakout watchlist." />
               <Th label="Status" k="status" info="Divergence lifecycle: No Divergence (RSI at the low wasn't higher than the pre-low anchor) → Watching (divergence confirmed, MACD hasn't crossed bullish yet, price hasn't broken the low either) → Confirmed (MACD crossed above signal without price making a new low first) → Failed (price broke below the swing low before MACD confirmed)." />
+              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Type</th>
               <Th label="Price" k="price" info="Latest close." />
               <Th label="Swing Low" k="swingLow" info="Lowest daily close in the trailing 1Y window — the anchor point for the whole divergence read." />
               <Th label="Swing Low Date" k="swingLowDate" info="Date the swing low was set." />
@@ -440,7 +443,7 @@ export default function USBreakoutTable({
           </thead>
           <tbody className="divide-y divide-gray-100">
             {sortedRows.length === 0 && (
-              <tr><td colSpan={31} className="px-3 py-6 text-center text-gray-400 text-sm">{starredOnly ? "No starred tickers." : "No tickers yet — add one above."}</td></tr>
+              <tr><td colSpan={32} className="px-3 py-6 text-center text-gray-400 text-sm">{starredOnly ? "No starred tickers." : "No tickers yet — add one above."}</td></tr>
             )}
             {sortedRows.map((r) => (
               <tr key={r.ticker} className="hover:bg-gray-50">
@@ -472,6 +475,17 @@ export default function USBreakoutTable({
                       {STATUS_DEF[r.status].label}
                     </span>
                   ) : dash}
+                </td>
+                <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                  <select
+                    value={r.breakoutType ?? ""}
+                    onChange={(e) => onTypeChange?.(r.ticker, e.target.value as "benchmark" | "new")}
+                    className="text-xs border border-gray-300 rounded px-1.5 py-1 bg-white text-gray-700 cursor-pointer focus:outline-none focus:ring-1 focus:ring-blue-400"
+                  >
+                    <option value="" disabled>—</option>
+                    <option value="benchmark">Benchmark</option>
+                    <option value="new">New</option>
+                  </select>
                 </td>
                 <td className="px-3 py-2 font-medium text-gray-900">{r.price != null ? `$${r.price.toFixed(2)}` : dash}</td>
                 <td className="px-3 py-2 text-gray-700">{r.swingLow != null ? `$${r.swingLow.toFixed(2)}` : dash}</td>

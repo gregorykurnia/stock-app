@@ -10,7 +10,7 @@ import {
   getIhsgCustomStocks, saveIhsgCustomStock, removeIhsgCustomStock,
   getIhsgSwingStocks, saveIhsgSwingStock, removeIhsgSwingStock, updateIhsgSwingEntryPrice,
   getUsSwingStocks, saveUsSwingStock, removeUsSwingStock, updateUsSwingStar, updateUsSwingPortfolio,
-  getUsBreakoutStocks, saveUsBreakoutStock, removeUsBreakoutStock, updateUsBreakoutStar,
+  getUsBreakoutStocks, saveUsBreakoutStock, removeUsBreakoutStock, updateUsBreakoutStar, updateUsBreakoutType,
   getPortfolioTickers, getWatchlistTickers,
   savePortfolioEntry, removePortfolioEntry,
   saveWatchlistEntry, removeWatchlistEntry,
@@ -102,7 +102,7 @@ export default function Home() {
 
   // US "Breakout" tab — separate, manually-managed ticker list, independent from List/Swing.
   // Tracks RSI/MACD divergence off a swing low through to a confirmed bullish MACD cross.
-  interface UsBreakoutStock { ticker: string; name: string | null; industry: string | null; starred?: boolean; addedAt?: string | null }
+  interface UsBreakoutStock { ticker: string; name: string | null; industry: string | null; starred?: boolean; addedAt?: string | null; breakoutType?: "benchmark" | "new" }
   interface UsBreakoutData {
     swingLow: number | null; swingLowDate: string | null;
     rsiAtLow: number | null; rsiAnchor: number | null; rsiAnchorDate: string | null; rsiAnchorPrice: number | null; priceDeclinePct: number | null;
@@ -413,8 +413,8 @@ export default function Home() {
   async function loadUsBreakoutStocks() {
     const data = await getUsBreakoutStocks().catch(() => ({}));
     const list = Object.entries(data).map(([ticker, d]) => {
-      const raw = d as { name?: string | null; industry?: string | null; starred?: boolean; added_at?: string | null };
-      return { ticker, name: raw.name ?? null, industry: raw.industry ?? null, starred: raw.starred ?? false, addedAt: raw.added_at ?? null } as UsBreakoutStock;
+      const raw = d as { name?: string | null; industry?: string | null; starred?: boolean; added_at?: string | null; breakout_type?: "benchmark" | "new" };
+      return { ticker, name: raw.name ?? null, industry: raw.industry ?? null, starred: raw.starred ?? false, addedAt: raw.added_at ?? null, breakoutType: raw.breakout_type } as UsBreakoutStock;
     });
     list.sort((a, b) => a.ticker.localeCompare(b.ticker));
     setUsBreakoutStocks(list);
@@ -426,6 +426,11 @@ export default function Home() {
     const next = !current;
     setUsBreakoutStocks((prev) => prev.map((s) => (s.ticker === ticker ? { ...s, starred: next } : s)));
     await updateUsBreakoutStar(ticker, next);
+  }
+
+  async function handleUsBreakoutTypeChange(ticker: string, breakoutType: "benchmark" | "new") {
+    setUsBreakoutStocks((prev) => prev.map((s) => (s.ticker === ticker ? { ...s, breakoutType } : s)));
+    await updateUsBreakoutType(ticker, breakoutType);
   }
 
   function handleUsBreakoutTabOpen() {
@@ -1381,6 +1386,7 @@ export default function Home() {
             onUsBreakoutAdd={handleAddUsBreakoutTicker}
             onUsBreakoutRemove={handleRemoveUsBreakoutTicker}
             onUsBreakoutToggleStar={handleToggleUsBreakoutStar}
+            onUsBreakoutTypeChange={handleUsBreakoutTypeChange}
             portfolioStocks={portfolioStocks}
             portfolioPrices={portfolioPrices}
             portfolioPrevCloses={portfolioPrevCloses}

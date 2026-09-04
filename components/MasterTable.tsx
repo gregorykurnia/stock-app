@@ -227,6 +227,7 @@ interface Props {
   onUsBreakoutAdd?: (e: FormEvent) => void;
   onUsBreakoutRemove?: (ticker: string) => void;
   onUsBreakoutToggleStar?: (ticker: string) => void;
+  onUsBreakoutTypeChange?: (ticker: string, breakoutType: "benchmark" | "new") => void;
   // "Portfolio" tab — three independent, manually-managed divisions (Long Term / Index / Swing)
   portfolioStocks?: Record<PortfolioDivision, PortfolioStock[]>;
   portfolioPrices?: Record<string, number | null>;
@@ -284,7 +285,7 @@ export default function MasterTable({
   usSwingShortFloats = {}, usSwingAdvs = {}, usSwingEarnings = {}, usSwingLoading = false, onUsSwingTabOpen,
   usSwingAddTicker = "", usSwingAddLoading = false, usSwingAddError = "", onUsSwingAddTickerChange, onUsSwingAdd, onUsSwingRemove, onUsSwingToggleStar, onUsSwingTogglePortfolio,
   usBreakoutStocks = [], usBreakoutPrices = {}, usBreakoutData = {}, usBreakoutShortFloats = {}, usBreakoutAdvs = {}, usBreakoutEarnings = {}, usBreakoutLoading = false, onUsBreakoutTabOpen,
-  usBreakoutAddTicker = "", usBreakoutAddLoading = false, usBreakoutAddError = "", onUsBreakoutAddTickerChange, onUsBreakoutAdd, onUsBreakoutRemove, onUsBreakoutToggleStar,
+  usBreakoutAddTicker = "", usBreakoutAddLoading = false, usBreakoutAddError = "", onUsBreakoutAddTickerChange, onUsBreakoutAdd, onUsBreakoutRemove, onUsBreakoutToggleStar, onUsBreakoutTypeChange,
   portfolioStocks = { longterm: [], index: [], swing: [] }, portfolioPrices = {}, portfolioPrevCloses = {},
   portfolioLoading = { longterm: false, index: false, swing: false }, onPortfolioTabOpen,
   portfolioAddTicker = { longterm: "", index: "", swing: "" }, portfolioAddLoading = { longterm: false, index: false, swing: false },
@@ -2590,6 +2591,7 @@ export default function MasterTable({
           onAdd={onUsBreakoutAdd}
           onRemove={onUsBreakoutRemove}
           onToggleStar={onUsBreakoutToggleStar}
+          onTypeChange={onUsBreakoutTypeChange}
         />
       )}
 

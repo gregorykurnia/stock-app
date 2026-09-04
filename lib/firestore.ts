@@ -134,6 +134,10 @@ export async function updateUsBreakoutStar(ticker: string, starred: boolean) {
   await setDoc(doc(db, "us_breakout_stocks", ticker), { starred }, { merge: true });
 }
 
+export async function updateUsBreakoutType(ticker: string, breakoutType: "benchmark" | "new") {
+  await setDoc(doc(db, "us_breakout_stocks", ticker), { breakout_type: breakoutType }, { merge: true });
+}
+
 // Beaten Down — Coiling Reversal watchlist — a separate, manually-managed ticker list
 export async function getCoilingReversalStocks(): Promise<Record<string, object>> {
   const snap = await getDocs(collection(db, "coiling_reversal_stocks"));
