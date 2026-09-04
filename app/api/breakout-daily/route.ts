@@ -72,13 +72,15 @@ const EMPTY: BreakoutResult = {
   ema20d: null, ema50d: null, rsiCurrent: null, macdHistCurrent: null,
 };
 
-// Fetches a 6-month buffer beyond the 2Y swing-low window per ticker: the swing low is scanned
-// for only within the trailing 2Y, while the extra buffer gives RSI warmup room and lets the
-// divergence anchor be searched further back when the 2Y low sits near the start of that window.
+// Fetches a buffer beyond the 20mo swing-low window per ticker: the swing low is scanned
+// for only within the trailing 20 months, while the extra buffer gives RSI warmup room and lets
+// the divergence anchor be searched further back when the low sits near the start of that window.
 async function fetchBreakoutDaily(ticker: string): Promise<BreakoutResult> {
   const now = new Date();
-  const twoYearsAgo = new Date(now.getTime() - 2 * 365 * 24 * 3600 * 1000);
-  const fetchStart = new Date(now.getTime() - 2.5 * 365 * 24 * 3600 * 1000);
+  const windowMonthsAgo = new Date(now.getTime());
+  windowMonthsAgo.setMonth(windowMonthsAgo.getMonth() - 20);
+  const fetchStart = new Date(now.getTime());
+  fetchStart.setMonth(fetchStart.getMonth() - 30);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const result: any = await yf.chart(ticker, { period1: fetchStart, period2: now, interval: "1d" });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -104,10 +106,10 @@ async function fetchBreakoutDaily(ticker: string): Promise<BreakoutResult> {
 
   const n = bars.length;
 
-  // Trailing 2Y window (dates, not index 0) — where the swing low is scanned for. The extra
+  // Trailing 20mo window (dates, not index 0) — where the swing low is scanned for. The extra
   // fetched buffer before this stays available for RSI warmup and the anchor search below.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let windowStart = quotes.findIndex((q: any) => (q.date instanceof Date ? q.date : new Date(q.date)) >= twoYearsAgo);
+  let windowStart = quotes.findIndex((q: any) => (q.date instanceof Date ? q.date : new Date(q.date)) >= windowMonthsAgo);
   if (windowStart < 0) windowStart = 0;
   let swingLowIdx = windowStart;
   for (let i = windowStart; i < n; i++) {
