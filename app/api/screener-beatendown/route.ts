@@ -3,7 +3,7 @@ import * as cheerio from "cheerio";
 
 // Mirrors app/api/screener/route.ts (Swing Screener), same fetch/parse strategy —
 // only the finviz filter differs: 40%+ below all-time high instead of 0-3% below 50-day high.
-export const maxDuration = 60;
+export const maxDuration = 180;
 
 // https://finviz.com/screener?v=111&f=ta_alltime_b40h&ft=3&o=-marketcap — Market Cap >= $1B,
 // 40%+ below all-time high, sorted by Market Cap desc, 10 pages of 20 rows (200 tickers max).
@@ -100,7 +100,7 @@ async function fetchPageAttempt(page: number): Promise<{ ticker: string; company
 }
 
 async function fetchPage(page: number): Promise<{ ticker: string; company: string; rank: number }[]> {
-  const RETRIES = 3;
+  const RETRIES = 2;
   let lastErr: unknown;
   for (let attempt = 0; attempt <= RETRIES; attempt++) {
     if (attempt > 0) await sleep(800 * attempt);

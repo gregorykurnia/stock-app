@@ -3,7 +3,7 @@ import * as cheerio from "cheerio";
 
 // 10 sequential page fetches (jina + potential direct-fetch fallback each) can exceed
 // Vercel's default serverless timeout, so raise it and fetch pages in parallel instead.
-export const maxDuration = 60;
+export const maxDuration = 180;
 
 // Mirrors finviz-screener-ca's screener.py: Market Cap >= $1B, 0-3% below 50-Day High,
 // sorted by Market Cap desc, 10 pages of 20 rows (200 tickers max).
@@ -106,7 +106,7 @@ async function fetchPageAttempt(page: number): Promise<{ ticker: string; company
 }
 
 async function fetchPage(page: number): Promise<{ ticker: string; company: string; rank: number }[]> {
-  const RETRIES = 3;
+  const RETRIES = 2;
   let lastErr: unknown;
   for (let attempt = 0; attempt <= RETRIES; attempt++) {
     if (attempt > 0) await sleep(800 * attempt);

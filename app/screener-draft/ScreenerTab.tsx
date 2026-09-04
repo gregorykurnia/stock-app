@@ -132,6 +132,10 @@ export default function ScreenerTab({ config }: { config: ScreenerTabConfig }) {
     setRunning(true);
     try {
       const res = await fetch(apiRoute);
+      const contentType = res.headers.get("content-type") ?? "";
+      if (!contentType.includes("application/json")) {
+        throw new Error(`Screener run failed (HTTP ${res.status}) — server did not return JSON`);
+      }
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Screener run failed");
       const rows: { ticker: string; company: string; rank: number }[] = data.results ?? [];
