@@ -20,8 +20,10 @@ type SortKey =
   | "preLowHigh" | "preLowHighDate" | "declineFromHighPct"
   | "rsiCurrent" | "rsiAtLow" | "rsiAnchor" | "rsiAnchorDate" | "rsiAnchorPrice" | "priceDeclinePct" | "rsiDivergencePct" | "rsiBandDepthPct"
   | "histAtAnchor" | "histAtLow" | "histCompression" | "macdHistCurrent"
-  | "crossDate" | "crossPrice" | "pctAboveLowAtCross" | "daysLowToCross"
+  | "crossDate" | "crossPrice" | "pctAboveLowAtCross" | "daysLowToCross" | "pctAboveCrossNow"
   | "distEma20AtCross" | "distEma50AtCross" | "relVolumeAtCross"
+  | "diPlusCurrent" | "diMinusCurrent" | "diCrossDate" | "diCrossPrice" | "daysLowToDiCross" | "pctAboveDiCrossNow"
+  | "currentBuyScore"
   | "shortFloat" | "adv" | "earnings" | "breakoutScore" | "atrPct";
 type SortDir = "asc" | "desc";
 
@@ -35,9 +37,13 @@ interface Props {
     rsiDivergencePct: number | null; rsiBandDepthPct: number | null;
     histAtAnchor: number | null; histAtLow: number | null; histCompression: number | null;
     crossDate: string | null; crossPrice: number | null; pctAboveLowAtCross: number | null; daysLowToCross: number | null;
+    pctAboveCrossNow: number | null;
     distEma20AtCross: number | null; distEma50AtCross: number | null; relVolumeAtCross: number | null;
     status: BreakoutStatus;
     rsiCurrent: number | null; macdHistCurrent: number | null;
+    diPlusCurrent: number | null; diMinusCurrent: number | null;
+    diCrossDate: string | null; diCrossPrice: number | null; daysLowToDiCross: number | null; pctAboveDiCrossNow: number | null;
+    currentBuyScore: number | null;
     breakoutScore: number | null;
     atrPct: number | null;
   }>;
@@ -236,6 +242,17 @@ const breakoutScoreClass = (v: number | null) =>
     : v >= 5 ? "text-yellow-600 font-medium"
     : "text-red-500 font-semibold";
 
+const currentBuyScoreClass = breakoutScoreClass;
+
+const diClass = (v: number | null) => (v == null ? "text-gray-400" : "text-gray-700");
+
+const pctAboveCrossNowClass = (v: number | null) =>
+  v == null ? "text-gray-400"
+    : v <= 0 ? "text-green-600 font-semibold"
+    : v <= 15 ? "text-blue-600 font-medium"
+    : v <= 30 ? "text-yellow-600 font-medium"
+    : "text-orange-500 font-semibold";
+
 function fmtAdv(v: number | null) {
   if (v == null) return dash;
   if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
@@ -333,10 +350,18 @@ export default function USBreakoutTable({
         crossPrice: d?.crossPrice ?? null,
         pctAboveLowAtCross: d?.pctAboveLowAtCross ?? null,
         daysLowToCross: d?.daysLowToCross ?? null,
+        pctAboveCrossNow: d?.pctAboveCrossNow ?? null,
         distEma20AtCross: d?.distEma20AtCross ?? null,
         distEma50AtCross: d?.distEma50AtCross ?? null,
         relVolumeAtCross: d?.relVolumeAtCross ?? null,
         status: d?.status ?? null,
+        diPlusCurrent: d?.diPlusCurrent ?? null,
+        diMinusCurrent: d?.diMinusCurrent ?? null,
+        diCrossDate: d?.diCrossDate ?? null,
+        diCrossPrice: d?.diCrossPrice ?? null,
+        daysLowToDiCross: d?.daysLowToDiCross ?? null,
+        pctAboveDiCrossNow: d?.pctAboveDiCrossNow ?? null,
+        currentBuyScore: d?.currentBuyScore ?? null,
         breakoutScore: d?.breakoutScore ?? null,
         atrPct: d?.atrPct ?? null,
         shortFloat: shortFloats[s.ticker] ?? null,
@@ -388,9 +413,17 @@ export default function USBreakoutTable({
         case "crossPrice": return r.crossPrice;
         case "pctAboveLowAtCross": return r.pctAboveLowAtCross;
         case "daysLowToCross": return r.daysLowToCross;
+        case "pctAboveCrossNow": return r.pctAboveCrossNow;
         case "distEma20AtCross": return r.distEma20AtCross;
         case "distEma50AtCross": return r.distEma50AtCross;
         case "relVolumeAtCross": return r.relVolumeAtCross;
+        case "diPlusCurrent": return r.diPlusCurrent;
+        case "diMinusCurrent": return r.diMinusCurrent;
+        case "diCrossDate": return r.diCrossDate;
+        case "diCrossPrice": return r.diCrossPrice;
+        case "daysLowToDiCross": return r.daysLowToDiCross;
+        case "pctAboveDiCrossNow": return r.pctAboveDiCrossNow;
+        case "currentBuyScore": return r.currentBuyScore;
         case "shortFloat": return r.shortFloat;
         case "adv": return r.adv;
         case "earnings": return r.earningsDaysUntil;
@@ -419,10 +452,13 @@ export default function USBreakoutTable({
     const headers = [
       "Ticker", "Industry", "Added", "Status", "Type",
       "Breakout Score", "% Decline From High", "RSI Divergence %", "RSI Band Depth %", "Hist Compression", "ATR%", "Earnings Date",
+      "Current Buy Score", "DI+ (Now)", "DI- (Now)",
+      "MACD Cross Date", "MACD Cross Price", "% Above MACD Cross (Now)",
+      "DI Cross Date", "DI Cross Price", "Days Low→DI Cross", "% Above DI Cross (Now)",
       "Price", "Swing Low", "Swing Low Date", "% Above Low", "Pre-Low High", "Pre-Low High Date",
       "RSI (Now)", "RSI at Low", "Lowest RSI (Pre-Low)", "Anchor Date", "Price at Anchor", "% Decline (Anchor→Low)",
       "Hist @ Anchor", "Hist @ Low", "MACD Hist (Now)",
-      "MACD Cross Date", "Price @ Cross", "% Above Low @ Cross", "Days Low→Cross",
+      "Price @ Cross", "% Above Low @ Cross", "Days Low→Cross",
       "Dist EMA20D @ Cross", "Dist EMA50D @ Cross", "Rel Vol @ Cross",
       "Short Float %", "ADV",
     ];
@@ -439,6 +475,16 @@ export default function USBreakoutTable({
       r.histCompression?.toFixed(3) ?? "",
       r.atrPct?.toFixed(1) ?? "",
       r.earnings ?? "",
+      r.currentBuyScore?.toFixed(2) ?? "",
+      r.diPlusCurrent?.toFixed(1) ?? "",
+      r.diMinusCurrent?.toFixed(1) ?? "",
+      r.crossDate ?? "",
+      r.crossPrice?.toFixed(2) ?? "",
+      r.pctAboveCrossNow?.toFixed(1) ?? "",
+      r.diCrossDate ?? "",
+      r.diCrossPrice?.toFixed(2) ?? "",
+      r.daysLowToDiCross ?? "",
+      r.pctAboveDiCrossNow?.toFixed(1) ?? "",
       r.price?.toFixed(2) ?? "",
       r.swingLow?.toFixed(2) ?? "",
       r.swingLowDate ?? "",
@@ -454,7 +500,6 @@ export default function USBreakoutTable({
       r.histAtAnchor?.toFixed(3) ?? "",
       r.histAtLow?.toFixed(3) ?? "",
       r.macdHistCurrent?.toFixed(3) ?? "",
-      r.crossDate ?? "",
       r.crossPrice?.toFixed(2) ?? "",
       r.pctAboveLowAtCross?.toFixed(1) ?? "",
       r.daysLowToCross ?? "",
@@ -566,9 +611,10 @@ export default function USBreakoutTable({
               <th colSpan={2} className="px-2 py-1 sticky left-0 z-20 bg-gray-100" />
               <th colSpan={4} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Overview</th>
               <th colSpan={7} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Verdict</th>
+              <th colSpan={10} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Current Buy</th>
               <th colSpan={6} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Price &amp; Levels</th>
               <th colSpan={9} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Divergence Detail</th>
-              <th colSpan={7} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Confirmation Detail</th>
+              <th colSpan={5} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Confirmation Detail</th>
               <th colSpan={2} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Liquidity</th>
               <th className="px-3 py-1 border-l border-gray-300 bg-gray-50/70" />
             </tr>
@@ -586,6 +632,16 @@ export default function USBreakoutTable({
               <Th label="Hist Compression" k="histCompression" info="Hist@Low − Hist@Anchor. Positive = the histogram shrank toward zero (momentum decelerating) even as price fell further into the low — the MACD-side confirmation of the RSI divergence. TEAM +1.07, WDAY +0.30." />
               <Th label="ATR%" k="atrPct" info="Average True Range (14, daily) as a % of price. Measures how choppy/erratic the stock's daily range is — matters for stop placement and position sizing on a fresh breakout entry. Very Low &lt;2%, Low-Mod 2-4%, Mod-High 4-7%, High 7-10%, Extreme 10%+." />
               <Th label="Earnings Date" k="earnings" info="Next/last reported earnings date, with days until in brackets. Within 14 days is a proximity risk flag." />
+              <Th label="Current Buy Score" k="currentBuyScore" info="0-10 composite answering 'how much of the move have I already missed if I buy today' — separate from the Breakout Score above. Weighs % above the swing low (30%), % above the first MACD cross price since the low (35%), and % above the first DI+/DI- cross price since the low (35%); smaller distances score higher. Null until BOTH a MACD cross and a DI cross have happened at some point since the low (even if momentum has since rolled over again)." />
+              <Th label="DI+ (Now)" k="diPlusCurrent" info="Current +DI(14), daily — directional movement strength to the upside." />
+              <Th label="DI- (Now)" k="diMinusCurrent" info="Current -DI(14), daily — directional movement strength to the downside." />
+              <Th label="MACD Cross Date" k="crossDate" info="First date after the swing low where the MACD line crossed above the signal line (histogram flips from negative to positive) — the confirmation trigger, not the low itself." />
+              <Th label="MACD Cross Price" k="crossPrice" info="Close price on the MACD cross date — the realistic entry price if you wait for confirmation instead of guessing the low." />
+              <Th label="% Above MACD Cross (Now)" k="pctAboveCrossNow" info="(current price − MACD cross price) / MACD cross price × 100. How much of the move since confirmation you've already missed if buying today — smaller/negative is better." />
+              <Th label="DI Cross Date" k="diCrossDate" info="First date after the swing low where +DI crossed above -DI (Directional Index Cross) — DI+ becoming dominant for the first time since the low. Tracked independently of MACD/failed status since DI can flip multiple times through the cycle." />
+              <Th label="DI Cross Price" k="diCrossPrice" info="Close price on the DI Cross date." />
+              <Th label="Days Low→DI Cross" k="daysLowToDiCross" info="Trading days between the swing low and the DI Cross." />
+              <Th label="% Above DI Cross (Now)" k="pctAboveDiCrossNow" info="(current price − DI Cross price) / DI Cross price × 100. Smaller/negative is better — less of the move missed." />
               <Th label="Price" k="price" info="Latest close." />
               <Th label="Swing Low" k="swingLow" info="Lowest daily close in the trailing 20-month window — the anchor point for the whole divergence read." />
               <Th label="Swing Low Date" k="swingLowDate" info="Date the swing low was set." />
@@ -601,8 +657,6 @@ export default function USBreakoutTable({
               <Th label="Hist @ Anchor" k="histAtAnchor" info="MACD histogram value on the RSI-anchor date — the starting bearish-momentum reading (red bar)." />
               <Th label="Hist @ Low" k="histAtLow" info="MACD histogram value on the swing-low date." />
               <Th label="MACD Hist (Now)" k="macdHistCurrent" info="Current MACD histogram value (MACD line minus signal line). Negative = red bar, positive = green bar." />
-              <Th label="MACD Cross Date" k="crossDate" info="First date after the swing low where the MACD line crossed above the signal line (histogram flips from negative to positive) — the confirmation trigger, not the low itself." />
-              <Th label="Price @ Cross" k="crossPrice" info="Close price on the MACD cross date — the realistic entry price if you wait for confirmation instead of guessing the low." />
               <Th label="% Above Low @ Cross" k="pctAboveLowAtCross" info="(cross price − swing low) / swing low × 100. The cost of waiting for confirmation vs buying right at the low." />
               <Th label="Days Low→Cross" k="daysLowToCross" info="Trading days between the swing low and the MACD cross — how fast the reversal confirmed." />
               <Th label="Dist EMA20D @ Cross" k="distEma20AtCross" info="Price vs EMA20(daily) on the cross date. Near zero = cross happened right at the short-term trend line; far above = price had already run before confirming." />
@@ -615,7 +669,7 @@ export default function USBreakoutTable({
           </thead>
           <tbody className="divide-y divide-gray-100">
             {sortedRows.length === 0 && (
-              <tr><td colSpan={37} className="px-3 py-6 text-center text-gray-400 text-sm">{starredOnly ? "No starred tickers." : "No tickers yet — add one above."}</td></tr>
+              <tr><td colSpan={46} className="px-3 py-6 text-center text-gray-400 text-sm">{starredOnly ? "No starred tickers." : "No tickers yet — add one above."}</td></tr>
             )}
             {sortedRows.map((r) => (
               <tr key={r.ticker} className="hover:bg-gray-50">
@@ -672,6 +726,16 @@ export default function USBreakoutTable({
                   ) : dash}
                 </td>
                 <td className="px-3 py-2 whitespace-nowrap"><EarningsCell dateStr={r.earnings} /></td>
+                <td className={`px-3 py-2 ${currentBuyScoreClass(r.currentBuyScore)}`}>{r.currentBuyScore != null ? r.currentBuyScore.toFixed(1) : dash}</td>
+                <td className={`px-3 py-2 ${diClass(r.diPlusCurrent)}`}>{r.diPlusCurrent != null ? r.diPlusCurrent.toFixed(1) : dash}</td>
+                <td className={`px-3 py-2 ${diClass(r.diMinusCurrent)}`}>{r.diMinusCurrent != null ? r.diMinusCurrent.toFixed(1) : dash}</td>
+                <td className="px-3 py-2 text-gray-600 text-xs whitespace-nowrap">{r.crossDate ?? dash}</td>
+                <td className="px-3 py-2 text-gray-700">{r.crossPrice != null ? `$${r.crossPrice.toFixed(2)}` : dash}</td>
+                <td className={`px-3 py-2 ${pctAboveCrossNowClass(r.pctAboveCrossNow)}`}>{r.pctAboveCrossNow != null ? `${r.pctAboveCrossNow >= 0 ? "+" : ""}${r.pctAboveCrossNow.toFixed(1)}%` : dash}</td>
+                <td className="px-3 py-2 text-gray-600 text-xs whitespace-nowrap">{r.diCrossDate ?? dash}</td>
+                <td className="px-3 py-2 text-gray-700">{r.diCrossPrice != null ? `$${r.diCrossPrice.toFixed(2)}` : dash}</td>
+                <td className={`px-3 py-2 ${daysToConfirmClass(r.daysLowToDiCross)}`}>{r.daysLowToDiCross != null ? `${r.daysLowToDiCross}D` : dash}</td>
+                <td className={`px-3 py-2 ${pctAboveCrossNowClass(r.pctAboveDiCrossNow)}`}>{r.pctAboveDiCrossNow != null ? `${r.pctAboveDiCrossNow >= 0 ? "+" : ""}${r.pctAboveDiCrossNow.toFixed(1)}%` : dash}</td>
                 <td className="px-3 py-2 font-medium text-gray-900">{r.price != null ? `$${r.price.toFixed(2)}` : dash}</td>
                 <td className="px-3 py-2 text-gray-700">{r.swingLow != null ? `$${r.swingLow.toFixed(2)}` : dash}</td>
                 <td className="px-3 py-2 text-gray-600 text-xs whitespace-nowrap">{r.swingLowDate ?? dash}</td>
@@ -687,8 +751,6 @@ export default function USBreakoutTable({
                 <td className={`px-3 py-2 ${histClass(r.histAtAnchor)}`}>{r.histAtAnchor != null ? r.histAtAnchor.toFixed(2) : dash}</td>
                 <td className={`px-3 py-2 ${histClass(r.histAtLow)}`}>{r.histAtLow != null ? r.histAtLow.toFixed(2) : dash}</td>
                 <td className={`px-3 py-2 ${histClass(r.macdHistCurrent)}`}>{r.macdHistCurrent != null ? r.macdHistCurrent.toFixed(2) : dash}</td>
-                <td className="px-3 py-2 text-gray-600 text-xs whitespace-nowrap">{r.crossDate ?? dash}</td>
-                <td className="px-3 py-2 text-gray-700">{r.crossPrice != null ? `$${r.crossPrice.toFixed(2)}` : dash}</td>
                 <td className={`px-3 py-2 ${pctAboveLowClass(r.pctAboveLowAtCross)}`}>{r.pctAboveLowAtCross != null ? `${r.pctAboveLowAtCross.toFixed(1)}%` : dash}</td>
                 <td className={`px-3 py-2 ${daysToConfirmClass(r.daysLowToCross)}`}>{r.daysLowToCross != null ? `${r.daysLowToCross}D` : dash}</td>
                 <td className={`px-3 py-2 ${distEmaClass(r.distEma20AtCross)}`}>{r.distEma20AtCross != null ? `${r.distEma20AtCross.toFixed(1)}%` : dash}</td>

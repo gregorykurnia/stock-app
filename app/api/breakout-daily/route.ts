@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { calcIndicators } from "@/lib/indicators";
-import { calcBreakoutScore } from "@/lib/breakoutScore";
+import { calcBreakoutScore, calcCurrentBuyScore } from "@/lib/breakoutScore";
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const YahooFinance = require("yahoo-finance2").default;
 const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
@@ -75,6 +75,7 @@ interface BreakoutResult {
   crossPrice: number | null;
   pctAboveLowAtCross: number | null;
   daysLowToCross: number | null;
+  pctAboveCrossNow: number | null;
   distEma20AtCross: number | null;
   distEma50AtCross: number | null;
   relVolumeAtCross: number | null;
@@ -83,6 +84,13 @@ interface BreakoutResult {
   ema50d: number | null;
   rsiCurrent: number | null;
   macdHistCurrent: number | null;
+  diPlusCurrent: number | null;
+  diMinusCurrent: number | null;
+  diCrossDate: string | null;
+  diCrossPrice: number | null;
+  daysLowToDiCross: number | null;
+  pctAboveDiCrossNow: number | null;
+  currentBuyScore: number | null;
   breakoutScore: number | null;
   atrPct: number | null;
 }
@@ -91,9 +99,12 @@ const EMPTY: BreakoutResult = {
   swingLow: null, swingLowDate: null, preLowHigh: null, preLowHighDate: null, declineFromHighPct: null,
   rsiAtLow: null, rsiAnchor: null, rsiAnchorDate: null, rsiAnchorPrice: null, priceDeclinePct: null,
   rsiDivergencePct: null, rsiBandDepthPct: null, histAtAnchor: null, histAtLow: null, histCompression: null,
-  crossDate: null, crossPrice: null, pctAboveLowAtCross: null, daysLowToCross: null,
+  crossDate: null, crossPrice: null, pctAboveLowAtCross: null, daysLowToCross: null, pctAboveCrossNow: null,
   distEma20AtCross: null, distEma50AtCross: null, relVolumeAtCross: null, status: null,
-  ema20d: null, ema50d: null, rsiCurrent: null, macdHistCurrent: null, breakoutScore: null, atrPct: null,
+  ema20d: null, ema50d: null, rsiCurrent: null, macdHistCurrent: null,
+  diPlusCurrent: null, diMinusCurrent: null, diCrossDate: null, diCrossPrice: null,
+  daysLowToDiCross: null, pctAboveDiCrossNow: null, currentBuyScore: null,
+  breakoutScore: null, atrPct: null,
 };
 
 // Single 20-month daily chart fetch per ticker: the full fetched window is scanned for the swing
@@ -123,6 +134,8 @@ async function fetchBreakoutDaily(ticker: string): Promise<BreakoutResult> {
   const rsis = ind.rsi;
   const ema20s = ind.ema20;
   const ema50s = ind.ema50;
+  const diPluses = ind.diPlus;
+  const diMinuses = ind.diMinus;
   const { hist } = macdSeriesFull(closes);
 
   const n = bars.length;
@@ -197,23 +210,56 @@ async function fetchBreakoutDaily(ticker: string): Promise<BreakoutResult> {
   const lastEma50 = ema50s[n - 1];
   const lastRsi = rsis[n - 1];
   const lastHist = hist[n - 1];
+  const lastClose = closes[n - 1];
   const atrPct = calcATRPct(bars, 14);
+
+  const lastDiPlus = diPluses[n - 1];
+  const lastDiMinus = diMinuses[n - 1];
+
+  // First time DI+ crosses above DI- since the swing low — "Directional Index Cross". Tracked
+  // independently of the MACD/failed status: DI can flip multiple times through the cycle, this
+  // just marks the first crossover after the low.
+  let diCrossIdx: number | null = null;
+  for (let i = swingLowIdx + 1; i < n; i++) {
+    const p0 = diPluses[i - 1], m0 = diMinuses[i - 1], p1 = diPluses[i], m1 = diMinuses[i];
+    if (isNaN(p0) || isNaN(m0) || isNaN(p1) || isNaN(m1)) continue;
+    if (p0 <= m0 && p1 > m1) { diCrossIdx = i; break; }
+  }
+  const diCrossDate = diCrossIdx != null ? dateStr(diCrossIdx) : null;
+  const diCrossPrice = diCrossIdx != null ? closes[diCrossIdx] : null;
+  const daysLowToDiCross = diCrossIdx != null ? diCrossIdx - swingLowIdx : null;
+  const pctAboveDiCrossNow = diCrossPrice != null && diCrossPrice > 0 ? ((lastClose - diCrossPrice) / diCrossPrice) * 100 : null;
+
+  const pctAboveCrossNow = crossPrice != null && crossPrice > 0 ? ((lastClose - crossPrice) / crossPrice) * 100 : null;
+  const pctAboveLowNow = swingLow > 0 ? ((lastClose - swingLow) / swingLow) * 100 : null;
 
   const { score: breakoutScore } = calcBreakoutScore({
     rsiDivergencePct, rsiBandDepthPct, histCompression, declineFromHighPct, status,
     daysLowToCross, pctAboveLowAtCross, distEma50AtCross, relVolumeAtCross,
   });
 
+  const currentBuyScore = calcCurrentBuyScore({
+    pctAboveLow: pctAboveLowNow,
+    pctAboveMacdCrossNow: pctAboveCrossNow,
+    pctAboveDiCrossNow,
+    hasMacdCross: crossIdx != null,
+    hasDiCross: diCrossIdx != null,
+  });
+
   return {
     swingLow, swingLowDate, preLowHigh, preLowHighDate, declineFromHighPct,
     rsiAtLow, rsiAnchor, rsiAnchorDate, rsiAnchorPrice, priceDeclinePct,
     rsiDivergencePct, rsiBandDepthPct, histAtAnchor, histAtLow, histCompression,
-    crossDate, crossPrice, pctAboveLowAtCross, daysLowToCross,
+    crossDate, crossPrice, pctAboveLowAtCross, daysLowToCross, pctAboveCrossNow,
     distEma20AtCross, distEma50AtCross, relVolumeAtCross, status,
     ema20d: isNaN(lastEma20) ? null : lastEma20,
     ema50d: isNaN(lastEma50) ? null : lastEma50,
     rsiCurrent: isNaN(lastRsi) ? null : lastRsi,
     macdHistCurrent: isNaN(lastHist) ? null : lastHist,
+    diPlusCurrent: isNaN(lastDiPlus) ? null : lastDiPlus,
+    diMinusCurrent: isNaN(lastDiMinus) ? null : lastDiMinus,
+    diCrossDate, diCrossPrice, daysLowToDiCross, pctAboveDiCrossNow,
+    currentBuyScore,
     breakoutScore,
     atrPct,
   };
@@ -228,9 +274,12 @@ export async function GET(req: NextRequest) {
     swingLow: {}, swingLowDate: {}, preLowHigh: {}, preLowHighDate: {}, declineFromHighPct: {},
     rsiAtLow: {}, rsiAnchor: {}, rsiAnchorDate: {}, rsiAnchorPrice: {}, priceDeclinePct: {},
     rsiDivergencePct: {}, rsiBandDepthPct: {}, histAtAnchor: {}, histAtLow: {}, histCompression: {},
-    crossDate: {}, crossPrice: {}, pctAboveLowAtCross: {}, daysLowToCross: {},
+    crossDate: {}, crossPrice: {}, pctAboveLowAtCross: {}, daysLowToCross: {}, pctAboveCrossNow: {},
     distEma20AtCross: {}, distEma50AtCross: {}, relVolumeAtCross: {}, status: {},
-    ema20d: {}, ema50d: {}, rsiCurrent: {}, macdHistCurrent: {}, breakoutScore: {}, atrPct: {},
+    ema20d: {}, ema50d: {}, rsiCurrent: {}, macdHistCurrent: {},
+    diPlusCurrent: {}, diMinusCurrent: {}, diCrossDate: {}, diCrossPrice: {},
+    daysLowToDiCross: {}, pctAboveDiCrossNow: {}, currentBuyScore: {},
+    breakoutScore: {}, atrPct: {},
   };
 
   const chunkSize = 8;

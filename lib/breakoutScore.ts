@@ -93,3 +93,30 @@ export function calcBreakoutScore(d: BreakoutScoreInput): BreakoutScoreResult {
 
   return { score, parts };
 }
+
+// "Current Buy Score" — separate from the historical-fit Breakout Score above. This one answers
+// "if I buy today, how much of the move since the low have I already missed?" Lower distance from
+// each reference point (the swing low, the first MACD cross since the low, the first DI+/DI- cross
+// since the low) = higher score. Requires BOTH the MACD cross and the DI cross to have happened at
+// some point since the swing low (even if momentum has since rolled over again) — otherwise the
+// setup was never confirmed enough to have a "buy" reference point at all.
+export interface CurrentBuyScoreInput {
+  pctAboveLow: number | null;
+  pctAboveMacdCrossNow: number | null;
+  pctAboveDiCrossNow: number | null;
+  hasMacdCross: boolean;
+  hasDiCross: boolean;
+}
+
+function decay(pct: number | null, zeroAt: number): number {
+  if (pct == null) return 0;
+  return Math.min(Math.max(10 - Math.max(pct, 0) * (10 / zeroAt), 0), 10);
+}
+
+export function calcCurrentBuyScore(d: CurrentBuyScoreInput): number | null {
+  if (!d.hasMacdCross || !d.hasDiCross) return null;
+  const lowScore = decay(d.pctAboveLow, 50);
+  const macdScore = decay(d.pctAboveMacdCrossNow, 40);
+  const diScore = decay(d.pctAboveDiCrossNow, 40);
+  return lowScore * 0.30 + macdScore * 0.35 + diScore * 0.35;
+}

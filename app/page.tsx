@@ -110,9 +110,13 @@ export default function Home() {
     rsiDivergencePct: number | null; rsiBandDepthPct: number | null;
     histAtAnchor: number | null; histAtLow: number | null; histCompression: number | null;
     crossDate: string | null; crossPrice: number | null; pctAboveLowAtCross: number | null; daysLowToCross: number | null;
+    pctAboveCrossNow: number | null;
     distEma20AtCross: number | null; distEma50AtCross: number | null; relVolumeAtCross: number | null;
     status: BreakoutStatus;
     rsiCurrent: number | null; macdHistCurrent: number | null;
+    diPlusCurrent: number | null; diMinusCurrent: number | null;
+    diCrossDate: string | null; diCrossPrice: number | null; daysLowToDiCross: number | null; pctAboveDiCrossNow: number | null;
+    currentBuyScore: number | null;
     breakoutScore: number | null;
     atrPct: number | null;
   }
@@ -381,9 +385,14 @@ export default function Home() {
               histAtAnchor: d.histAtAnchor?.[t] ?? null, histAtLow: d.histAtLow?.[t] ?? null, histCompression: d.histCompression?.[t] ?? null,
               crossDate: d.crossDate?.[t] ?? null, crossPrice: d.crossPrice?.[t] ?? null,
               pctAboveLowAtCross: d.pctAboveLowAtCross?.[t] ?? null, daysLowToCross: d.daysLowToCross?.[t] ?? null,
+              pctAboveCrossNow: d.pctAboveCrossNow?.[t] ?? null,
               distEma20AtCross: d.distEma20AtCross?.[t] ?? null, distEma50AtCross: d.distEma50AtCross?.[t] ?? null,
               relVolumeAtCross: d.relVolumeAtCross?.[t] ?? null, status: d.status?.[t] ?? null,
               rsiCurrent: d.rsiCurrent?.[t] ?? null, macdHistCurrent: d.macdHistCurrent?.[t] ?? null,
+              diPlusCurrent: d.diPlusCurrent?.[t] ?? null, diMinusCurrent: d.diMinusCurrent?.[t] ?? null,
+              diCrossDate: d.diCrossDate?.[t] ?? null, diCrossPrice: d.diCrossPrice?.[t] ?? null,
+              daysLowToDiCross: d.daysLowToDiCross?.[t] ?? null, pctAboveDiCrossNow: d.pctAboveDiCrossNow?.[t] ?? null,
+              currentBuyScore: d.currentBuyScore?.[t] ?? null,
               breakoutScore: d.breakoutScore?.[t] ?? null,
               atrPct: d.atrPct?.[t] ?? null,
             };

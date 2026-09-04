@@ -249,12 +249,26 @@ Fit against two small benchmark batches (13 names, then 22 with overlap) — the
 
 - **Overview**: Ticker, Industry, Added, Status (`no_divergence`/`watching`/`confirmed`/`failed`), Type (`benchmark`/`new`)
 - **Verdict**: Breakout Score, % Decline From High, RSI Divergence %, RSI Band Depth %, Hist Compression, ATR% (14-day, via `atrLabel` in `lib/indicators.ts`), Earnings Date (14-day proximity flag)
+- **Current Buy**: Current Buy Score, DI+/DI- (now), MACD Cross Date/Price, % Above MACD Cross (Now), DI Cross Date/Price, Days Low→DI Cross, % Above DI Cross (Now)
 - **Price & Levels**: Price, Swing Low(+date), % Above Low, Pre-Low High(+date)
 - **Divergence Detail**: RSI Now/at Low/anchor(+date/price), % Decline (Anchor→Low), Hist @ Anchor/Low, MACD Hist Now
-- **Confirmation Detail**: MACD Cross Date/Price, % Above Low @ Cross, Days Low→Cross, Dist EMA20D/EMA50D @ Cross, Rel Vol @ Cross
+- **Confirmation Detail**: % Above Low @ Cross, Days Low→Cross, Dist EMA20D/EMA50D @ Cross, Rel Vol @ Cross
 - **Liquidity**: Short Float %, ADV
 
-Column order is deliberately decision-columns-first (Verdict group) then supporting/audit-trail detail — reorder here too if columns are added later, don't just append.
+Column order is deliberately decision-columns-first (Verdict, then Current Buy) then supporting/audit-trail detail — reorder here too if columns are added later, don't just append.
+
+### Current Buy Score
+
+Separate 0–10 composite from the Breakout Score above (`calcCurrentBuyScore` in `lib/breakoutScore.ts`). Answers "how much of the move have I already missed if I buy today" rather than "how well does this fit the historical pattern." Inputs, smaller distance = higher score:
+
+| Component | Weight | Zero credit at |
+|---|---|---|
+| % price above swing low (now) | 30% | ≥50% above |
+| % price above first MACD cross price since the low (now) | 35% | ≥40% above |
+| % price above first Directional Index Cross price since the low (now) | 35% | ≥40% above |
+
+- **Directional Index Cross** — first date after the swing low where +DI crosses above -DI (DI+ becomes dominant for the first time since the low). Computed from the full-series `diPlus`/`diMinus` arrays in `lib/indicators.ts` (`calcIndicators`), scanned forward from the swing low the same way the MACD cross is. Tracked independently of MACD/failed status — DI can flip multiple times through a cycle, only the *first* crossover after the low is recorded.
+- Null until **both** the MACD cross and the DI Cross have occurred at some point since the swing low — even if histogram/DI have since flipped negative again. If either cross never happened, there's no confirmed reference point to measure "how much has been missed" from.
 
 ### Known gaps (not yet built)
 

@@ -212,9 +212,13 @@ interface Props {
     rsiDivergencePct: number | null; rsiBandDepthPct: number | null;
     histAtAnchor: number | null; histAtLow: number | null; histCompression: number | null;
     crossDate: string | null; crossPrice: number | null; pctAboveLowAtCross: number | null; daysLowToCross: number | null;
+    pctAboveCrossNow: number | null;
     distEma20AtCross: number | null; distEma50AtCross: number | null; relVolumeAtCross: number | null;
     status: BreakoutStatus;
     rsiCurrent: number | null; macdHistCurrent: number | null;
+    diPlusCurrent: number | null; diMinusCurrent: number | null;
+    diCrossDate: string | null; diCrossPrice: number | null; daysLowToDiCross: number | null; pctAboveDiCrossNow: number | null;
+    currentBuyScore: number | null;
     breakoutScore: number | null;
     atrPct: number | null;
   }>;
