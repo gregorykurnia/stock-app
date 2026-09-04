@@ -461,7 +461,7 @@ export default function USBreakoutTable({
       r.distEma20AtCross?.toFixed(1) ?? "",
       r.distEma50AtCross?.toFixed(1) ?? "",
       r.relVolumeAtCross?.toFixed(2) ?? "",
-      r.shortFloat?.toFixed(1) ?? "",
+      r.shortFloat != null ? (r.shortFloat * 100).toFixed(1) : "",
       r.adv?.toFixed(0) ?? "",
     ]);
     downloadCsv(`us-breakout-${date}.csv`, headers, data);
