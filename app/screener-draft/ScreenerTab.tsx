@@ -164,7 +164,7 @@ export default function ScreenerTab({ config }: { config: ScreenerTabConfig }) {
   }
 
   async function handleExclude(ticker: string) {
-    const reason = window.prompt(`Reason for excluding ${ticker}? (optional)`, "") || null;
+    const reason = null;
     setEntries((prev) => prev.filter((e) => e.ticker !== ticker));
     setExcludedTickers((prev) => ({ ...prev, [ticker]: { reason, excluded_at: new Date().toISOString() } }));
     await Promise.all([excludeTicker(ticker, reason), removeDraftEntry(ticker)]);
