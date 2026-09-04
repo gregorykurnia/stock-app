@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { calcIndicators } from "@/lib/indicators";
+import { calcBreakoutScore } from "@/lib/breakoutScore";
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const YahooFinance = require("yahoo-finance2").default;
 const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
@@ -62,6 +63,7 @@ interface BreakoutResult {
   ema50d: number | null;
   rsiCurrent: number | null;
   macdHistCurrent: number | null;
+  breakoutScore: number | null;
 }
 
 const EMPTY: BreakoutResult = {
@@ -69,7 +71,7 @@ const EMPTY: BreakoutResult = {
   rsiDivergencePct: null, rsiBandDepthPct: null, histAtAnchor: null, histAtLow: null, histCompression: null,
   crossDate: null, crossPrice: null, pctAboveLowAtCross: null, daysLowToCross: null,
   distEma20AtCross: null, distEma50AtCross: null, relVolumeAtCross: null, status: null,
-  ema20d: null, ema50d: null, rsiCurrent: null, macdHistCurrent: null,
+  ema20d: null, ema50d: null, rsiCurrent: null, macdHistCurrent: null, breakoutScore: null,
 };
 
 // Single 20-month daily chart fetch per ticker: the full fetched window is scanned for the swing
@@ -164,6 +166,11 @@ async function fetchBreakoutDaily(ticker: string): Promise<BreakoutResult> {
   const lastRsi = rsis[n - 1];
   const lastHist = hist[n - 1];
 
+  const { score: breakoutScore } = calcBreakoutScore({
+    rsiDivergencePct, rsiBandDepthPct, histCompression, status,
+    daysLowToCross, pctAboveLowAtCross, distEma50AtCross, relVolumeAtCross,
+  });
+
   return {
     swingLow, swingLowDate, rsiAtLow, rsiAnchor, rsiAnchorDate, rsiAnchorPrice, priceDeclinePct,
     rsiDivergencePct, rsiBandDepthPct, histAtAnchor, histAtLow, histCompression,
@@ -173,6 +180,7 @@ async function fetchBreakoutDaily(ticker: string): Promise<BreakoutResult> {
     ema50d: isNaN(lastEma50) ? null : lastEma50,
     rsiCurrent: isNaN(lastRsi) ? null : lastRsi,
     macdHistCurrent: isNaN(lastHist) ? null : lastHist,
+    breakoutScore,
   };
 }
 
@@ -186,7 +194,7 @@ export async function GET(req: NextRequest) {
     rsiDivergencePct: {}, rsiBandDepthPct: {}, histAtAnchor: {}, histAtLow: {}, histCompression: {},
     crossDate: {}, crossPrice: {}, pctAboveLowAtCross: {}, daysLowToCross: {},
     distEma20AtCross: {}, distEma50AtCross: {}, relVolumeAtCross: {}, status: {},
-    ema20d: {}, ema50d: {}, rsiCurrent: {}, macdHistCurrent: {},
+    ema20d: {}, ema50d: {}, rsiCurrent: {}, macdHistCurrent: {}, breakoutScore: {},
   };
 
   const chunkSize = 8;

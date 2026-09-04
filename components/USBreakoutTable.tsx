@@ -20,7 +20,7 @@ type SortKey =
   | "histAtAnchor" | "histAtLow" | "histCompression" | "macdHistCurrent"
   | "crossDate" | "crossPrice" | "pctAboveLowAtCross" | "daysLowToCross"
   | "distEma20AtCross" | "distEma50AtCross" | "relVolumeAtCross"
-  | "shortFloat" | "adv" | "earnings";
+  | "shortFloat" | "adv" | "earnings" | "breakoutScore";
 type SortDir = "asc" | "desc";
 
 interface Props {
@@ -35,6 +35,7 @@ interface Props {
     distEma20AtCross: number | null; distEma50AtCross: number | null; relVolumeAtCross: number | null;
     status: BreakoutStatus;
     rsiCurrent: number | null; macdHistCurrent: number | null;
+    breakoutScore: number | null;
   }>;
   shortFloats?: Record<string, number | null>;
   advs?: Record<string, number | null>;
@@ -224,6 +225,13 @@ const shortFloatColor = (v: number | null) =>
 const daysToConfirmClass = (v: number | null) =>
   v == null ? "text-gray-400" : v <= 10 ? "text-green-600 font-medium" : v <= 25 ? "text-blue-600" : "text-gray-700";
 
+const breakoutScoreClass = (v: number | null) =>
+  v == null ? "text-gray-400"
+    : v >= 8 ? "text-green-600 font-bold"
+    : v >= 6.5 ? "text-blue-600 font-semibold"
+    : v >= 5 ? "text-yellow-600 font-medium"
+    : "text-red-500 font-semibold";
+
 function fmtAdv(v: number | null) {
   if (v == null) return dash;
   if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
@@ -322,6 +330,7 @@ export default function USBreakoutTable({
         distEma50AtCross: d?.distEma50AtCross ?? null,
         relVolumeAtCross: d?.relVolumeAtCross ?? null,
         status: d?.status ?? null,
+        breakoutScore: d?.breakoutScore ?? null,
         shortFloat: shortFloats[s.ticker] ?? null,
         adv: advs[s.ticker] ?? null,
         earnings: earningsDate,
@@ -374,6 +383,7 @@ export default function USBreakoutTable({
         case "shortFloat": return r.shortFloat;
         case "adv": return r.adv;
         case "earnings": return r.earningsDaysUntil;
+        case "breakoutScore": return r.breakoutScore;
         default: return null;
       }
     };
@@ -402,7 +412,7 @@ export default function USBreakoutTable({
       "Hist @ Anchor", "Hist @ Low", "Hist Compression", "MACD Hist (Now)",
       "MACD Cross Date", "Price @ Cross", "% Above Low @ Cross", "Days Low→Cross",
       "Dist EMA20D @ Cross", "Dist EMA50D @ Cross", "Rel Vol @ Cross",
-      "Short Float %", "ADV", "Earnings Date",
+      "Short Float %", "ADV", "Earnings Date", "Breakout Score",
     ];
     const data = sortedRows.map((r) => [
       r.ticker,
@@ -436,6 +446,7 @@ export default function USBreakoutTable({
       r.shortFloat?.toFixed(1) ?? "",
       r.adv?.toFixed(0) ?? "",
       r.earnings ?? "",
+      r.breakoutScore?.toFixed(2) ?? "",
     ]);
     downloadCsv(`us-breakout-${date}.csv`, headers, data);
   }
@@ -537,7 +548,7 @@ export default function USBreakoutTable({
           <thead className="bg-gray-100 border-b border-gray-200 sticky top-0 z-30">
             <tr className="border-b border-gray-200">
               <th colSpan={2} className="px-2 py-1 sticky left-0 z-20 bg-gray-100" />
-              <th colSpan={6} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Overview</th>
+              <th colSpan={7} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Overview</th>
               <th colSpan={9} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">RSI / MACD Divergence</th>
               <th colSpan={7} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Confirmation (MACD Cross)</th>
               <th colSpan={3} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Risk</th>
@@ -550,6 +561,7 @@ export default function USBreakoutTable({
               <Th label="Added" k="addedAt" info="Date this ticker was added to your Breakout watchlist." />
               <Th label="Status" k="status" info="Divergence lifecycle: No Divergence (RSI at the low wasn't higher than the pre-low anchor) → Watching (divergence confirmed, MACD hasn't crossed bullish yet, price hasn't broken the low either) → Confirmed (MACD crossed above signal without price making a new low first) → Failed (price broke below the swing low before MACD confirmed)." />
               <Th label="Type" k="breakoutType" info="Manual classification tag — Benchmark or New. Filterable via the toggles above the table." />
+              <Th label="Breakout Score" k="breakoutScore" info="0-10 composite scored against the benchmark pattern: RSI divergence strength (25%), RSI band depth / how oversold the anchor was (20%), MACD histogram compression into the low (25%, penalized hard if still negative), days from low to MACD cross (10%), % above low at cross (10%), distance from EMA50D at cross (5%), relative volume at cross (5%). Null until divergence is at least confirmed (Watching/Confirmed/Failed). A rough heuristic, not a guarantee — always sanity-check the underlying columns." />
               <Th label="Price" k="price" info="Latest close." />
               <Th label="Swing Low" k="swingLow" info="Lowest daily close in the trailing 20-month window — the anchor point for the whole divergence read." />
               <Th label="Swing Low Date" k="swingLowDate" info="Date the swing low was set." />
@@ -581,7 +593,7 @@ export default function USBreakoutTable({
           </thead>
           <tbody className="divide-y divide-gray-100">
             {sortedRows.length === 0 && (
-              <tr><td colSpan={32} className="px-3 py-6 text-center text-gray-400 text-sm">{starredOnly ? "No starred tickers." : "No tickers yet — add one above."}</td></tr>
+              <tr><td colSpan={33} className="px-3 py-6 text-center text-gray-400 text-sm">{starredOnly ? "No starred tickers." : "No tickers yet — add one above."}</td></tr>
             )}
             {sortedRows.map((r) => (
               <tr key={r.ticker} className="hover:bg-gray-50">
@@ -625,6 +637,7 @@ export default function USBreakoutTable({
                     <option value="new">New</option>
                   </select>
                 </td>
+                <td className={`px-3 py-2 ${breakoutScoreClass(r.breakoutScore)}`}>{r.breakoutScore != null ? r.breakoutScore.toFixed(1) : dash}</td>
                 <td className="px-3 py-2 font-medium text-gray-900">{r.price != null ? `$${r.price.toFixed(2)}` : dash}</td>
                 <td className="px-3 py-2 text-gray-700">{r.swingLow != null ? `$${r.swingLow.toFixed(2)}` : dash}</td>
                 <td className="px-3 py-2 text-gray-600 text-xs whitespace-nowrap">{r.swingLowDate ?? dash}</td>

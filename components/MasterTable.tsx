@@ -214,6 +214,7 @@ interface Props {
     distEma20AtCross: number | null; distEma50AtCross: number | null; relVolumeAtCross: number | null;
     status: BreakoutStatus;
     rsiCurrent: number | null; macdHistCurrent: number | null;
+    breakoutScore: number | null;
   }>;
   usBreakoutShortFloats?: Record<string, number | null>;
   usBreakoutAdvs?: Record<string, number | null>;

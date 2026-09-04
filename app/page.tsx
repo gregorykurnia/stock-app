@@ -112,6 +112,7 @@ export default function Home() {
     distEma20AtCross: number | null; distEma50AtCross: number | null; relVolumeAtCross: number | null;
     status: BreakoutStatus;
     rsiCurrent: number | null; macdHistCurrent: number | null;
+    breakoutScore: number | null;
   }
   const [usBreakoutStocks, setUsBreakoutStocks] = useState<UsBreakoutStock[]>([]);
   const [usBreakoutPrices, setUsBreakoutPrices] = useState<Record<string, number | null>>({});
@@ -380,6 +381,7 @@ export default function Home() {
               distEma20AtCross: d.distEma20AtCross?.[t] ?? null, distEma50AtCross: d.distEma50AtCross?.[t] ?? null,
               relVolumeAtCross: d.relVolumeAtCross?.[t] ?? null, status: d.status?.[t] ?? null,
               rsiCurrent: d.rsiCurrent?.[t] ?? null, macdHistCurrent: d.macdHistCurrent?.[t] ?? null,
+              breakoutScore: d.breakoutScore?.[t] ?? null,
             };
           }
           return next;
