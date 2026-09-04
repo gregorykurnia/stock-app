@@ -417,14 +417,14 @@ export default function USBreakoutTable({
   function exportCsv() {
     const date = new Date().toISOString().slice(0, 10);
     const headers = [
-      "Ticker", "Industry", "Added", "Status", "Type", "Price",
-      "Swing Low", "Swing Low Date", "Pre-Low High", "Pre-Low High Date", "% Decline From High", "% Above Low",
+      "Ticker", "Industry", "Added", "Status", "Type",
+      "Breakout Score", "% Decline From High", "RSI Divergence %", "RSI Band Depth %", "Hist Compression", "ATR%", "Earnings Date",
+      "Price", "Swing Low", "Swing Low Date", "% Above Low", "Pre-Low High", "Pre-Low High Date",
       "RSI (Now)", "RSI at Low", "Lowest RSI (Pre-Low)", "Anchor Date", "Price at Anchor", "% Decline (Anchor→Low)",
-      "RSI Divergence %", "RSI Band Depth %",
-      "Hist @ Anchor", "Hist @ Low", "Hist Compression", "MACD Hist (Now)",
+      "Hist @ Anchor", "Hist @ Low", "MACD Hist (Now)",
       "MACD Cross Date", "Price @ Cross", "% Above Low @ Cross", "Days Low→Cross",
       "Dist EMA20D @ Cross", "Dist EMA50D @ Cross", "Rel Vol @ Cross",
-      "Short Float %", "ADV", "ATR%", "Earnings Date", "Breakout Score",
+      "Short Float %", "ADV",
     ];
     const data = sortedRows.map((r) => [
       r.ticker,
@@ -432,24 +432,27 @@ export default function USBreakoutTable({
       r.addedAt ? r.addedAt.slice(0, 10) : "",
       r.status != null ? STATUS_DEF[r.status].label : "",
       r.breakoutType != null ? TYPE_DEF[r.breakoutType].label : "",
+      r.breakoutScore?.toFixed(2) ?? "",
+      r.declineFromHighPct?.toFixed(1) ?? "",
+      r.rsiDivergencePct?.toFixed(1) ?? "",
+      r.rsiBandDepthPct?.toFixed(1) ?? "",
+      r.histCompression?.toFixed(3) ?? "",
+      r.atrPct?.toFixed(1) ?? "",
+      r.earnings ?? "",
       r.price?.toFixed(2) ?? "",
       r.swingLow?.toFixed(2) ?? "",
       r.swingLowDate ?? "",
+      r.pctAboveLow?.toFixed(1) ?? "",
       r.preLowHigh?.toFixed(2) ?? "",
       r.preLowHighDate ?? "",
-      r.declineFromHighPct?.toFixed(1) ?? "",
-      r.pctAboveLow?.toFixed(1) ?? "",
       r.rsiCurrent?.toFixed(1) ?? "",
       r.rsiAtLow?.toFixed(1) ?? "",
       r.rsiAnchor?.toFixed(1) ?? "",
       r.rsiAnchorDate ?? "",
       r.rsiAnchorPrice?.toFixed(2) ?? "",
       r.priceDeclinePct?.toFixed(1) ?? "",
-      r.rsiDivergencePct?.toFixed(1) ?? "",
-      r.rsiBandDepthPct?.toFixed(1) ?? "",
       r.histAtAnchor?.toFixed(3) ?? "",
       r.histAtLow?.toFixed(3) ?? "",
-      r.histCompression?.toFixed(3) ?? "",
       r.macdHistCurrent?.toFixed(3) ?? "",
       r.crossDate ?? "",
       r.crossPrice?.toFixed(2) ?? "",
@@ -460,9 +463,6 @@ export default function USBreakoutTable({
       r.relVolumeAtCross?.toFixed(2) ?? "",
       r.shortFloat?.toFixed(1) ?? "",
       r.adv?.toFixed(0) ?? "",
-      r.atrPct?.toFixed(1) ?? "",
-      r.earnings ?? "",
-      r.breakoutScore?.toFixed(2) ?? "",
     ]);
     downloadCsv(`us-breakout-${date}.csv`, headers, data);
   }
@@ -564,10 +564,12 @@ export default function USBreakoutTable({
           <thead className="bg-gray-100 border-b border-gray-200 sticky top-0 z-30">
             <tr className="border-b border-gray-200">
               <th colSpan={2} className="px-2 py-1 sticky left-0 z-20 bg-gray-100" />
-              <th colSpan={10} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Overview</th>
-              <th colSpan={9} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">RSI / MACD Divergence</th>
-              <th colSpan={7} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Confirmation (MACD Cross)</th>
-              <th colSpan={4} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Risk</th>
+              <th colSpan={4} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Overview</th>
+              <th colSpan={7} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Verdict</th>
+              <th colSpan={6} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Price &amp; Levels</th>
+              <th colSpan={9} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Divergence Detail</th>
+              <th colSpan={7} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Confirmation Detail</th>
+              <th colSpan={2} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Liquidity</th>
               <th className="px-3 py-1 border-l border-gray-300 bg-gray-50/70" />
             </tr>
             <tr>
@@ -578,24 +580,26 @@ export default function USBreakoutTable({
               <Th label="Status" k="status" info="Divergence lifecycle: No Divergence (RSI at the low wasn't higher than the pre-low anchor) → Watching (divergence confirmed, MACD hasn't crossed bullish yet, price hasn't broken the low either) → Confirmed (MACD crossed above signal without price making a new low first) → Failed (price broke below the swing low before MACD confirmed)." />
               <Th label="Type" k="breakoutType" info="Manual classification tag — Benchmark or New. Filterable via the toggles above the table." />
               <Th label="Breakout Score" k="breakoutScore" info="0-10 composite scored against the benchmark pattern: RSI divergence strength (22%), RSI band depth / how oversold the anchor was (18%), MACD histogram compression into the low (22%, penalized hard if still negative), % decline from pre-low high (12%, full credit at -70% or deeper), days from low to MACD cross (9%), % above low at cross (9%), distance from EMA50D at cross (4%), relative volume at cross (4%). Null until divergence is at least confirmed (Watching/Confirmed/Failed). A rough heuristic, not a guarantee — always sanity-check the underlying columns." />
+              <Th label="% Decline From High" k="declineFromHighPct" info="(swing low − pre-low high) / pre-low high × 100. How many % beaten down the stock was at its lowest point, measured from its pre-low high — a quick read on how violent the drawdown was before the reversal." />
+              <Th label="RSI Divergence %" k="rsiDivergencePct" info="(RSI at low − RSI anchor) / RSI anchor × 100. Positive = price made a lower low but RSI made a higher low (bullish divergence). Higher % = stronger divergence, e.g. TEAM +63%, WDAY +59.6%." />
+              <Th label="RSI Band Depth %" k="rsiBandDepthPct" info="How far below the standard 30 oversold line the anchor RSI was: (30 − anchor)/30 × 100. Shows how extreme the original oversold read was." />
+              <Th label="Hist Compression" k="histCompression" info="Hist@Low − Hist@Anchor. Positive = the histogram shrank toward zero (momentum decelerating) even as price fell further into the low — the MACD-side confirmation of the RSI divergence. TEAM +1.07, WDAY +0.30." />
+              <Th label="ATR%" k="atrPct" info="Average True Range (14, daily) as a % of price. Measures how choppy/erratic the stock's daily range is — matters for stop placement and position sizing on a fresh breakout entry. Very Low &lt;2%, Low-Mod 2-4%, Mod-High 4-7%, High 7-10%, Extreme 10%+." />
+              <Th label="Earnings Date" k="earnings" info="Next/last reported earnings date, with days until in brackets. Within 14 days is a proximity risk flag." />
               <Th label="Price" k="price" info="Latest close." />
               <Th label="Swing Low" k="swingLow" info="Lowest daily close in the trailing 20-month window — the anchor point for the whole divergence read." />
               <Th label="Swing Low Date" k="swingLowDate" info="Date the swing low was set." />
+              <Th label="% Above Low" k="pctAboveLow" info="Current price vs the swing low: (price − swing low) / swing low. Shows how far past the low you'd already be paying if entering now." />
               <Th label="Pre-Low High" k="preLowHigh" info="Highest close anywhere in the fetched window (up to 20 months) before the swing low — the peak the stock fell from. Not a strict calendar 2Y high, just the pre-low high within the window." />
               <Th label="Pre-Low High Date" k="preLowHighDate" info="Date the pre-low high was set." />
-              <Th label="% Decline From High" k="declineFromHighPct" info="(swing low − pre-low high) / pre-low high × 100. How many % beaten down the stock was at its lowest point, measured from its pre-low high — a quick read on how violent the drawdown was before the reversal." />
-              <Th label="% Above Low" k="pctAboveLow" info="Current price vs the swing low: (price − swing low) / swing low. Shows how far past the low you'd already be paying if entering now." />
               <Th label="RSI (Now)" k="rsiCurrent" info="Current RSI(14), daily." />
               <Th label="RSI at Low" k="rsiAtLow" info="RSI(14) reading on the swing low date — one half of the divergence comparison." />
               <Th label="Lowest RSI (Pre-Low)" k="rsiAnchor" info="The lowest RSI(14) value anywhere before the swing low — the divergence anchor, i.e. the 'more oversold' earlier extreme." />
               <Th label="Anchor Date" k="rsiAnchorDate" info="Date the RSI anchor (lowest pre-low RSI) occurred." />
               <Th label="Price at Anchor" k="rsiAnchorPrice" info="Close price on the RSI-anchor date — the price level where the divergence anchor occurred." />
               <Th label="% Decline (Anchor→Low)" k="priceDeclinePct" info="(swing low − price at anchor) / price at anchor × 100. Shows how much price kept falling while RSI diverged — e.g. TEAM -17.0% price decline while RSI rose +63%. The bigger (more negative) this is alongside a strong RSI Divergence %, the more concrete the divergence story." />
-              <Th label="RSI Divergence %" k="rsiDivergencePct" info="(RSI at low − RSI anchor) / RSI anchor × 100. Positive = price made a lower low but RSI made a higher low (bullish divergence). Higher % = stronger divergence, e.g. TEAM +63%, WDAY +59.6%." />
-              <Th label="RSI Band Depth %" k="rsiBandDepthPct" info="How far below the standard 30 oversold line the anchor RSI was: (30 − anchor)/30 × 100. Shows how extreme the original oversold read was." />
               <Th label="Hist @ Anchor" k="histAtAnchor" info="MACD histogram value on the RSI-anchor date — the starting bearish-momentum reading (red bar)." />
               <Th label="Hist @ Low" k="histAtLow" info="MACD histogram value on the swing-low date." />
-              <Th label="Hist Compression" k="histCompression" info="Hist@Low − Hist@Anchor. Positive = the histogram shrank toward zero (momentum decelerating) even as price fell further into the low — the MACD-side confirmation of the RSI divergence. TEAM +1.07, WDAY +0.30." />
               <Th label="MACD Hist (Now)" k="macdHistCurrent" info="Current MACD histogram value (MACD line minus signal line). Negative = red bar, positive = green bar." />
               <Th label="MACD Cross Date" k="crossDate" info="First date after the swing low where the MACD line crossed above the signal line (histogram flips from negative to positive) — the confirmation trigger, not the low itself." />
               <Th label="Price @ Cross" k="crossPrice" info="Close price on the MACD cross date — the realistic entry price if you wait for confirmation instead of guessing the low." />
@@ -606,8 +610,6 @@ export default function USBreakoutTable({
               <Th label="Rel Vol @ Cross" k="relVolumeAtCross" info="Volume on the MACD cross date vs its trailing 20-day average. A cross on a volume surge (≥1.5x) is stronger evidence than one on light volume." />
               <Th label="Short Float %" k="shortFloat" info="% of float sold short. High values mean a more contested/battleground name." />
               <Th label="ADV" k="adv" info="Average daily volume (3-month) — liquidity check." />
-              <Th label="ATR%" k="atrPct" info="Average True Range (14, daily) as a % of price. Measures how choppy/erratic the stock's daily range is — matters for stop placement and position sizing on a fresh breakout entry. Very Low &lt;2%, Low-Mod 2-4%, Mod-High 4-7%, High 7-10%, Extreme 10%+." />
-              <Th label="Earnings Date" k="earnings" info="Next/last reported earnings date, with days until in brackets. Within 14 days is a proximity risk flag." />
               <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Remove</th>
             </tr>
           </thead>
@@ -658,24 +660,32 @@ export default function USBreakoutTable({
                   </select>
                 </td>
                 <td className={`px-3 py-2 ${breakoutScoreClass(r.breakoutScore)}`}>{r.breakoutScore != null ? r.breakoutScore.toFixed(1) : dash}</td>
+                <td className={`px-3 py-2 ${priceDeclineClass(r.declineFromHighPct)}`}>{r.declineFromHighPct != null ? `${r.declineFromHighPct.toFixed(1)}%` : dash}</td>
+                <td className={`px-3 py-2 ${divergenceClass(r.rsiDivergencePct)}`}>{r.rsiDivergencePct != null ? `${r.rsiDivergencePct >= 0 ? "+" : ""}${r.rsiDivergencePct.toFixed(1)}%` : dash}</td>
+                <td className={`px-3 py-2 ${bandDepthClass(r.rsiBandDepthPct)}`}>{r.rsiBandDepthPct != null ? `${r.rsiBandDepthPct.toFixed(1)}%` : dash}</td>
+                <td className={`px-3 py-2 ${compressionClass(r.histCompression)}`}>{r.histCompression != null ? `${r.histCompression >= 0 ? "+" : ""}${r.histCompression.toFixed(2)}` : dash}</td>
+                <td className="px-3 py-2">
+                  {r.atrPct != null ? (
+                    <span className={atrLabel(r.atrPct).color} title={atrLabel(r.atrPct).description}>
+                      {r.atrPct.toFixed(1)}%
+                    </span>
+                  ) : dash}
+                </td>
+                <td className="px-3 py-2 whitespace-nowrap"><EarningsCell dateStr={r.earnings} /></td>
                 <td className="px-3 py-2 font-medium text-gray-900">{r.price != null ? `$${r.price.toFixed(2)}` : dash}</td>
                 <td className="px-3 py-2 text-gray-700">{r.swingLow != null ? `$${r.swingLow.toFixed(2)}` : dash}</td>
                 <td className="px-3 py-2 text-gray-600 text-xs whitespace-nowrap">{r.swingLowDate ?? dash}</td>
+                <td className={`px-3 py-2 ${pctAboveLowClass(r.pctAboveLow)}`}>{r.pctAboveLow != null ? `${r.pctAboveLow.toFixed(1)}%` : dash}</td>
                 <td className="px-3 py-2 text-gray-700">{r.preLowHigh != null ? `$${r.preLowHigh.toFixed(2)}` : dash}</td>
                 <td className="px-3 py-2 text-gray-600 text-xs whitespace-nowrap">{r.preLowHighDate ?? dash}</td>
-                <td className={`px-3 py-2 ${priceDeclineClass(r.declineFromHighPct)}`}>{r.declineFromHighPct != null ? `${r.declineFromHighPct.toFixed(1)}%` : dash}</td>
-                <td className={`px-3 py-2 ${pctAboveLowClass(r.pctAboveLow)}`}>{r.pctAboveLow != null ? `${r.pctAboveLow.toFixed(1)}%` : dash}</td>
                 <td className={`px-3 py-2 ${rsiClass(r.rsiCurrent)}`}>{r.rsiCurrent != null ? r.rsiCurrent.toFixed(1) : dash}</td>
                 <td className={`px-3 py-2 ${rsiClass(r.rsiAtLow)}`}>{r.rsiAtLow != null ? r.rsiAtLow.toFixed(1) : dash}</td>
                 <td className={`px-3 py-2 ${rsiClass(r.rsiAnchor)}`}>{r.rsiAnchor != null ? r.rsiAnchor.toFixed(1) : dash}</td>
                 <td className="px-3 py-2 text-gray-600 text-xs whitespace-nowrap">{r.rsiAnchorDate ?? dash}</td>
                 <td className="px-3 py-2 text-gray-700">{r.rsiAnchorPrice != null ? `$${r.rsiAnchorPrice.toFixed(2)}` : dash}</td>
                 <td className={`px-3 py-2 ${priceDeclineClass(r.priceDeclinePct)}`}>{r.priceDeclinePct != null ? `${r.priceDeclinePct >= 0 ? "+" : ""}${r.priceDeclinePct.toFixed(1)}%` : dash}</td>
-                <td className={`px-3 py-2 ${divergenceClass(r.rsiDivergencePct)}`}>{r.rsiDivergencePct != null ? `${r.rsiDivergencePct >= 0 ? "+" : ""}${r.rsiDivergencePct.toFixed(1)}%` : dash}</td>
-                <td className={`px-3 py-2 ${bandDepthClass(r.rsiBandDepthPct)}`}>{r.rsiBandDepthPct != null ? `${r.rsiBandDepthPct.toFixed(1)}%` : dash}</td>
                 <td className={`px-3 py-2 ${histClass(r.histAtAnchor)}`}>{r.histAtAnchor != null ? r.histAtAnchor.toFixed(2) : dash}</td>
                 <td className={`px-3 py-2 ${histClass(r.histAtLow)}`}>{r.histAtLow != null ? r.histAtLow.toFixed(2) : dash}</td>
-                <td className={`px-3 py-2 ${compressionClass(r.histCompression)}`}>{r.histCompression != null ? `${r.histCompression >= 0 ? "+" : ""}${r.histCompression.toFixed(2)}` : dash}</td>
                 <td className={`px-3 py-2 ${histClass(r.macdHistCurrent)}`}>{r.macdHistCurrent != null ? r.macdHistCurrent.toFixed(2) : dash}</td>
                 <td className="px-3 py-2 text-gray-600 text-xs whitespace-nowrap">{r.crossDate ?? dash}</td>
                 <td className="px-3 py-2 text-gray-700">{r.crossPrice != null ? `$${r.crossPrice.toFixed(2)}` : dash}</td>
@@ -686,14 +696,6 @@ export default function USBreakoutTable({
                 <td className={`px-3 py-2 ${relVolClass(r.relVolumeAtCross)}`}>{r.relVolumeAtCross != null ? `${r.relVolumeAtCross.toFixed(2)}x` : dash}</td>
                 <td className={`px-3 py-2 ${shortFloatColor(r.shortFloat != null ? r.shortFloat : null)}`}>{r.shortFloat != null ? `${(r.shortFloat * 100).toFixed(1)}%` : dash}</td>
                 <td className="px-3 py-2 text-gray-700">{fmtAdv(r.adv)}</td>
-                <td className="px-3 py-2">
-                  {r.atrPct != null ? (
-                    <span className={atrLabel(r.atrPct).color} title={atrLabel(r.atrPct).description}>
-                      {r.atrPct.toFixed(1)}%
-                    </span>
-                  ) : dash}
-                </td>
-                <td className="px-3 py-2 whitespace-nowrap"><EarningsCell dateStr={r.earnings} /></td>
                 <td className="px-3 py-2">
                   <button onClick={() => onRemove?.(r.ticker)} className="text-xs text-red-500 hover:text-red-700">
                     Remove
