@@ -14,7 +14,7 @@ export interface USBreakoutStock {
 export type BreakoutStatus = "no_divergence" | "watching" | "confirmed" | "failed" | null;
 
 type SortKey =
-  | "ticker" | "industry" | "addedAt" | "status" | "price" | "swingLow" | "swingLowDate" | "pctAboveLow"
+  | "ticker" | "industry" | "addedAt" | "status" | "breakoutType" | "price" | "swingLow" | "swingLowDate" | "pctAboveLow"
   | "rsiCurrent" | "rsiAtLow" | "rsiAnchor" | "rsiAnchorDate" | "rsiAnchorPrice" | "priceDeclinePct" | "rsiDivergencePct" | "rsiBandDepthPct"
   | "histAtAnchor" | "histAtLow" | "histCompression" | "macdHistCurrent"
   | "crossDate" | "crossPrice" | "pctAboveLowAtCross" | "daysLowToCross"
@@ -77,6 +77,11 @@ function InfoDot({ text }: { text: string }) {
     </span>
   );
 }
+
+const TYPE_DEF: Record<"benchmark" | "new", { label: string; badgeClass: string }> = {
+  benchmark: { label: "Benchmark", badgeClass: "bg-purple-100 text-purple-700" },
+  new: { label: "New", badgeClass: "bg-teal-100 text-teal-700" },
+};
 
 const STATUS_DEF: Record<Exclude<BreakoutStatus, null>, { label: string; badgeClass: string; description: string }> = {
   no_divergence: {
@@ -192,6 +197,7 @@ export default function USBreakoutTable({
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [starredOnly, setStarredOnly] = useState(false);
   const [statusFilter, setStatusFilter] = useState<Set<Exclude<BreakoutStatus, null>>>(new Set());
+  const [typeFilter, setTypeFilter] = useState<Set<"benchmark" | "new">>(new Set());
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
 
@@ -210,6 +216,14 @@ export default function USBreakoutTable({
 
   function toggleStatusFilter(key: Exclude<BreakoutStatus, null>) {
     setStatusFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }
+
+  function toggleTypeFilter(key: "benchmark" | "new") {
+    setTypeFilter((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key); else next.add(key);
       return next;
@@ -260,8 +274,9 @@ export default function USBreakoutTable({
     let out = starredOnly ? rows.filter((r) => r.starred) : rows;
     if (search) out = out.filter((r) => r.ticker.toUpperCase().includes(search) || r.name?.toUpperCase().includes(search));
     if (statusFilter.size > 0) out = out.filter((r) => r.status != null && statusFilter.has(r.status));
+    if (typeFilter.size > 0) out = out.filter((r) => r.breakoutType != null && typeFilter.has(r.breakoutType));
     return out;
-  }, [rows, starredOnly, search, statusFilter]);
+  }, [rows, starredOnly, search, statusFilter, typeFilter]);
 
   const STATUS_RANK: Record<string, number> = { confirmed: 3, watching: 2, failed: 1, no_divergence: 0 };
 
@@ -272,6 +287,7 @@ export default function USBreakoutTable({
         case "industry": return r.industry;
         case "addedAt": return r.addedAt ?? null;
         case "status": return r.status != null ? STATUS_RANK[r.status] : -1;
+        case "breakoutType": return r.breakoutType ?? null;
         case "price": return r.price;
         case "swingLow": return r.swingLow;
         case "swingLowDate": return r.swingLowDate;
@@ -389,6 +405,17 @@ export default function USBreakoutTable({
               </span>
             </label>
           ))}
+          {(Object.keys(TYPE_DEF) as ("benchmark" | "new")[]).map((key) => (
+            <label
+              key={key}
+              className={`flex items-center gap-1.5 text-xs cursor-pointer select-none px-2 py-1.5 rounded border ${typeFilter.has(key) ? "border-blue-400 bg-blue-50" : "border-gray-300 bg-white hover:border-gray-400"}`}
+            >
+              <input type="checkbox" checked={typeFilter.has(key)} onChange={() => toggleTypeFilter(key)} className="accent-blue-600" />
+              <span className={`inline-flex items-center rounded-full ${TYPE_DEF[key].badgeClass} text-xs font-semibold px-2 py-0.5 whitespace-nowrap`}>
+                {TYPE_DEF[key].label}
+              </span>
+            </label>
+          ))}
         </div>
       </div>
       <div className="text-xs text-gray-400 text-right -mt-1">
@@ -411,7 +438,7 @@ export default function USBreakoutTable({
               <Th label="Industry" k="industry" info="Sector/industry classification." />
               <Th label="Added" k="addedAt" info="Date this ticker was added to your Breakout watchlist." />
               <Th label="Status" k="status" info="Divergence lifecycle: No Divergence (RSI at the low wasn't higher than the pre-low anchor) → Watching (divergence confirmed, MACD hasn't crossed bullish yet, price hasn't broken the low either) → Confirmed (MACD crossed above signal without price making a new low first) → Failed (price broke below the swing low before MACD confirmed)." />
-              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Type</th>
+              <Th label="Type" k="breakoutType" info="Manual classification tag — Benchmark or New. Filterable via the toggles above the table." />
               <Th label="Price" k="price" info="Latest close." />
               <Th label="Swing Low" k="swingLow" info="Lowest daily close in the trailing 1Y window — the anchor point for the whole divergence read." />
               <Th label="Swing Low Date" k="swingLowDate" info="Date the swing low was set." />
