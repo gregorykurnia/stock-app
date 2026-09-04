@@ -216,6 +216,7 @@ interface Props {
     status: BreakoutStatus;
     rsiCurrent: number | null; macdHistCurrent: number | null;
     breakoutScore: number | null;
+    atrPct: number | null;
   }>;
   usBreakoutShortFloats?: Record<string, number | null>;
   usBreakoutAdvs?: Record<string, number | null>;

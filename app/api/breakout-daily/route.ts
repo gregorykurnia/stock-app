@@ -23,6 +23,23 @@ function emaSeriesFull(values: number[], period: number): number[] {
   return out;
 }
 
+function calcATRPct(quotes: { high: number; low: number; close: number }[], period = 14): number | null {
+  if (quotes.length < period + 1) return null;
+  const trs: number[] = [];
+  for (let i = 1; i < quotes.length; i++) {
+    const { high, low } = quotes[i];
+    const prevClose = quotes[i - 1].close;
+    trs.push(Math.max(high - low, Math.abs(high - prevClose), Math.abs(low - prevClose)));
+  }
+  if (trs.length < period) return null;
+  let atr = trs.slice(0, period).reduce((a, b) => a + b, 0) / period;
+  for (let i = period; i < trs.length; i++) {
+    atr = (atr * (period - 1) + trs[i]) / period;
+  }
+  const lastClose = quotes[quotes.length - 1].close;
+  return lastClose > 0 ? (atr / lastClose) * 100 : null;
+}
+
 function macdSeriesFull(closes: number[]): { macd: number[]; signal: number[]; hist: number[] } {
   const ema12 = emaSeriesFull(closes, 12);
   const ema26 = emaSeriesFull(closes, 26);
@@ -67,6 +84,7 @@ interface BreakoutResult {
   rsiCurrent: number | null;
   macdHistCurrent: number | null;
   breakoutScore: number | null;
+  atrPct: number | null;
 }
 
 const EMPTY: BreakoutResult = {
@@ -75,7 +93,7 @@ const EMPTY: BreakoutResult = {
   rsiDivergencePct: null, rsiBandDepthPct: null, histAtAnchor: null, histAtLow: null, histCompression: null,
   crossDate: null, crossPrice: null, pctAboveLowAtCross: null, daysLowToCross: null,
   distEma20AtCross: null, distEma50AtCross: null, relVolumeAtCross: null, status: null,
-  ema20d: null, ema50d: null, rsiCurrent: null, macdHistCurrent: null, breakoutScore: null,
+  ema20d: null, ema50d: null, rsiCurrent: null, macdHistCurrent: null, breakoutScore: null, atrPct: null,
 };
 
 // Single 20-month daily chart fetch per ticker: the full fetched window is scanned for the swing
@@ -179,6 +197,7 @@ async function fetchBreakoutDaily(ticker: string): Promise<BreakoutResult> {
   const lastEma50 = ema50s[n - 1];
   const lastRsi = rsis[n - 1];
   const lastHist = hist[n - 1];
+  const atrPct = calcATRPct(bars, 14);
 
   const { score: breakoutScore } = calcBreakoutScore({
     rsiDivergencePct, rsiBandDepthPct, histCompression, declineFromHighPct, status,
@@ -196,6 +215,7 @@ async function fetchBreakoutDaily(ticker: string): Promise<BreakoutResult> {
     rsiCurrent: isNaN(lastRsi) ? null : lastRsi,
     macdHistCurrent: isNaN(lastHist) ? null : lastHist,
     breakoutScore,
+    atrPct,
   };
 }
 
@@ -210,7 +230,7 @@ export async function GET(req: NextRequest) {
     rsiDivergencePct: {}, rsiBandDepthPct: {}, histAtAnchor: {}, histAtLow: {}, histCompression: {},
     crossDate: {}, crossPrice: {}, pctAboveLowAtCross: {}, daysLowToCross: {},
     distEma20AtCross: {}, distEma50AtCross: {}, relVolumeAtCross: {}, status: {},
-    ema20d: {}, ema50d: {}, rsiCurrent: {}, macdHistCurrent: {}, breakoutScore: {},
+    ema20d: {}, ema50d: {}, rsiCurrent: {}, macdHistCurrent: {}, breakoutScore: {}, atrPct: {},
   };
 
   const chunkSize = 8;

@@ -114,6 +114,7 @@ export default function Home() {
     status: BreakoutStatus;
     rsiCurrent: number | null; macdHistCurrent: number | null;
     breakoutScore: number | null;
+    atrPct: number | null;
   }
   const [usBreakoutStocks, setUsBreakoutStocks] = useState<UsBreakoutStock[]>([]);
   const [usBreakoutPrices, setUsBreakoutPrices] = useState<Record<string, number | null>>({});
@@ -384,6 +385,7 @@ export default function Home() {
               relVolumeAtCross: d.relVolumeAtCross?.[t] ?? null, status: d.status?.[t] ?? null,
               rsiCurrent: d.rsiCurrent?.[t] ?? null, macdHistCurrent: d.macdHistCurrent?.[t] ?? null,
               breakoutScore: d.breakoutScore?.[t] ?? null,
+              atrPct: d.atrPct?.[t] ?? null,
             };
           }
           return next;

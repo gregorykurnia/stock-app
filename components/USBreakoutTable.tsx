@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { downloadCsv } from "@/lib/exportCsv";
+import { atrLabel } from "@/lib/indicators";
 
 export interface USBreakoutStock {
   ticker: string;
@@ -21,7 +22,7 @@ type SortKey =
   | "histAtAnchor" | "histAtLow" | "histCompression" | "macdHistCurrent"
   | "crossDate" | "crossPrice" | "pctAboveLowAtCross" | "daysLowToCross"
   | "distEma20AtCross" | "distEma50AtCross" | "relVolumeAtCross"
-  | "shortFloat" | "adv" | "earnings" | "breakoutScore";
+  | "shortFloat" | "adv" | "earnings" | "breakoutScore" | "atrPct";
 type SortDir = "asc" | "desc";
 
 interface Props {
@@ -38,6 +39,7 @@ interface Props {
     status: BreakoutStatus;
     rsiCurrent: number | null; macdHistCurrent: number | null;
     breakoutScore: number | null;
+    atrPct: number | null;
   }>;
   shortFloats?: Record<string, number | null>;
   advs?: Record<string, number | null>;
@@ -336,6 +338,7 @@ export default function USBreakoutTable({
         relVolumeAtCross: d?.relVolumeAtCross ?? null,
         status: d?.status ?? null,
         breakoutScore: d?.breakoutScore ?? null,
+        atrPct: d?.atrPct ?? null,
         shortFloat: shortFloats[s.ticker] ?? null,
         adv: advs[s.ticker] ?? null,
         earnings: earningsDate,
@@ -392,6 +395,7 @@ export default function USBreakoutTable({
         case "adv": return r.adv;
         case "earnings": return r.earningsDaysUntil;
         case "breakoutScore": return r.breakoutScore;
+        case "atrPct": return r.atrPct;
         default: return null;
       }
     };
@@ -420,7 +424,7 @@ export default function USBreakoutTable({
       "Hist @ Anchor", "Hist @ Low", "Hist Compression", "MACD Hist (Now)",
       "MACD Cross Date", "Price @ Cross", "% Above Low @ Cross", "Days Low→Cross",
       "Dist EMA20D @ Cross", "Dist EMA50D @ Cross", "Rel Vol @ Cross",
-      "Short Float %", "ADV", "Earnings Date", "Breakout Score",
+      "Short Float %", "ADV", "ATR%", "Earnings Date", "Breakout Score",
     ];
     const data = sortedRows.map((r) => [
       r.ticker,
@@ -456,6 +460,7 @@ export default function USBreakoutTable({
       r.relVolumeAtCross?.toFixed(2) ?? "",
       r.shortFloat?.toFixed(1) ?? "",
       r.adv?.toFixed(0) ?? "",
+      r.atrPct?.toFixed(1) ?? "",
       r.earnings ?? "",
       r.breakoutScore?.toFixed(2) ?? "",
     ]);
@@ -562,7 +567,7 @@ export default function USBreakoutTable({
               <th colSpan={10} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Overview</th>
               <th colSpan={9} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">RSI / MACD Divergence</th>
               <th colSpan={7} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Confirmation (MACD Cross)</th>
-              <th colSpan={3} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Risk</th>
+              <th colSpan={4} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Risk</th>
               <th className="px-3 py-1 border-l border-gray-300 bg-gray-50/70" />
             </tr>
             <tr>
@@ -601,13 +606,14 @@ export default function USBreakoutTable({
               <Th label="Rel Vol @ Cross" k="relVolumeAtCross" info="Volume on the MACD cross date vs its trailing 20-day average. A cross on a volume surge (≥1.5x) is stronger evidence than one on light volume." />
               <Th label="Short Float %" k="shortFloat" info="% of float sold short. High values mean a more contested/battleground name." />
               <Th label="ADV" k="adv" info="Average daily volume (3-month) — liquidity check." />
+              <Th label="ATR%" k="atrPct" info="Average True Range (14, daily) as a % of price. Measures how choppy/erratic the stock's daily range is — matters for stop placement and position sizing on a fresh breakout entry. Very Low &lt;2%, Low-Mod 2-4%, Mod-High 4-7%, High 7-10%, Extreme 10%+." />
               <Th label="Earnings Date" k="earnings" info="Next/last reported earnings date, with days until in brackets. Within 14 days is a proximity risk flag." />
               <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Remove</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {sortedRows.length === 0 && (
-              <tr><td colSpan={36} className="px-3 py-6 text-center text-gray-400 text-sm">{starredOnly ? "No starred tickers." : "No tickers yet — add one above."}</td></tr>
+              <tr><td colSpan={37} className="px-3 py-6 text-center text-gray-400 text-sm">{starredOnly ? "No starred tickers." : "No tickers yet — add one above."}</td></tr>
             )}
             {sortedRows.map((r) => (
               <tr key={r.ticker} className="hover:bg-gray-50">
@@ -680,6 +686,13 @@ export default function USBreakoutTable({
                 <td className={`px-3 py-2 ${relVolClass(r.relVolumeAtCross)}`}>{r.relVolumeAtCross != null ? `${r.relVolumeAtCross.toFixed(2)}x` : dash}</td>
                 <td className={`px-3 py-2 ${shortFloatColor(r.shortFloat != null ? r.shortFloat : null)}`}>{r.shortFloat != null ? `${(r.shortFloat * 100).toFixed(1)}%` : dash}</td>
                 <td className="px-3 py-2 text-gray-700">{fmtAdv(r.adv)}</td>
+                <td className="px-3 py-2">
+                  {r.atrPct != null ? (
+                    <span className={atrLabel(r.atrPct).color} title={atrLabel(r.atrPct).description}>
+                      {r.atrPct.toFixed(1)}%
+                    </span>
+                  ) : dash}
+                </td>
                 <td className="px-3 py-2 whitespace-nowrap"><EarningsCell dateStr={r.earnings} /></td>
                 <td className="px-3 py-2">
                   <button onClick={() => onRemove?.(r.ticker)} className="text-xs text-red-500 hover:text-red-700">
