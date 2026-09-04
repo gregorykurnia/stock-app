@@ -72,15 +72,12 @@ const EMPTY: BreakoutResult = {
   ema20d: null, ema50d: null, rsiCurrent: null, macdHistCurrent: null,
 };
 
-// Fetches a buffer beyond the 20mo swing-low window per ticker: the swing low is scanned
-// for only within the trailing 20 months, while the extra buffer gives RSI warmup room and lets
-// the divergence anchor be searched further back when the low sits near the start of that window.
+// Single 20-month daily chart fetch per ticker: the full fetched window is scanned for the swing
+// low, and the RSI-divergence anchor is searched for anywhere before it in that same history.
 async function fetchBreakoutDaily(ticker: string): Promise<BreakoutResult> {
   const now = new Date();
-  const windowMonthsAgo = new Date(now.getTime());
-  windowMonthsAgo.setMonth(windowMonthsAgo.getMonth() - 20);
   const fetchStart = new Date(now.getTime());
-  fetchStart.setMonth(fetchStart.getMonth() - 30);
+  fetchStart.setMonth(fetchStart.getMonth() - 20);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const result: any = await yf.chart(ticker, { period1: fetchStart, period2: now, interval: "1d" });
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -106,11 +103,8 @@ async function fetchBreakoutDaily(ticker: string): Promise<BreakoutResult> {
 
   const n = bars.length;
 
-  // Trailing 20mo window (dates, not index 0) — where the swing low is scanned for. The extra
-  // fetched buffer before this stays available for RSI warmup and the anchor search below.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let windowStart = quotes.findIndex((q: any) => (q.date instanceof Date ? q.date : new Date(q.date)) >= windowMonthsAgo);
-  if (windowStart < 0) windowStart = 0;
+  // Full trailing 20mo window (the entire fetched history) — where the swing low is scanned for.
+  const windowStart = 0;
   let swingLowIdx = windowStart;
   for (let i = windowStart; i < n; i++) {
     if (closes[i] < closes[swingLowIdx]) swingLowIdx = i;
