@@ -214,6 +214,50 @@ Computed in `components/USSwingTable.tsx` for the "Stock Category" column. Separ
 
 ---
 
+## US BREAKOUT TAB — SPEC (planned)
+
+New top-level tab under **US**, same level as `List` / `Swing` / `Portfolio` / `Beaten Down` in the `mainTab` segmented control (`components/MasterTable.tsx` ~line 1729). `mainTab` value: `"breakout"`. Purpose: surface stocks that have printed a **bullish RSI/MACD divergence off a swing low** and track how far each one is through the confirmation sequence — divergence spotted → MACD histogram compressing → confirmed bullish cross. This formalizes the manual TEAM/WDAY-style walkthrough (see conversation) into a repeatable screener.
+
+Reference computation logic (per ticker, daily timeframe, trailing ~1Y window):
+1. Find the swing low (lowest close) in the trailing window.
+2. Find the lowest RSI(14) point in the window **before** that swing low (the "divergence anchor").
+3. Confirm divergence: swing-low RSI > divergence-anchor RSI (price made a lower low, RSI made a higher low).
+4. Track MACD(12,26,9) histogram from the divergence anchor through the swing low (should be compressing toward zero — still red/negative, but shrinking).
+5. Scan forward from the swing low for the first day the histogram flips from negative to positive (MACD line crosses above signal line) — the confirmation trigger.
+
+### Recommended columns
+
+| Column | Definition | Why it matters |
+|---|---|---|
+| **Ticker / Industry** | Standard | — |
+| **Swing Low Price** | Lowest close in the trailing 1Y window | Anchor point for the whole divergence read |
+| **Swing Low Date** | Date of that low | — |
+| **Current Price** | Latest close | — |
+| **% Above Swing Low** | `(current - swing_low) / swing_low` | How far past the low you'd already be paying if entering now |
+| **RSI at Swing Low** | RSI(14) on the swing low date | One half of the divergence comparison |
+| **Lowest RSI (Pre-Low)** | Lowest RSI(14) value in the window **before** the swing low | The divergence anchor — the "worse" oversold read |
+| **Lowest RSI Date** | Date of that anchor point | — |
+| **RSI Divergence %** | `(RSI_at_low - RSI_anchor) / RSI_anchor` | Divergence strength — TEAM showed +63%, WDAY +59.6%. Higher = more conviction |
+| **RSI Band Depth %** | How far below 30 the anchor RSI was, e.g. `(30 - RSI_anchor)/30` | Shows how extreme the original oversold read was (TEAM -47.4%, WDAY -42.3%) |
+| **MACD Hist at Anchor** | Histogram value at the RSI-anchor date | Starting bearish-momentum reading (red bar) |
+| **MACD Hist at Swing Low** | Histogram value at the swing-low date | Shows compression toward zero even as price fell further (TEAM -1.26→-0.19, WDAY -1.20→-0.89) |
+| **Histogram Compression** | `Hist_at_low - Hist_at_anchor` | Single number ranking conviction — TEAM's +1.07 was much stronger than WDAY's +0.30, and it showed up correctly in how each name later confirmed |
+| **MACD Cross Date** | First date after the swing low where histogram flips positive (MACD crosses above signal) | The actual confirmation trigger — not the low itself |
+| **Price at MACD Cross** | Close on the cross date | Realistic entry price if waiting for confirmation instead of guessing the low |
+| **% Above Low at Cross** | `(cross_price - swing_low) / swing_low` | Cost of waiting for confirmation (TEAM +15.5%, WDAY +10.3%) |
+| **Days Low → Cross** | Trading days between swing low and cross date | How fast the reversal confirmed — a slow crawl back vs a sharp V matters for position timing |
+| **Status** | `Divergence only` / `Confirmed (crossed)` / `Failed (made new low after divergence)` | Lets the screener flag names still waiting vs already actionable vs invalidated |
+
+### Columns you may be missing
+
+- **Volume/OBV confirmation on the cross day** — a MACD cross on light volume is weaker evidence than one on a volume surge. Worth an ADV or Rel Volume column at the cross date specifically (distinct from the general liquidity column), since divergence + cross with no volume backing is a common false start.
+- **Post-cross follow-through check** — e.g. "still above cross-day close N days later" or "made a new higher high after the cross." Without this, a name can flip green for one day and roll over again; the tab would show it as "Confirmed" permanently even if it failed right after.
+- **Distance from EMA20D/EMA50D at the cross** — tells you whether the cross is happening while price is still below its short/medium trend (early, riskier) or has already reclaimed it (later, more confirmed) — same read as the "Dist EMA20D%" logic already used in the Swing tab.
+- **Days to Earnings** — same proximity-risk flag used elsewhere (14-day warning, 7-day hard no); a divergence + cross walking straight into an earnings print is a different risk profile than a clean setup.
+- **Prior failed-divergence count** — if a ticker has printed this pattern multiple times in the trailing window without ever confirming, that's useful context the single-instance columns above won't show.
+
+---
+
 ## BUSINESS QUALITY SCORING (Claude Call 1)
 
 4 dimensions, each scored 1–10:
