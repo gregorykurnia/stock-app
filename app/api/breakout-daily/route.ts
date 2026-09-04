@@ -44,6 +44,7 @@ interface BreakoutResult {
   rsiAnchor: number | null;
   rsiAnchorDate: string | null;
   rsiAnchorPrice: number | null;
+  priceDeclinePct: number | null;
   rsiDivergencePct: number | null;
   rsiBandDepthPct: number | null;
   histAtAnchor: number | null;
@@ -64,7 +65,7 @@ interface BreakoutResult {
 }
 
 const EMPTY: BreakoutResult = {
-  swingLow: null, swingLowDate: null, rsiAtLow: null, rsiAnchor: null, rsiAnchorDate: null, rsiAnchorPrice: null,
+  swingLow: null, swingLowDate: null, rsiAtLow: null, rsiAnchor: null, rsiAnchorDate: null, rsiAnchorPrice: null, priceDeclinePct: null,
   rsiDivergencePct: null, rsiBandDepthPct: null, histAtAnchor: null, histAtLow: null, histCompression: null,
   crossDate: null, crossPrice: null, pctAboveLowAtCross: null, daysLowToCross: null,
   distEma20AtCross: null, distEma50AtCross: null, relVolumeAtCross: null, status: null,
@@ -121,6 +122,7 @@ async function fetchBreakoutDaily(ticker: string): Promise<BreakoutResult> {
   const rsiAnchor = anchorIdx != null ? rsis[anchorIdx] : null;
   const rsiAnchorDate = anchorIdx != null ? dateStr(anchorIdx) : null;
   const rsiAnchorPrice = anchorIdx != null ? closes[anchorIdx] : null;
+  const priceDeclinePct = rsiAnchorPrice != null && rsiAnchorPrice > 0 ? ((swingLow - rsiAnchorPrice) / rsiAnchorPrice) * 100 : null;
 
   const rsiDivergencePct = rsiAtLow != null && rsiAnchor != null && rsiAnchor !== 0 ? ((rsiAtLow - rsiAnchor) / rsiAnchor) * 100 : null;
   const rsiBandDepthPct = rsiAnchor != null ? ((30 - rsiAnchor) / 30) * 100 : null;
@@ -162,7 +164,7 @@ async function fetchBreakoutDaily(ticker: string): Promise<BreakoutResult> {
   const lastHist = hist[n - 1];
 
   return {
-    swingLow, swingLowDate, rsiAtLow, rsiAnchor, rsiAnchorDate, rsiAnchorPrice,
+    swingLow, swingLowDate, rsiAtLow, rsiAnchor, rsiAnchorDate, rsiAnchorPrice, priceDeclinePct,
     rsiDivergencePct, rsiBandDepthPct, histAtAnchor, histAtLow, histCompression,
     crossDate, crossPrice, pctAboveLowAtCross, daysLowToCross,
     distEma20AtCross, distEma50AtCross, relVolumeAtCross, status,
@@ -179,7 +181,7 @@ export async function GET(req: NextRequest) {
   const tickers = param.split(",").map((t) => t.trim().toUpperCase()).filter(Boolean);
 
   const out: Record<keyof BreakoutResult, Record<string, unknown>> = {
-    swingLow: {}, swingLowDate: {}, rsiAtLow: {}, rsiAnchor: {}, rsiAnchorDate: {}, rsiAnchorPrice: {},
+    swingLow: {}, swingLowDate: {}, rsiAtLow: {}, rsiAnchor: {}, rsiAnchorDate: {}, rsiAnchorPrice: {}, priceDeclinePct: {},
     rsiDivergencePct: {}, rsiBandDepthPct: {}, histAtAnchor: {}, histAtLow: {}, histCompression: {},
     crossDate: {}, crossPrice: {}, pctAboveLowAtCross: {}, daysLowToCross: {},
     distEma20AtCross: {}, distEma50AtCross: {}, relVolumeAtCross: {}, status: {},
