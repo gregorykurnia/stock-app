@@ -52,6 +52,65 @@ interface Props {
 
 const dash = <span className="text-gray-400">—</span>;
 
+function FilterDropdown<T extends string>({
+  label, options, selected, onToggle, describe,
+}: {
+  label: string;
+  options: readonly T[];
+  selected: Set<T>;
+  onToggle: (key: T) => void;
+  describe: (key: T) => { text: string; badgeClass: string; title?: string };
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDocClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className={`flex items-center gap-1.5 text-xs cursor-pointer select-none px-2.5 py-1.5 rounded border ${selected.size > 0 ? "border-blue-400 bg-blue-50 text-blue-700" : "border-gray-300 bg-white text-gray-600 hover:border-gray-400"}`}
+      >
+        {label}
+        {selected.size > 0 && (
+          <span className="inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full bg-blue-600 text-white text-[10px] font-semibold leading-none">
+            {selected.size}
+          </span>
+        )}
+        <span className="text-gray-400 text-[10px]">▾</span>
+      </button>
+      {open && (
+        <div className="absolute z-40 top-full left-0 mt-1 w-48 rounded-md border border-gray-200 bg-white shadow-lg p-1.5 space-y-0.5">
+          {options.map((key) => {
+            const { text, badgeClass, title } = describe(key);
+            return (
+              <label
+                key={key}
+                title={title}
+                className="flex items-center gap-2 text-xs cursor-pointer select-none px-2 py-1.5 rounded hover:bg-gray-50"
+              >
+                <input type="checkbox" checked={selected.has(key)} onChange={() => onToggle(key)} className="accent-blue-600" />
+                <span className={`inline-flex items-center rounded-full ${badgeClass} text-xs font-semibold px-2 py-0.5 whitespace-nowrap`}>
+                  {text}
+                </span>
+              </label>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function InfoDot({ text }: { text: string }) {
   const wrapRef = useRef<HTMLSpanElement>(null);
   const [align, setAlign] = useState<"left" | "right">("left");
@@ -438,33 +497,28 @@ export default function USBreakoutTable({
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none px-2 py-1.5 rounded border border-gray-300 bg-white hover:border-gray-400">
-            <input type="checkbox" checked={starredOnly} onChange={(e) => setStarredOnly(e.target.checked)} className="accent-yellow-500" />
-            ★ Starred only
-          </label>
-          {(Object.keys(STATUS_DEF) as (Exclude<BreakoutStatus, null>)[]).map((key) => (
-            <label
-              key={key}
-              title={STATUS_DEF[key].description}
-              className={`flex items-center gap-1.5 text-xs cursor-pointer select-none px-2 py-1.5 rounded border ${statusFilter.has(key) ? "border-blue-400 bg-blue-50" : "border-gray-300 bg-white hover:border-gray-400"}`}
-            >
-              <input type="checkbox" checked={statusFilter.has(key)} onChange={() => toggleStatusFilter(key)} className="accent-blue-600" />
-              <span className={`inline-flex items-center rounded-full ${STATUS_DEF[key].badgeClass} text-xs font-semibold px-2 py-0.5 whitespace-nowrap`}>
-                {STATUS_DEF[key].label}
-              </span>
-            </label>
-          ))}
-          {(Object.keys(TYPE_DEF) as ("benchmark" | "new")[]).map((key) => (
-            <label
-              key={key}
-              className={`flex items-center gap-1.5 text-xs cursor-pointer select-none px-2 py-1.5 rounded border ${typeFilter.has(key) ? "border-blue-400 bg-blue-50" : "border-gray-300 bg-white hover:border-gray-400"}`}
-            >
-              <input type="checkbox" checked={typeFilter.has(key)} onChange={() => toggleTypeFilter(key)} className="accent-blue-600" />
-              <span className={`inline-flex items-center rounded-full ${TYPE_DEF[key].badgeClass} text-xs font-semibold px-2 py-0.5 whitespace-nowrap`}>
-                {TYPE_DEF[key].label}
-              </span>
-            </label>
-          ))}
+          <button
+            type="button"
+            onClick={() => setStarredOnly((v) => !v)}
+            title="Starred only"
+            className={`flex items-center gap-1 text-xs cursor-pointer select-none px-2.5 py-1.5 rounded border ${starredOnly ? "border-yellow-400 bg-yellow-50 text-yellow-700" : "border-gray-300 bg-white text-gray-600 hover:border-gray-400"}`}
+          >
+            ★ Starred
+          </button>
+          <FilterDropdown
+            label="Status"
+            options={Object.keys(STATUS_DEF) as (Exclude<BreakoutStatus, null>)[]}
+            selected={statusFilter}
+            onToggle={toggleStatusFilter}
+            describe={(key) => ({ text: STATUS_DEF[key].label, badgeClass: STATUS_DEF[key].badgeClass, title: STATUS_DEF[key].description })}
+          />
+          <FilterDropdown
+            label="Type"
+            options={Object.keys(TYPE_DEF) as ("benchmark" | "new")[]}
+            selected={typeFilter}
+            onToggle={toggleTypeFilter}
+            describe={(key) => ({ text: TYPE_DEF[key].label, badgeClass: TYPE_DEF[key].badgeClass })}
+          />
           {stocks.length > 0 && (
             <button
               onClick={exportCsv}
