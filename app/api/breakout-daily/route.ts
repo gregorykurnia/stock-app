@@ -72,8 +72,8 @@ const EMPTY: BreakoutResult = {
   ema20d: null, ema50d: null, rsiCurrent: null, macdHistCurrent: null,
 };
 
-// Single 2-year daily chart fetch per ticker: the trailing 1Y window is scanned for the swing low,
-// the fuller 2Y history is available to search for the RSI-divergence anchor before it.
+// Single 2-year daily chart fetch per ticker: the full 2Y window is scanned for the swing low,
+// and the RSI-divergence anchor is searched for anywhere before it in that same history.
 async function fetchBreakoutDaily(ticker: string): Promise<BreakoutResult> {
   const now = new Date();
   const twoYearsAgo = new Date(now.getTime() - 2 * 365 * 24 * 3600 * 1000);
@@ -102,8 +102,8 @@ async function fetchBreakoutDaily(ticker: string): Promise<BreakoutResult> {
 
   const n = bars.length;
 
-  // Trailing 1Y window (last ~252 trading sessions) — where the swing low is scanned for.
-  const windowStart = Math.max(0, n - 252);
+  // Full trailing 2Y window (the entire fetched history) — where the swing low is scanned for.
+  const windowStart = 0;
   let swingLowIdx = windowStart;
   for (let i = windowStart; i < n; i++) {
     if (closes[i] < closes[swingLowIdx]) swingLowIdx = i;

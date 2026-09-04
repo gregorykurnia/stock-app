@@ -497,7 +497,7 @@ export default function USBreakoutTable({
               <Th label="Status" k="status" info="Divergence lifecycle: No Divergence (RSI at the low wasn't higher than the pre-low anchor) → Watching (divergence confirmed, MACD hasn't crossed bullish yet, price hasn't broken the low either) → Confirmed (MACD crossed above signal without price making a new low first) → Failed (price broke below the swing low before MACD confirmed)." />
               <Th label="Type" k="breakoutType" info="Manual classification tag — Benchmark or New. Filterable via the toggles above the table." />
               <Th label="Price" k="price" info="Latest close." />
-              <Th label="Swing Low" k="swingLow" info="Lowest daily close in the trailing 1Y window — the anchor point for the whole divergence read." />
+              <Th label="Swing Low" k="swingLow" info="Lowest daily close in the trailing 2Y window — the anchor point for the whole divergence read." />
               <Th label="Swing Low Date" k="swingLowDate" info="Date the swing low was set." />
               <Th label="% Above Low" k="pctAboveLow" info="Current price vs the swing low: (price − swing low) / swing low. Shows how far past the low you'd already be paying if entering now." />
               <Th label="RSI (Now)" k="rsiCurrent" info="Current RSI(14), daily." />
