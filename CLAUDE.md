@@ -214,47 +214,60 @@ Computed in `components/USSwingTable.tsx` for the "Stock Category" column. Separ
 
 ---
 
-## US BREAKOUT TAB — SPEC (planned)
+## US BREAKOUT TAB — SPEC (built)
 
-New top-level tab under **US**, same level as `List` / `Swing` / `Portfolio` / `Beaten Down` in the `mainTab` segmented control (`components/MasterTable.tsx` ~line 1729). `mainTab` value: `"breakout"`. Purpose: surface stocks that have printed a **bullish RSI/MACD divergence off a swing low** and track how far each one is through the confirmation sequence — divergence spotted → MACD histogram compressing → confirmed bullish cross. This formalizes the manual TEAM/WDAY-style walkthrough (see conversation) into a repeatable screener.
+Top-level tab under **US**, same level as `List` / `Swing` / `Portfolio` / `Beaten Down` in the `mainTab` segmented control (`components/MasterTable.tsx`). `mainTab` value: `"breakout"`. Manually-managed ticker list (not auto-populated), tagged `Type`: `benchmark` (historical names known to have already run, kept for calibration) or `new` (live candidates). Purpose: surface stocks that have printed a **bullish RSI/MACD divergence off a swing low** and track how far each one is through the confirmation sequence — divergence spotted → MACD histogram compressing → confirmed bullish cross.
 
-Reference computation logic (per ticker, daily timeframe, trailing ~1Y window):
-1. Find the swing low (lowest close) in the trailing window.
-2. Find the lowest RSI(14) point in the window **before** that swing low (the "divergence anchor").
-3. Confirm divergence: swing-low RSI > divergence-anchor RSI (price made a lower low, RSI made a higher low).
-4. Track MACD(12,26,9) histogram from the divergence anchor through the swing low (should be compressing toward zero — still red/negative, but shrinking).
-5. Scan forward from the swing low for the first day the histogram flips from negative to positive (MACD line crosses above signal line) — the confirmation trigger.
+Backend: `app/api/breakout-daily/route.ts` (per-ticker, daily timeframe, trailing 20-month fetch window). Frontend: `components/USBreakoutTable.tsx`. Scoring: `lib/breakoutScore.ts`.
 
-### Recommended columns
+Reference computation logic:
+1. Find the swing low (lowest close) in the trailing 20mo window.
+2. Find the highest close anywhere **before** the swing low in that same window (`preLowHigh`) — the peak it fell from. Not a strict calendar 2Y high since the window is 20mo, just the pre-low high within it.
+3. Find the lowest RSI(14) point in the window **before** the swing low (the "divergence anchor").
+4. Confirm divergence: swing-low RSI > divergence-anchor RSI (price made a lower low, RSI made a higher low). Status becomes `watching`.
+5. Track MACD(12,26,9) histogram from the divergence anchor through the swing low (should be compressing toward zero — still red/negative, but shrinking).
+6. Scan forward from the swing low for the first day the histogram flips from negative to positive (MACD line crosses above signal line) — the confirmation trigger. Status becomes `confirmed`. If price makes a new low before that happens, status becomes `failed`.
 
-| Column | Definition | Why it matters |
-|---|---|---|
-| **Ticker / Industry** | Standard | — |
-| **Swing Low Price** | Lowest close in the trailing 1Y window | Anchor point for the whole divergence read |
-| **Swing Low Date** | Date of that low | — |
-| **Current Price** | Latest close | — |
-| **% Above Swing Low** | `(current - swing_low) / swing_low` | How far past the low you'd already be paying if entering now |
-| **RSI at Swing Low** | RSI(14) on the swing low date | One half of the divergence comparison |
-| **Lowest RSI (Pre-Low)** | Lowest RSI(14) value in the window **before** the swing low | The divergence anchor — the "worse" oversold read |
-| **Lowest RSI Date** | Date of that anchor point | — |
-| **RSI Divergence %** | `(RSI_at_low - RSI_anchor) / RSI_anchor` | Divergence strength — TEAM showed +63%, WDAY +59.6%. Higher = more conviction |
-| **RSI Band Depth %** | How far below 30 the anchor RSI was, e.g. `(30 - RSI_anchor)/30` | Shows how extreme the original oversold read was (TEAM -47.4%, WDAY -42.3%) |
-| **MACD Hist at Anchor** | Histogram value at the RSI-anchor date | Starting bearish-momentum reading (red bar) |
-| **MACD Hist at Swing Low** | Histogram value at the swing-low date | Shows compression toward zero even as price fell further (TEAM -1.26→-0.19, WDAY -1.20→-0.89) |
-| **Histogram Compression** | `Hist_at_low - Hist_at_anchor` | Single number ranking conviction — TEAM's +1.07 was much stronger than WDAY's +0.30, and it showed up correctly in how each name later confirmed |
-| **MACD Cross Date** | First date after the swing low where histogram flips positive (MACD crosses above signal) | The actual confirmation trigger — not the low itself |
-| **Price at MACD Cross** | Close on the cross date | Realistic entry price if waiting for confirmation instead of guessing the low |
-| **% Above Low at Cross** | `(cross_price - swing_low) / swing_low` | Cost of waiting for confirmation (TEAM +15.5%, WDAY +10.3%) |
-| **Days Low → Cross** | Trading days between swing low and cross date | How fast the reversal confirmed — a slow crawl back vs a sharp V matters for position timing |
-| **Status** | `Divergence only` / `Confirmed (crossed)` / `Failed (made new low after divergence)` | Lets the screener flag names still waiting vs already actionable vs invalidated |
+### Breakout Score
 
-### Columns you may be missing
+0–10 composite (`lib/breakoutScore.ts`, `calcBreakoutScore`) measuring how closely a ticker's profile matches the benchmark pattern. Null until divergence is at least confirmed (`watching`/`confirmed`/`failed`; not scored while still `no_divergence`). Weighted components:
 
-- **Volume/OBV confirmation on the cross day** — a MACD cross on light volume is weaker evidence than one on a volume surge. Worth an ADV or Rel Volume column at the cross date specifically (distinct from the general liquidity column), since divergence + cross with no volume backing is a common false start.
-- **Post-cross follow-through check** — e.g. "still above cross-day close N days later" or "made a new higher high after the cross." Without this, a name can flip green for one day and roll over again; the tab would show it as "Confirmed" permanently even if it failed right after.
-- **Distance from EMA20D/EMA50D at the cross** — tells you whether the cross is happening while price is still below its short/medium trend (early, riskier) or has already reclaimed it (later, more confirmed) — same read as the "Dist EMA20D%" logic already used in the Swing tab.
-- **Days to Earnings** — same proximity-risk flag used elsewhere (14-day warning, 7-day hard no); a divergence + cross walking straight into an earnings print is a different risk profile than a clean setup.
-- **Prior failed-divergence count** — if a ticker has printed this pattern multiple times in the trailing window without ever confirming, that's useful context the single-instance columns above won't show.
+| Component | Weight | Full credit at | Notes |
+|---|---|---|---|
+| RSI Divergence % | 22% | ≥60% | |
+| RSI Band Depth % | 18% | ≥40% | |
+| Hist Compression | 22% | ≥+3.0 | Negative values penalized hard, not just zeroed |
+| % Decline From High | 12% | ≤-70% | 0 credit at ≤30% decline |
+| Days Low→Cross | 9% | ≤3 days | Neutral 5.0 if not yet confirmed |
+| % Above Low @ Cross | 9% | ≤10% | Neutral 5.0 if not yet confirmed |
+| Dist EMA50D @ Cross | 4% | still ≥25% below EMA50D at cross | Neutral 5.0 if not yet confirmed |
+| Rel Vol @ Cross | 4% | ≥1.0x | Neutral 5.0 if not yet confirmed |
+
+Fit against two small benchmark batches (13 names, then 22 with overlap) — the *direction* of every factor is well-grounded, but treat this as a fast triage/sanity-check, not a ranking to size positions off of. Re-validate weights whenever a new benchmark batch comes in (see conversation history for the CSV-driven calibration process).
+
+### Built columns (left to right, grouped)
+
+- **Overview**: Ticker, Industry, Added, Status (`no_divergence`/`watching`/`confirmed`/`failed`), Type (`benchmark`/`new`)
+- **Verdict**: Breakout Score, % Decline From High, RSI Divergence %, RSI Band Depth %, Hist Compression, ATR% (14-day, via `atrLabel` in `lib/indicators.ts`), Earnings Date (14-day proximity flag)
+- **Price & Levels**: Price, Swing Low(+date), % Above Low, Pre-Low High(+date)
+- **Divergence Detail**: RSI Now/at Low/anchor(+date/price), % Decline (Anchor→Low), Hist @ Anchor/Low, MACD Hist Now
+- **Confirmation Detail**: MACD Cross Date/Price, % Above Low @ Cross, Days Low→Cross, Dist EMA20D/EMA50D @ Cross, Rel Vol @ Cross
+- **Liquidity**: Short Float %, ADV
+
+Column order is deliberately decision-columns-first (Verdict group) then supporting/audit-trail detail — reorder here too if columns are added later, don't just append.
+
+### Known gaps (not yet built)
+
+- **Post-cross follow-through check** — a name can flip `confirmed` for one day and roll over again; there's no check for "still above cross-day close N days later."
+- **Prior failed-divergence count** — no history of how many times a ticker has printed this pattern without confirming.
+
+### Relationship to Coiling Reversal / Beaten Down tab
+
+Coiling (`lib/coilingScore.ts`) and Breakout are sequential stages of the same lifecycle, not competing opinions on the same names — expect weak/mildly negative correlation between their scores on a given ticker, by design:
+- **Coiling** finds candidates *before* they move — rewards quiet basing (ROC near 0, price hugging 30wk MA, RSI near 50, low ATR/BBW, volume drying up) and explicitly flags/penalizes momentum. Use it as the sourcing/early-warning watchlist.
+- **Breakout** confirms candidates *after* divergence has fired and (ideally) the MACD cross has happened. A name can't score well on both at once — by the time Breakout Score is high, price is already moving, which pushes the Coiling score down.
+- Workflow: source from Coiling → promote to Breakout once divergence shows up → treat Breakout `confirmed` (not `watching`) as the actionable/entry signal, with Price @ Cross as the realistic entry reference (not the swing low).
+- For swing-portfolio slot allocation, prefer Breakout `confirmed` names over Coiling scores directly — Coiling says nothing about current trend strength or how a name stacks against the other slots, which is what Grand Score / the US-Swing chat assistant is built to answer.
 
 ---
 
