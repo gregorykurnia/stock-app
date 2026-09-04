@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { downloadCsv } from "@/lib/exportCsv";
 
 export interface USBreakoutStock {
   ticker: string;
@@ -332,6 +333,54 @@ export default function USBreakoutTable({
     return dataRows;
   }, [filteredRows, sortKey, sortDir]);
 
+  function exportCsv() {
+    const date = new Date().toISOString().slice(0, 10);
+    const headers = [
+      "Ticker", "Industry", "Added", "Status", "Type", "Price",
+      "Swing Low", "Swing Low Date", "% Above Low",
+      "RSI (Now)", "RSI at Low", "Lowest RSI (Pre-Low)", "Anchor Date", "Price at Anchor", "% Decline (Anchor→Low)",
+      "RSI Divergence %", "RSI Band Depth %",
+      "Hist @ Anchor", "Hist @ Low", "Hist Compression", "MACD Hist (Now)",
+      "MACD Cross Date", "Price @ Cross", "% Above Low @ Cross", "Days Low→Cross",
+      "Dist EMA20D @ Cross", "Dist EMA50D @ Cross", "Rel Vol @ Cross",
+      "Short Float %", "ADV", "Earnings Date",
+    ];
+    const data = sortedRows.map((r) => [
+      r.ticker,
+      r.industry ?? "",
+      r.addedAt ? r.addedAt.slice(0, 10) : "",
+      r.status != null ? STATUS_DEF[r.status].label : "",
+      r.breakoutType != null ? TYPE_DEF[r.breakoutType].label : "",
+      r.price?.toFixed(2) ?? "",
+      r.swingLow?.toFixed(2) ?? "",
+      r.swingLowDate ?? "",
+      r.pctAboveLow?.toFixed(1) ?? "",
+      r.rsiCurrent?.toFixed(1) ?? "",
+      r.rsiAtLow?.toFixed(1) ?? "",
+      r.rsiAnchor?.toFixed(1) ?? "",
+      r.rsiAnchorDate ?? "",
+      r.rsiAnchorPrice?.toFixed(2) ?? "",
+      r.priceDeclinePct?.toFixed(1) ?? "",
+      r.rsiDivergencePct?.toFixed(1) ?? "",
+      r.rsiBandDepthPct?.toFixed(1) ?? "",
+      r.histAtAnchor?.toFixed(3) ?? "",
+      r.histAtLow?.toFixed(3) ?? "",
+      r.histCompression?.toFixed(3) ?? "",
+      r.macdHistCurrent?.toFixed(3) ?? "",
+      r.crossDate ?? "",
+      r.crossPrice?.toFixed(2) ?? "",
+      r.pctAboveLowAtCross?.toFixed(1) ?? "",
+      r.daysLowToCross ?? "",
+      r.distEma20AtCross?.toFixed(1) ?? "",
+      r.distEma50AtCross?.toFixed(1) ?? "",
+      r.relVolumeAtCross?.toFixed(2) ?? "",
+      r.shortFloat?.toFixed(1) ?? "",
+      r.adv?.toFixed(0) ?? "",
+      r.earnings ?? "",
+    ]);
+    downloadCsv(`us-breakout-${date}.csv`, headers, data);
+  }
+
   const Th = ({ label, k, info, sticky }: { label: string; k: SortKey; info?: string; sticky?: boolean }) => (
     <th
       className={`px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap select-none${sticky ? " sticky left-9 z-20 bg-gray-100 after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-gray-300 after:content-['']" : ""}`}
@@ -416,6 +465,14 @@ export default function USBreakoutTable({
               </span>
             </label>
           ))}
+          {stocks.length > 0 && (
+            <button
+              onClick={exportCsv}
+              className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded text-xs font-semibold"
+            >
+              Export CSV
+            </button>
+          )}
         </div>
       </div>
       <div className="text-xs text-gray-400 text-right -mt-1">
