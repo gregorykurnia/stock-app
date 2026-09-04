@@ -41,6 +41,9 @@ function macdSeriesFull(closes: number[]): { macd: number[]; signal: number[]; h
 interface BreakoutResult {
   swingLow: number | null;
   swingLowDate: string | null;
+  preLowHigh: number | null;
+  preLowHighDate: string | null;
+  declineFromHighPct: number | null;
   rsiAtLow: number | null;
   rsiAnchor: number | null;
   rsiAnchorDate: string | null;
@@ -67,7 +70,8 @@ interface BreakoutResult {
 }
 
 const EMPTY: BreakoutResult = {
-  swingLow: null, swingLowDate: null, rsiAtLow: null, rsiAnchor: null, rsiAnchorDate: null, rsiAnchorPrice: null, priceDeclinePct: null,
+  swingLow: null, swingLowDate: null, preLowHigh: null, preLowHighDate: null, declineFromHighPct: null,
+  rsiAtLow: null, rsiAnchor: null, rsiAnchorDate: null, rsiAnchorPrice: null, priceDeclinePct: null,
   rsiDivergencePct: null, rsiBandDepthPct: null, histAtAnchor: null, histAtLow: null, histCompression: null,
   crossDate: null, crossPrice: null, pctAboveLowAtCross: null, daysLowToCross: null,
   distEma20AtCross: null, distEma50AtCross: null, relVolumeAtCross: null, status: null,
@@ -113,6 +117,16 @@ async function fetchBreakoutDaily(ticker: string): Promise<BreakoutResult> {
   }
   const swingLow = closes[swingLowIdx];
   const swingLowDate = dateStr(swingLowIdx);
+
+  // Highest close anywhere before the swing low, in the same fetched window — how far the stock
+  // fell before bottoming. Not a strict calendar 2Y high (the window is 20mo), just the pre-low peak.
+  let preLowHighIdx: number | null = null;
+  for (let i = 0; i < swingLowIdx; i++) {
+    if (preLowHighIdx == null || closes[i] > closes[preLowHighIdx]) preLowHighIdx = i;
+  }
+  const preLowHigh = preLowHighIdx != null ? closes[preLowHighIdx] : null;
+  const preLowHighDate = preLowHighIdx != null ? dateStr(preLowHighIdx) : null;
+  const declineFromHighPct = preLowHigh != null && preLowHigh > 0 ? ((swingLow - preLowHigh) / preLowHigh) * 100 : null;
 
   // Lowest RSI point strictly before the swing low, anywhere in the fetched history.
   let anchorIdx: number | null = null;
@@ -172,7 +186,8 @@ async function fetchBreakoutDaily(ticker: string): Promise<BreakoutResult> {
   });
 
   return {
-    swingLow, swingLowDate, rsiAtLow, rsiAnchor, rsiAnchorDate, rsiAnchorPrice, priceDeclinePct,
+    swingLow, swingLowDate, preLowHigh, preLowHighDate, declineFromHighPct,
+    rsiAtLow, rsiAnchor, rsiAnchorDate, rsiAnchorPrice, priceDeclinePct,
     rsiDivergencePct, rsiBandDepthPct, histAtAnchor, histAtLow, histCompression,
     crossDate, crossPrice, pctAboveLowAtCross, daysLowToCross,
     distEma20AtCross, distEma50AtCross, relVolumeAtCross, status,
@@ -190,7 +205,8 @@ export async function GET(req: NextRequest) {
   const tickers = param.split(",").map((t) => t.trim().toUpperCase()).filter(Boolean);
 
   const out: Record<keyof BreakoutResult, Record<string, unknown>> = {
-    swingLow: {}, swingLowDate: {}, rsiAtLow: {}, rsiAnchor: {}, rsiAnchorDate: {}, rsiAnchorPrice: {}, priceDeclinePct: {},
+    swingLow: {}, swingLowDate: {}, preLowHigh: {}, preLowHighDate: {}, declineFromHighPct: {},
+    rsiAtLow: {}, rsiAnchor: {}, rsiAnchorDate: {}, rsiAnchorPrice: {}, priceDeclinePct: {},
     rsiDivergencePct: {}, rsiBandDepthPct: {}, histAtAnchor: {}, histAtLow: {}, histCompression: {},
     crossDate: {}, crossPrice: {}, pctAboveLowAtCross: {}, daysLowToCross: {},
     distEma20AtCross: {}, distEma50AtCross: {}, relVolumeAtCross: {}, status: {},

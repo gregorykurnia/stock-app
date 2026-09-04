@@ -16,6 +16,7 @@ export type BreakoutStatus = "no_divergence" | "watching" | "confirmed" | "faile
 
 type SortKey =
   | "ticker" | "industry" | "addedAt" | "status" | "breakoutType" | "price" | "swingLow" | "swingLowDate" | "pctAboveLow"
+  | "preLowHigh" | "preLowHighDate" | "declineFromHighPct"
   | "rsiCurrent" | "rsiAtLow" | "rsiAnchor" | "rsiAnchorDate" | "rsiAnchorPrice" | "priceDeclinePct" | "rsiDivergencePct" | "rsiBandDepthPct"
   | "histAtAnchor" | "histAtLow" | "histCompression" | "macdHistCurrent"
   | "crossDate" | "crossPrice" | "pctAboveLowAtCross" | "daysLowToCross"
@@ -28,6 +29,7 @@ interface Props {
   prices: Record<string, number | null>;
   data: Record<string, {
     swingLow: number | null; swingLowDate: string | null;
+    preLowHigh: number | null; preLowHighDate: string | null; declineFromHighPct: number | null;
     rsiAtLow: number | null; rsiAnchor: number | null; rsiAnchorDate: string | null; rsiAnchorPrice: number | null; priceDeclinePct: number | null;
     rsiDivergencePct: number | null; rsiBandDepthPct: number | null;
     histAtAnchor: number | null; histAtLow: number | null; histCompression: number | null;
@@ -309,6 +311,9 @@ export default function USBreakoutTable({
         price,
         swingLow: d?.swingLow ?? null,
         swingLowDate: d?.swingLowDate ?? null,
+        preLowHigh: d?.preLowHigh ?? null,
+        preLowHighDate: d?.preLowHighDate ?? null,
+        declineFromHighPct: d?.declineFromHighPct ?? null,
         pctAboveLow,
         rsiCurrent: d?.rsiCurrent ?? null,
         rsiAtLow: d?.rsiAtLow ?? null,
@@ -360,6 +365,9 @@ export default function USBreakoutTable({
         case "price": return r.price;
         case "swingLow": return r.swingLow;
         case "swingLowDate": return r.swingLowDate;
+        case "preLowHigh": return r.preLowHigh;
+        case "preLowHighDate": return r.preLowHighDate;
+        case "declineFromHighPct": return r.declineFromHighPct;
         case "pctAboveLow": return r.pctAboveLow;
         case "rsiCurrent": return r.rsiCurrent;
         case "rsiAtLow": return r.rsiAtLow;
@@ -406,7 +414,7 @@ export default function USBreakoutTable({
     const date = new Date().toISOString().slice(0, 10);
     const headers = [
       "Ticker", "Industry", "Added", "Status", "Type", "Price",
-      "Swing Low", "Swing Low Date", "% Above Low",
+      "Swing Low", "Swing Low Date", "Pre-Low High", "Pre-Low High Date", "% Decline From High", "% Above Low",
       "RSI (Now)", "RSI at Low", "Lowest RSI (Pre-Low)", "Anchor Date", "Price at Anchor", "% Decline (Anchor→Low)",
       "RSI Divergence %", "RSI Band Depth %",
       "Hist @ Anchor", "Hist @ Low", "Hist Compression", "MACD Hist (Now)",
@@ -423,6 +431,9 @@ export default function USBreakoutTable({
       r.price?.toFixed(2) ?? "",
       r.swingLow?.toFixed(2) ?? "",
       r.swingLowDate ?? "",
+      r.preLowHigh?.toFixed(2) ?? "",
+      r.preLowHighDate ?? "",
+      r.declineFromHighPct?.toFixed(1) ?? "",
       r.pctAboveLow?.toFixed(1) ?? "",
       r.rsiCurrent?.toFixed(1) ?? "",
       r.rsiAtLow?.toFixed(1) ?? "",
@@ -548,7 +559,7 @@ export default function USBreakoutTable({
           <thead className="bg-gray-100 border-b border-gray-200 sticky top-0 z-30">
             <tr className="border-b border-gray-200">
               <th colSpan={2} className="px-2 py-1 sticky left-0 z-20 bg-gray-100" />
-              <th colSpan={7} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Overview</th>
+              <th colSpan={10} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Overview</th>
               <th colSpan={9} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">RSI / MACD Divergence</th>
               <th colSpan={7} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Confirmation (MACD Cross)</th>
               <th colSpan={3} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Risk</th>
@@ -565,6 +576,9 @@ export default function USBreakoutTable({
               <Th label="Price" k="price" info="Latest close." />
               <Th label="Swing Low" k="swingLow" info="Lowest daily close in the trailing 20-month window — the anchor point for the whole divergence read." />
               <Th label="Swing Low Date" k="swingLowDate" info="Date the swing low was set." />
+              <Th label="Pre-Low High" k="preLowHigh" info="Highest close anywhere in the fetched window (up to 20 months) before the swing low — the peak the stock fell from. Not a strict calendar 2Y high, just the pre-low high within the window." />
+              <Th label="Pre-Low High Date" k="preLowHighDate" info="Date the pre-low high was set." />
+              <Th label="% Decline From High" k="declineFromHighPct" info="(swing low − pre-low high) / pre-low high × 100. How many % beaten down the stock was at its lowest point, measured from its pre-low high — a quick read on how violent the drawdown was before the reversal." />
               <Th label="% Above Low" k="pctAboveLow" info="Current price vs the swing low: (price − swing low) / swing low. Shows how far past the low you'd already be paying if entering now." />
               <Th label="RSI (Now)" k="rsiCurrent" info="Current RSI(14), daily." />
               <Th label="RSI at Low" k="rsiAtLow" info="RSI(14) reading on the swing low date — one half of the divergence comparison." />
@@ -593,7 +607,7 @@ export default function USBreakoutTable({
           </thead>
           <tbody className="divide-y divide-gray-100">
             {sortedRows.length === 0 && (
-              <tr><td colSpan={33} className="px-3 py-6 text-center text-gray-400 text-sm">{starredOnly ? "No starred tickers." : "No tickers yet — add one above."}</td></tr>
+              <tr><td colSpan={36} className="px-3 py-6 text-center text-gray-400 text-sm">{starredOnly ? "No starred tickers." : "No tickers yet — add one above."}</td></tr>
             )}
             {sortedRows.map((r) => (
               <tr key={r.ticker} className="hover:bg-gray-50">
@@ -641,6 +655,9 @@ export default function USBreakoutTable({
                 <td className="px-3 py-2 font-medium text-gray-900">{r.price != null ? `$${r.price.toFixed(2)}` : dash}</td>
                 <td className="px-3 py-2 text-gray-700">{r.swingLow != null ? `$${r.swingLow.toFixed(2)}` : dash}</td>
                 <td className="px-3 py-2 text-gray-600 text-xs whitespace-nowrap">{r.swingLowDate ?? dash}</td>
+                <td className="px-3 py-2 text-gray-700">{r.preLowHigh != null ? `$${r.preLowHigh.toFixed(2)}` : dash}</td>
+                <td className="px-3 py-2 text-gray-600 text-xs whitespace-nowrap">{r.preLowHighDate ?? dash}</td>
+                <td className={`px-3 py-2 ${priceDeclineClass(r.declineFromHighPct)}`}>{r.declineFromHighPct != null ? `${r.declineFromHighPct.toFixed(1)}%` : dash}</td>
                 <td className={`px-3 py-2 ${pctAboveLowClass(r.pctAboveLow)}`}>{r.pctAboveLow != null ? `${r.pctAboveLow.toFixed(1)}%` : dash}</td>
                 <td className={`px-3 py-2 ${rsiClass(r.rsiCurrent)}`}>{r.rsiCurrent != null ? r.rsiCurrent.toFixed(1) : dash}</td>
                 <td className={`px-3 py-2 ${rsiClass(r.rsiAtLow)}`}>{r.rsiAtLow != null ? r.rsiAtLow.toFixed(1) : dash}</td>

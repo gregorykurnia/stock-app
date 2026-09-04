@@ -105,6 +105,7 @@ export default function Home() {
   interface UsBreakoutStock { ticker: string; name: string | null; industry: string | null; starred?: boolean; addedAt?: string | null; breakoutType?: "benchmark" | "new" }
   interface UsBreakoutData {
     swingLow: number | null; swingLowDate: string | null;
+    preLowHigh: number | null; preLowHighDate: string | null; declineFromHighPct: number | null;
     rsiAtLow: number | null; rsiAnchor: number | null; rsiAnchorDate: string | null; rsiAnchorPrice: number | null; priceDeclinePct: number | null;
     rsiDivergencePct: number | null; rsiBandDepthPct: number | null;
     histAtAnchor: number | null; histAtLow: number | null; histCompression: number | null;
@@ -372,6 +373,7 @@ export default function Home() {
           for (const t of tickers) {
             next[t] = {
               swingLow: d.swingLow?.[t] ?? null, swingLowDate: d.swingLowDate?.[t] ?? null,
+              preLowHigh: d.preLowHigh?.[t] ?? null, preLowHighDate: d.preLowHighDate?.[t] ?? null, declineFromHighPct: d.declineFromHighPct?.[t] ?? null,
               rsiAtLow: d.rsiAtLow?.[t] ?? null, rsiAnchor: d.rsiAnchor?.[t] ?? null, rsiAnchorDate: d.rsiAnchorDate?.[t] ?? null,
               rsiAnchorPrice: d.rsiAnchorPrice?.[t] ?? null, priceDeclinePct: d.priceDeclinePct?.[t] ?? null,
               rsiDivergencePct: d.rsiDivergencePct?.[t] ?? null, rsiBandDepthPct: d.rsiBandDepthPct?.[t] ?? null,

@@ -207,6 +207,7 @@ interface Props {
   usBreakoutPrices?: Record<string, number | null>;
   usBreakoutData?: Record<string, {
     swingLow: number | null; swingLowDate: string | null;
+    preLowHigh: number | null; preLowHighDate: string | null; declineFromHighPct: number | null;
     rsiAtLow: number | null; rsiAnchor: number | null; rsiAnchorDate: string | null; rsiAnchorPrice: number | null; priceDeclinePct: number | null;
     rsiDivergencePct: number | null; rsiBandDepthPct: number | null;
     histAtAnchor: number | null; histAtLow: number | null; histCompression: number | null;
