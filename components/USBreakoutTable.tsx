@@ -49,6 +49,22 @@ interface Props {
 
 const dash = <span className="text-gray-400">—</span>;
 
+function InfoDot({ text }: { text: string }) {
+  return (
+    <span className="relative inline-block group/info align-middle ml-1">
+      <span
+        onClick={(e) => e.stopPropagation()}
+        className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-gray-400 text-[9px] leading-none text-gray-400 group-hover/info:text-gray-700 group-hover/info:border-gray-700 normal-case font-normal cursor-help"
+      >
+        i
+      </span>
+      <span className="invisible opacity-0 group-hover/info:visible group-hover/info:opacity-100 transition-opacity absolute z-50 top-full left-1/2 -translate-x-1/2 mt-1 w-64 rounded-md border border-gray-200 bg-white shadow-lg p-2 text-left normal-case font-normal text-[11px] text-gray-700 leading-snug">
+        {text}
+      </span>
+    </span>
+  );
+}
+
 const STATUS_DEF: Record<Exclude<BreakoutStatus, null>, { label: string; badgeClass: string; description: string }> = {
   no_divergence: {
     label: "No Divergence", badgeClass: "bg-gray-100 text-gray-500",
@@ -276,13 +292,14 @@ export default function USBreakoutTable({
     return dataRows;
   }, [filteredRows, sortKey, sortDir]);
 
-  const Th = ({ label, k, title, sticky }: { label: string; k: SortKey; title?: string; sticky?: boolean }) => (
+  const Th = ({ label, k, info, sticky }: { label: string; k: SortKey; info?: string; sticky?: boolean }) => (
     <th
-      title={title}
-      className={`px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide cursor-pointer hover:text-gray-900 whitespace-nowrap select-none${sticky ? " sticky left-9 z-20 bg-gray-100 after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-gray-300 after:content-['']" : ""}`}
-      onClick={() => toggleSort(k)}
+      className={`px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap select-none${sticky ? " sticky left-9 z-20 bg-gray-100 after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-gray-300 after:content-['']" : ""}`}
     >
-      {label}{sortKey === k ? (sortDir === "desc" ? " ↓" : " ↑") : ""}
+      <span className="cursor-pointer hover:text-gray-900" onClick={() => toggleSort(k)}>
+        {label}{sortKey === k ? (sortDir === "desc" ? " ↓" : " ↑") : ""}
+      </span>
+      {info && <InfoDot text={info} />}
     </th>
   );
 
@@ -366,34 +383,34 @@ export default function USBreakoutTable({
             </tr>
             <tr>
               <th className="w-9 px-2 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap sticky left-0 z-20 bg-gray-100">★</th>
-              <Th label="Ticker" k="ticker" sticky />
-              <Th label="Industry" k="industry" />
-              <Th label="Added" k="addedAt" />
-              <Th label="Status" k="status" title="Divergence lifecycle: No Divergence → Watching (divergence confirmed, no MACD cross yet) → Confirmed (MACD crossed bullish) or Failed (price broke below the swing low first)" />
-              <Th label="Price" k="price" />
-              <Th label="Swing Low" k="swingLow" title="Lowest close in the trailing 1Y window" />
-              <Th label="Swing Low Date" k="swingLowDate" />
-              <Th label="% Above Low" k="pctAboveLow" title="Current price vs the swing low" />
-              <Th label="RSI (Now)" k="rsiCurrent" />
-              <Th label="RSI at Low" k="rsiAtLow" title="RSI(14) on the swing low date" />
-              <Th label="Lowest RSI (Pre-Low)" k="rsiAnchor" title="Lowest RSI(14) reading before the swing low — the divergence anchor" />
-              <Th label="Anchor Date" k="rsiAnchorDate" />
-              <Th label="RSI Divergence %" k="rsiDivergencePct" title="(RSI at low − RSI anchor) / RSI anchor. Higher = stronger divergence, e.g. TEAM +63%, WDAY +59.6%" />
-              <Th label="RSI Band Depth %" k="rsiBandDepthPct" title="How far below the 30 oversold line the anchor RSI was: (30 − anchor)/30" />
-              <Th label="Hist @ Anchor" k="histAtAnchor" title="MACD histogram value at the RSI-anchor date" />
-              <Th label="Hist @ Low" k="histAtLow" title="MACD histogram value at the swing-low date" />
-              <Th label="Hist Compression" k="histCompression" title="Hist@Low − Hist@Anchor. Positive = momentum decelerating into the low (TEAM +1.07, WDAY +0.30)" />
-              <Th label="MACD Hist (Now)" k="macdHistCurrent" />
-              <Th label="MACD Cross Date" k="crossDate" title="First date after the swing low the MACD line crossed above the signal line" />
-              <Th label="Price @ Cross" k="crossPrice" />
-              <Th label="% Above Low @ Cross" k="pctAboveLowAtCross" title="Cost of waiting for confirmation vs buying the swing low" />
-              <Th label="Days Low→Cross" k="daysLowToCross" />
-              <Th label="Dist EMA20D @ Cross" k="distEma20AtCross" />
-              <Th label="Dist EMA50D @ Cross" k="distEma50AtCross" />
-              <Th label="Rel Vol @ Cross" k="relVolumeAtCross" title="Cross-day volume vs its trailing 20-day average — volume confirmation on the cross" />
-              <Th label="Short Float %" k="shortFloat" />
-              <Th label="ADV" k="adv" title="Average daily volume (3-month)" />
-              <Th label="Earnings Date" k="earnings" />
+              <Th label="Ticker" k="ticker" sticky info="Stock symbol." />
+              <Th label="Industry" k="industry" info="Sector/industry classification." />
+              <Th label="Added" k="addedAt" info="Date this ticker was added to your Breakout watchlist." />
+              <Th label="Status" k="status" info="Divergence lifecycle: No Divergence (RSI at the low wasn't higher than the pre-low anchor) → Watching (divergence confirmed, MACD hasn't crossed bullish yet, price hasn't broken the low either) → Confirmed (MACD crossed above signal without price making a new low first) → Failed (price broke below the swing low before MACD confirmed)." />
+              <Th label="Price" k="price" info="Latest close." />
+              <Th label="Swing Low" k="swingLow" info="Lowest daily close in the trailing 1Y window — the anchor point for the whole divergence read." />
+              <Th label="Swing Low Date" k="swingLowDate" info="Date the swing low was set." />
+              <Th label="% Above Low" k="pctAboveLow" info="Current price vs the swing low: (price − swing low) / swing low. Shows how far past the low you'd already be paying if entering now." />
+              <Th label="RSI (Now)" k="rsiCurrent" info="Current RSI(14), daily." />
+              <Th label="RSI at Low" k="rsiAtLow" info="RSI(14) reading on the swing low date — one half of the divergence comparison." />
+              <Th label="Lowest RSI (Pre-Low)" k="rsiAnchor" info="The lowest RSI(14) value anywhere before the swing low — the divergence anchor, i.e. the 'more oversold' earlier extreme." />
+              <Th label="Anchor Date" k="rsiAnchorDate" info="Date the RSI anchor (lowest pre-low RSI) occurred." />
+              <Th label="RSI Divergence %" k="rsiDivergencePct" info="(RSI at low − RSI anchor) / RSI anchor × 100. Positive = price made a lower low but RSI made a higher low (bullish divergence). Higher % = stronger divergence, e.g. TEAM +63%, WDAY +59.6%." />
+              <Th label="RSI Band Depth %" k="rsiBandDepthPct" info="How far below the standard 30 oversold line the anchor RSI was: (30 − anchor)/30 × 100. Shows how extreme the original oversold read was." />
+              <Th label="Hist @ Anchor" k="histAtAnchor" info="MACD histogram value on the RSI-anchor date — the starting bearish-momentum reading (red bar)." />
+              <Th label="Hist @ Low" k="histAtLow" info="MACD histogram value on the swing-low date." />
+              <Th label="Hist Compression" k="histCompression" info="Hist@Low − Hist@Anchor. Positive = the histogram shrank toward zero (momentum decelerating) even as price fell further into the low — the MACD-side confirmation of the RSI divergence. TEAM +1.07, WDAY +0.30." />
+              <Th label="MACD Hist (Now)" k="macdHistCurrent" info="Current MACD histogram value (MACD line minus signal line). Negative = red bar, positive = green bar." />
+              <Th label="MACD Cross Date" k="crossDate" info="First date after the swing low where the MACD line crossed above the signal line (histogram flips from negative to positive) — the confirmation trigger, not the low itself." />
+              <Th label="Price @ Cross" k="crossPrice" info="Close price on the MACD cross date — the realistic entry price if you wait for confirmation instead of guessing the low." />
+              <Th label="% Above Low @ Cross" k="pctAboveLowAtCross" info="(cross price − swing low) / swing low × 100. The cost of waiting for confirmation vs buying right at the low." />
+              <Th label="Days Low→Cross" k="daysLowToCross" info="Trading days between the swing low and the MACD cross — how fast the reversal confirmed." />
+              <Th label="Dist EMA20D @ Cross" k="distEma20AtCross" info="Price vs EMA20(daily) on the cross date. Near zero = cross happened right at the short-term trend line; far above = price had already run before confirming." />
+              <Th label="Dist EMA50D @ Cross" k="distEma50AtCross" info="Price vs EMA50(daily) on the cross date — same idea, medium-term trend line." />
+              <Th label="Rel Vol @ Cross" k="relVolumeAtCross" info="Volume on the MACD cross date vs its trailing 20-day average. A cross on a volume surge (≥1.5x) is stronger evidence than one on light volume." />
+              <Th label="Short Float %" k="shortFloat" info="% of float sold short. High values mean a more contested/battleground name." />
+              <Th label="ADV" k="adv" info="Average daily volume (3-month) — liquidity check." />
+              <Th label="Earnings Date" k="earnings" info="Next/last reported earnings date, with days until in brackets. Within 14 days is a proximity risk flag." />
               <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Remove</th>
             </tr>
           </thead>
