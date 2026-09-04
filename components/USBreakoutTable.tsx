@@ -1,0 +1,471 @@
+"use client";
+
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+
+export interface USBreakoutStock {
+  ticker: string;
+  name: string | null;
+  industry: string | null;
+  starred?: boolean;
+  addedAt?: string | null;
+}
+
+export type BreakoutStatus = "no_divergence" | "watching" | "confirmed" | "failed" | null;
+
+type SortKey =
+  | "ticker" | "industry" | "addedAt" | "status" | "price" | "swingLow" | "swingLowDate" | "pctAboveLow"
+  | "rsiCurrent" | "rsiAtLow" | "rsiAnchor" | "rsiAnchorDate" | "rsiDivergencePct" | "rsiBandDepthPct"
+  | "histAtAnchor" | "histAtLow" | "histCompression" | "macdHistCurrent"
+  | "crossDate" | "crossPrice" | "pctAboveLowAtCross" | "daysLowToCross"
+  | "distEma20AtCross" | "distEma50AtCross" | "relVolumeAtCross"
+  | "shortFloat" | "adv" | "earnings";
+type SortDir = "asc" | "desc";
+
+interface Props {
+  stocks: USBreakoutStock[];
+  prices: Record<string, number | null>;
+  data: Record<string, {
+    swingLow: number | null; swingLowDate: string | null;
+    rsiAtLow: number | null; rsiAnchor: number | null; rsiAnchorDate: string | null;
+    rsiDivergencePct: number | null; rsiBandDepthPct: number | null;
+    histAtAnchor: number | null; histAtLow: number | null; histCompression: number | null;
+    crossDate: string | null; crossPrice: number | null; pctAboveLowAtCross: number | null; daysLowToCross: number | null;
+    distEma20AtCross: number | null; distEma50AtCross: number | null; relVolumeAtCross: number | null;
+    status: BreakoutStatus;
+    rsiCurrent: number | null; macdHistCurrent: number | null;
+  }>;
+  shortFloats?: Record<string, number | null>;
+  advs?: Record<string, number | null>;
+  earnings?: Record<string, string | null>;
+  loading?: boolean;
+  addTicker?: string;
+  addLoading?: boolean;
+  addError?: string;
+  onAddTickerChange?: (v: string) => void;
+  onAdd?: (e: FormEvent) => void;
+  onRemove?: (ticker: string) => void;
+  onToggleStar?: (ticker: string) => void;
+}
+
+const dash = <span className="text-gray-400">—</span>;
+
+const STATUS_DEF: Record<Exclude<BreakoutStatus, null>, { label: string; badgeClass: string; description: string }> = {
+  no_divergence: {
+    label: "No Divergence", badgeClass: "bg-gray-100 text-gray-500",
+    description: "RSI at the swing low was not higher than the lowest pre-low RSI reading — no bullish divergence detected in the trailing window.",
+  },
+  watching: {
+    label: "Watching", badgeClass: "bg-blue-100 text-blue-700",
+    description: "Bullish RSI divergence confirmed at the swing low, but MACD hasn't crossed bullish yet and price hasn't broken below the low either — still building.",
+  },
+  confirmed: {
+    label: "Confirmed", badgeClass: "bg-green-100 text-green-700",
+    description: "Divergence confirmed and MACD line crossed above signal (histogram flipped positive) without price making a new low first.",
+  },
+  failed: {
+    label: "Failed", badgeClass: "bg-red-100 text-red-700",
+    description: "Divergence formed, but price broke below the swing low again before MACD confirmed — the divergence didn't hold.",
+  },
+};
+
+const rsiClass = (v: number | null) => {
+  if (v == null) return "text-gray-400";
+  if (v < 30) return "text-red-500 font-semibold";
+  if (v < 40) return "text-orange-500 font-medium";
+  if (v <= 60) return "text-gray-700";
+  if (v <= 70) return "text-blue-600 font-medium";
+  return "text-yellow-600 font-semibold";
+};
+
+const divergenceClass = (v: number | null) =>
+  v == null ? "text-gray-400"
+    : v <= 0 ? "text-red-500 font-medium"
+    : v < 20 ? "text-gray-500"
+    : v < 40 ? "text-blue-600 font-medium"
+    : "text-green-600 font-semibold";
+
+const compressionClass = (v: number | null) =>
+  v == null ? "text-gray-400"
+    : v <= 0 ? "text-red-500 font-medium"
+    : v < 0.5 ? "text-gray-500"
+    : v < 1 ? "text-blue-600 font-medium"
+    : "text-green-600 font-semibold";
+
+const bandDepthClass = (v: number | null) =>
+  v == null ? "text-gray-400"
+    : v >= 40 ? "text-green-600 font-semibold"
+    : v >= 15 ? "text-blue-600 font-medium"
+    : v >= 0 ? "text-gray-500"
+    : "text-gray-400";
+
+const histClass = (v: number | null) =>
+  v == null ? "text-gray-400" : v >= 0 ? "text-green-600 font-medium" : "text-red-500 font-medium";
+
+const pctAboveLowClass = (v: number | null) =>
+  v == null ? "text-gray-400"
+    : v <= 10 ? "text-green-600 font-semibold"
+    : v <= 20 ? "text-blue-600 font-medium"
+    : v <= 35 ? "text-yellow-600 font-medium"
+    : "text-orange-500 font-semibold";
+
+const distEmaClass = (v: number | null) =>
+  v == null ? "text-gray-400"
+    : Math.abs(v) <= 3 ? "text-green-600 font-medium"
+    : Math.abs(v) <= 7 ? "text-blue-600"
+    : "text-yellow-600";
+
+const relVolClass = (v: number | null) =>
+  v == null ? "text-gray-400" : v >= 1.5 ? "text-green-600 font-semibold" : v <= 0.7 ? "text-gray-400" : "text-gray-700";
+
+const shortFloatColor = (v: number | null) =>
+  v == null ? "text-gray-400" : v >= 0.2 ? "text-red-500 font-semibold" : v >= 0.1 ? "text-yellow-600" : "text-gray-700";
+
+const daysToConfirmClass = (v: number | null) =>
+  v == null ? "text-gray-400" : v <= 10 ? "text-green-600 font-medium" : v <= 25 ? "text-blue-600" : "text-gray-700";
+
+function fmtAdv(v: number | null) {
+  if (v == null) return dash;
+  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
+  if (v >= 1_000) return `${(v / 1_000).toFixed(0)}K`;
+  return v.toFixed(0);
+}
+
+export function daysUntilEarnings(earningsDate: string | null): number | null {
+  if (!earningsDate) return null;
+  const today = new Date().toISOString().slice(0, 10);
+  return Math.round((new Date(earningsDate + "T00:00:00Z").getTime() - new Date(today + "T00:00:00Z").getTime()) / 86400000);
+}
+
+function EarningsCell({ dateStr }: { dateStr: string | null }) {
+  if (!dateStr) return <>{dash}</>;
+  const daysUntil = daysUntilEarnings(dateStr);
+  const bracket = daysUntil == null ? "" : daysUntil < 0 ? `(reported)` : `(${daysUntil}d)`;
+  const color = daysUntil != null && daysUntil >= 0 && daysUntil <= 14 ? "text-yellow-600 font-semibold" : "text-gray-700";
+  return (
+    <span className={color}>
+      {dateStr} <span className="text-gray-400 font-normal">{bracket}</span>
+    </span>
+  );
+}
+
+export default function USBreakoutTable({
+  stocks, prices, data, shortFloats = {}, advs = {}, earnings = {}, loading = false,
+  addTicker = "", addLoading = false, addError = "", onAddTickerChange, onAdd, onRemove, onToggleStar,
+}: Props) {
+  const [sortKey, setSortKey] = useState<SortKey>("status");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [starredOnly, setStarredOnly] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<Set<Exclude<BreakoutStatus, null>>>(new Set());
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(searchInput.trim().toUpperCase()), 400);
+    return () => clearTimeout(t);
+  }, [searchInput]);
+
+  const onListTicker = useMemo(() => new Set(stocks.map((s) => s.ticker.toUpperCase())), [stocks]);
+  const isOnList = search !== "" && onListTicker.has(search);
+
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else { setSortKey(key); setSortDir(key === "ticker" || key === "industry" ? "asc" : "desc"); }
+  }
+
+  function toggleStatusFilter(key: Exclude<BreakoutStatus, null>) {
+    setStatusFilter((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }
+
+  const rows = useMemo(() => {
+    return stocks.map((s) => {
+      const d = data[s.ticker];
+      const price = prices[s.ticker] ?? null;
+      const pctAboveLow = price != null && d?.swingLow != null && d.swingLow > 0 ? ((price - d.swingLow) / d.swingLow) * 100 : null;
+      const earningsDate = earnings[s.ticker] ?? null;
+      return {
+        ...s,
+        price,
+        swingLow: d?.swingLow ?? null,
+        swingLowDate: d?.swingLowDate ?? null,
+        pctAboveLow,
+        rsiCurrent: d?.rsiCurrent ?? null,
+        rsiAtLow: d?.rsiAtLow ?? null,
+        rsiAnchor: d?.rsiAnchor ?? null,
+        rsiAnchorDate: d?.rsiAnchorDate ?? null,
+        rsiDivergencePct: d?.rsiDivergencePct ?? null,
+        rsiBandDepthPct: d?.rsiBandDepthPct ?? null,
+        histAtAnchor: d?.histAtAnchor ?? null,
+        histAtLow: d?.histAtLow ?? null,
+        histCompression: d?.histCompression ?? null,
+        macdHistCurrent: d?.macdHistCurrent ?? null,
+        crossDate: d?.crossDate ?? null,
+        crossPrice: d?.crossPrice ?? null,
+        pctAboveLowAtCross: d?.pctAboveLowAtCross ?? null,
+        daysLowToCross: d?.daysLowToCross ?? null,
+        distEma20AtCross: d?.distEma20AtCross ?? null,
+        distEma50AtCross: d?.distEma50AtCross ?? null,
+        relVolumeAtCross: d?.relVolumeAtCross ?? null,
+        status: d?.status ?? null,
+        shortFloat: shortFloats[s.ticker] ?? null,
+        adv: advs[s.ticker] ?? null,
+        earnings: earningsDate,
+        earningsDaysUntil: daysUntilEarnings(earningsDate),
+      };
+    });
+  }, [stocks, prices, data, shortFloats, advs, earnings]);
+
+  const filteredRows = useMemo(() => {
+    let out = starredOnly ? rows.filter((r) => r.starred) : rows;
+    if (search) out = out.filter((r) => r.ticker.toUpperCase().includes(search) || r.name?.toUpperCase().includes(search));
+    if (statusFilter.size > 0) out = out.filter((r) => r.status != null && statusFilter.has(r.status));
+    return out;
+  }, [rows, starredOnly, search, statusFilter]);
+
+  const STATUS_RANK: Record<string, number> = { confirmed: 3, watching: 2, failed: 1, no_divergence: 0 };
+
+  const sortedRows = useMemo(() => {
+    const getVal = (r: (typeof rows)[number]): number | string | null => {
+      switch (sortKey) {
+        case "ticker": return r.ticker;
+        case "industry": return r.industry;
+        case "addedAt": return r.addedAt ?? null;
+        case "status": return r.status != null ? STATUS_RANK[r.status] : -1;
+        case "price": return r.price;
+        case "swingLow": return r.swingLow;
+        case "swingLowDate": return r.swingLowDate;
+        case "pctAboveLow": return r.pctAboveLow;
+        case "rsiCurrent": return r.rsiCurrent;
+        case "rsiAtLow": return r.rsiAtLow;
+        case "rsiAnchor": return r.rsiAnchor;
+        case "rsiAnchorDate": return r.rsiAnchorDate;
+        case "rsiDivergencePct": return r.rsiDivergencePct;
+        case "rsiBandDepthPct": return r.rsiBandDepthPct;
+        case "histAtAnchor": return r.histAtAnchor;
+        case "histAtLow": return r.histAtLow;
+        case "histCompression": return r.histCompression;
+        case "macdHistCurrent": return r.macdHistCurrent;
+        case "crossDate": return r.crossDate;
+        case "crossPrice": return r.crossPrice;
+        case "pctAboveLowAtCross": return r.pctAboveLowAtCross;
+        case "daysLowToCross": return r.daysLowToCross;
+        case "distEma20AtCross": return r.distEma20AtCross;
+        case "distEma50AtCross": return r.distEma50AtCross;
+        case "relVolumeAtCross": return r.relVolumeAtCross;
+        case "shortFloat": return r.shortFloat;
+        case "adv": return r.adv;
+        case "earnings": return r.earningsDaysUntil;
+        default: return null;
+      }
+    };
+    const dataRows = [...filteredRows];
+    dataRows.sort((a, b) => {
+      const av = getVal(a);
+      const bv = getVal(b);
+      if (av == null && bv == null) return 0;
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      if (typeof av === "string" && typeof bv === "string") {
+        return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
+      }
+      return sortDir === "asc" ? (av as number) - (bv as number) : (bv as number) - (av as number);
+    });
+    return dataRows;
+  }, [filteredRows, sortKey, sortDir]);
+
+  const Th = ({ label, k, title, sticky }: { label: string; k: SortKey; title?: string; sticky?: boolean }) => (
+    <th
+      title={title}
+      className={`px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide cursor-pointer hover:text-gray-900 whitespace-nowrap select-none${sticky ? " sticky left-9 z-20 bg-gray-100 after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-gray-300 after:content-['']" : ""}`}
+      onClick={() => toggleSort(k)}
+    >
+      {label}{sortKey === k ? (sortDir === "desc" ? " ↓" : " ↑") : ""}
+    </th>
+  );
+
+  return (
+    <div className="space-y-3">
+      <div className="surface-card p-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <form onSubmit={onAdd} className="flex gap-2">
+            <input
+              type="text"
+              placeholder="e.g. TEAM"
+              value={addTicker}
+              onChange={(e) => onAddTickerChange?.(e.target.value)}
+              autoCapitalize="characters"
+              autoCorrect="off"
+              autoComplete="off"
+              spellCheck={false}
+              className="input-field w-28 uppercase"
+            />
+            <button type="submit" disabled={addLoading} className="btn btn-primary text-sm px-3 py-1.5">
+              {addLoading ? "Adding…" : "+ Add"}
+            </button>
+          </form>
+          {addError && <span className="text-xs text-red-500">{addError}</span>}
+
+          <div className="w-px self-stretch bg-gray-200" />
+
+          <div className="flex items-center gap-1.5">
+            <input
+              type="text"
+              placeholder="Search ticker or name…"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              autoCapitalize="characters"
+              autoCorrect="off"
+              autoComplete="off"
+              spellCheck={false}
+              className="input-field w-48"
+            />
+            {search && (
+              <span className={`text-xs font-medium whitespace-nowrap ${isOnList ? "text-green-600" : "text-gray-400"}`}>
+                {isOnList ? `✓ ${search} is on your list` : `${search} not on your list`}
+              </span>
+            )}
+          </div>
+          {loading && <span className="text-xs text-gray-400 animate-pulse">Loading divergence data…</span>}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer select-none px-2 py-1.5 rounded border border-gray-300 bg-white hover:border-gray-400">
+            <input type="checkbox" checked={starredOnly} onChange={(e) => setStarredOnly(e.target.checked)} className="accent-yellow-500" />
+            ★ Starred only
+          </label>
+          {(Object.keys(STATUS_DEF) as (Exclude<BreakoutStatus, null>)[]).map((key) => (
+            <label
+              key={key}
+              title={STATUS_DEF[key].description}
+              className={`flex items-center gap-1.5 text-xs cursor-pointer select-none px-2 py-1.5 rounded border ${statusFilter.has(key) ? "border-blue-400 bg-blue-50" : "border-gray-300 bg-white hover:border-gray-400"}`}
+            >
+              <input type="checkbox" checked={statusFilter.has(key)} onChange={() => toggleStatusFilter(key)} className="accent-blue-600" />
+              <span className={`inline-flex items-center rounded-full ${STATUS_DEF[key].badgeClass} text-xs font-semibold px-2 py-0.5 whitespace-nowrap`}>
+                {STATUS_DEF[key].label}
+              </span>
+            </label>
+          ))}
+        </div>
+      </div>
+      <div className="text-xs text-gray-400 text-right -mt-1">
+        {sortedRows.length} of {stocks.length} stocks · daily timeframe · RSI/MACD divergence off a swing low
+      </div>
+      <div className="overflow-x-auto overflow-y-auto max-h-[72vh] rounded-lg border border-gray-200">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-100 border-b border-gray-200 sticky top-0 z-30">
+            <tr className="border-b border-gray-200">
+              <th colSpan={2} className="px-2 py-1 sticky left-0 z-20 bg-gray-100" />
+              <th colSpan={5} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Overview</th>
+              <th colSpan={7} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">RSI / MACD Divergence</th>
+              <th colSpan={7} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Confirmation (MACD Cross)</th>
+              <th colSpan={3} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Risk</th>
+              <th className="px-3 py-1 border-l border-gray-300 bg-gray-50/70" />
+            </tr>
+            <tr>
+              <th className="w-9 px-2 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap sticky left-0 z-20 bg-gray-100">★</th>
+              <Th label="Ticker" k="ticker" sticky />
+              <Th label="Industry" k="industry" />
+              <Th label="Added" k="addedAt" />
+              <Th label="Status" k="status" title="Divergence lifecycle: No Divergence → Watching (divergence confirmed, no MACD cross yet) → Confirmed (MACD crossed bullish) or Failed (price broke below the swing low first)" />
+              <Th label="Price" k="price" />
+              <Th label="Swing Low" k="swingLow" title="Lowest close in the trailing 1Y window" />
+              <Th label="Swing Low Date" k="swingLowDate" />
+              <Th label="% Above Low" k="pctAboveLow" title="Current price vs the swing low" />
+              <Th label="RSI (Now)" k="rsiCurrent" />
+              <Th label="RSI at Low" k="rsiAtLow" title="RSI(14) on the swing low date" />
+              <Th label="Lowest RSI (Pre-Low)" k="rsiAnchor" title="Lowest RSI(14) reading before the swing low — the divergence anchor" />
+              <Th label="Anchor Date" k="rsiAnchorDate" />
+              <Th label="RSI Divergence %" k="rsiDivergencePct" title="(RSI at low − RSI anchor) / RSI anchor. Higher = stronger divergence, e.g. TEAM +63%, WDAY +59.6%" />
+              <Th label="RSI Band Depth %" k="rsiBandDepthPct" title="How far below the 30 oversold line the anchor RSI was: (30 − anchor)/30" />
+              <Th label="Hist @ Anchor" k="histAtAnchor" title="MACD histogram value at the RSI-anchor date" />
+              <Th label="Hist @ Low" k="histAtLow" title="MACD histogram value at the swing-low date" />
+              <Th label="Hist Compression" k="histCompression" title="Hist@Low − Hist@Anchor. Positive = momentum decelerating into the low (TEAM +1.07, WDAY +0.30)" />
+              <Th label="MACD Hist (Now)" k="macdHistCurrent" />
+              <Th label="MACD Cross Date" k="crossDate" title="First date after the swing low the MACD line crossed above the signal line" />
+              <Th label="Price @ Cross" k="crossPrice" />
+              <Th label="% Above Low @ Cross" k="pctAboveLowAtCross" title="Cost of waiting for confirmation vs buying the swing low" />
+              <Th label="Days Low→Cross" k="daysLowToCross" />
+              <Th label="Dist EMA20D @ Cross" k="distEma20AtCross" />
+              <Th label="Dist EMA50D @ Cross" k="distEma50AtCross" />
+              <Th label="Rel Vol @ Cross" k="relVolumeAtCross" title="Cross-day volume vs its trailing 20-day average — volume confirmation on the cross" />
+              <Th label="Short Float %" k="shortFloat" />
+              <Th label="ADV" k="adv" title="Average daily volume (3-month)" />
+              <Th label="Earnings Date" k="earnings" />
+              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Remove</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {sortedRows.length === 0 && (
+              <tr><td colSpan={29} className="px-3 py-6 text-center text-gray-400 text-sm">{starredOnly ? "No starred tickers." : "No tickers yet — add one above."}</td></tr>
+            )}
+            {sortedRows.map((r) => (
+              <tr key={r.ticker} className="hover:bg-gray-50">
+                <td className="w-9 px-2 py-2 sticky left-0 z-10 bg-white">
+                  <button
+                    onClick={() => onToggleStar?.(r.ticker)}
+                    aria-label={r.starred ? `Unstar ${r.ticker}` : `Star ${r.ticker}`}
+                    className={`text-base leading-none ${r.starred ? "text-yellow-500" : "text-gray-300 hover:text-gray-400"}`}
+                  >
+                    {r.starred ? "★" : "☆"}
+                  </button>
+                </td>
+                <td className="px-3 py-2 sticky left-9 z-10 bg-white after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-gray-200 after:content-['']">
+                  <div className="font-semibold text-gray-900 flex items-center gap-1.5">
+                    {r.ticker}
+                    {r.addedAt && (Date.now() - new Date(r.addedAt).getTime()) / 86400000 <= 7 && (
+                      <span title={`Added ${r.addedAt.slice(0, 10)}`} className="inline-flex items-center rounded-full bg-green-100 text-green-700 text-[10px] font-semibold px-1.5 py-0.5 leading-none">
+                        NEW
+                      </span>
+                    )}
+                  </div>
+                  {r.name && <div className="text-xs text-gray-400">{r.name}</div>}
+                </td>
+                <td className="px-3 py-2 text-gray-600">{r.industry}</td>
+                <td className="px-3 py-2 text-gray-600 text-xs whitespace-nowrap">{r.addedAt ? r.addedAt.slice(0, 10) : dash}</td>
+                <td className="px-3 py-2">
+                  {r.status != null ? (
+                    <span title={STATUS_DEF[r.status].description} className={`inline-flex items-center rounded-full ${STATUS_DEF[r.status].badgeClass} text-xs font-semibold px-2 py-0.5 whitespace-nowrap cursor-help`}>
+                      {STATUS_DEF[r.status].label}
+                    </span>
+                  ) : dash}
+                </td>
+                <td className="px-3 py-2 font-medium text-gray-900">{r.price != null ? `$${r.price.toFixed(2)}` : dash}</td>
+                <td className="px-3 py-2 text-gray-700">{r.swingLow != null ? `$${r.swingLow.toFixed(2)}` : dash}</td>
+                <td className="px-3 py-2 text-gray-600 text-xs whitespace-nowrap">{r.swingLowDate ?? dash}</td>
+                <td className={`px-3 py-2 ${pctAboveLowClass(r.pctAboveLow)}`}>{r.pctAboveLow != null ? `${r.pctAboveLow.toFixed(1)}%` : dash}</td>
+                <td className={`px-3 py-2 ${rsiClass(r.rsiCurrent)}`}>{r.rsiCurrent != null ? r.rsiCurrent.toFixed(1) : dash}</td>
+                <td className={`px-3 py-2 ${rsiClass(r.rsiAtLow)}`}>{r.rsiAtLow != null ? r.rsiAtLow.toFixed(1) : dash}</td>
+                <td className={`px-3 py-2 ${rsiClass(r.rsiAnchor)}`}>{r.rsiAnchor != null ? r.rsiAnchor.toFixed(1) : dash}</td>
+                <td className="px-3 py-2 text-gray-600 text-xs whitespace-nowrap">{r.rsiAnchorDate ?? dash}</td>
+                <td className={`px-3 py-2 ${divergenceClass(r.rsiDivergencePct)}`}>{r.rsiDivergencePct != null ? `${r.rsiDivergencePct >= 0 ? "+" : ""}${r.rsiDivergencePct.toFixed(1)}%` : dash}</td>
+                <td className={`px-3 py-2 ${bandDepthClass(r.rsiBandDepthPct)}`}>{r.rsiBandDepthPct != null ? `${r.rsiBandDepthPct.toFixed(1)}%` : dash}</td>
+                <td className={`px-3 py-2 ${histClass(r.histAtAnchor)}`}>{r.histAtAnchor != null ? r.histAtAnchor.toFixed(2) : dash}</td>
+                <td className={`px-3 py-2 ${histClass(r.histAtLow)}`}>{r.histAtLow != null ? r.histAtLow.toFixed(2) : dash}</td>
+                <td className={`px-3 py-2 ${compressionClass(r.histCompression)}`}>{r.histCompression != null ? `${r.histCompression >= 0 ? "+" : ""}${r.histCompression.toFixed(2)}` : dash}</td>
+                <td className={`px-3 py-2 ${histClass(r.macdHistCurrent)}`}>{r.macdHistCurrent != null ? r.macdHistCurrent.toFixed(2) : dash}</td>
+                <td className="px-3 py-2 text-gray-600 text-xs whitespace-nowrap">{r.crossDate ?? dash}</td>
+                <td className="px-3 py-2 text-gray-700">{r.crossPrice != null ? `$${r.crossPrice.toFixed(2)}` : dash}</td>
+                <td className={`px-3 py-2 ${pctAboveLowClass(r.pctAboveLowAtCross)}`}>{r.pctAboveLowAtCross != null ? `${r.pctAboveLowAtCross.toFixed(1)}%` : dash}</td>
+                <td className={`px-3 py-2 ${daysToConfirmClass(r.daysLowToCross)}`}>{r.daysLowToCross != null ? `${r.daysLowToCross}D` : dash}</td>
+                <td className={`px-3 py-2 ${distEmaClass(r.distEma20AtCross)}`}>{r.distEma20AtCross != null ? `${r.distEma20AtCross.toFixed(1)}%` : dash}</td>
+                <td className={`px-3 py-2 ${distEmaClass(r.distEma50AtCross)}`}>{r.distEma50AtCross != null ? `${r.distEma50AtCross.toFixed(1)}%` : dash}</td>
+                <td className={`px-3 py-2 ${relVolClass(r.relVolumeAtCross)}`}>{r.relVolumeAtCross != null ? `${r.relVolumeAtCross.toFixed(2)}x` : dash}</td>
+                <td className={`px-3 py-2 ${shortFloatColor(r.shortFloat != null ? r.shortFloat : null)}`}>{r.shortFloat != null ? `${(r.shortFloat * 100).toFixed(1)}%` : dash}</td>
+                <td className="px-3 py-2 text-gray-700">{fmtAdv(r.adv)}</td>
+                <td className="px-3 py-2 whitespace-nowrap"><EarningsCell dateStr={r.earnings} /></td>
+                <td className="px-3 py-2">
+                  <button onClick={() => onRemove?.(r.ticker)} className="text-xs text-red-500 hover:text-red-700">
+                    Remove
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}

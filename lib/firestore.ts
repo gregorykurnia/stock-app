@@ -113,6 +113,27 @@ export async function updateUsSwingPortfolio(ticker: string, inPortfolio: boolea
   await setDoc(doc(db, "us_swing_stocks", ticker), { in_portfolio: inPortfolio }, { merge: true });
 }
 
+// US Breakout watchlist — a separate, manually-managed ticker list independent
+// from the US "List"/"Swing" tab entries. Tracks RSI/MACD divergence-off-a-low candidates.
+export async function getUsBreakoutStocks(): Promise<Record<string, object>> {
+  const snap = await getDocs(collection(db, "us_breakout_stocks"));
+  const result: Record<string, object> = {};
+  snap.forEach((d) => { result[d.id] = d.data(); });
+  return result;
+}
+
+export async function saveUsBreakoutStock(ticker: string, data: object) {
+  await setDoc(doc(db, "us_breakout_stocks", ticker), data);
+}
+
+export async function removeUsBreakoutStock(ticker: string) {
+  await deleteDoc(doc(db, "us_breakout_stocks", ticker));
+}
+
+export async function updateUsBreakoutStar(ticker: string, starred: boolean) {
+  await setDoc(doc(db, "us_breakout_stocks", ticker), { starred }, { merge: true });
+}
+
 // Beaten Down — Coiling Reversal watchlist — a separate, manually-managed ticker list
 export async function getCoilingReversalStocks(): Promise<Record<string, object>> {
   const snap = await getDocs(collection(db, "coiling_reversal_stocks"));

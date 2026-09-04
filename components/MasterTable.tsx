@@ -9,6 +9,7 @@ import { downloadCsv } from "@/lib/exportCsv";
 import type { CustomStock, PeStats } from "@/lib/types";
 import type { FundData } from "@/app/api/funddata/route";
 import USSwingTable, { type USSwingStock, type CategoryKey, CATEGORY_DEFS, computeCategoryFlags, computeGrandScore, daysUntilEarnings } from "@/components/USSwingTable";
+import USBreakoutTable, { type USBreakoutStock, type BreakoutStatus } from "@/components/USBreakoutTable";
 import SwingChat from "@/components/SwingChat";
 import PortfolioTable, { PORTFOLIO_DIVISIONS, type PortfolioStock, type PortfolioLevelField } from "@/components/PortfolioTable";
 import type { PortfolioDivision } from "@/lib/firestore";
@@ -200,6 +201,32 @@ interface Props {
   onUsSwingRemove?: (ticker: string) => void;
   onUsSwingToggleStar?: (ticker: string) => void;
   onUsSwingTogglePortfolio?: (ticker: string) => void;
+  // "Breakout" tab — separate, manually-managed ticker list independent from List/Swing.
+  // Tracks RSI/MACD divergence off a swing low through to a confirmed bullish MACD cross.
+  usBreakoutStocks?: USBreakoutStock[];
+  usBreakoutPrices?: Record<string, number | null>;
+  usBreakoutData?: Record<string, {
+    swingLow: number | null; swingLowDate: string | null;
+    rsiAtLow: number | null; rsiAnchor: number | null; rsiAnchorDate: string | null;
+    rsiDivergencePct: number | null; rsiBandDepthPct: number | null;
+    histAtAnchor: number | null; histAtLow: number | null; histCompression: number | null;
+    crossDate: string | null; crossPrice: number | null; pctAboveLowAtCross: number | null; daysLowToCross: number | null;
+    distEma20AtCross: number | null; distEma50AtCross: number | null; relVolumeAtCross: number | null;
+    status: BreakoutStatus;
+    rsiCurrent: number | null; macdHistCurrent: number | null;
+  }>;
+  usBreakoutShortFloats?: Record<string, number | null>;
+  usBreakoutAdvs?: Record<string, number | null>;
+  usBreakoutEarnings?: Record<string, string | null>;
+  usBreakoutLoading?: boolean;
+  onUsBreakoutTabOpen?: () => void;
+  usBreakoutAddTicker?: string;
+  usBreakoutAddLoading?: boolean;
+  usBreakoutAddError?: string;
+  onUsBreakoutAddTickerChange?: (v: string) => void;
+  onUsBreakoutAdd?: (e: FormEvent) => void;
+  onUsBreakoutRemove?: (ticker: string) => void;
+  onUsBreakoutToggleStar?: (ticker: string) => void;
   // "Portfolio" tab — three independent, manually-managed divisions (Long Term / Index / Swing)
   portfolioStocks?: Record<PortfolioDivision, PortfolioStock[]>;
   portfolioPrices?: Record<string, number | null>;
@@ -256,6 +283,8 @@ export default function MasterTable({
   usSwingStocks = [], usSwingPrices = {}, usSwingPrevCloses = {}, usSwingAtrs = {}, usSwingEma20s = {}, usSwingEma50s = {}, usSwingGoldenCrossDates = {}, usSwingMacds = {}, usSwingRoc14s = {}, usSwingRoc63s = {}, usSwingRoc90s = {}, usSwingSortinos = {}, usSwingSortino6mos = {}, usSwingRsis = {}, usSwingDiPluses = {}, usSwingDiMinuses = {}, usSwingAdxs = {}, usSwingLow6mos = {}, usSwingResistances = {}, usSwingDaysSinceResistances = {}, usSwingHigh5yrs = {}, usSwingDistHigh5yrs = {}, usSwingDaysSinceHigh5yrs = {}, usSwingLow1yrs = {}, usSwingDistLow1yrs = {}, usSwingDaysSinceLow1yrs = {}, usSwingRelVolumes = {},
   usSwingShortFloats = {}, usSwingAdvs = {}, usSwingEarnings = {}, usSwingLoading = false, onUsSwingTabOpen,
   usSwingAddTicker = "", usSwingAddLoading = false, usSwingAddError = "", onUsSwingAddTickerChange, onUsSwingAdd, onUsSwingRemove, onUsSwingToggleStar, onUsSwingTogglePortfolio,
+  usBreakoutStocks = [], usBreakoutPrices = {}, usBreakoutData = {}, usBreakoutShortFloats = {}, usBreakoutAdvs = {}, usBreakoutEarnings = {}, usBreakoutLoading = false, onUsBreakoutTabOpen,
+  usBreakoutAddTicker = "", usBreakoutAddLoading = false, usBreakoutAddError = "", onUsBreakoutAddTickerChange, onUsBreakoutAdd, onUsBreakoutRemove, onUsBreakoutToggleStar,
   portfolioStocks = { longterm: [], index: [], swing: [] }, portfolioPrices = {}, portfolioPrevCloses = {},
   portfolioLoading = { longterm: false, index: false, swing: false }, onPortfolioTabOpen,
   portfolioAddTicker = { longterm: "", index: "", swing: "" }, portfolioAddLoading = { longterm: false, index: false, swing: false },
@@ -265,7 +294,7 @@ export default function MasterTable({
   const isIhsg = market === "ihsg";
   // Currency prefix and price formatter
   const fmtPrice = (v: number) => isIhsg ? `Rp${Math.round(v).toLocaleString("id-ID")}` : `$${v.toFixed(2)}`;
-  type MainTab = "list" | "midterm" | "swing" | "portfolio" | "beatendown";
+  type MainTab = "list" | "midterm" | "swing" | "portfolio" | "beatendown" | "breakout";
   const [mainTab, setMainTab] = useState<MainTab>("list");
   const [portfolioDivision, setPortfolioDivision] = useState<PortfolioDivision>("longterm");
   type BeatenDownSubTab = "coiling" | "bagger";
@@ -273,6 +302,11 @@ export default function MasterTable({
 
   useEffect(() => {
     if (!isIhsg && mainTab === "swing") onUsSwingTabOpen?.();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mainTab, isIhsg]);
+
+  useEffect(() => {
+    if (!isIhsg && mainTab === "breakout") onUsBreakoutTabOpen?.();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mainTab, isIhsg]);
 
@@ -1755,6 +1789,14 @@ export default function MasterTable({
             Beaten Down
           </button>
         )}
+        {!isIhsg && (
+          <button
+            onClick={() => setMainTab("breakout")}
+            className={`segmented-btn ${mainTab === "breakout" ? "is-active" : ""}`}
+          >
+            Breakout
+          </button>
+        )}
       </div>
 
       {mainTab === "list" && (
@@ -2528,6 +2570,26 @@ export default function MasterTable({
           dataContext={usSwingChatContext}
           tickerCount={usSwingChatFiltered.length}
           activeCategoryLabels={usSwingActiveCategories.map((k) => CATEGORY_DEFS.find((c) => c.key === k)?.label ?? k)}
+        />
+      )}
+
+      {/* BREAKOUT TAB (US only) — RSI/MACD divergence off a swing low, independent ticker list */}
+      {!isIhsg && mainTab === "breakout" && (
+        <USBreakoutTable
+          stocks={usBreakoutStocks}
+          prices={usBreakoutPrices}
+          data={usBreakoutData}
+          shortFloats={usBreakoutShortFloats}
+          advs={usBreakoutAdvs}
+          earnings={usBreakoutEarnings}
+          loading={usBreakoutLoading}
+          addTicker={usBreakoutAddTicker}
+          addLoading={usBreakoutAddLoading}
+          addError={usBreakoutAddError}
+          onAddTickerChange={onUsBreakoutAddTickerChange}
+          onAdd={onUsBreakoutAdd}
+          onRemove={onUsBreakoutRemove}
+          onToggleStar={onUsBreakoutToggleStar}
         />
       )}
 

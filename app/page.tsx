@@ -10,6 +10,7 @@ import {
   getIhsgCustomStocks, saveIhsgCustomStock, removeIhsgCustomStock,
   getIhsgSwingStocks, saveIhsgSwingStock, removeIhsgSwingStock, updateIhsgSwingEntryPrice,
   getUsSwingStocks, saveUsSwingStock, removeUsSwingStock, updateUsSwingStar, updateUsSwingPortfolio,
+  getUsBreakoutStocks, saveUsBreakoutStock, removeUsBreakoutStock, updateUsBreakoutStar,
   getPortfolioTickers, getWatchlistTickers,
   savePortfolioEntry, removePortfolioEntry,
   saveWatchlistEntry, removeWatchlistEntry,
@@ -22,6 +23,7 @@ import type { PortfolioStock, PortfolioLevelField } from "@/components/Portfolio
 import type { CustomStock, PeStats } from "@/lib/types";
 import type { BandarScoreResult } from "@/lib/indicators";
 import type { FundData } from "@/app/api/funddata/route";
+import type { BreakoutStatus } from "@/components/USBreakoutTable";
 
 const SEED_TICKERS = new Set(SEED_STOCKS.map((s) => s.ticker));
 const IHSG_TICKERS = new Set(IHSG_STOCKS.map((s) => s.ticker));
@@ -97,6 +99,31 @@ export default function Home() {
   const [usSwingAddTicker, setUsSwingAddTicker] = useState("");
   const [usSwingAddLoading, setUsSwingAddLoading] = useState(false);
   const [usSwingAddError, setUsSwingAddError] = useState("");
+
+  // US "Breakout" tab — separate, manually-managed ticker list, independent from List/Swing.
+  // Tracks RSI/MACD divergence off a swing low through to a confirmed bullish MACD cross.
+  interface UsBreakoutStock { ticker: string; name: string | null; industry: string | null; starred?: boolean; addedAt?: string | null }
+  interface UsBreakoutData {
+    swingLow: number | null; swingLowDate: string | null;
+    rsiAtLow: number | null; rsiAnchor: number | null; rsiAnchorDate: string | null;
+    rsiDivergencePct: number | null; rsiBandDepthPct: number | null;
+    histAtAnchor: number | null; histAtLow: number | null; histCompression: number | null;
+    crossDate: string | null; crossPrice: number | null; pctAboveLowAtCross: number | null; daysLowToCross: number | null;
+    distEma20AtCross: number | null; distEma50AtCross: number | null; relVolumeAtCross: number | null;
+    status: BreakoutStatus;
+    rsiCurrent: number | null; macdHistCurrent: number | null;
+  }
+  const [usBreakoutStocks, setUsBreakoutStocks] = useState<UsBreakoutStock[]>([]);
+  const [usBreakoutPrices, setUsBreakoutPrices] = useState<Record<string, number | null>>({});
+  const [usBreakoutData, setUsBreakoutData] = useState<Record<string, UsBreakoutData>>({});
+  const [usBreakoutShortFloats, setUsBreakoutShortFloats] = useState<Record<string, number | null>>({});
+  const [usBreakoutAdvs, setUsBreakoutAdvs] = useState<Record<string, number | null>>({});
+  const [usBreakoutEarnings, setUsBreakoutEarnings] = useState<Record<string, string | null>>({});
+  const [usBreakoutLoading, setUsBreakoutLoading] = useState(false);
+  const [usBreakoutLoaded, setUsBreakoutLoaded] = useState(false);
+  const [usBreakoutAddTicker, setUsBreakoutAddTicker] = useState("");
+  const [usBreakoutAddLoading, setUsBreakoutAddLoading] = useState(false);
+  const [usBreakoutAddError, setUsBreakoutAddError] = useState("");
 
   // "Portfolio" tab — three independent, manually-managed divisions (Long Term / Index / Swing)
   const [portfolioStocks, setPortfolioStocks] = useState<Record<PortfolioDivision, PortfolioStock[]>>({ longterm: [], index: [], swing: [] });
@@ -332,6 +359,124 @@ export default function Home() {
   async function handleRemoveUsSwingTicker(ticker: string) {
     await removeUsSwingStock(ticker);
     setUsSwingStocks((prev) => prev.filter((s) => s.ticker !== ticker));
+  }
+
+  function fetchUsBreakoutDaily(tickers: string[]) {
+    if (tickers.length === 0) return;
+    fetch(`/api/breakout-daily?tickers=${tickers.join(",")}`)
+      .then((r) => r.json())
+      .then((d) => {
+        setUsBreakoutData((prev) => {
+          const next = { ...prev };
+          for (const t of tickers) {
+            next[t] = {
+              swingLow: d.swingLow?.[t] ?? null, swingLowDate: d.swingLowDate?.[t] ?? null,
+              rsiAtLow: d.rsiAtLow?.[t] ?? null, rsiAnchor: d.rsiAnchor?.[t] ?? null, rsiAnchorDate: d.rsiAnchorDate?.[t] ?? null,
+              rsiDivergencePct: d.rsiDivergencePct?.[t] ?? null, rsiBandDepthPct: d.rsiBandDepthPct?.[t] ?? null,
+              histAtAnchor: d.histAtAnchor?.[t] ?? null, histAtLow: d.histAtLow?.[t] ?? null, histCompression: d.histCompression?.[t] ?? null,
+              crossDate: d.crossDate?.[t] ?? null, crossPrice: d.crossPrice?.[t] ?? null,
+              pctAboveLowAtCross: d.pctAboveLowAtCross?.[t] ?? null, daysLowToCross: d.daysLowToCross?.[t] ?? null,
+              distEma20AtCross: d.distEma20AtCross?.[t] ?? null, distEma50AtCross: d.distEma50AtCross?.[t] ?? null,
+              relVolumeAtCross: d.relVolumeAtCross?.[t] ?? null, status: d.status?.[t] ?? null,
+              rsiCurrent: d.rsiCurrent?.[t] ?? null, macdHistCurrent: d.macdHistCurrent?.[t] ?? null,
+            };
+          }
+          return next;
+        });
+      })
+      .catch(() => {});
+  }
+
+  function fetchUsBreakoutFundAndEarnings(tickers: string[]) {
+    const joined = tickers.join(",");
+    fetch(`/api/funddata?tickers=${joined}`)
+      .then((r) => r.json())
+      .then((d) => {
+        const data = (d.data ?? {}) as Record<string, FundData>;
+        const shortFloat: Record<string, number | null> = {};
+        const adv: Record<string, number | null> = {};
+        for (const [k, v] of Object.entries(data)) {
+          shortFloat[k] = v.short_float ?? null;
+          adv[k] = v.average_volume ?? null;
+        }
+        setUsBreakoutShortFloats((p) => ({ ...p, ...shortFloat }));
+        setUsBreakoutAdvs((p) => ({ ...p, ...adv }));
+      })
+      .catch(() => {});
+    fetch(`/api/earnings?tickers=${joined}`)
+      .then((r) => r.json())
+      .then((d) => setUsBreakoutEarnings((p) => ({ ...p, ...(d.earnings ?? {}) })))
+      .catch(() => {});
+  }
+
+  async function loadUsBreakoutStocks() {
+    const data = await getUsBreakoutStocks().catch(() => ({}));
+    const list = Object.entries(data).map(([ticker, d]) => {
+      const raw = d as { name?: string | null; industry?: string | null; starred?: boolean; added_at?: string | null };
+      return { ticker, name: raw.name ?? null, industry: raw.industry ?? null, starred: raw.starred ?? false, addedAt: raw.added_at ?? null } as UsBreakoutStock;
+    });
+    list.sort((a, b) => a.ticker.localeCompare(b.ticker));
+    setUsBreakoutStocks(list);
+    return list;
+  }
+
+  async function handleToggleUsBreakoutStar(ticker: string) {
+    const current = usBreakoutStocks.find((s) => s.ticker === ticker)?.starred ?? false;
+    const next = !current;
+    setUsBreakoutStocks((prev) => prev.map((s) => (s.ticker === ticker ? { ...s, starred: next } : s)));
+    await updateUsBreakoutStar(ticker, next);
+  }
+
+  function handleUsBreakoutTabOpen() {
+    if (usBreakoutLoaded || market !== "us") return;
+    setUsBreakoutLoaded(true);
+    setUsBreakoutLoading(true);
+    loadUsBreakoutStocks().then((list) => {
+      setUsBreakoutLoading(false);
+      if (list.length === 0) return;
+      const tickers = list.map((s) => s.ticker);
+      fetch(`/api/prices?tickers=${tickers.join(",")}`)
+        .then((r) => r.json())
+        .then((d) => setUsBreakoutPrices((p) => ({ ...p, ...(d.prices ?? {}) })))
+        .catch(() => {});
+      fetchUsBreakoutDaily(tickers);
+      fetchUsBreakoutFundAndEarnings(tickers);
+    });
+  }
+
+  async function handleAddUsBreakoutTicker(e: React.FormEvent) {
+    e.preventDefault();
+    const sym = usBreakoutAddTicker.trim().toUpperCase();
+    if (!sym) return;
+    if (usBreakoutStocks.some((s) => s.ticker === sym)) {
+      setUsBreakoutAddError(`${sym} is already in the Breakout list.`);
+      return;
+    }
+    setUsBreakoutAddLoading(true);
+    setUsBreakoutAddError("");
+    try {
+      const res = await fetch(`/api/fundamentals?ticker=${sym}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Failed to fetch data");
+
+      const nowIso = new Date().toISOString();
+      const entry: UsBreakoutStock = { ticker: sym, name: data.name ?? null, industry: data.industry ?? data.sector ?? null, addedAt: nowIso };
+      await saveUsBreakoutStock(sym, { name: entry.name, industry: entry.industry, added_at: nowIso });
+      setUsBreakoutStocks((prev) => [...prev.filter((s) => s.ticker !== sym), entry].sort((a, b) => a.ticker.localeCompare(b.ticker)));
+      if (data.price != null) setUsBreakoutPrices((p) => ({ ...p, [sym]: data.price }));
+      fetchUsBreakoutDaily([sym]);
+      fetchUsBreakoutFundAndEarnings([sym]);
+      setUsBreakoutAddTicker("");
+    } catch (err) {
+      setUsBreakoutAddError(err instanceof Error ? err.message : "Unknown error");
+    } finally {
+      setUsBreakoutAddLoading(false);
+    }
+  }
+
+  async function handleRemoveUsBreakoutTicker(ticker: string) {
+    await removeUsBreakoutStock(ticker);
+    setUsBreakoutStocks((prev) => prev.filter((s) => s.ticker !== ticker));
   }
 
   async function loadPortfolioDivision(division: PortfolioDivision) {
@@ -1220,6 +1365,21 @@ export default function Home() {
             onUsSwingRemove={handleRemoveUsSwingTicker}
             onUsSwingToggleStar={handleToggleUsSwingStar}
             onUsSwingTogglePortfolio={handleToggleUsSwingPortfolio}
+            usBreakoutStocks={usBreakoutStocks}
+            usBreakoutPrices={usBreakoutPrices}
+            usBreakoutData={usBreakoutData}
+            usBreakoutShortFloats={usBreakoutShortFloats}
+            usBreakoutAdvs={usBreakoutAdvs}
+            usBreakoutEarnings={usBreakoutEarnings}
+            usBreakoutLoading={usBreakoutLoading}
+            onUsBreakoutTabOpen={handleUsBreakoutTabOpen}
+            usBreakoutAddTicker={usBreakoutAddTicker}
+            usBreakoutAddLoading={usBreakoutAddLoading}
+            usBreakoutAddError={usBreakoutAddError}
+            onUsBreakoutAddTickerChange={setUsBreakoutAddTicker}
+            onUsBreakoutAdd={handleAddUsBreakoutTicker}
+            onUsBreakoutRemove={handleRemoveUsBreakoutTicker}
+            onUsBreakoutToggleStar={handleToggleUsBreakoutStar}
             portfolioStocks={portfolioStocks}
             portfolioPrices={portfolioPrices}
             portfolioPrevCloses={portfolioPrevCloses}
