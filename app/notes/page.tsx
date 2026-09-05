@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { getNotes, createNote, updateNote, deleteNote } from "@/lib/firestore";
 import type { NoteDoc } from "@/lib/types";
+import NoteEditor from "@/components/NoteEditor";
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleString(undefined, {
@@ -13,26 +14,12 @@ function formatDate(iso: string) {
   });
 }
 
-const TOOLBAR: { cmd: string; label: string; arg?: string }[] = [
-  { cmd: "bold", label: "B" },
-  { cmd: "italic", label: "I" },
-  { cmd: "underline", label: "U" },
-  { cmd: "strikeThrough", label: "S" },
-  { cmd: "formatBlock", label: "H1", arg: "H1" },
-  { cmd: "formatBlock", label: "H2", arg: "H2" },
-  { cmd: "formatBlock", label: "P", arg: "P" },
-  { cmd: "insertUnorderedList", label: "• List" },
-  { cmd: "insertOrderedList", label: "1. List" },
-  { cmd: "formatBlock", label: "Quote", arg: "BLOCKQUOTE" },
-];
-
 export default function NotesPage() {
   const [notes, setNotes] = useState<NoteDoc[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [titleDraft, setTitleDraft] = useState("");
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
-  const editorRef = useRef<HTMLDivElement>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const active = notes.find((n) => n.id === activeId) || null;
 
@@ -53,10 +40,7 @@ export default function NotesPage() {
   }, [refresh]);
 
   useEffect(() => {
-    if (active && editorRef.current) {
-      editorRef.current.innerHTML = active.content || "";
-      setTitleDraft(active.title);
-    }
+    if (active) setTitleDraft(active.title);
   }, [activeId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const scheduleSave = useCallback(
@@ -90,12 +74,6 @@ export default function NotesPage() {
     if (activeId === id) {
       setActiveId(list.length > 0 ? list[0].id : null);
     }
-  }
-
-  function exec(cmd: string, arg?: string) {
-    editorRef.current?.focus();
-    document.execCommand(cmd, false, arg);
-    scheduleSave({ content: editorRef.current?.innerHTML || "" });
   }
 
   return (
@@ -133,7 +111,7 @@ export default function NotesPage() {
         </div>
 
         {/* Editor */}
-        <div className="flex-1 flex flex-col border border-[var(--border)] rounded-lg overflow-hidden">
+        <div className="flex-1 flex flex-col border border-[var(--border)] rounded-lg overflow-hidden min-h-0">
           {!active && (
             <div className="flex-1 flex items-center justify-center text-sm text-[var(--muted)]">
               Select or create a document to get started.
@@ -161,37 +139,15 @@ export default function NotesPage() {
                   Delete
                 </button>
               </div>
-              <div className="p-2 border-b border-[var(--border)] flex flex-wrap gap-1">
-                {TOOLBAR.map((t) => (
-                  <button
-                    key={t.label}
-                    onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => exec(t.cmd, t.arg)}
-                    className="text-xs px-2 py-1 rounded-md border border-[var(--border)] hover:bg-black/[0.03]"
-                  >
-                    {t.label}
-                  </button>
-                ))}
-              </div>
-              <div
-                ref={editorRef}
-                contentEditable
-                suppressContentEditableWarning
-                onInput={() => scheduleSave({ content: editorRef.current?.innerHTML || "" })}
-                className="flex-1 overflow-y-auto p-4 text-sm leading-relaxed outline-none prose-notes"
+              <NoteEditor
+                key={active.id}
+                content={active.content}
+                onChange={(html) => scheduleSave({ content: html })}
               />
             </>
           )}
         </div>
       </div>
-      <style jsx global>{`
-        .prose-notes h1 { font-size: 1.5rem; font-weight: 700; margin: 0.5em 0; }
-        .prose-notes h2 { font-size: 1.25rem; font-weight: 600; margin: 0.5em 0; }
-        .prose-notes p { margin: 0.4em 0; }
-        .prose-notes ul { list-style: disc; padding-left: 1.5em; margin: 0.4em 0; }
-        .prose-notes ol { list-style: decimal; padding-left: 1.5em; margin: 0.4em 0; }
-        .prose-notes blockquote { border-left: 3px solid var(--border); padding-left: 0.75em; color: var(--muted); margin: 0.4em 0; }
-      `}</style>
     </div>
   );
 }
