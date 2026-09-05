@@ -497,3 +497,34 @@ export async function markTicker(ticker: string) {
 export async function unmarkTicker(ticker: string) {
   await deleteDoc(doc(db, "marked", ticker));
 }
+
+// Notes (document editor)
+export async function getNotes(): Promise<import("./types").NoteDoc[]> {
+  const snap = await getDocs(collection(db, "notes"));
+  return snap.docs
+    .map((d) => ({ id: d.id, ...(d.data() as object) }) as import("./types").NoteDoc)
+    .sort((a, b) => (a.updated_at < b.updated_at ? 1 : -1));
+}
+
+export async function createNote(title: string): Promise<string> {
+  const now = new Date().toISOString();
+  const ref = await addDoc(collection(db, "notes"), {
+    title,
+    content: "",
+    created_at: now,
+    updated_at: now,
+  });
+  return ref.id;
+}
+
+export async function updateNote(id: string, data: { title?: string; content?: string }) {
+  await setDoc(
+    doc(db, "notes", id),
+    { ...data, updated_at: new Date().toISOString() },
+    { merge: true }
+  );
+}
+
+export async function deleteNote(id: string) {
+  await deleteDoc(doc(db, "notes", id));
+}

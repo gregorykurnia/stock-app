@@ -109,6 +109,14 @@ export interface PortfolioEntry {
   notes?: string;
 }
 
+export interface NoteDoc {
+  id: string;
+  title: string;
+  content: string; // HTML
+  created_at: string;
+  updated_at: string;
+}
+
 export interface WatchlistEntry {
   ticker: string;
   alert_price: number;
