@@ -176,24 +176,18 @@ export default function LowDetectionView() {
     return ((lastVal - prevVal) / Math.abs(prevVal)) * 100;
   }
 
-  // Divergence classification for a row's % change cell — only meaningful when Price itself made
-  // a fresh (lower) low into the last column. Flips sign for "min is bullish" rows (DI-, ADX) so
-  // the comparison is always "bullish-direction % change."
-  const priceRowDef = ROWS.find((r) => r.key === "price")!;
-  const priceChgPct = pctChange(priceRowDef);
-  const priceMadeFreshLow = priceChgPct != null && priceChgPct < 0;
-
+  // Color classification for a row's % change cell. Flips sign for "min is bullish" rows
+  // (DI-, ADX) so the comparison is always "bullish-direction % change." Always shown — not
+  // gated on Price itself falling — since a rising indicator into a bounce is still worth
+  // flagging (that's the "is this a real low or a dead-cat bounce" read).
   function divergenceClass(row: RowDef): string {
-    if (!row.best) {
-      // No bullish/bearish direction for this row (Price, EMA20/50, MACD, Signal) — plain
-      // green/red text by sign, same as before divergence highlighting was added.
-      const pct = pctChange(row);
-      if (pct == null) return "text-gray-400";
-      return pct > 0 ? "text-emerald-700" : pct < 0 ? "text-red-600" : "text-gray-700";
-    }
-    if (!priceMadeFreshLow) return "text-gray-400";
     const pct = pctChange(row);
     if (pct == null) return "text-gray-400";
+    if (!row.best) {
+      // No bullish/bearish direction for this row (Price, EMA20/50, MACD, Signal) — plain
+      // green/red text by sign.
+      return pct > 0 ? "text-emerald-700" : pct < 0 ? "text-red-600" : "text-gray-700";
+    }
     const bullishPct = row.best === "max" ? pct : -pct;
     if (bullishPct >= 15) return "bg-emerald-200 text-emerald-900 font-semibold";
     if (bullishPct >= 5) return "bg-emerald-50 text-emerald-800";
@@ -269,6 +263,7 @@ export default function LowDetectionView() {
                     {c.label}
                     {c.custom && (
                       <button
+                        type="button"
                         onClick={() => removeCustomColumn(i - baseTroughs.length)}
                         title="Remove column"
                         className="ml-1.5 text-gray-400 hover:text-red-600 font-normal"
@@ -278,13 +273,9 @@ export default function LowDetectionView() {
                     )}
                   </th>
                 ))}
-                {showPctChangeCol && (
-                  <th className="text-right px-3 py-1.5 font-medium text-gray-600 border-b border-gray-200 whitespace-nowrap">
-                    % Chg ({prevCol?.label} → {lastCol?.label})
-                  </th>
-                )}
                 <th className="text-center px-2 py-1.5 border-b border-gray-200">
                   <button
+                    type="button"
                     onClick={() => setAddingColumn((v) => !v)}
                     title="Add custom column"
                     className="w-6 h-6 rounded-full bg-blue-50 text-blue-600 hover:bg-blue-100 font-semibold leading-none"
@@ -292,6 +283,11 @@ export default function LowDetectionView() {
                     +
                   </button>
                 </th>
+                {showPctChangeCol && (
+                  <th className="text-right px-3 py-1.5 font-medium text-gray-600 border-b border-gray-200 whitespace-nowrap">
+                    % Chg ({prevCol?.label} → {lastCol?.label})
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -313,6 +309,7 @@ export default function LowDetectionView() {
                       )}
                     </td>
                   ))}
+                  <td className="border-b border-gray-100" />
                   {showPctChangeCol && (() => {
                     const pct = pctChange(row);
                     return (
@@ -321,7 +318,6 @@ export default function LowDetectionView() {
                       </td>
                     );
                   })()}
-                  <td className="border-b border-gray-100" />
                 </tr>
               ))}
             </tbody>
@@ -329,9 +325,9 @@ export default function LowDetectionView() {
         </div>
       )}
 
-      {showPctChangeCol && priceMadeFreshLow && (
+      {showPctChangeCol && (
         <div className="flex items-center gap-3 text-xs text-gray-500">
-          <span>% Chg divergence:</span>
+          <span>% Chg color:</span>
           <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-emerald-200" /> ≥+15% strong bullish divergence</span>
           <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-emerald-50 border border-emerald-100" /> +5–15% mild divergence</span>
           <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-gray-100 border border-gray-200" /> −5–5% flat</span>
@@ -359,12 +355,14 @@ export default function LowDetectionView() {
           {pasteError && <div className="text-xs text-red-600">{pasteError}</div>}
           <div className="flex gap-2">
             <button
+              type="button"
               onClick={onAddColumn}
               className="px-3 py-1 text-sm font-medium rounded bg-blue-600 text-white hover:bg-blue-700"
             >
               Save Column
             </button>
             <button
+              type="button"
               onClick={() => { setAddingColumn(false); setPasteError(null); }}
               className="px-3 py-1 text-sm font-medium rounded bg-gray-100 text-gray-600 hover:bg-gray-200"
             >
