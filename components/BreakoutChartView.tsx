@@ -63,6 +63,7 @@ export default function BreakoutChartView({ ticker }: Props) {
   const [error, setError] = useState("");
   const [legend, setLegend] = useState<Legend | null>(null);
   const [copied, setCopied] = useState(false);
+  const [pinned, setPinned] = useState(false);
 
   const priceRef = useRef<HTMLDivElement>(null);
   const rsiRef = useRef<HTMLDivElement>(null);
@@ -75,6 +76,7 @@ export default function BreakoutChartView({ ticker }: Props) {
     async function load() {
       setError("");
       setBars(null);
+      setPinned(false);
       try {
         const res = await fetch(`/api/daily-bars?ticker=${ticker}`);
         const json = await res.json();
@@ -193,6 +195,9 @@ export default function BreakoutChartView({ ticker }: Props) {
 
     // Sync crosshair across all panes + build legend from hovered bar
     let movingCrosshair = false;
+    // Clicking a date pins the legend there; hovering to a *different* date afterward
+    // automatically unpins and resumes live tracking.
+    let pinnedIdx: number | null = null;
     const updateLegend = (idx: number | null) => {
       // Keep showing the last hovered date's values when the mouse leaves the chart
       // instead of clearing them, so the Copy button always has something to copy.
@@ -213,22 +218,39 @@ export default function BreakoutChartView({ ticker }: Props) {
         cmf: indicators.cmf[idx],
       });
     };
+    const seriesFor = (c: IChartApi) =>
+      c === rsiChart ? rsiSeries : c === dmiChart ? diPlusSeries : c === macdChart ? macdLineSeries : c === cmfChart ? cmfSeries : primarySeries;
 
     charts.forEach((chart, chartIdx) => {
       chart.subscribeCrosshairMove((param) => {
         if (movingCrosshair) return;
-        if (!param.time) {
-          updateLegend(null);
-          return;
-        }
+        if (!param.time) return;
         const idx = timeIndex.get(param.time as number);
         if (idx == null) return;
+        if (pinnedIdx != null) {
+          if (idx === pinnedIdx) return; // still hovering the pinned bar, stay frozen
+          pinnedIdx = null; // moved to a different bar — resume live tracking
+          setPinned(false);
+        }
         updateLegend(idx);
         movingCrosshair = true;
         charts.forEach((c, i) => {
           if (i === chartIdx) return;
-          const series = i === 0 ? primarySeries : (c === rsiChart ? rsiSeries : c === dmiChart ? diPlusSeries : c === macdChart ? macdLineSeries : cmfSeries);
-          c.setCrosshairPosition(0, param.time as Time, series);
+          c.setCrosshairPosition(0, param.time as Time, seriesFor(c));
+        });
+        movingCrosshair = false;
+      });
+      chart.subscribeClick((param) => {
+        if (!param.time) return;
+        const idx = timeIndex.get(param.time as number);
+        if (idx == null) return;
+        pinnedIdx = idx;
+        setPinned(true);
+        updateLegend(idx);
+        movingCrosshair = true;
+        charts.forEach((c, i) => {
+          if (i === chartIdx) return;
+          c.setCrosshairPosition(0, param.time as Time, seriesFor(c));
         });
         movingCrosshair = false;
       });
@@ -279,7 +301,10 @@ export default function BreakoutChartView({ ticker }: Props) {
       {!error && bars && indicators && macd && (
         <div className="w-full">
           <div className="w-full px-3 py-2 bg-[#0f172a] border-b border-slate-700 flex flex-wrap items-center gap-x-6 gap-y-1 text-xs font-mono">
-            <span className="text-slate-300 font-semibold">{legend?.date ?? "—"}</span>
+            <span className="text-slate-300 font-semibold">
+              {legend?.date ?? "—"}
+              {pinned && <span className="ml-1.5 text-amber-400 font-sans" title="Pinned — click elsewhere to unpin">📌</span>}
+            </span>
             <span className="text-slate-200">Price <b>{fmt(legend?.price)}</b></span>
             <span className="text-blue-400">EMA20 <b>{fmt(legend?.ema20)}</b></span>
             <span className="text-amber-400">EMA50 <b>{fmt(legend?.ema50)}</b></span>
