@@ -107,7 +107,14 @@ export default function LowDetectionView() {
   const priceMadeFreshLow = priceChgPct != null && priceChgPct < 0;
 
   function divergenceClass(row: RowDef): string {
-    if (!row.best || !priceMadeFreshLow) return "text-gray-400";
+    if (!row.best) {
+      // No bullish/bearish direction for this row (Price, EMA20/50, MACD, Signal) — plain
+      // green/red text by sign, same as before divergence highlighting was added.
+      const pct = pctChange(row);
+      if (pct == null) return "text-gray-400";
+      return pct > 0 ? "text-emerald-700" : pct < 0 ? "text-red-600" : "text-gray-700";
+    }
+    if (!priceMadeFreshLow) return "text-gray-400";
     const pct = pctChange(row);
     if (pct == null) return "text-gray-400";
     const bullishPct = row.best === "max" ? pct : -pct;
