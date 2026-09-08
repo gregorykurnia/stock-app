@@ -41,11 +41,26 @@ const CHART_OPTIONS = (width: number) => ({
 const fmt = (v: number | null | undefined, dec = 2) =>
   v == null || isNaN(v) ? "—" : v.toFixed(dec);
 
+// 30wk MA proxy (150-day SMA) — same calc as Coiling / the Breakout - List BBW/30wk MA Slope
+// columns, so the chart's flattening read matches the table's number.
+function sma(values: number[], period: number): number[] {
+  const out = new Array(values.length).fill(NaN);
+  let sum = 0;
+  for (let i = 0; i < values.length; i++) {
+    sum += values[i];
+    if (i >= period) sum -= values[i - period];
+    if (i >= period - 1) out[i] = sum / period;
+  }
+  return out;
+}
+
 interface Legend {
   date: string;
   price: number | null;
   ema20: number | null;
   ema50: number | null;
+  ma30wk: number | null;
+  ma30wkSlope: number | null;
   rsi: number | null;
   diPlus: number | null;
   diMinus: number | null;
@@ -131,6 +146,17 @@ export default function BreakoutChartView({ ticker }: Props) {
     ema20Series.setData(toLineData(indicators.ema20));
     const ema50Series = priceChart.addSeries(LineSeries, { color: "#f59e0b", lineWidth: 2, title: "EMA50" });
     ema50Series.setData(toLineData(indicators.ema50));
+
+    // 30wk MA (150-day SMA) — plotted directly on price so flattening/coiling is visible at a
+    // glance (a flat line = flat slope), same calc as the Breakout - List 30wk MA Slope column.
+    const closes = bars.map((b) => b.close);
+    const ma30wk = sma(closes, 150);
+    const ma30wkSlopeSeries: number[] = ma30wk.map((v, i) =>
+      i >= 20 && !isNaN(v) && !isNaN(ma30wk[i - 20]) ? v - ma30wk[i - 20] : NaN
+    );
+    const ma30wkSeries = priceChart.addSeries(LineSeries, { color: "#ec4899", lineWidth: 2, title: "30wk MA" });
+    ma30wkSeries.setData(toLineData(ma30wk));
+
     priceChart.timeScale().fitContent();
 
     // RSI
@@ -217,6 +243,8 @@ export default function BreakoutChartView({ ticker }: Props) {
         price: b.close,
         ema20: indicators.ema20[idx],
         ema50: indicators.ema50[idx],
+        ma30wk: ma30wk[idx],
+        ma30wkSlope: ma30wkSlopeSeries[idx],
         rsi: indicators.rsi[idx],
         diPlus: indicators.diPlus[idx],
         diMinus: indicators.diMinus[idx],
@@ -295,6 +323,8 @@ export default function BreakoutChartView({ ticker }: Props) {
       `Price: ${fmt(legend.price)}`,
       `EMA20: ${fmt(legend.ema20)}`,
       `EMA50: ${fmt(legend.ema50)}`,
+      `30wk MA: ${fmt(legend.ma30wk)}`,
+      `30wk MA Slope: ${fmt(legend.ma30wkSlope, 3)}`,
       `RSI: ${fmt(legend.rsi, 1)}`,
       `DI+: ${fmt(legend.diPlus, 1)}`,
       `DI-: ${fmt(legend.diMinus, 1)}`,
@@ -334,6 +364,7 @@ export default function BreakoutChartView({ ticker }: Props) {
             <span className="text-slate-200">Price <b>{fmt(legend?.price)}</b></span>
             <span className="text-blue-400">EMA20 <b>{fmt(legend?.ema20)}</b></span>
             <span className="text-amber-400">EMA50 <b>{fmt(legend?.ema50)}</b></span>
+            <span className="text-pink-400">30wk MA <b>{fmt(legend?.ma30wk)}</b> <span className="text-slate-500">(slope {fmt(legend?.ma30wkSlope, 3)})</span></span>
             <span className="text-sky-400">RSI <b>{fmt(legend?.rsi, 1)}</b></span>
             <span className="text-green-400">DI+ <b>{fmt(legend?.diPlus, 1)}</b></span>
             <span className="text-red-400">DI- <b>{fmt(legend?.diMinus, 1)}</b></span>
