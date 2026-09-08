@@ -87,6 +87,22 @@ export default function LowDetectionView() {
     if (bestI != null) bestIdxByRow[row.key] = bestI;
   }
 
+  // Per row, where the latest (last-column) trough ranks among all troughs for that indicator —
+  // rank 1 = most bullish reading in the whole series.
+  const latestRankByRow: Partial<Record<RowKey, string>> = {};
+  if (troughs.length > 0) {
+    const lastIdx = troughs.length - 1;
+    for (const row of ROWS) {
+      if (!row.best) continue;
+      const values = troughs.map((t) => rawValue(t, row.key)).filter((v): v is number => v != null);
+      const lastVal = rawValue(troughs[lastIdx], row.key);
+      if (lastVal == null || values.length === 0) continue;
+      const sorted = [...values].sort((a, b) => (row.best === "max" ? b - a : a - b));
+      const rank = sorted.indexOf(lastVal) + 1;
+      latestRankByRow[row.key] = `(${rank}/${values.length})`;
+    }
+  }
+
   return (
     <div className="space-y-3">
       <form onSubmit={onSubmit} className="flex items-center gap-2">
@@ -140,6 +156,9 @@ export default function LowDetectionView() {
                       }`}
                     >
                       {row.fmt(t)}
+                      {i === troughs.length - 1 && latestRankByRow[row.key] && (
+                        <span className="ml-1 text-xs text-gray-400 font-normal">{latestRankByRow[row.key]}</span>
+                      )}
                     </td>
                   ))}
                 </tr>
