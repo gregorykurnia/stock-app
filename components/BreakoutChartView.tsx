@@ -101,6 +101,15 @@ export default function BreakoutChartView({ ticker }: Props) {
     const times = bars.map((b) => b.time as Time);
     const timeIndex = new Map<number, number>(bars.map((b, i) => [b.time, i]));
 
+    // NaN warm-up points become whitespace (time-only) entries instead of being dropped,
+    // so every pane's internal time-index list stays the same length/order as the price
+    // pane's — dropping them instead shifts panes with longer warm-ups (ADX, MACD) out of
+    // sync since "same logical index" no longer means "same date" across panes.
+    const toLineData = (values: number[]) =>
+      values.map((v, i) => (isNaN(v) ? { time: times[i] } : { time: times[i], value: v }));
+    const toHistData = (values: number[], colorFor: (v: number) => string) =>
+      values.map((v, i) => (isNaN(v) ? { time: times[i] } : { time: times[i], value: v, color: colorFor(v) }));
+
     const priceChart = createChart(priceRef.current, { ...CHART_OPTIONS(w), height: 360 });
     const candleSeries = priceChart.addSeries(CandlestickSeries, {
       upColor: "#22c55e",
@@ -113,9 +122,9 @@ export default function BreakoutChartView({ ticker }: Props) {
       bars.map((b, i) => ({ time: times[i], open: b.open, high: b.high, low: b.low, close: b.close }))
     );
     const ema20Series = priceChart.addSeries(LineSeries, { color: "#3b82f6", lineWidth: 2, title: "EMA20" });
-    ema20Series.setData(bars.map((b, i) => ({ time: times[i], value: indicators.ema20[i] })).filter((d) => !isNaN(d.value)));
+    ema20Series.setData(toLineData(indicators.ema20));
     const ema50Series = priceChart.addSeries(LineSeries, { color: "#f59e0b", lineWidth: 2, title: "EMA50" });
-    ema50Series.setData(bars.map((b, i) => ({ time: times[i], value: indicators.ema50[i] })).filter((d) => !isNaN(d.value)));
+    ema50Series.setData(toLineData(indicators.ema50));
     priceChart.timeScale().fitContent();
 
     // RSI
@@ -125,16 +134,16 @@ export default function BreakoutChartView({ ticker }: Props) {
     const rsi30 = rsiChart.addSeries(LineSeries, { color: "#475569", lineWidth: 1, lineStyle: 2 });
     rsi30.setData(bars.map((_, i) => ({ time: times[i], value: 30 })));
     const rsiSeries = rsiChart.addSeries(LineSeries, { color: "#38bdf8", lineWidth: 2, title: "RSI" });
-    rsiSeries.setData(bars.map((b, i) => ({ time: times[i], value: indicators.rsi[i] })).filter((d) => !isNaN(d.value)));
+    rsiSeries.setData(toLineData(indicators.rsi));
 
     // DMI (DI+/DI-/ADX)
     const dmiChart = createChart(dmiRef.current, { ...CHART_OPTIONS(w), height: 160 });
     const diPlusSeries = dmiChart.addSeries(LineSeries, { color: "#22c55e", lineWidth: 2, title: "DI+" });
-    diPlusSeries.setData(bars.map((b, i) => ({ time: times[i], value: indicators.diPlus[i] })).filter((d) => !isNaN(d.value)));
+    diPlusSeries.setData(toLineData(indicators.diPlus));
     const diMinusSeries = dmiChart.addSeries(LineSeries, { color: "#ef4444", lineWidth: 2, title: "DI-" });
-    diMinusSeries.setData(bars.map((b, i) => ({ time: times[i], value: indicators.diMinus[i] })).filter((d) => !isNaN(d.value)));
+    diMinusSeries.setData(toLineData(indicators.diMinus));
     const adxSeries = dmiChart.addSeries(LineSeries, { color: "#f59e0b", lineWidth: 2, lineStyle: 1, title: "ADX" });
-    adxSeries.setData(bars.map((b, i) => ({ time: times[i], value: indicators.adx[i] })).filter((d) => !isNaN(d.value)));
+    adxSeries.setData(toLineData(indicators.adx));
 
     // MACD
     const macdChart = createChart(macdRef.current, { ...CHART_OPTIONS(w), height: 160 });
@@ -143,15 +152,11 @@ export default function BreakoutChartView({ ticker }: Props) {
     const macdHistSeries = macdChart.addSeries(HistogramSeries, {
       priceFormat: { type: "price", precision: 3, minMove: 0.001 },
     });
-    macdHistSeries.setData(
-      bars
-        .map((b, i) => ({ time: times[i], value: macd.hist[i], color: macd.hist[i] >= 0 ? "#22c55e" : "#ef4444" }))
-        .filter((d) => !isNaN(d.value))
-    );
+    macdHistSeries.setData(toHistData(macd.hist, (v) => (v >= 0 ? "#22c55e" : "#ef4444")));
     const macdLineSeries = macdChart.addSeries(LineSeries, { color: "#3b82f6", lineWidth: 1, title: "MACD" });
-    macdLineSeries.setData(bars.map((b, i) => ({ time: times[i], value: macd.macd[i] })).filter((d) => !isNaN(d.value)));
+    macdLineSeries.setData(toLineData(macd.macd));
     const macdSignalSeries = macdChart.addSeries(LineSeries, { color: "#f59e0b", lineWidth: 1, title: "Signal" });
-    macdSignalSeries.setData(bars.map((b, i) => ({ time: times[i], value: macd.signal[i] })).filter((d) => !isNaN(d.value)));
+    macdSignalSeries.setData(toLineData(macd.signal));
 
     // CMF
     const cmfChart = createChart(cmfRef.current, { ...CHART_OPTIONS(w), height: 160 });
@@ -160,11 +165,7 @@ export default function BreakoutChartView({ ticker }: Props) {
     const cmfSeries = cmfChart.addSeries(HistogramSeries, {
       priceFormat: { type: "price", precision: 3, minMove: 0.001 },
     });
-    cmfSeries.setData(
-      bars
-        .map((b, i) => ({ time: times[i], value: indicators.cmf[i], color: indicators.cmf[i] >= 0 ? "#22c55e" : "#ef4444" }))
-        .filter((d) => !isNaN(d.value))
-    );
+    cmfSeries.setData(toHistData(indicators.cmf, (v) => (v >= 0 ? "#22c55e" : "#ef4444")));
 
     const charts: IChartApi[] = [priceChart, rsiChart, dmiChart, macdChart, cmfChart];
     const primarySeries: ISeriesApi<"Candlestick"> | ISeriesApi<"Line"> = candleSeries;
