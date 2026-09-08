@@ -99,6 +99,7 @@ interface BreakoutResult {
   cmfAtAnchor: number | null;
   cmfAtLow: number | null;
   divergenceScore: number | null;
+  divergenceScoreCapitulation: boolean;
 }
 
 const EMPTY: BreakoutResult = {
@@ -112,7 +113,7 @@ const EMPTY: BreakoutResult = {
   daysLowToDiCross: null, pctAboveDiCrossNow: null, currentBuyScore: null,
   breakoutScore: null, atrPct: null,
   diGapAtAnchor: null, diGapAtLow: null, adxAtAnchor: null, adxAtLow: null,
-  cmfAtAnchor: null, cmfAtLow: null, divergenceScore: null,
+  cmfAtAnchor: null, cmfAtLow: null, divergenceScore: null, divergenceScoreCapitulation: false,
 };
 
 // Same absolute-delta scoring as the Low Detection %Chg Score: 5 metrics (RSI, DI Gap, ADX, Hist,
@@ -233,7 +234,15 @@ async function fetchBreakoutDaily(ticker: string): Promise<BreakoutResult> {
     return diPluses[i] - diMinuses[i];
   };
 
-  const divergenceScore = calcDivergenceScore(
+  // Capitulation low: the swing low IS the RSI-cluster trough (lastClusterIsSwingLow) AND its RSI
+  // isn't higher than the prior cluster's — a fresh oversold extreme with no earlier trough to
+  // diverge from, so the score below isn't measuring anything. Mirrors Low Detection's
+  // isCapitulationLow check.
+  const divAnchorRsi = valAt(rsis, divAnchorIdx);
+  const swingLowRsi = valAt(rsis, swingLowIdx);
+  const divergenceScoreCapitulation = lastClusterIsSwingLow && divAnchorRsi != null && swingLowRsi != null && swingLowRsi <= divAnchorRsi;
+
+  const divergenceScore = divergenceScoreCapitulation ? null : calcDivergenceScore(
     { rsi: valAt(rsis, divAnchorIdx), diGap: diGapAt(divAnchorIdx), adx: valAt(adxs, divAnchorIdx), hist: valAt(hist, divAnchorIdx), cmf: valAt(cmfs, divAnchorIdx) },
     { rsi: valAt(rsis, swingLowIdx), diGap: diGapAt(swingLowIdx), adx: valAt(adxs, swingLowIdx), hist: valAt(hist, swingLowIdx), cmf: valAt(cmfs, swingLowIdx) }
   );
@@ -329,6 +338,7 @@ async function fetchBreakoutDaily(ticker: string): Promise<BreakoutResult> {
     breakoutScore,
     atrPct,
     diGapAtAnchor, diGapAtLow, adxAtAnchor, adxAtLow, cmfAtAnchor, cmfAtLow, divergenceScore,
+    divergenceScoreCapitulation,
   };
 }
 
@@ -348,7 +358,7 @@ export async function GET(req: NextRequest) {
     daysLowToDiCross: {}, pctAboveDiCrossNow: {}, currentBuyScore: {},
     breakoutScore: {}, atrPct: {},
     diGapAtAnchor: {}, diGapAtLow: {}, adxAtAnchor: {}, adxAtLow: {},
-    cmfAtAnchor: {}, cmfAtLow: {}, divergenceScore: {},
+    cmfAtAnchor: {}, cmfAtLow: {}, divergenceScore: {}, divergenceScoreCapitulation: {},
   };
 
   const chunkSize = 8;

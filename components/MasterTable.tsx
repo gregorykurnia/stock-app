@@ -223,6 +223,7 @@ interface Props {
     breakoutScore: number | null;
     atrPct: number | null;
     divergenceScore: number | null;
+    divergenceScoreCapitulation: boolean;
   }>;
   usBreakoutShortFloats?: Record<string, number | null>;
   usBreakoutAdvs?: Record<string, number | null>;

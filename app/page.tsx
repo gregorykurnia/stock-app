@@ -120,6 +120,7 @@ export default function Home() {
     breakoutScore: number | null;
     atrPct: number | null;
     divergenceScore: number | null;
+    divergenceScoreCapitulation: boolean;
   }
   const [usBreakoutStocks, setUsBreakoutStocks] = useState<UsBreakoutStock[]>([]);
   const [usBreakoutPrices, setUsBreakoutPrices] = useState<Record<string, number | null>>({});
@@ -397,6 +398,7 @@ export default function Home() {
               breakoutScore: d.breakoutScore?.[t] ?? null,
               atrPct: d.atrPct?.[t] ?? null,
               divergenceScore: d.divergenceScore?.[t] ?? null,
+              divergenceScoreCapitulation: d.divergenceScoreCapitulation?.[t] ?? false,
             };
           }
           return next;

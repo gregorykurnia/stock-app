@@ -240,6 +240,19 @@ export default function LowDetectionView() {
   const totalScore = scoreBreakdown.reduce((sum, { score }) => sum + (score ?? 0), 0);
   const maxPossible = scoreBreakdown.filter(({ score }) => score != null).length * POINTS_PER_METRIC;
 
+  // Capitulation low: the 1Y Low IS the RSI-cluster trough (oneYearLowIsDuplicate) AND its RSI is
+  // not higher than the prior trough's — i.e. this low is a fresh oversold extreme, not a higher
+  // RSI low against an earlier trough. There's no prior trough to diverge from, so the Score is
+  // structurally not measuring anything (not "weak," just not applicable) — flag it instead of
+  // showing a misleadingly low number. A real reversal from here would show up in Hist/CMF/OBV
+  // trend or price action, not this score.
+  const isCapitulationLow = Boolean(oneYearLowIsDuplicate) && (() => {
+    if (!prevCol || !lastCol) return false;
+    const prevRsi = rawValue(prevCol.data, "rsi");
+    const lastRsi = rawValue(lastCol.data, "rsi");
+    return prevRsi != null && lastRsi != null && lastRsi <= prevRsi;
+  })();
+
   // Per row, the index (within columns) of the most-bullish cell, for highlighting.
   const bestIdxByRow: Partial<Record<RowKey, number>> = {};
   for (const row of ROWS) {
@@ -370,7 +383,18 @@ export default function LowDetectionView() {
         </div>
       )}
 
-      {showPctChangeCol && maxPossible > 0 && (
+      {showPctChangeCol && isCapitulationLow && (
+        <div className="flex items-center gap-2 text-xs">
+          <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-800 font-semibold px-2 py-0.5">
+            ⚠ Capitulation Low
+          </span>
+          <span className="text-gray-500">
+            %Chg Score: <span className="text-gray-400">N/A</span> — this low is a fresh RSI extreme, not a higher-RSI low against a prior trough, so there's no divergence to score. Read Hist/CMF/OBV trend or price action for this one instead.
+          </span>
+        </div>
+      )}
+
+      {showPctChangeCol && !isCapitulationLow && maxPossible > 0 && (
         <div className="flex items-center gap-3 text-xs">
           <span className="font-semibold text-gray-700">
             %Chg Score: <span className="text-sm">{totalScore.toFixed(1)} / {maxPossible}</span>

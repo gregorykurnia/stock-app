@@ -48,6 +48,7 @@ interface Props {
     breakoutScore: number | null;
     atrPct: number | null;
     divergenceScore: number | null;
+    divergenceScoreCapitulation: boolean;
   }>;
   shortFloats?: Record<string, number | null>;
   advs?: Record<string, number | null>;
@@ -375,6 +376,7 @@ export default function USBreakoutTable({
         breakoutScore: d?.breakoutScore ?? null,
         atrPct: d?.atrPct ?? null,
         divergenceScore: d?.divergenceScore ?? null,
+        divergenceScoreCapitulation: d?.divergenceScoreCapitulation ?? false,
         shortFloat: shortFloats[s.ticker] ?? null,
         adv: advs[s.ticker] ?? null,
         earnings: earningsDate,
@@ -480,7 +482,7 @@ export default function USBreakoutTable({
       r.addedAt ? r.addedAt.slice(0, 10) : "",
       r.status != null ? STATUS_DEF[r.status].label : "",
       r.breakoutType != null ? TYPE_DEF[r.breakoutType].label : "",
-      r.divergenceScore?.toFixed(1) ?? "",
+      r.divergenceScoreCapitulation ? "Capitulation" : r.divergenceScore?.toFixed(1) ?? "",
       r.breakoutScore?.toFixed(2) ?? "",
       r.declineFromHighPct?.toFixed(1) ?? "",
       r.rsiDivergencePct?.toFixed(1) ?? "",
@@ -638,7 +640,7 @@ export default function USBreakoutTable({
               <Th label="Added" k="addedAt" info="Date this ticker was added to your Breakout watchlist." />
               <Th label="Status" k="status" info="Divergence lifecycle: No Divergence (RSI at the low wasn't higher than the pre-low anchor) → Watching (divergence confirmed, MACD hasn't crossed bullish yet, price hasn't broken the low either) → Confirmed (MACD crossed above signal without price making a new low first) → Failed (price broke below the swing low before MACD confirmed)." />
               <Th label="Type" k="breakoutType" info="Manual classification tag — Benchmark or New. Filterable via the toggles above the table." />
-              <Th label="Divergence Score" k="divergenceScore" info="0-30 composite, exact same logic as Low Detection's %Chg Score: RSI, DI Gap, ADX, Hist, and CMF each scored 0-6 comparing the RSI-divergence anchor to the swing low (bullish absolute delta scaled to that metric's 'strong divergence' cutoff — 10pt RSI, 10pt DI Gap, 8pt ADX decline, 0.3 Hist, 0.10 CMF). Null components are simply excluded, not zeroed." />
+              <Th label="Divergence Score" k="divergenceScore" info="0-30 composite, exact same logic as Low Detection's %Chg Score: RSI, DI Gap, ADX, Hist, and CMF each scored 0-6 comparing the RSI-cluster trough before the swing low to the swing low itself (bullish absolute delta scaled to that metric's 'strong divergence' cutoff — 10pt RSI, 10pt DI Gap, 8pt ADX decline, 0.3 Hist, 0.10 CMF). Null components are excluded, not zeroed. Shows a 'Capitulation' badge instead of a number when the swing low is itself a fresh RSI extreme with no prior trough to diverge from — the score isn't weak there, it's not applicable." />
               <Th label="Breakout Score" k="breakoutScore" info="0-10 composite scored against the benchmark pattern: RSI divergence strength (22%), RSI band depth / how oversold the anchor was (18%), MACD histogram compression into the low (22%, penalized hard if still negative), % decline from pre-low high (12%, full credit at -70% or deeper), days from low to MACD cross (9%), % above low at cross (9%), distance from EMA50D at cross (4%), relative volume at cross (4%). Null until divergence is at least confirmed (Watching/Confirmed/Failed). A rough heuristic, not a guarantee — always sanity-check the underlying columns." />
               <Th label="% Decline From High" k="declineFromHighPct" info="(swing low − pre-low high) / pre-low high × 100. How many % beaten down the stock was at its lowest point, measured from its pre-low high — a quick read on how violent the drawdown was before the reversal." />
               <Th label="RSI Divergence %" k="rsiDivergencePct" info="(RSI at low − RSI anchor) / RSI anchor × 100. Positive = price made a lower low but RSI made a higher low (bullish divergence). Higher % = stronger divergence, e.g. TEAM +63%, WDAY +59.6%." />
@@ -733,7 +735,15 @@ export default function USBreakoutTable({
                     <option value="new">New</option>
                   </select>
                 </td>
-                <td className={`px-3 py-2 ${divergenceScoreClass(r.divergenceScore)}`}>{r.divergenceScore != null ? r.divergenceScore.toFixed(1) : dash}</td>
+                <td className="px-3 py-2">
+                  {r.divergenceScoreCapitulation ? (
+                    <span title="This low is a fresh RSI extreme, not a higher-RSI low against a prior trough — no divergence to score. Read Hist/CMF/OBV trend or price action for this one instead." className="inline-flex items-center rounded-full bg-amber-100 text-amber-800 text-xs font-semibold px-2 py-0.5 whitespace-nowrap cursor-help">
+                      ⚠ Capitulation
+                    </span>
+                  ) : (
+                    <span className={divergenceScoreClass(r.divergenceScore)}>{r.divergenceScore != null ? r.divergenceScore.toFixed(1) : dash}</span>
+                  )}
+                </td>
                 <td className={`px-3 py-2 ${breakoutScoreClass(r.breakoutScore)}`}>{r.breakoutScore != null ? r.breakoutScore.toFixed(1) : dash}</td>
                 <td className={`px-3 py-2 ${priceDeclineClass(r.declineFromHighPct)}`}>{r.declineFromHighPct != null ? `${r.declineFromHighPct.toFixed(1)}%` : dash}</td>
                 <td className={`px-3 py-2 ${divergenceClass(r.rsiDivergencePct)}`}>{r.rsiDivergencePct != null ? `${r.rsiDivergencePct >= 0 ? "+" : ""}${r.rsiDivergencePct.toFixed(1)}%` : dash}</td>
