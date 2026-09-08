@@ -234,13 +234,11 @@ async function fetchBreakoutDaily(ticker: string): Promise<BreakoutResult> {
     return diPluses[i] - diMinuses[i];
   };
 
-  // Capitulation low: the swing low IS the RSI-cluster trough (lastClusterIsSwingLow) AND its RSI
-  // isn't higher than the prior cluster's — a fresh oversold extreme with no earlier trough to
-  // diverge from, so the score below isn't measuring anything. Mirrors Low Detection's
-  // isCapitulationLow check.
-  const divAnchorRsi = valAt(rsis, divAnchorIdx);
-  const swingLowRsi = valAt(rsis, swingLowIdx);
-  const divergenceScoreCapitulation = lastClusterIsSwingLow && divAnchorRsi != null && swingLowRsi != null && swingLowRsi <= divAnchorRsi;
+  // Capitulation low: the swing low IS itself an independent RSI<30 cluster trough
+  // (lastClusterIsSwingLow) — price and RSI both hit a fresh extreme together, so the
+  // divAnchorIdx -> swingLowIdx comparison is trough-vs-trough rather than trough-vs-recovery.
+  // Mirrors Low Detection's isCapitulationLow check.
+  const divergenceScoreCapitulation = lastClusterIsSwingLow;
 
   const divergenceScore = divergenceScoreCapitulation ? null : calcDivergenceScore(
     { rsi: valAt(rsis, divAnchorIdx), diGap: diGapAt(divAnchorIdx), adx: valAt(adxs, divAnchorIdx), hist: valAt(hist, divAnchorIdx), cmf: valAt(cmfs, divAnchorIdx) },

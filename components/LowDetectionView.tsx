@@ -240,18 +240,12 @@ export default function LowDetectionView() {
   const totalScore = scoreBreakdown.reduce((sum, { score }) => sum + (score ?? 0), 0);
   const maxPossible = scoreBreakdown.filter(({ score }) => score != null).length * POINTS_PER_METRIC;
 
-  // Capitulation low: the 1Y Low IS the RSI-cluster trough (oneYearLowIsDuplicate) AND its RSI is
-  // not higher than the prior trough's — i.e. this low is a fresh oversold extreme, not a higher
-  // RSI low against an earlier trough. There's no prior trough to diverge from, so the Score is
-  // structurally not measuring anything (not "weak," just not applicable) — flag it instead of
-  // showing a misleadingly low number. A real reversal from here would show up in Hist/CMF/OBV
-  // trend or price action, not this score.
-  const isCapitulationLow = Boolean(oneYearLowIsDuplicate) && (() => {
-    if (!prevCol || !lastCol) return false;
-    const prevRsi = rawValue(prevCol.data, "rsi");
-    const lastRsi = rawValue(lastCol.data, "rsi");
-    return prevRsi != null && lastRsi != null && lastRsi <= prevRsi;
-  })();
+  // Capitulation low: the 1Y Low IS itself an independent RSI<30 cluster trough (oneYearLowIsDuplicate)
+  // — price and RSI both hit a fresh extreme together at the same point, rather than the 1Y low
+  // being a lower price with RSI already recovered above 30 (the normal divergence-scoring case).
+  // The prevCol -> lastCol comparison is then trough-vs-trough, not trough-vs-recovery, so the
+  // Score isn't a reliable read here — flag it instead of showing a misleadingly low number.
+  const isCapitulationLow = Boolean(oneYearLowIsDuplicate);
 
   // Per row, the index (within columns) of the most-bullish cell, for highlighting.
   const bestIdxByRow: Partial<Record<RowKey, number>> = {};
