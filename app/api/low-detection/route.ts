@@ -19,6 +19,38 @@ export interface TroughEvent {
   cmf: number | null;
 }
 
+function buildTroughAt(
+  idx: number,
+  dates: string[],
+  closes: number[],
+  rsi: number[],
+  ema20: number[],
+  ema50: number[],
+  diPlus: number[],
+  diMinus: number[],
+  adx: number[],
+  macd: number[],
+  signal: number[],
+  hist: number[],
+  cmf: number[]
+): TroughEvent {
+  const v = (arr: number[]) => (isNaN(arr[idx]) ? null : arr[idx]);
+  return {
+    date: dates[idx],
+    price: closes[idx],
+    ema20: v(ema20),
+    ema50: v(ema50),
+    rsi: rsi[idx],
+    diPlus: v(diPlus),
+    diMinus: v(diMinus),
+    adx: v(adx),
+    macd: v(macd),
+    signal: v(signal),
+    hist: v(hist),
+    cmf: v(cmf),
+  };
+}
+
 const RSI_THRESHOLD = 30;
 // Trading days: two RSI<30 dips within this many bars of each other are treated as the same
 // trough episode rather than two separate ones.
@@ -66,21 +98,7 @@ function detectTroughs(
     for (const idx of cluster) {
       if (closes[idx] < closes[lowIdx]) lowIdx = idx;
     }
-    const v = (arr: number[]) => (isNaN(arr[lowIdx]) ? null : arr[lowIdx]);
-    return {
-      date: dates[lowIdx],
-      price: closes[lowIdx],
-      ema20: v(ema20),
-      ema50: v(ema50),
-      rsi: rsi[lowIdx],
-      diPlus: v(diPlus),
-      diMinus: v(diMinus),
-      adx: v(adx),
-      macd: v(macd),
-      signal: v(signal),
-      hist: v(hist),
-      cmf: v(cmf),
-    };
+    return buildTroughAt(lowIdx, dates, closes, rsi, ema20, ema50, diPlus, diMinus, adx, macd, signal, hist, cmf);
   });
 }
 
@@ -118,7 +136,19 @@ export async function GET(req: NextRequest) {
       dates, closes, ind.rsi, ind.ema20, ind.ema50, ind.diPlus, ind.diMinus, ind.adx, macd, signal, hist, ind.cmf
     );
 
-    return NextResponse.json({ ticker, troughs });
+    // Actual trailing-1Y price low (lowest close in the last ~252 trading days), regardless of
+    // whether RSI dipped below 30 there — always surfaced as the reference "current" trough.
+    const oneYearWindow = Math.min(252, closes.length);
+    const windowStart = closes.length - oneYearWindow;
+    let oneYearLowIdx = windowStart;
+    for (let i = windowStart; i < closes.length; i++) {
+      if (closes[i] < closes[oneYearLowIdx]) oneYearLowIdx = i;
+    }
+    const oneYearLow = buildTroughAt(
+      oneYearLowIdx, dates, closes, ind.rsi, ind.ema20, ind.ema50, ind.diPlus, ind.diMinus, ind.adx, macd, signal, hist, ind.cmf
+    );
+
+    return NextResponse.json({ ticker, troughs, oneYearLow });
   } catch {
     return NextResponse.json({ error: "fetch failed" }, { status: 500 });
   }

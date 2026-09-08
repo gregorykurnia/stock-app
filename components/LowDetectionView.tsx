@@ -39,7 +39,8 @@ function rawValue(t: TroughEvent, key: RowKey): number | null {
 export default function LowDetectionView() {
   const [tickerInput, setTickerInput] = useState("");
   const [ticker, setTicker] = useState<string | null>(null);
-  const [troughs, setTroughs] = useState<TroughEvent[]>([]);
+  const [rsiTroughs, setRsiTroughs] = useState<TroughEvent[]>([]);
+  const [oneYearLow, setOneYearLow] = useState<TroughEvent | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,19 +54,36 @@ export default function LowDetectionView() {
       const json = await res.json();
       if (!res.ok) {
         setError(json.error ?? "fetch failed");
-        setTroughs([]);
+        setRsiTroughs([]);
+        setOneYearLow(null);
       } else {
         setTicker(json.ticker);
-        setTroughs(json.troughs ?? []);
-        if ((json.troughs ?? []).length === 0) setError("No RSI<30 troughs found in the trailing window");
+        setRsiTroughs(json.troughs ?? []);
+        setOneYearLow(json.oneYearLow ?? null);
+        if ((json.troughs ?? []).length === 0) setError("No RSI<30 troughs found in the trailing window (1Y low still shown)");
       }
     } catch {
       setError("fetch failed");
-      setTroughs([]);
+      setRsiTroughs([]);
+      setOneYearLow(null);
     } finally {
       setLoading(false);
     }
   }
+
+  // Always show the actual trailing-1Y price low as the final column, even when it never dipped
+  // RSI<30 — dedupe against the RSI-cluster troughs if it's the same date as the last one.
+  const lastRsiTrough = rsiTroughs[rsiTroughs.length - 1];
+  const oneYearLowIsDuplicate = oneYearLow && lastRsiTrough && lastRsiTrough.date === oneYearLow.date;
+  const troughs: TroughEvent[] = oneYearLow
+    ? oneYearLowIsDuplicate
+      ? rsiTroughs
+      : [...rsiTroughs, oneYearLow]
+    : rsiTroughs;
+  const columnLabels = troughs.map((_, i) =>
+    oneYearLow && !oneYearLowIsDuplicate && i === troughs.length - 1 ? "1Y Low" : `Low ${i + 1}`
+  );
+  if (oneYearLowIsDuplicate && columnLabels.length > 0) columnLabels[columnLabels.length - 1] = `Low ${columnLabels.length} / 1Y Low`;
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -121,7 +139,7 @@ export default function LowDetectionView() {
           {loading ? "Loading..." : "Detect Lows"}
         </button>
         <span className="text-xs text-gray-500">
-          Finds every RSI(14)&lt;30 dip over the trailing 24 months, clusters nearby dips into one trough, and reads indicators off the local price low.
+          Finds every RSI(14)&lt;30 dip over the trailing 24 months, clusters nearby dips into one trough, and reads indicators off the local price low. The last column is always the actual trailing-1Y price low, even if RSI never dipped below 30 there.
         </span>
       </form>
 
@@ -137,7 +155,7 @@ export default function LowDetectionView() {
                 </th>
                 {troughs.map((t, i) => (
                   <th key={i} className="text-right px-3 py-1.5 font-medium text-gray-600 border-b border-gray-200 whitespace-nowrap">
-                    Low {i + 1}
+                    {columnLabels[i]}
                   </th>
                 ))}
               </tr>
