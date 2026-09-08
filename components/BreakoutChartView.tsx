@@ -54,6 +54,7 @@ interface Legend {
   signal: number | null;
   hist: number | null;
   cmf: number | null;
+  obv: number | null;
 }
 
 export default function BreakoutChartView({ ticker }: Props) {
@@ -70,6 +71,7 @@ export default function BreakoutChartView({ ticker }: Props) {
   const dmiRef = useRef<HTMLDivElement>(null);
   const macdRef = useRef<HTMLDivElement>(null);
   const cmfRef = useRef<HTMLDivElement>(null);
+  const obvRef = useRef<HTMLDivElement>(null);
   const unpinRef = useRef<() => void>(() => {});
 
   useEffect(() => {
@@ -99,7 +101,7 @@ export default function BreakoutChartView({ ticker }: Props) {
 
   useEffect(() => {
     if (!bars || !indicators || !macd) return;
-    if (!priceRef.current || !rsiRef.current || !dmiRef.current || !macdRef.current || !cmfRef.current) return;
+    if (!priceRef.current || !rsiRef.current || !dmiRef.current || !macdRef.current || !cmfRef.current || !obvRef.current) return;
 
     const w = priceRef.current.clientWidth;
     const times = bars.map((b) => b.time as Time);
@@ -171,7 +173,12 @@ export default function BreakoutChartView({ ticker }: Props) {
     });
     cmfSeries.setData(toHistData(indicators.cmf, (v) => (v >= 0 ? "#22c55e" : "#ef4444")));
 
-    const charts: IChartApi[] = [priceChart, rsiChart, dmiChart, macdChart, cmfChart];
+    // OBV — cumulative, not zero-centered like CMF, so a plain line rather than a histogram.
+    const obvChart = createChart(obvRef.current, { ...CHART_OPTIONS(w), height: 160 });
+    const obvSeries = obvChart.addSeries(LineSeries, { color: "#a78bfa", lineWidth: 2, title: "OBV" });
+    obvSeries.setData(toLineData(indicators.obv));
+
+    const charts: IChartApi[] = [priceChart, rsiChart, dmiChart, macdChart, cmfChart, obvChart];
     const primarySeries: ISeriesApi<"Candlestick"> | ISeriesApi<"Line"> = candleSeries;
 
     // Fit only the price pane (it has the fullest data range) then force every other
@@ -218,10 +225,11 @@ export default function BreakoutChartView({ ticker }: Props) {
         signal: macd.signal[idx],
         hist: macd.hist[idx],
         cmf: indicators.cmf[idx],
+        obv: indicators.obv[idx],
       });
     };
     const seriesFor = (c: IChartApi) =>
-      c === rsiChart ? rsiSeries : c === dmiChart ? diPlusSeries : c === macdChart ? macdLineSeries : c === cmfChart ? cmfSeries : primarySeries;
+      c === rsiChart ? rsiSeries : c === dmiChart ? diPlusSeries : c === macdChart ? macdLineSeries : c === cmfChart ? cmfSeries : c === obvChart ? obvSeries : primarySeries;
 
     // Moving the crosshair line across panes is purely visual and always happens on
     // hover; only the legend text is gated by pinnedIdx (set by click, not by hover)
@@ -277,6 +285,9 @@ export default function BreakoutChartView({ ticker }: Props) {
     };
   }, [bars, indicators, macd]);
 
+  const fmtObv = (v: number | null | undefined) =>
+    v == null || isNaN(v) ? "—" : Math.round(v).toLocaleString();
+
   const copyLegend = () => {
     if (!legend) return;
     const text = [
@@ -292,6 +303,7 @@ export default function BreakoutChartView({ ticker }: Props) {
       `Signal: ${fmt(legend.signal, 3)}`,
       `Hist: ${fmt(legend.hist, 3)}`,
       `CMF: ${fmt(legend.cmf, 3)}`,
+      `OBV: ${fmtObv(legend.obv)}`,
     ].join("\n");
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
@@ -330,6 +342,7 @@ export default function BreakoutChartView({ ticker }: Props) {
             <span className="text-amber-400">Signal <b>{fmt(legend?.signal, 3)}</b></span>
             <span className={(legend?.hist ?? 0) >= 0 ? "text-green-400" : "text-red-400"}>Hist <b>{fmt(legend?.hist, 3)}</b></span>
             <span className={(legend?.cmf ?? 0) >= 0 ? "text-green-400" : "text-red-400"}>CMF <b>{fmt(legend?.cmf, 3)}</b></span>
+            <span className="text-violet-400">OBV <b>{fmtObv(legend?.obv)}</b></span>
             <button
               onClick={copyLegend}
               disabled={!legend}
@@ -355,6 +368,8 @@ export default function BreakoutChartView({ ticker }: Props) {
           <div ref={macdRef} className="w-full overflow-hidden" />
           <div className="w-full px-2 pt-1 pb-0 bg-[#0f172a] text-xs text-green-400 font-semibold tracking-wide">CMF</div>
           <div ref={cmfRef} className="w-full overflow-hidden" />
+          <div className="w-full px-2 pt-1 pb-0 bg-[#0f172a] text-xs text-violet-400 font-semibold tracking-wide">OBV</div>
+          <div ref={obvRef} className="w-full overflow-hidden" />
         </div>
       )}
     </div>

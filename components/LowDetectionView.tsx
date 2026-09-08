@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { TroughEvent } from "@/app/api/low-detection/route";
 
-type RowKey = "date" | "price" | "ema20" | "ema50" | "rsi" | "diPlus" | "diMinus" | "diGap" | "adx" | "macd" | "signal" | "hist" | "cmf";
+type RowKey = "date" | "price" | "ema20" | "ema50" | "rsi" | "diPlus" | "diMinus" | "diGap" | "adx" | "macd" | "signal" | "hist" | "cmf" | "obv";
 
 interface RowDef {
   key: RowKey;
@@ -27,6 +27,7 @@ const ROWS: RowDef[] = [
   { key: "signal", label: "Signal", fmt: (t) => (t.signal != null ? t.signal.toFixed(3) : "—"), best: null },
   { key: "hist", label: "Hist", fmt: (t) => (t.hist != null ? t.hist.toFixed(3) : "—"), best: "max" },
   { key: "cmf", label: "CMF", fmt: (t) => (t.cmf != null ? t.cmf.toFixed(3) : "—"), best: "max" },
+  { key: "obv", label: "OBV", fmt: (t) => (t.obv != null ? t.obv.toLocaleString(undefined, { maximumFractionDigits: 0 }) : "—"), best: "max" },
 ];
 
 function rawValue(t: TroughEvent, key: RowKey): number | null {
@@ -75,6 +76,7 @@ function parsePastedValues(text: string): TroughEvent | null {
     signal: num("signal"),
     hist: num("hist"),
     cmf: num("cmf"),
+    obv: num("obv"),
   };
 }
 

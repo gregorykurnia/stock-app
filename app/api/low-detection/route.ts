@@ -17,6 +17,7 @@ export interface TroughEvent {
   signal: number | null;
   hist: number | null;
   cmf: number | null;
+  obv: number | null;
 }
 
 function buildTroughAt(
@@ -32,7 +33,8 @@ function buildTroughAt(
   macd: number[],
   signal: number[],
   hist: number[],
-  cmf: number[]
+  cmf: number[],
+  obv: number[]
 ): TroughEvent {
   const v = (arr: number[]) => (isNaN(arr[idx]) ? null : arr[idx]);
   return {
@@ -48,6 +50,7 @@ function buildTroughAt(
     signal: v(signal),
     hist: v(hist),
     cmf: v(cmf),
+    obv: v(obv),
   };
 }
 
@@ -71,7 +74,8 @@ function detectTroughs(
   macd: number[],
   signal: number[],
   hist: number[],
-  cmf: number[]
+  cmf: number[],
+  obv: number[]
 ): TroughEvent[] {
   const n = closes.length;
   const oversoldIdx: number[] = [];
@@ -98,7 +102,7 @@ function detectTroughs(
     for (const idx of cluster) {
       if (closes[idx] < closes[lowIdx]) lowIdx = idx;
     }
-    return buildTroughAt(lowIdx, dates, closes, rsi, ema20, ema50, diPlus, diMinus, adx, macd, signal, hist, cmf);
+    return buildTroughAt(lowIdx, dates, closes, rsi, ema20, ema50, diPlus, diMinus, adx, macd, signal, hist, cmf, obv);
   });
 }
 
@@ -133,7 +137,7 @@ export async function GET(req: NextRequest) {
     const { macd, signal, hist } = macdSeriesFull(closes);
 
     const troughs = detectTroughs(
-      dates, closes, ind.rsi, ind.ema20, ind.ema50, ind.diPlus, ind.diMinus, ind.adx, macd, signal, hist, ind.cmf
+      dates, closes, ind.rsi, ind.ema20, ind.ema50, ind.diPlus, ind.diMinus, ind.adx, macd, signal, hist, ind.cmf, ind.obv
     );
 
     // Actual trailing-1Y price low (lowest close in the last ~252 trading days), regardless of
@@ -145,7 +149,7 @@ export async function GET(req: NextRequest) {
       if (closes[i] < closes[oneYearLowIdx]) oneYearLowIdx = i;
     }
     const oneYearLow = buildTroughAt(
-      oneYearLowIdx, dates, closes, ind.rsi, ind.ema20, ind.ema50, ind.diPlus, ind.diMinus, ind.adx, macd, signal, hist, ind.cmf
+      oneYearLowIdx, dates, closes, ind.rsi, ind.ema20, ind.ema50, ind.diPlus, ind.diMinus, ind.adx, macd, signal, hist, ind.cmf, ind.obv
     );
 
     return NextResponse.json({ ticker, troughs, oneYearLow });
