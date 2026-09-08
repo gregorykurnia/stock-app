@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { downloadCsv } from "@/lib/exportCsv";
 import { atrLabel } from "@/lib/indicators";
-import BreakoutChartModal from "@/components/BreakoutChartModal";
+import Link from "next/link";
 
 export interface USBreakoutStock {
   ticker: string;
@@ -290,7 +290,6 @@ export default function USBreakoutTable({
   const [typeFilter, setTypeFilter] = useState<Set<"benchmark" | "new">>(new Set());
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
-  const [chartTicker, setChartTicker] = useState<string | null>(null);
 
   useEffect(() => {
     const t = setTimeout(() => setSearch(searchInput.trim().toUpperCase()), 400);
@@ -686,13 +685,13 @@ export default function USBreakoutTable({
                 </td>
                 <td className="px-3 py-2 sticky left-9 z-10 bg-white after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-gray-200 after:content-['']">
                   <div className="font-semibold text-gray-900 flex items-center gap-1.5">
-                    <button
-                      onClick={() => setChartTicker(r.ticker)}
+                    <Link
+                      href={`/breakout-chart/${r.ticker}`}
                       className="hover:underline hover:text-blue-600"
                       title={`View ${r.ticker} chart`}
                     >
                       {r.ticker}
-                    </button>
+                    </Link>
                     {r.addedAt && (Date.now() - new Date(r.addedAt).getTime()) / 86400000 <= 7 && (
                       <span title={`Added ${r.addedAt.slice(0, 10)}`} className="inline-flex items-center rounded-full bg-green-100 text-green-700 text-[10px] font-semibold px-1.5 py-0.5 leading-none">
                         NEW
@@ -776,9 +775,6 @@ export default function USBreakoutTable({
           </tbody>
         </table>
       </div>
-      {chartTicker && (
-        <BreakoutChartModal ticker={chartTicker} onClose={() => setChartTicker(null)} />
-      )}
     </div>
   );
 }
