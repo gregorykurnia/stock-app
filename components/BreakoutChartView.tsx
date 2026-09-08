@@ -70,6 +70,7 @@ export default function BreakoutChartView({ ticker }: Props) {
   const dmiRef = useRef<HTMLDivElement>(null);
   const macdRef = useRef<HTMLDivElement>(null);
   const cmfRef = useRef<HTMLDivElement>(null);
+  const unpinRef = useRef<() => void>(() => {});
 
   useEffect(() => {
     let cancelled = false;
@@ -198,6 +199,7 @@ export default function BreakoutChartView({ ticker }: Props) {
     // Clicking a date pins the legend there; hovering to a *different* date afterward
     // automatically unpins and resumes live tracking.
     let pinnedIdx: number | null = null;
+    unpinRef.current = () => { pinnedIdx = null; setPinned(false); };
     const updateLegend = (idx: number | null) => {
       // Keep showing the last hovered date's values when the mouse leaves the chart
       // instead of clearing them, so the Copy button always has something to copy.
@@ -305,9 +307,17 @@ export default function BreakoutChartView({ ticker }: Props) {
       {!error && bars && indicators && macd && (
         <div className="w-full">
           <div className="w-full px-3 py-2 bg-[#0f172a] border-b border-slate-700 flex flex-wrap items-center gap-x-6 gap-y-1 text-xs font-mono">
-            <span className="text-slate-300 font-semibold">
+            <span className="text-slate-300 font-semibold flex items-center gap-1.5">
               {legend?.date ?? "—"}
-              {pinned && <span className="ml-1.5 text-amber-400 font-sans" title="Pinned — click this point again to unpin">📌</span>}
+              {pinned && (
+                <button
+                  onClick={() => unpinRef.current()}
+                  className="rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 font-sans font-semibold text-[11px] px-1.5 py-0.5"
+                  title="Resume live hover tracking"
+                >
+                  📌 Unpin
+                </button>
+              )}
             </span>
             <span className="text-slate-200">Price <b>{fmt(legend?.price)}</b></span>
             <span className="text-blue-400">EMA20 <b>{fmt(legend?.ema20)}</b></span>
