@@ -5,6 +5,36 @@ import { calcBreakoutScore, calcCurrentBuyScore } from "@/lib/breakoutScore";
 const YahooFinance = require("yahoo-finance2").default;
 const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
 
+// Mirrors Low Detection's trough clustering (app/api/low-detection/route.ts): RSI(14)<30 dips
+// within CLUSTER_GAP_DAYS of each other are one episode, represented by that episode's local
+// price low — used only to pick the Divergence Score anchor so it lines up with what Low
+// Detection would show as the trough immediately before the swing low. Independent of
+// `rsiAnchor` below (the single most-extreme pre-low RSI point), which drives the Breakout
+// pattern-detection metrics (rsiDivergencePct, histCompression, breakoutScore) and is left as-is.
+const RSI_CLUSTER_THRESHOLD = 30;
+const CLUSTER_GAP_DAYS = 10;
+
+function clusterLowIndices(rsis: number[], closes: number[], upTo: number): number[] {
+  const oversold: number[] = [];
+  for (let i = 0; i < upTo; i++) {
+    if (!isNaN(rsis[i]) && rsis[i] < RSI_CLUSTER_THRESHOLD) oversold.push(i);
+  }
+  if (oversold.length === 0) return [];
+  const clusters: number[][] = [];
+  let current: number[] = [oversold[0]];
+  for (let k = 1; k < oversold.length; k++) {
+    const idx = oversold[k];
+    if (idx - current[current.length - 1] <= CLUSTER_GAP_DAYS) current.push(idx);
+    else { clusters.push(current); current = [idx]; }
+  }
+  clusters.push(current);
+  return clusters.map((cluster) => {
+    let lowIdx = cluster[0];
+    for (const idx of cluster) if (closes[idx] < closes[lowIdx]) lowIdx = idx;
+    return lowIdx;
+  });
+}
+
 function calcATRPct(quotes: { high: number; low: number; close: number }[], period = 14): number | null {
   if (quotes.length < period + 1) return null;
   const trs: number[] = [];
@@ -187,18 +217,33 @@ async function fetchBreakoutDaily(ticker: string): Promise<BreakoutResult> {
   const histAtLow = !isNaN(hist[swingLowIdx]) ? hist[swingLowIdx] : null;
   const histCompression = histAtAnchor != null && histAtLow != null ? histAtLow - histAtAnchor : null;
 
-  const diGapAt = (i: number) => (!isNaN(diPluses[i]) && !isNaN(diMinuses[i]) ? diPluses[i] - diMinuses[i] : null);
-  const diGapAtAnchor = anchorIdx != null ? diGapAt(anchorIdx) : null;
-  const diGapAtLow = diGapAt(swingLowIdx);
-  const adxAtAnchor = anchorIdx != null && !isNaN(adxs[anchorIdx]) ? adxs[anchorIdx] : null;
-  const adxAtLow = !isNaN(adxs[swingLowIdx]) ? adxs[swingLowIdx] : null;
-  const cmfAtAnchor = anchorIdx != null && !isNaN(cmfs[anchorIdx]) ? cmfs[anchorIdx] : null;
-  const cmfAtLow = !isNaN(cmfs[swingLowIdx]) ? cmfs[swingLowIdx] : null;
+  // Divergence Score anchor: the RSI-cluster trough immediately before the swing low (same
+  // clustering + dedup rule Low Detection uses for its prevCol -> lastCol comparison), not the
+  // raw single-most-extreme-RSI `anchorIdx` used for the pattern-detection metrics above.
+  const clusterIdxs = clusterLowIndices(rsis, closes, n);
+  const lastClusterIdx = clusterIdxs.length > 0 ? clusterIdxs[clusterIdxs.length - 1] : null;
+  const lastClusterIsSwingLow = lastClusterIdx != null && dateStr(lastClusterIdx) === swingLowDate;
+  const divAnchorIdx = lastClusterIsSwingLow
+    ? (clusterIdxs.length >= 2 ? clusterIdxs[clusterIdxs.length - 2] : null)
+    : lastClusterIdx;
+
+  const valAt = (arr: number[], i: number | null) => (i != null && !isNaN(arr[i]) ? arr[i] : null);
+  const diGapAt = (i: number | null) => {
+    if (i == null || isNaN(diPluses[i]) || isNaN(diMinuses[i])) return null;
+    return diPluses[i] - diMinuses[i];
+  };
 
   const divergenceScore = calcDivergenceScore(
-    { rsi: rsiAnchor, diGap: diGapAtAnchor, adx: adxAtAnchor, hist: histAtAnchor, cmf: cmfAtAnchor },
-    { rsi: rsiAtLow, diGap: diGapAtLow, adx: adxAtLow, hist: histAtLow, cmf: cmfAtLow }
+    { rsi: valAt(rsis, divAnchorIdx), diGap: diGapAt(divAnchorIdx), adx: valAt(adxs, divAnchorIdx), hist: valAt(hist, divAnchorIdx), cmf: valAt(cmfs, divAnchorIdx) },
+    { rsi: valAt(rsis, swingLowIdx), diGap: diGapAt(swingLowIdx), adx: valAt(adxs, swingLowIdx), hist: valAt(hist, swingLowIdx), cmf: valAt(cmfs, swingLowIdx) }
   );
+
+  const diGapAtAnchor = anchorIdx != null ? diGapAt(anchorIdx) : null;
+  const diGapAtLow = diGapAt(swingLowIdx);
+  const adxAtAnchor = valAt(adxs, anchorIdx);
+  const adxAtLow = valAt(adxs, swingLowIdx);
+  const cmfAtAnchor = valAt(cmfs, anchorIdx);
+  const cmfAtLow = valAt(cmfs, swingLowIdx);
 
   const divergenceConfirmed = rsiAtLow != null && rsiAnchor != null && rsiAtLow > rsiAnchor;
 
