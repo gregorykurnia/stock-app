@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { TroughEvent } from "@/app/api/low-detection/route";
+import { downloadCsv } from "@/lib/exportCsv";
 
 type RowKey = "date" | "price" | "ema20" | "ema50" | "rsi" | "diPlus" | "diMinus" | "diGap" | "adx" | "macd" | "signal" | "hist" | "cmf" | "obv";
 
@@ -278,6 +279,34 @@ export default function LowDetectionView() {
     }
   }
 
+  function exportCsv() {
+    if (!ticker || columns.length === 0) return;
+    const date = new Date().toISOString().slice(0, 10);
+    const headers = ["Field", ...columns.map((c) => c.label), ...(showPctChangeCol ? [`% Chg (${prevCol?.label} → ${lastCol?.label})`] : [])];
+    const data = ROWS.map((row) => [
+      row.label,
+      ...columns.map((c) => row.fmt(c.data)),
+      ...(showPctChangeCol
+        ? [(() => {
+            const pct = pctChange(row);
+            return pct == null ? "" : `${pct > 0 ? "+" : ""}${pct.toFixed(1)}%`;
+          })()]
+        : []),
+    ]);
+    if (showPctChangeCol) {
+      data.push([]);
+      if (isCapitulationLow) {
+        data.push(["%Chg Score", "N/A (Capitulation Low)"]);
+      } else {
+        data.push(["%Chg Score", `${totalScore.toFixed(1)} / ${maxPossible}`]);
+        for (const { row, score } of scoreBreakdown) {
+          data.push([row.label, score == null ? "" : score.toFixed(1)]);
+        }
+      }
+    }
+    downloadCsv(`low-detection-${ticker}-${date}.csv`, headers, data);
+  }
+
   return (
     <div className="space-y-3">
       <form onSubmit={onSubmit} className="flex items-center gap-2">
@@ -301,6 +330,18 @@ export default function LowDetectionView() {
       </form>
 
       {error && <div className="text-sm text-red-600">{error}</div>}
+
+      {columns.length > 0 && (
+        <div className="flex justify-end">
+          <button
+            type="button"
+            onClick={exportCsv}
+            className="px-3 py-1 text-xs font-medium rounded border border-gray-300 text-gray-600 hover:bg-gray-50"
+          >
+            Export CSV
+          </button>
+        </div>
+      )}
 
       {columns.length > 0 && (
         <div className="overflow-x-auto border border-gray-200 rounded">
