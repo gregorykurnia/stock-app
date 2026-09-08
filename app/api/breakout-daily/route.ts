@@ -1,27 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { calcIndicators } from "@/lib/indicators";
+import { calcIndicators, macdSeriesFull } from "@/lib/indicators";
 import { calcBreakoutScore, calcCurrentBuyScore } from "@/lib/breakoutScore";
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const YahooFinance = require("yahoo-finance2").default;
 const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
-
-// Full-series EMA (NaN until warmed up), used to build a full-series MACD (calculateMACD in
-// lib/indicators.ts only returns the latest point — this needs the whole history to walk forward
-// from the swing low looking for the first bullish MACD/signal crossover).
-function emaSeriesFull(values: number[], period: number): number[] {
-  const out: number[] = new Array(values.length).fill(NaN);
-  if (values.length < period) return out;
-  let sum = 0;
-  for (let i = 0; i < period; i++) sum += values[i];
-  let ema = sum / period;
-  out[period - 1] = ema;
-  const k = 2 / (period + 1);
-  for (let i = period; i < values.length; i++) {
-    ema = values[i] * k + ema * (1 - k);
-    out[i] = ema;
-  }
-  return out;
-}
 
 function calcATRPct(quotes: { high: number; low: number; close: number }[], period = 14): number | null {
   if (quotes.length < period + 1) return null;
@@ -38,21 +20,6 @@ function calcATRPct(quotes: { high: number; low: number; close: number }[], peri
   }
   const lastClose = quotes[quotes.length - 1].close;
   return lastClose > 0 ? (atr / lastClose) * 100 : null;
-}
-
-function macdSeriesFull(closes: number[]): { macd: number[]; signal: number[]; hist: number[] } {
-  const ema12 = emaSeriesFull(closes, 12);
-  const ema26 = emaSeriesFull(closes, 26);
-  const macd = closes.map((_, i) => (isNaN(ema12[i]) || isNaN(ema26[i]) ? NaN : ema12[i] - ema26[i]));
-  const signal = emaSeriesFull(macd.map((v) => (isNaN(v) ? 0 : v)), 9).map((v, i) => (isNaN(macd[i]) ? NaN : v));
-  // signal is NaN until macd itself has 9 valid points warmed up
-  let validCount = 0;
-  for (let i = 0; i < macd.length; i++) {
-    if (!isNaN(macd[i])) validCount++;
-    if (validCount < 9) signal[i] = NaN;
-  }
-  const hist = closes.map((_, i) => (isNaN(macd[i]) || isNaN(signal[i]) ? NaN : macd[i] - signal[i]));
-  return { macd, signal, hist };
 }
 
 interface BreakoutResult {

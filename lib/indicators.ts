@@ -306,6 +306,37 @@ export function calculateMACD(closes: number[]): MACDResult | null {
 }
 
 // Rate of Change: % change in closing price over `period` bars.
+// Full-series EMA (NaN until warmed up) — needed for a full-series MACD, since calculateMACD
+// above only returns the latest point.
+export function emaSeriesFull(values: number[], period: number): number[] {
+  const out: number[] = new Array(values.length).fill(NaN);
+  if (values.length < period) return out;
+  let sum = 0;
+  for (let i = 0; i < period; i++) sum += values[i];
+  let ema = sum / period;
+  out[period - 1] = ema;
+  const k = 2 / (period + 1);
+  for (let i = period; i < values.length; i++) {
+    ema = values[i] * k + ema * (1 - k);
+    out[i] = ema;
+  }
+  return out;
+}
+
+export function macdSeriesFull(closes: number[]): { macd: number[]; signal: number[]; hist: number[] } {
+  const ema12 = emaSeriesFull(closes, 12);
+  const ema26 = emaSeriesFull(closes, 26);
+  const macd = closes.map((_, i) => (isNaN(ema12[i]) || isNaN(ema26[i]) ? NaN : ema12[i] - ema26[i]));
+  const signal = emaSeriesFull(macd.map((v) => (isNaN(v) ? 0 : v)), 9).map((v, i) => (isNaN(macd[i]) ? NaN : v));
+  let validCount = 0;
+  for (let i = 0; i < macd.length; i++) {
+    if (!isNaN(macd[i])) validCount++;
+    if (validCount < 9) signal[i] = NaN;
+  }
+  const hist = closes.map((_, i) => (isNaN(macd[i]) || isNaN(signal[i]) ? NaN : macd[i] - signal[i]));
+  return { macd, signal, hist };
+}
+
 export function calculateROC(closes: number[], period = 14): number | null {
   const valid = closes.filter((c) => c != null && !isNaN(c));
   if (valid.length < period + 1) return null;
