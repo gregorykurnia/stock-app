@@ -121,6 +121,8 @@ export default function Home() {
     atrPct: number | null;
     divergenceScore: number | null;
     divergenceScoreCapitulation: boolean;
+    bbw: number | null;
+    ma30wkSlope: number | null;
   }
   const [usBreakoutStocks, setUsBreakoutStocks] = useState<UsBreakoutStock[]>([]);
   const [usBreakoutPrices, setUsBreakoutPrices] = useState<Record<string, number | null>>({});
@@ -399,6 +401,8 @@ export default function Home() {
               atrPct: d.atrPct?.[t] ?? null,
               divergenceScore: d.divergenceScore?.[t] ?? null,
               divergenceScoreCapitulation: d.divergenceScoreCapitulation?.[t] ?? false,
+              bbw: d.bbw?.[t] ?? null,
+              ma30wkSlope: d.ma30wkSlope?.[t] ?? null,
             };
           }
           return next;

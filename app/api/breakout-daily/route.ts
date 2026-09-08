@@ -35,6 +35,43 @@ function clusterLowIndices(rsis: number[], closes: number[], upTo: number): numb
   });
 }
 
+// Display-only volatility/trend context columns — mirror the exact formulas used in
+// app/api/coiling-daily/route.ts (sma150 as the 30wk MA proxy, 20-day Bollinger Band Width) so
+// readings are consistent across tabs. Not wired into any scoring (Breakout Score, Current Buy
+// Score, Divergence Score all untouched).
+function sma(values: number[], period: number): (number | null)[] {
+  const out: (number | null)[] = new Array(values.length).fill(null);
+  let sum = 0;
+  for (let i = 0; i < values.length; i++) {
+    sum += values[i];
+    if (i >= period) sum -= values[i - period];
+    if (i >= period - 1) out[i] = sum / period;
+  }
+  return out;
+}
+
+function stdev(values: number[]): number {
+  const mean = values.reduce((a, b) => a + b, 0) / values.length;
+  return Math.sqrt(values.reduce((a, b) => a + (b - mean) ** 2, 0) / values.length);
+}
+
+// 30wk MA slope: change in the 150-day (≈30-week) SMA over the trailing 20 trading days.
+function calcMa30wkSlope(closes: number[]): number | null {
+  const sma150 = sma(closes, 150);
+  const last = sma150[sma150.length - 1];
+  const ago = sma150.length > 20 ? sma150[sma150.length - 21] : null;
+  return last != null && ago != null ? last - ago : null;
+}
+
+// Bollinger Band Width (20-period, 2 stdev), as a % of the midline.
+function calcBBW(closes: number[]): number | null {
+  const last20 = closes.slice(-20);
+  if (last20.length < 20) return null;
+  const mid = last20.reduce((a, b) => a + b, 0) / 20;
+  const sd = stdev(last20);
+  return mid > 0 ? ((mid + 2 * sd) - (mid - 2 * sd)) / mid * 100 : null;
+}
+
 function calcATRPct(quotes: { high: number; low: number; close: number }[], period = 14): number | null {
   if (quotes.length < period + 1) return null;
   const trs: number[] = [];
@@ -100,6 +137,9 @@ interface BreakoutResult {
   cmfAtLow: number | null;
   divergenceScore: number | null;
   divergenceScoreCapitulation: boolean;
+  // Display-only volatility/consolidation context — not wired into any scoring.
+  bbw: number | null;
+  ma30wkSlope: number | null;
 }
 
 const EMPTY: BreakoutResult = {
@@ -114,6 +154,7 @@ const EMPTY: BreakoutResult = {
   breakoutScore: null, atrPct: null,
   diGapAtAnchor: null, diGapAtLow: null, adxAtAnchor: null, adxAtLow: null,
   cmfAtAnchor: null, cmfAtLow: null, divergenceScore: null, divergenceScoreCapitulation: false,
+  bbw: null, ma30wkSlope: null,
 };
 
 // Same absolute-delta scoring as the Low Detection %Chg Score: 5 metrics (RSI, DI Gap, ADX, Hist,
@@ -240,7 +281,10 @@ async function fetchBreakoutDaily(ticker: string): Promise<BreakoutResult> {
   // Mirrors Low Detection's isCapitulationLow check.
   const divergenceScoreCapitulation = lastClusterIsSwingLow;
 
-  const divergenceScore = divergenceScoreCapitulation ? null : calcDivergenceScore(
+  // Still computed even when divergenceScoreCapitulation is true — the frontend shows the score
+  // alongside a "Capitulation Low" tag rather than hiding it, so the number stays visible for
+  // reference even though the trough-vs-trough comparison isn't a clean divergence read.
+  const divergenceScore = calcDivergenceScore(
     { rsi: valAt(rsis, divAnchorIdx), diGap: diGapAt(divAnchorIdx), adx: valAt(adxs, divAnchorIdx), hist: valAt(hist, divAnchorIdx), cmf: valAt(cmfs, divAnchorIdx) },
     { rsi: valAt(rsis, swingLowIdx), diGap: diGapAt(swingLowIdx), adx: valAt(adxs, swingLowIdx), hist: valAt(hist, swingLowIdx), cmf: valAt(cmfs, swingLowIdx) }
   );
@@ -319,6 +363,9 @@ async function fetchBreakoutDaily(ticker: string): Promise<BreakoutResult> {
     hasDiCross: diCrossIdx != null,
   });
 
+  const bbw = calcBBW(closes);
+  const ma30wkSlope = calcMa30wkSlope(closes);
+
   return {
     swingLow, swingLowDate, preLowHigh, preLowHighDate, declineFromHighPct,
     rsiAtLow, rsiAnchor, rsiAnchorDate, rsiAnchorPrice, priceDeclinePct,
@@ -337,6 +384,7 @@ async function fetchBreakoutDaily(ticker: string): Promise<BreakoutResult> {
     atrPct,
     diGapAtAnchor, diGapAtLow, adxAtAnchor, adxAtLow, cmfAtAnchor, cmfAtLow, divergenceScore,
     divergenceScoreCapitulation,
+    bbw, ma30wkSlope,
   };
 }
 
@@ -357,6 +405,7 @@ export async function GET(req: NextRequest) {
     breakoutScore: {}, atrPct: {},
     diGapAtAnchor: {}, diGapAtLow: {}, adxAtAnchor: {}, adxAtLow: {},
     cmfAtAnchor: {}, cmfAtLow: {}, divergenceScore: {}, divergenceScoreCapitulation: {},
+    bbw: {}, ma30wkSlope: {},
   };
 
   const chunkSize = 8;

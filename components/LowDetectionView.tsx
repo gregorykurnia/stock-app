@@ -295,13 +295,9 @@ export default function LowDetectionView() {
     ]);
     if (showPctChangeCol) {
       data.push([]);
-      if (isCapitulationLow) {
-        data.push(["%Chg Score", "N/A (Capitulation Low)"]);
-      } else {
-        data.push(["%Chg Score", `${totalScore.toFixed(1)} / ${maxPossible}`]);
-        for (const { row, score } of scoreBreakdown) {
-          data.push([row.label, score == null ? "" : score.toFixed(1)]);
-        }
+      data.push(["%Chg Score", `${totalScore.toFixed(1)} / ${maxPossible}${isCapitulationLow ? " (Capitulation Low)" : ""}`]);
+      for (const { row, score } of scoreBreakdown) {
+        data.push([row.label, score == null ? "" : score.toFixed(1)]);
       }
     }
     downloadCsv(`low-detection-${ticker}-${date}.csv`, headers, data);
@@ -418,22 +414,16 @@ export default function LowDetectionView() {
         </div>
       )}
 
-      {showPctChangeCol && isCapitulationLow && (
-        <div className="flex items-center gap-2 text-xs">
-          <span className="inline-flex items-center rounded-full bg-amber-100 text-amber-800 font-semibold px-2 py-0.5">
-            ⚠ Capitulation Low
-          </span>
-          <span className="text-gray-500">
-            %Chg Score: <span className="text-gray-400">N/A</span> — this low is a fresh RSI extreme, not a higher-RSI low against a prior trough, so there's no divergence to score. Read Hist/CMF/OBV trend or price action for this one instead.
-          </span>
-        </div>
-      )}
-
-      {showPctChangeCol && !isCapitulationLow && maxPossible > 0 && (
-        <div className="flex items-center gap-3 text-xs">
+      {showPctChangeCol && maxPossible > 0 && (
+        <div className="flex items-center gap-3 text-xs flex-wrap">
           <span className="font-semibold text-gray-700">
             %Chg Score: <span className="text-sm">{totalScore.toFixed(1)} / {maxPossible}</span>
           </span>
+          {isCapitulationLow && (
+            <span title="This low is itself an independent RSI<30 trough merged with the 1Y low — a trough-vs-trough comparison, less reliable as a clean divergence read, though the score is still shown for reference." className="inline-flex items-center rounded-full bg-amber-100 text-amber-800 font-semibold px-2 py-0.5 cursor-help">
+              ⚠ Capitulation Low
+            </span>
+          )}
           <span className="text-gray-400">·</span>
           {scoreBreakdown.map(({ row, score }) => (
             <span key={row.key} className="flex items-center gap-1 text-gray-500">

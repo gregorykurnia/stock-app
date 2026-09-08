@@ -25,7 +25,7 @@ type SortKey =
   | "distEma20AtCross" | "distEma50AtCross" | "relVolumeAtCross"
   | "diPlusCurrent" | "diMinusCurrent" | "diCrossDate" | "diCrossPrice" | "daysLowToDiCross" | "pctAboveDiCrossNow"
   | "currentBuyScore"
-  | "shortFloat" | "adv" | "earnings" | "breakoutScore" | "atrPct";
+  | "shortFloat" | "adv" | "earnings" | "breakoutScore" | "atrPct" | "bbw" | "ma30wkSlope";
 type SortDir = "asc" | "desc";
 
 interface Props {
@@ -49,6 +49,8 @@ interface Props {
     atrPct: number | null;
     divergenceScore: number | null;
     divergenceScoreCapitulation: boolean;
+    bbw: number | null;
+    ma30wkSlope: number | null;
   }>;
   shortFloats?: Record<string, number | null>;
   advs?: Record<string, number | null>;
@@ -377,6 +379,8 @@ export default function USBreakoutTable({
         atrPct: d?.atrPct ?? null,
         divergenceScore: d?.divergenceScore ?? null,
         divergenceScoreCapitulation: d?.divergenceScoreCapitulation ?? false,
+        bbw: d?.bbw ?? null,
+        ma30wkSlope: d?.ma30wkSlope ?? null,
         shortFloat: shortFloats[s.ticker] ?? null,
         adv: advs[s.ticker] ?? null,
         earnings: earningsDate,
@@ -443,6 +447,8 @@ export default function USBreakoutTable({
         case "earnings": return r.earningsDaysUntil;
         case "breakoutScore": return r.breakoutScore;
         case "atrPct": return r.atrPct;
+        case "bbw": return r.bbw;
+        case "ma30wkSlope": return r.ma30wkSlope;
         default: return null;
       }
     };
@@ -465,7 +471,7 @@ export default function USBreakoutTable({
     const date = new Date().toISOString().slice(0, 10);
     const headers = [
       "Ticker", "Industry", "Added", "Status", "Type", "Divergence Score",
-      "Breakout Score", "% Decline From High", "RSI Divergence %", "RSI Band Depth %", "Hist Compression", "ATR%", "Earnings Date",
+      "Breakout Score", "% Decline From High", "RSI Divergence %", "RSI Band Depth %", "Hist Compression", "ATR%", "BBW", "30wk MA Slope", "Earnings Date",
       "Current Buy Score", "DI+ (Now)", "DI- (Now)",
       "MACD Cross Date", "MACD Cross Price", "% Above MACD Cross (Now)",
       "DI Cross Date", "DI Cross Price", "Days Low→DI Cross", "% Above DI Cross (Now)",
@@ -482,13 +488,15 @@ export default function USBreakoutTable({
       r.addedAt ? r.addedAt.slice(0, 10) : "",
       r.status != null ? STATUS_DEF[r.status].label : "",
       r.breakoutType != null ? TYPE_DEF[r.breakoutType].label : "",
-      r.divergenceScoreCapitulation ? "Capitulation" : r.divergenceScore?.toFixed(1) ?? "",
+      (r.divergenceScore?.toFixed(1) ?? "") + (r.divergenceScoreCapitulation ? " (Capitulation)" : ""),
       r.breakoutScore?.toFixed(2) ?? "",
       r.declineFromHighPct?.toFixed(1) ?? "",
       r.rsiDivergencePct?.toFixed(1) ?? "",
       r.rsiBandDepthPct?.toFixed(1) ?? "",
       r.histCompression?.toFixed(3) ?? "",
       r.atrPct?.toFixed(1) ?? "",
+      r.bbw?.toFixed(2) ?? "",
+      r.ma30wkSlope?.toFixed(3) ?? "",
       r.earnings ?? "",
       r.currentBuyScore?.toFixed(2) ?? "",
       r.diPlusCurrent?.toFixed(1) ?? "",
@@ -625,7 +633,7 @@ export default function USBreakoutTable({
             <tr className="border-b border-gray-200">
               <th colSpan={2} className="px-2 py-1 sticky left-0 z-20 bg-gray-100" />
               <th colSpan={5} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Overview</th>
-              <th colSpan={7} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Verdict</th>
+              <th colSpan={9} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Verdict</th>
               <th colSpan={10} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Current Buy</th>
               <th colSpan={6} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Price &amp; Levels</th>
               <th colSpan={9} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Divergence Detail</th>
@@ -640,13 +648,15 @@ export default function USBreakoutTable({
               <Th label="Added" k="addedAt" info="Date this ticker was added to your Breakout watchlist." />
               <Th label="Status" k="status" info="Divergence lifecycle: No Divergence (RSI at the low wasn't higher than the pre-low anchor) → Watching (divergence confirmed, MACD hasn't crossed bullish yet, price hasn't broken the low either) → Confirmed (MACD crossed above signal without price making a new low first) → Failed (price broke below the swing low before MACD confirmed)." />
               <Th label="Type" k="breakoutType" info="Manual classification tag — Benchmark or New. Filterable via the toggles above the table." />
-              <Th label="Divergence Score" k="divergenceScore" info="0-30 composite, exact same logic as Low Detection's %Chg Score: RSI, DI Gap, ADX, Hist, and CMF each scored 0-6 comparing the RSI-cluster trough before the swing low to the swing low itself (bullish absolute delta scaled to that metric's 'strong divergence' cutoff — 10pt RSI, 10pt DI Gap, 8pt ADX decline, 0.3 Hist, 0.10 CMF). Null components are excluded, not zeroed. Shows a 'Capitulation' badge instead of a number when the swing low is itself a fresh RSI extreme with no prior trough to diverge from — the score isn't weak there, it's not applicable." />
+              <Th label="Divergence Score" k="divergenceScore" info="0-30 composite, exact same logic as Low Detection's %Chg Score: RSI, DI Gap, ADX, Hist, and CMF each scored 0-6 comparing the RSI-cluster trough before the swing low to the swing low itself (bullish absolute delta scaled to that metric's 'strong divergence' cutoff — 10pt RSI, 10pt DI Gap, 8pt ADX decline, 0.3 Hist, 0.10 CMF). Null components are excluded, not zeroed. Carries a 'Capitulation' tag when the swing low is itself an independent RSI-cluster trough merged with the 1Y low — a trough-vs-trough comparison, less reliable as a clean divergence read, though the score is still shown for reference." />
               <Th label="Breakout Score" k="breakoutScore" info="0-10 composite scored against the benchmark pattern: RSI divergence strength (22%), RSI band depth / how oversold the anchor was (18%), MACD histogram compression into the low (22%, penalized hard if still negative), % decline from pre-low high (12%, full credit at -70% or deeper), days from low to MACD cross (9%), % above low at cross (9%), distance from EMA50D at cross (4%), relative volume at cross (4%). Null until divergence is at least confirmed (Watching/Confirmed/Failed). A rough heuristic, not a guarantee — always sanity-check the underlying columns." />
               <Th label="% Decline From High" k="declineFromHighPct" info="(swing low − pre-low high) / pre-low high × 100. How many % beaten down the stock was at its lowest point, measured from its pre-low high — a quick read on how violent the drawdown was before the reversal." />
               <Th label="RSI Divergence %" k="rsiDivergencePct" info="(RSI at low − RSI anchor) / RSI anchor × 100. Positive = price made a lower low but RSI made a higher low (bullish divergence). Higher % = stronger divergence, e.g. TEAM +63%, WDAY +59.6%." />
               <Th label="RSI Band Depth %" k="rsiBandDepthPct" info="How far below the standard 30 oversold line the anchor RSI was: (30 − anchor)/30 × 100. Shows how extreme the original oversold read was." />
               <Th label="Hist Compression" k="histCompression" info="Hist@Low − Hist@Anchor. Positive = the histogram shrank toward zero (momentum decelerating) even as price fell further into the low — the MACD-side confirmation of the RSI divergence. TEAM +1.07, WDAY +0.30." />
               <Th label="ATR%" k="atrPct" info="Average True Range (14, daily) as a % of price. Measures how choppy/erratic the stock's daily range is — matters for stop placement and position sizing on a fresh breakout entry. Very Low &lt;2%, Low-Mod 2-4%, Mod-High 4-7%, High 7-10%, Extreme 10%+." />
+              <Th label="BBW" k="bbw" info="Bollinger Band Width (20-day, 2 stdev) as a % of the midline. Measures how tight/wide the trading range is — a low or tightening BBW is a volatility-squeeze signal (classic pre-breakout consolidation). Display-only, not wired into any score." />
+              <Th label="30wk MA Slope" k="ma30wkSlope" info="Change in the 150-day (≈30-week) SMA over the trailing 20 trading days. Near zero = the long-term trend has flattened out (basing); large positive/negative = still trending. Same calc as Coiling's 30wk MA Slope. Display-only, not wired into any score." />
               <Th label="Earnings Date" k="earnings" info="Next/last reported earnings date, with days until in brackets. Within 14 days is a proximity risk flag." />
               <Th label="Current Buy Score" k="currentBuyScore" info="0-10 composite answering 'how much of the move have I already missed if I buy today' — separate from the Breakout Score above. Weighs % above the swing low (30%), % above the first MACD cross price since the low (35%), and % above the first DI+/DI- cross price since the low (35%); smaller distances score higher. Null until BOTH a MACD cross and a DI cross have happened at some point since the low (even if momentum has since rolled over again)." />
               <Th label="DI+ (Now)" k="diPlusCurrent" info="Current +DI(14), daily — directional movement strength to the upside." />
@@ -735,13 +745,12 @@ export default function USBreakoutTable({
                     <option value="new">New</option>
                   </select>
                 </td>
-                <td className="px-3 py-2">
-                  {r.divergenceScoreCapitulation ? (
-                    <span title="This low is a fresh RSI extreme, not a higher-RSI low against a prior trough — no divergence to score. Read Hist/CMF/OBV trend or price action for this one instead." className="inline-flex items-center rounded-full bg-amber-100 text-amber-800 text-xs font-semibold px-2 py-0.5 whitespace-nowrap cursor-help">
+                <td className="px-3 py-2 whitespace-nowrap">
+                  <span className={divergenceScoreClass(r.divergenceScore)}>{r.divergenceScore != null ? r.divergenceScore.toFixed(1) : dash}</span>
+                  {r.divergenceScoreCapitulation && (
+                    <span title="The swing low is itself an independent RSI<30 trough merged with the 1Y low — a trough-vs-trough comparison rather than trough-vs-recovery, so this score is less reliable as a clean divergence read." className="ml-1.5 inline-flex items-center rounded-full bg-amber-100 text-amber-800 text-[10px] font-semibold px-1.5 py-0.5 whitespace-nowrap cursor-help">
                       ⚠ Capitulation
                     </span>
-                  ) : (
-                    <span className={divergenceScoreClass(r.divergenceScore)}>{r.divergenceScore != null ? r.divergenceScore.toFixed(1) : dash}</span>
                   )}
                 </td>
                 <td className={`px-3 py-2 ${breakoutScoreClass(r.breakoutScore)}`}>{r.breakoutScore != null ? r.breakoutScore.toFixed(1) : dash}</td>
@@ -756,6 +765,8 @@ export default function USBreakoutTable({
                     </span>
                   ) : dash}
                 </td>
+                <td className="px-3 py-2 text-gray-600">{r.bbw != null ? `${r.bbw.toFixed(2)}%` : dash}</td>
+                <td className="px-3 py-2 text-gray-600">{r.ma30wkSlope != null ? r.ma30wkSlope.toFixed(3) : dash}</td>
                 <td className="px-3 py-2 whitespace-nowrap"><EarningsCell dateStr={r.earnings} /></td>
                 <td className={`px-3 py-2 ${currentBuyScoreClass(r.currentBuyScore)}`}>{r.currentBuyScore != null ? r.currentBuyScore.toFixed(1) : dash}</td>
                 <td className={`px-3 py-2 ${diClass(r.diPlusCurrent)}`}>{r.diPlusCurrent != null ? r.diPlusCurrent.toFixed(1) : dash}</td>
