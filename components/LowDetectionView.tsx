@@ -11,6 +11,12 @@ interface RowDef {
   fmt: (v: TroughEvent) => string;
   // "max" = highest value is most bullish, "min" = lowest value is most bullish, null = no highlight
   best: "max" | "min" | null;
+  // Absolute-delta thresholds (in the row's own units, already sign-adjusted for direction) used
+  // for the % Chg column instead of a %-based comparison. Needed for metrics where % change is
+  // unstable near zero (CMF, Hist, DI Gap can straddle zero) or where the natural unit is more
+  // meaningful than a ratio (RSI points, ADX points). strong/mild are the bullish-delta cutoffs;
+  // bearish uses the same magnitude in the opposite direction.
+  deltaThresholds?: { strong: number; mild: number; decimals: number };
 }
 
 const ROWS: RowDef[] = [
@@ -18,15 +24,15 @@ const ROWS: RowDef[] = [
   { key: "price", label: "Price", fmt: (t) => t.price.toFixed(2), best: null },
   { key: "ema20", label: "EMA20", fmt: (t) => (t.ema20 != null ? t.ema20.toFixed(2) : "—"), best: null },
   { key: "ema50", label: "EMA50", fmt: (t) => (t.ema50 != null ? t.ema50.toFixed(2) : "—"), best: null },
-  { key: "rsi", label: "RSI", fmt: (t) => t.rsi.toFixed(1), best: "max" },
+  { key: "rsi", label: "RSI", fmt: (t) => t.rsi.toFixed(1), best: "max", deltaThresholds: { strong: 10, mild: 3, decimals: 1 } },
   { key: "diPlus", label: "DI+", fmt: (t) => (t.diPlus != null ? t.diPlus.toFixed(1) : "—"), best: "max" },
   { key: "diMinus", label: "DI-", fmt: (t) => (t.diMinus != null ? t.diMinus.toFixed(1) : "—"), best: "min" },
-  { key: "diGap", label: "DI Gap (DI+ − DI-)", fmt: (t) => (t.diPlus != null && t.diMinus != null ? (t.diPlus - t.diMinus).toFixed(1) : "—"), best: "max" },
-  { key: "adx", label: "ADX", fmt: (t) => (t.adx != null ? t.adx.toFixed(1) : "—"), best: "min" },
+  { key: "diGap", label: "DI Gap (DI+ − DI-)", fmt: (t) => (t.diPlus != null && t.diMinus != null ? (t.diPlus - t.diMinus).toFixed(1) : "—"), best: "max", deltaThresholds: { strong: 10, mild: 3, decimals: 1 } },
+  { key: "adx", label: "ADX", fmt: (t) => (t.adx != null ? t.adx.toFixed(1) : "—"), best: "min", deltaThresholds: { strong: 8, mild: 3, decimals: 1 } },
   { key: "macd", label: "MACD", fmt: (t) => (t.macd != null ? t.macd.toFixed(3) : "—"), best: null },
   { key: "signal", label: "Signal", fmt: (t) => (t.signal != null ? t.signal.toFixed(3) : "—"), best: null },
-  { key: "hist", label: "Hist", fmt: (t) => (t.hist != null ? t.hist.toFixed(3) : "—"), best: "max" },
-  { key: "cmf", label: "CMF", fmt: (t) => (t.cmf != null ? t.cmf.toFixed(3) : "—"), best: "max" },
+  { key: "hist", label: "Hist", fmt: (t) => (t.hist != null ? t.hist.toFixed(3) : "—"), best: "max", deltaThresholds: { strong: 0.3, mild: 0.1, decimals: 3 } },
+  { key: "cmf", label: "CMF", fmt: (t) => (t.cmf != null ? t.cmf.toFixed(3) : "—"), best: "max", deltaThresholds: { strong: 0.10, mild: 0.03, decimals: 3 } },
   { key: "obv", label: "OBV", fmt: (t) => (t.obv != null ? t.obv.toLocaleString(undefined, { maximumFractionDigits: 0 }) : "—"), best: "max" },
 ];
 
@@ -178,6 +184,16 @@ export default function LowDetectionView() {
     return ((lastVal - prevVal) / Math.abs(prevVal)) * 100;
   }
 
+  // Raw (signed, not bullish-adjusted) delta in the row's own units — used only by the
+  // composite %Chg Score below, not by the %Chg column/coloring itself.
+  function rawDelta(row: RowDef): number | null {
+    if (row.key === "date" || !prevCol || !lastCol) return null;
+    const prevVal = rawValue(prevCol.data, row.key);
+    const lastVal = rawValue(lastCol.data, row.key);
+    if (prevVal == null || lastVal == null) return null;
+    return lastVal - prevVal;
+  }
+
   // Color classification for a row's % change cell. Flips sign for "min is bullish" rows
   // (DI-, ADX) so the comparison is always "bullish-direction % change." Always shown — not
   // gated on Price itself falling — since a rising indicator into a bounce is still worth
@@ -196,6 +212,33 @@ export default function LowDetectionView() {
     if (bullishPct <= -5) return "bg-red-50 text-red-700";
     return "text-gray-700";
   }
+
+  // Composite %Chg Score (0-30): one score per tracked metric (RSI, DI Gap, ADX, Hist, CMF),
+  // each worth up to 6 points, summed. Uses the raw absolute delta (not %) between prevCol and
+  // lastCol so metrics with tiny bases (CMF, Hist, DI Gap crossing zero) don't blow up like a
+  // %-change would. Per metric: 0 pts at bullishDelta <= 0, scaling linearly up to 6 pts at
+  // bullishDelta >= deltaThresholds.strong (the "strong divergence" cutoff for that metric),
+  // capped at 6. ADX is inverted via `best: "min"` so a declining ADX scores positively.
+  const SCORE_ROW_KEYS: RowKey[] = ["rsi", "diGap", "adx", "hist", "cmf"];
+  const POINTS_PER_METRIC = 6; // 5 metrics x 6 = 30 total
+
+  function metricScore(row: RowDef): number | null {
+    if (!row.deltaThresholds || !row.best) return null;
+    const delta = rawDelta(row);
+    if (delta == null) return null;
+    const bullishDelta = row.best === "max" ? delta : -delta;
+    const raw = (bullishDelta / row.deltaThresholds.strong) * POINTS_PER_METRIC;
+    return Math.max(0, Math.min(POINTS_PER_METRIC, raw));
+  }
+
+  const scoreBreakdown = showPctChangeCol
+    ? SCORE_ROW_KEYS.map((key) => {
+        const row = ROWS.find((r) => r.key === key)!;
+        return { row, score: metricScore(row) };
+      })
+    : [];
+  const totalScore = scoreBreakdown.reduce((sum, { score }) => sum + (score ?? 0), 0);
+  const maxPossible = scoreBreakdown.filter(({ score }) => score != null).length * POINTS_PER_METRIC;
 
   // Per row, the index (within columns) of the most-bullish cell, for highlighting.
   const bestIdxByRow: Partial<Record<RowKey, number>> = {};
@@ -324,6 +367,23 @@ export default function LowDetectionView() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {showPctChangeCol && maxPossible > 0 && (
+        <div className="flex items-center gap-3 text-xs">
+          <span className="font-semibold text-gray-700">
+            %Chg Score: <span className="text-sm">{totalScore.toFixed(1)} / {maxPossible}</span>
+          </span>
+          <span className="text-gray-400">·</span>
+          {scoreBreakdown.map(({ row, score }) => (
+            <span key={row.key} className="flex items-center gap-1 text-gray-500">
+              {row.label.split(" ")[0]}
+              <span className={`font-medium ${score == null ? "text-gray-400" : score >= 4 ? "text-emerald-700" : score >= 2 ? "text-gray-600" : "text-red-500"}`}>
+                {score == null ? "—" : score.toFixed(1)}
+              </span>
+            </span>
+          ))}
         </div>
       )}
 
