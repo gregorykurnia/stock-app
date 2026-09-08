@@ -91,6 +91,32 @@ export default function LowDetectionView() {
   const prevTrough = showPctChangeCol ? troughs[troughs.length - 2] : null;
   const lastTrough = showPctChangeCol ? troughs[troughs.length - 1] : null;
 
+  function pctChange(row: RowDef): number | null {
+    if (row.key === "date" || !prevTrough || !lastTrough) return null;
+    const prevVal = rawValue(prevTrough, row.key);
+    const lastVal = rawValue(lastTrough, row.key);
+    if (prevVal == null || lastVal == null || prevVal === 0) return null;
+    return ((lastVal - prevVal) / Math.abs(prevVal)) * 100;
+  }
+
+  // Divergence classification for a row's % change cell — only meaningful when Price itself made
+  // a fresh (lower) low into the 1Y-low column. Flips sign for "min is bullish" rows (DI-, ADX)
+  // so the comparison is always "bullish-direction % change."
+  const priceRowDef = ROWS.find((r) => r.key === "price")!;
+  const priceChgPct = pctChange(priceRowDef);
+  const priceMadeFreshLow = priceChgPct != null && priceChgPct < 0;
+
+  function divergenceClass(row: RowDef): string {
+    if (!row.best || !priceMadeFreshLow) return "text-gray-400";
+    const pct = pctChange(row);
+    if (pct == null) return "text-gray-400";
+    const bullishPct = row.best === "max" ? pct : -pct;
+    if (bullishPct >= 15) return "bg-emerald-200 text-emerald-900 font-semibold";
+    if (bullishPct >= 5) return "bg-emerald-50 text-emerald-800";
+    if (bullishPct <= -5) return "bg-red-50 text-red-700";
+    return "text-gray-700";
+  }
+
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     runSearch(tickerInput);
@@ -190,23 +216,28 @@ export default function LowDetectionView() {
                       )}
                     </td>
                   ))}
-                  {showPctChangeCol && (
-                    <td className="text-right px-3 py-1.5 border-b border-gray-100 whitespace-nowrap tabular-nums">
-                      {(() => {
-                        if (row.key === "date" || !prevTrough || !lastTrough) return <span className="text-gray-400">—</span>;
-                        const prevVal = rawValue(prevTrough, row.key);
-                        const lastVal = rawValue(lastTrough, row.key);
-                        if (prevVal == null || lastVal == null || prevVal === 0) return <span className="text-gray-400">—</span>;
-                        const pct = ((lastVal - prevVal) / Math.abs(prevVal)) * 100;
-                        const color = pct > 0 ? "text-emerald-700" : pct < 0 ? "text-red-600" : "text-gray-700";
-                        return <span className={color}>{pct > 0 ? "+" : ""}{pct.toFixed(1)}%</span>;
-                      })()}
-                    </td>
-                  )}
+                  {showPctChangeCol && (() => {
+                    const pct = pctChange(row);
+                    return (
+                      <td className={`text-right px-3 py-1.5 border-b border-gray-100 whitespace-nowrap tabular-nums ${divergenceClass(row)}`}>
+                        {pct == null ? "—" : `${pct > 0 ? "+" : ""}${pct.toFixed(1)}%`}
+                      </td>
+                    );
+                  })()}
                 </tr>
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {showPctChangeCol && priceMadeFreshLow && (
+        <div className="flex items-center gap-3 text-xs text-gray-500">
+          <span>% Chg divergence:</span>
+          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-emerald-200" /> ≥+15% strong bullish divergence</span>
+          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-emerald-50 border border-emerald-100" /> +5–15% mild divergence</span>
+          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-gray-100 border border-gray-200" /> −5–5% flat</span>
+          <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-red-50 border border-red-100" /> ≤−5% confirming weakness</span>
         </div>
       )}
     </div>
