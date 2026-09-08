@@ -222,6 +222,7 @@ interface Props {
     currentBuyScore: number | null;
     breakoutScore: number | null;
     atrPct: number | null;
+    divergenceScore: number | null;
   }>;
   usBreakoutShortFloats?: Record<string, number | null>;
   usBreakoutAdvs?: Record<string, number | null>;

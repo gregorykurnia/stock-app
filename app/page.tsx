@@ -119,6 +119,7 @@ export default function Home() {
     currentBuyScore: number | null;
     breakoutScore: number | null;
     atrPct: number | null;
+    divergenceScore: number | null;
   }
   const [usBreakoutStocks, setUsBreakoutStocks] = useState<UsBreakoutStock[]>([]);
   const [usBreakoutPrices, setUsBreakoutPrices] = useState<Record<string, number | null>>({});
@@ -395,6 +396,7 @@ export default function Home() {
               currentBuyScore: d.currentBuyScore?.[t] ?? null,
               breakoutScore: d.breakoutScore?.[t] ?? null,
               atrPct: d.atrPct?.[t] ?? null,
+              divergenceScore: d.divergenceScore?.[t] ?? null,
             };
           }
           return next;

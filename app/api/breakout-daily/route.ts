@@ -60,6 +60,15 @@ interface BreakoutResult {
   currentBuyScore: number | null;
   breakoutScore: number | null;
   atrPct: number | null;
+  // Divergence Score inputs — RSI/DI Gap/ADX/Hist/CMF at the anchor and at the swing low, mirroring
+  // the Low Detection "prevCol -> lastCol" pair (rsiAnchor = prevCol, swingLow = lastCol).
+  diGapAtAnchor: number | null;
+  diGapAtLow: number | null;
+  adxAtAnchor: number | null;
+  adxAtLow: number | null;
+  cmfAtAnchor: number | null;
+  cmfAtLow: number | null;
+  divergenceScore: number | null;
 }
 
 const EMPTY: BreakoutResult = {
@@ -72,7 +81,37 @@ const EMPTY: BreakoutResult = {
   diPlusCurrent: null, diMinusCurrent: null, diCrossDate: null, diCrossPrice: null,
   daysLowToDiCross: null, pctAboveDiCrossNow: null, currentBuyScore: null,
   breakoutScore: null, atrPct: null,
+  diGapAtAnchor: null, diGapAtLow: null, adxAtAnchor: null, adxAtLow: null,
+  cmfAtAnchor: null, cmfAtLow: null, divergenceScore: null,
 };
+
+// Same absolute-delta scoring as the Low Detection %Chg Score: 5 metrics (RSI, DI Gap, ADX, Hist,
+// CMF) x 6 pts each = 30, comparing the divergence anchor (prevCol) to the swing low (lastCol).
+// ADX inverted since a declining ADX into the low is the bullish read.
+function calcDivergenceScore(anchor: {
+  rsi: number | null; diGap: number | null; adx: number | null; hist: number | null; cmf: number | null;
+}, low: {
+  rsi: number | null; diGap: number | null; adx: number | null; hist: number | null; cmf: number | null;
+}): number | null {
+  const metrics: { a: number | null; l: number | null; strong: number; invert?: boolean }[] = [
+    { a: anchor.rsi, l: low.rsi, strong: 10 },
+    { a: anchor.diGap, l: low.diGap, strong: 10 },
+    { a: anchor.adx, l: low.adx, strong: 8, invert: true },
+    { a: anchor.hist, l: low.hist, strong: 0.3 },
+    { a: anchor.cmf, l: low.cmf, strong: 0.10 },
+  ];
+  let total = 0;
+  let counted = 0;
+  for (const m of metrics) {
+    if (m.a == null || m.l == null) continue;
+    const delta = m.l - m.a;
+    const bullishDelta = m.invert ? -delta : delta;
+    const pts = Math.max(0, Math.min(6, (bullishDelta / m.strong) * 6));
+    total += pts;
+    counted++;
+  }
+  return counted > 0 ? total : null;
+}
 
 // Single 20-month daily chart fetch per ticker: the full fetched window is scanned for the swing
 // low, and the RSI-divergence anchor is searched for anywhere before it in that same history.
@@ -103,6 +142,8 @@ async function fetchBreakoutDaily(ticker: string): Promise<BreakoutResult> {
   const ema50s = ind.ema50;
   const diPluses = ind.diPlus;
   const diMinuses = ind.diMinus;
+  const adxs = ind.adx;
+  const cmfs = ind.cmf;
   const { hist } = macdSeriesFull(closes);
 
   const n = bars.length;
@@ -145,6 +186,19 @@ async function fetchBreakoutDaily(ticker: string): Promise<BreakoutResult> {
   const histAtAnchor = anchorIdx != null && !isNaN(hist[anchorIdx]) ? hist[anchorIdx] : null;
   const histAtLow = !isNaN(hist[swingLowIdx]) ? hist[swingLowIdx] : null;
   const histCompression = histAtAnchor != null && histAtLow != null ? histAtLow - histAtAnchor : null;
+
+  const diGapAt = (i: number) => (!isNaN(diPluses[i]) && !isNaN(diMinuses[i]) ? diPluses[i] - diMinuses[i] : null);
+  const diGapAtAnchor = anchorIdx != null ? diGapAt(anchorIdx) : null;
+  const diGapAtLow = diGapAt(swingLowIdx);
+  const adxAtAnchor = anchorIdx != null && !isNaN(adxs[anchorIdx]) ? adxs[anchorIdx] : null;
+  const adxAtLow = !isNaN(adxs[swingLowIdx]) ? adxs[swingLowIdx] : null;
+  const cmfAtAnchor = anchorIdx != null && !isNaN(cmfs[anchorIdx]) ? cmfs[anchorIdx] : null;
+  const cmfAtLow = !isNaN(cmfs[swingLowIdx]) ? cmfs[swingLowIdx] : null;
+
+  const divergenceScore = calcDivergenceScore(
+    { rsi: rsiAnchor, diGap: diGapAtAnchor, adx: adxAtAnchor, hist: histAtAnchor, cmf: cmfAtAnchor },
+    { rsi: rsiAtLow, diGap: diGapAtLow, adx: adxAtLow, hist: histAtLow, cmf: cmfAtLow }
+  );
 
   const divergenceConfirmed = rsiAtLow != null && rsiAnchor != null && rsiAtLow > rsiAnchor;
 
@@ -229,6 +283,7 @@ async function fetchBreakoutDaily(ticker: string): Promise<BreakoutResult> {
     currentBuyScore,
     breakoutScore,
     atrPct,
+    diGapAtAnchor, diGapAtLow, adxAtAnchor, adxAtLow, cmfAtAnchor, cmfAtLow, divergenceScore,
   };
 }
 
@@ -247,6 +302,8 @@ export async function GET(req: NextRequest) {
     diPlusCurrent: {}, diMinusCurrent: {}, diCrossDate: {}, diCrossPrice: {},
     daysLowToDiCross: {}, pctAboveDiCrossNow: {}, currentBuyScore: {},
     breakoutScore: {}, atrPct: {},
+    diGapAtAnchor: {}, diGapAtLow: {}, adxAtAnchor: {}, adxAtLow: {},
+    cmfAtAnchor: {}, cmfAtLow: {}, divergenceScore: {},
   };
 
   const chunkSize = 8;

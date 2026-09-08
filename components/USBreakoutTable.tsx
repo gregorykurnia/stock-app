@@ -17,7 +17,7 @@ export interface USBreakoutStock {
 export type BreakoutStatus = "no_divergence" | "watching" | "confirmed" | "failed" | null;
 
 type SortKey =
-  | "ticker" | "industry" | "addedAt" | "status" | "breakoutType" | "price" | "swingLow" | "swingLowDate" | "pctAboveLow"
+  | "ticker" | "industry" | "addedAt" | "status" | "breakoutType" | "divergenceScore" | "price" | "swingLow" | "swingLowDate" | "pctAboveLow"
   | "preLowHigh" | "preLowHighDate" | "declineFromHighPct"
   | "rsiCurrent" | "rsiAtLow" | "rsiAnchor" | "rsiAnchorDate" | "rsiAnchorPrice" | "priceDeclinePct" | "rsiDivergencePct" | "rsiBandDepthPct"
   | "histAtAnchor" | "histAtLow" | "histCompression" | "macdHistCurrent"
@@ -47,6 +47,7 @@ interface Props {
     currentBuyScore: number | null;
     breakoutScore: number | null;
     atrPct: number | null;
+    divergenceScore: number | null;
   }>;
   shortFloats?: Record<string, number | null>;
   advs?: Record<string, number | null>;
@@ -245,6 +246,14 @@ const breakoutScoreClass = (v: number | null) =>
 
 const currentBuyScoreClass = breakoutScoreClass;
 
+// Same buckets as breakoutScoreClass, scaled from the 0-10 cutoffs to 0-30 (Divergence Score's range).
+const divergenceScoreClass = (v: number | null) =>
+  v == null ? "text-gray-400"
+    : v >= 24 ? "text-green-600 font-bold"
+    : v >= 19.5 ? "text-blue-600 font-semibold"
+    : v >= 15 ? "text-yellow-600 font-medium"
+    : "text-red-500 font-semibold";
+
 const diClass = (v: number | null) => (v == null ? "text-gray-400" : "text-gray-700");
 
 const pctAboveCrossNowClass = (v: number | null) =>
@@ -365,6 +374,7 @@ export default function USBreakoutTable({
         currentBuyScore: d?.currentBuyScore ?? null,
         breakoutScore: d?.breakoutScore ?? null,
         atrPct: d?.atrPct ?? null,
+        divergenceScore: d?.divergenceScore ?? null,
         shortFloat: shortFloats[s.ticker] ?? null,
         adv: advs[s.ticker] ?? null,
         earnings: earningsDate,
@@ -391,6 +401,7 @@ export default function USBreakoutTable({
         case "addedAt": return r.addedAt ?? null;
         case "status": return r.status != null ? STATUS_RANK[r.status] : -1;
         case "breakoutType": return r.breakoutType ?? null;
+        case "divergenceScore": return r.divergenceScore;
         case "price": return r.price;
         case "swingLow": return r.swingLow;
         case "swingLowDate": return r.swingLowDate;
@@ -451,7 +462,7 @@ export default function USBreakoutTable({
   function exportCsv() {
     const date = new Date().toISOString().slice(0, 10);
     const headers = [
-      "Ticker", "Industry", "Added", "Status", "Type",
+      "Ticker", "Industry", "Added", "Status", "Type", "Divergence Score",
       "Breakout Score", "% Decline From High", "RSI Divergence %", "RSI Band Depth %", "Hist Compression", "ATR%", "Earnings Date",
       "Current Buy Score", "DI+ (Now)", "DI- (Now)",
       "MACD Cross Date", "MACD Cross Price", "% Above MACD Cross (Now)",
@@ -469,6 +480,7 @@ export default function USBreakoutTable({
       r.addedAt ? r.addedAt.slice(0, 10) : "",
       r.status != null ? STATUS_DEF[r.status].label : "",
       r.breakoutType != null ? TYPE_DEF[r.breakoutType].label : "",
+      r.divergenceScore?.toFixed(1) ?? "",
       r.breakoutScore?.toFixed(2) ?? "",
       r.declineFromHighPct?.toFixed(1) ?? "",
       r.rsiDivergencePct?.toFixed(1) ?? "",
@@ -610,7 +622,7 @@ export default function USBreakoutTable({
           <thead className="bg-gray-100 border-b border-gray-200 sticky top-0 z-30">
             <tr className="border-b border-gray-200">
               <th colSpan={2} className="px-2 py-1 sticky left-0 z-20 bg-gray-100" />
-              <th colSpan={4} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Overview</th>
+              <th colSpan={5} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Overview</th>
               <th colSpan={7} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Verdict</th>
               <th colSpan={10} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Current Buy</th>
               <th colSpan={6} className="px-3 py-1 text-left text-[10px] font-semibold text-gray-400 uppercase tracking-wide whitespace-nowrap border-l border-gray-300 bg-gray-50/70">Price &amp; Levels</th>
@@ -626,6 +638,7 @@ export default function USBreakoutTable({
               <Th label="Added" k="addedAt" info="Date this ticker was added to your Breakout watchlist." />
               <Th label="Status" k="status" info="Divergence lifecycle: No Divergence (RSI at the low wasn't higher than the pre-low anchor) → Watching (divergence confirmed, MACD hasn't crossed bullish yet, price hasn't broken the low either) → Confirmed (MACD crossed above signal without price making a new low first) → Failed (price broke below the swing low before MACD confirmed)." />
               <Th label="Type" k="breakoutType" info="Manual classification tag — Benchmark or New. Filterable via the toggles above the table." />
+              <Th label="Divergence Score" k="divergenceScore" info="0-30 composite, exact same logic as Low Detection's %Chg Score: RSI, DI Gap, ADX, Hist, and CMF each scored 0-6 comparing the RSI-divergence anchor to the swing low (bullish absolute delta scaled to that metric's 'strong divergence' cutoff — 10pt RSI, 10pt DI Gap, 8pt ADX decline, 0.3 Hist, 0.10 CMF). Null components are simply excluded, not zeroed." />
               <Th label="Breakout Score" k="breakoutScore" info="0-10 composite scored against the benchmark pattern: RSI divergence strength (22%), RSI band depth / how oversold the anchor was (18%), MACD histogram compression into the low (22%, penalized hard if still negative), % decline from pre-low high (12%, full credit at -70% or deeper), days from low to MACD cross (9%), % above low at cross (9%), distance from EMA50D at cross (4%), relative volume at cross (4%). Null until divergence is at least confirmed (Watching/Confirmed/Failed). A rough heuristic, not a guarantee — always sanity-check the underlying columns." />
               <Th label="% Decline From High" k="declineFromHighPct" info="(swing low − pre-low high) / pre-low high × 100. How many % beaten down the stock was at its lowest point, measured from its pre-low high — a quick read on how violent the drawdown was before the reversal." />
               <Th label="RSI Divergence %" k="rsiDivergencePct" info="(RSI at low − RSI anchor) / RSI anchor × 100. Positive = price made a lower low but RSI made a higher low (bullish divergence). Higher % = stronger divergence, e.g. TEAM +63%, WDAY +59.6%." />
@@ -720,6 +733,7 @@ export default function USBreakoutTable({
                     <option value="new">New</option>
                   </select>
                 </td>
+                <td className={`px-3 py-2 ${divergenceScoreClass(r.divergenceScore)}`}>{r.divergenceScore != null ? r.divergenceScore.toFixed(1) : dash}</td>
                 <td className={`px-3 py-2 ${breakoutScoreClass(r.breakoutScore)}`}>{r.breakoutScore != null ? r.breakoutScore.toFixed(1) : dash}</td>
                 <td className={`px-3 py-2 ${priceDeclineClass(r.declineFromHighPct)}`}>{r.declineFromHighPct != null ? `${r.declineFromHighPct.toFixed(1)}%` : dash}</td>
                 <td className={`px-3 py-2 ${divergenceClass(r.rsiDivergencePct)}`}>{r.rsiDivergencePct != null ? `${r.rsiDivergencePct >= 0 ? "+" : ""}${r.rsiDivergencePct.toFixed(1)}%` : dash}</td>
