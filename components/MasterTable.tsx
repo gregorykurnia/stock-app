@@ -10,6 +10,7 @@ import type { CustomStock, PeStats } from "@/lib/types";
 import type { FundData } from "@/app/api/funddata/route";
 import USSwingTable, { type USSwingStock, type CategoryKey, CATEGORY_DEFS, computeCategoryFlags, computeGrandScore, daysUntilEarnings } from "@/components/USSwingTable";
 import USBreakoutTable, { type USBreakoutStock, type BreakoutStatus } from "@/components/USBreakoutTable";
+import LowDetectionView from "@/components/LowDetectionView";
 import SwingChat from "@/components/SwingChat";
 import PortfolioTable, { PORTFOLIO_DIVISIONS, type PortfolioStock, type PortfolioLevelField } from "@/components/PortfolioTable";
 import type { PortfolioDivision } from "@/lib/firestore";
@@ -307,6 +308,8 @@ export default function MasterTable({
   const [portfolioDivision, setPortfolioDivision] = useState<PortfolioDivision>("longterm");
   type BeatenDownSubTab = "coiling" | "bagger";
   const [beatenDownSubTab, setBeatenDownSubTab] = useState<BeatenDownSubTab>("coiling");
+  type BreakoutSubTab = "list" | "lowDetection";
+  const [breakoutSubTab, setBreakoutSubTab] = useState<BreakoutSubTab>("list");
 
   useEffect(() => {
     if (!isIhsg && mainTab === "swing") onUsSwingTabOpen?.();
@@ -2583,23 +2586,48 @@ export default function MasterTable({
 
       {/* BREAKOUT TAB (US only) — RSI/MACD divergence off a swing low, independent ticker list */}
       {!isIhsg && mainTab === "breakout" && (
-        <USBreakoutTable
-          stocks={usBreakoutStocks}
-          prices={usBreakoutPrices}
-          data={usBreakoutData}
-          shortFloats={usBreakoutShortFloats}
-          advs={usBreakoutAdvs}
-          earnings={usBreakoutEarnings}
-          loading={usBreakoutLoading}
-          addTicker={usBreakoutAddTicker}
-          addLoading={usBreakoutAddLoading}
-          addError={usBreakoutAddError}
-          onAddTickerChange={onUsBreakoutAddTickerChange}
-          onAdd={onUsBreakoutAdd}
-          onRemove={onUsBreakoutRemove}
-          onToggleStar={onUsBreakoutToggleStar}
-          onTypeChange={onUsBreakoutTypeChange}
-        />
+        <div className="space-y-3">
+          <div className="flex gap-1 border-b border-gray-200">
+            {([
+              { id: "list", label: "List" },
+              { id: "lowDetection", label: "Low Detection" },
+            ] as { id: BreakoutSubTab; label: string }[]).map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setBreakoutSubTab(t.id)}
+                className={`px-3 py-1.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
+                  breakoutSubTab === t.id
+                    ? "border-blue-600 text-blue-600"
+                    : "border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {breakoutSubTab === "list" && (
+            <USBreakoutTable
+              stocks={usBreakoutStocks}
+              prices={usBreakoutPrices}
+              data={usBreakoutData}
+              shortFloats={usBreakoutShortFloats}
+              advs={usBreakoutAdvs}
+              earnings={usBreakoutEarnings}
+              loading={usBreakoutLoading}
+              addTicker={usBreakoutAddTicker}
+              addLoading={usBreakoutAddLoading}
+              addError={usBreakoutAddError}
+              onAddTickerChange={onUsBreakoutAddTickerChange}
+              onAdd={onUsBreakoutAdd}
+              onRemove={onUsBreakoutRemove}
+              onToggleStar={onUsBreakoutToggleStar}
+              onTypeChange={onUsBreakoutTypeChange}
+            />
+          )}
+
+          {breakoutSubTab === "lowDetection" && <LowDetectionView />}
+        </div>
       )}
 
       {/* PORTFOLIO TAB (US only) — three independent, manually-managed divisions */}
