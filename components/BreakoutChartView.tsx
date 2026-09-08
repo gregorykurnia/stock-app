@@ -82,6 +82,7 @@ export default function BreakoutChartView({ ticker }: Props) {
   const [pinned, setPinned] = useState(false);
 
   const priceRef = useRef<HTMLDivElement>(null);
+  const slopeRef = useRef<HTMLDivElement>(null);
   const rsiRef = useRef<HTMLDivElement>(null);
   const dmiRef = useRef<HTMLDivElement>(null);
   const macdRef = useRef<HTMLDivElement>(null);
@@ -116,7 +117,7 @@ export default function BreakoutChartView({ ticker }: Props) {
 
   useEffect(() => {
     if (!bars || !indicators || !macd) return;
-    if (!priceRef.current || !rsiRef.current || !dmiRef.current || !macdRef.current || !cmfRef.current || !obvRef.current) return;
+    if (!priceRef.current || !slopeRef.current || !rsiRef.current || !dmiRef.current || !macdRef.current || !cmfRef.current || !obvRef.current) return;
 
     const w = priceRef.current.clientWidth;
     const times = bars.map((b) => b.time as Time);
@@ -158,6 +159,16 @@ export default function BreakoutChartView({ ticker }: Props) {
     ma30wkSeries.setData(toLineData(ma30wk));
 
     priceChart.timeScale().fitContent();
+
+    // 30wk MA Slope — zero-centered histogram so the changing slope value itself is
+    // visible as a shape (rising/falling bars), not just inferred from line flattening.
+    const slopeChart = createChart(slopeRef.current, { ...CHART_OPTIONS(w), height: 120 });
+    const slopeZero = slopeChart.addSeries(LineSeries, { color: "#475569", lineWidth: 1, lineStyle: 2 });
+    slopeZero.setData(bars.map((_, i) => ({ time: times[i], value: 0 })));
+    const slopeSeries = slopeChart.addSeries(HistogramSeries, {
+      priceFormat: { type: "price", precision: 3, minMove: 0.001 },
+    });
+    slopeSeries.setData(toHistData(ma30wkSlopeSeries, (v) => (v >= 0 ? "#22c55e" : "#ef4444")));
 
     // RSI
     const rsiChart = createChart(rsiRef.current, { ...CHART_OPTIONS(w), height: 160 });
@@ -204,7 +215,7 @@ export default function BreakoutChartView({ ticker }: Props) {
     const obvSeries = obvChart.addSeries(LineSeries, { color: "#a78bfa", lineWidth: 2, title: "OBV" });
     obvSeries.setData(toLineData(indicators.obv));
 
-    const charts: IChartApi[] = [priceChart, rsiChart, dmiChart, macdChart, cmfChart, obvChart];
+    const charts: IChartApi[] = [priceChart, slopeChart, rsiChart, dmiChart, macdChart, cmfChart, obvChart];
     const primarySeries: ISeriesApi<"Candlestick"> | ISeriesApi<"Line"> = candleSeries;
 
     // Fit only the price pane (it has the fullest data range) then force every other
@@ -257,7 +268,7 @@ export default function BreakoutChartView({ ticker }: Props) {
       });
     };
     const seriesFor = (c: IChartApi) =>
-      c === rsiChart ? rsiSeries : c === dmiChart ? diPlusSeries : c === macdChart ? macdLineSeries : c === cmfChart ? cmfSeries : c === obvChart ? obvSeries : primarySeries;
+      c === slopeChart ? slopeSeries : c === rsiChart ? rsiSeries : c === dmiChart ? diPlusSeries : c === macdChart ? macdLineSeries : c === cmfChart ? cmfSeries : c === obvChart ? obvSeries : primarySeries;
 
     // Moving the crosshair line across panes is purely visual and always happens on
     // hover; only the legend text is gated by pinnedIdx (set by click, not by hover)
@@ -384,6 +395,8 @@ export default function BreakoutChartView({ ticker }: Props) {
           </div>
 
           <div ref={priceRef} className="w-full overflow-hidden" />
+          <div className="w-full px-2 pt-1 pb-0 bg-[#0f172a] text-xs text-pink-400 font-semibold tracking-wide">30wk MA Slope</div>
+          <div ref={slopeRef} className="w-full overflow-hidden" />
           <div className="w-full px-2 pt-1 pb-0 bg-[#0f172a] text-xs text-sky-400 font-semibold tracking-wide">RSI</div>
           <div ref={rsiRef} className="w-full overflow-hidden" />
           <div className="w-full px-2 pt-1 pb-0 bg-[#0f172a] text-xs font-semibold tracking-wide">
