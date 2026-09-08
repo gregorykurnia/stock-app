@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { TroughEvent } from "@/app/api/low-detection/route";
 
-type RowKey = "date" | "price" | "ema20" | "ema50" | "rsi" | "diPlus" | "diMinus" | "adx" | "macd" | "signal" | "hist" | "cmf";
+type RowKey = "date" | "price" | "ema20" | "ema50" | "rsi" | "diPlus" | "diMinus" | "diGap" | "adx" | "macd" | "signal" | "hist" | "cmf";
 
 interface RowDef {
   key: RowKey;
@@ -21,6 +21,7 @@ const ROWS: RowDef[] = [
   { key: "rsi", label: "RSI", fmt: (t) => t.rsi.toFixed(1), best: "max" },
   { key: "diPlus", label: "DI+", fmt: (t) => (t.diPlus != null ? t.diPlus.toFixed(1) : "—"), best: "max" },
   { key: "diMinus", label: "DI-", fmt: (t) => (t.diMinus != null ? t.diMinus.toFixed(1) : "—"), best: "min" },
+  { key: "diGap", label: "DI Gap (DI+ − DI-)", fmt: (t) => (t.diPlus != null && t.diMinus != null ? (t.diPlus - t.diMinus).toFixed(1) : "—"), best: "max" },
   { key: "adx", label: "ADX", fmt: (t) => (t.adx != null ? t.adx.toFixed(1) : "—"), best: "min" },
   { key: "macd", label: "MACD", fmt: (t) => (t.macd != null ? t.macd.toFixed(3) : "—"), best: null },
   { key: "signal", label: "Signal", fmt: (t) => (t.signal != null ? t.signal.toFixed(3) : "—"), best: null },
@@ -30,7 +31,8 @@ const ROWS: RowDef[] = [
 
 function rawValue(t: TroughEvent, key: RowKey): number | null {
   if (key === "date") return null;
-  const v = t[key as Exclude<RowKey, "date">];
+  if (key === "diGap") return t.diPlus != null && t.diMinus != null ? t.diPlus - t.diMinus : null;
+  const v = t[key as Exclude<RowKey, "date" | "diGap">];
   return typeof v === "number" ? v : null;
 }
 
