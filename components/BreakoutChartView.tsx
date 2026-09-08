@@ -359,7 +359,7 @@ export default function BreakoutChartView({ ticker }: Props) {
 
       {!error && bars && indicators && macd && (
         <div className="w-full">
-          <div className="w-full px-3 py-2 bg-[#0f172a] border-b border-slate-700 flex flex-wrap items-center gap-x-6 gap-y-1 text-xs font-mono">
+          <div className="w-full px-3 py-2 bg-[#0f172a] border-b border-slate-700 flex flex-wrap items-center gap-x-6 gap-y-1 text-xs font-mono sticky top-[53px] z-20 shadow-lg shadow-black/40">
             <span className="text-slate-300 font-semibold flex items-center gap-1.5">
               {legend?.date ?? "—"}
               {pinned && (
