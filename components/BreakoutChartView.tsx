@@ -221,38 +221,42 @@ export default function BreakoutChartView({ ticker }: Props) {
     const seriesFor = (c: IChartApi) =>
       c === rsiChart ? rsiSeries : c === dmiChart ? diPlusSeries : c === macdChart ? macdLineSeries : c === cmfChart ? cmfSeries : primarySeries;
 
+    // Moving the crosshair line across panes is purely visual and always happens on
+    // hover; only the legend text is gated by pinnedIdx (set by click, not by hover)
+    // — otherwise the cursor crossing over the chart on its way to the Copy button
+    // would immediately unpin it before the click can land.
+    const syncCrosshair = (chartIdx: number, time: Time) => {
+      movingCrosshair = true;
+      charts.forEach((c, i) => {
+        if (i === chartIdx) return;
+        c.setCrosshairPosition(0, time, seriesFor(c));
+      });
+      movingCrosshair = false;
+    };
+
     charts.forEach((chart, chartIdx) => {
       chart.subscribeCrosshairMove((param) => {
         if (movingCrosshair) return;
         if (!param.time) return;
         const idx = timeIndex.get(param.time as number);
         if (idx == null) return;
-        if (pinnedIdx != null) {
-          if (idx === pinnedIdx) return; // still hovering the pinned bar, stay frozen
-          pinnedIdx = null; // moved to a different bar — resume live tracking
-          setPinned(false);
-        }
-        updateLegend(idx);
-        movingCrosshair = true;
-        charts.forEach((c, i) => {
-          if (i === chartIdx) return;
-          c.setCrosshairPosition(0, param.time as Time, seriesFor(c));
-        });
-        movingCrosshair = false;
+        syncCrosshair(chartIdx, param.time as Time);
+        if (pinnedIdx == null) updateLegend(idx);
       });
       chart.subscribeClick((param) => {
         if (!param.time) return;
         const idx = timeIndex.get(param.time as number);
         if (idx == null) return;
+        // Click the already-pinned bar again to unpin and resume live hover tracking.
+        if (pinnedIdx === idx) {
+          pinnedIdx = null;
+          setPinned(false);
+          return;
+        }
         pinnedIdx = idx;
         setPinned(true);
         updateLegend(idx);
-        movingCrosshair = true;
-        charts.forEach((c, i) => {
-          if (i === chartIdx) return;
-          c.setCrosshairPosition(0, param.time as Time, seriesFor(c));
-        });
-        movingCrosshair = false;
+        syncCrosshair(chartIdx, param.time as Time);
       });
     });
 
@@ -303,7 +307,7 @@ export default function BreakoutChartView({ ticker }: Props) {
           <div className="w-full px-3 py-2 bg-[#0f172a] border-b border-slate-700 flex flex-wrap items-center gap-x-6 gap-y-1 text-xs font-mono">
             <span className="text-slate-300 font-semibold">
               {legend?.date ?? "—"}
-              {pinned && <span className="ml-1.5 text-amber-400 font-sans" title="Pinned — click elsewhere to unpin">📌</span>}
+              {pinned && <span className="ml-1.5 text-amber-400 font-sans" title="Pinned — click this point again to unpin">📌</span>}
             </span>
             <span className="text-slate-200">Price <b>{fmt(legend?.price)}</b></span>
             <span className="text-blue-400">EMA20 <b>{fmt(legend?.ema20)}</b></span>
