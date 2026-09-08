@@ -126,7 +126,6 @@ export default function BreakoutChartView({ ticker }: Props) {
     rsi30.setData(bars.map((_, i) => ({ time: times[i], value: 30 })));
     const rsiSeries = rsiChart.addSeries(LineSeries, { color: "#38bdf8", lineWidth: 2, title: "RSI" });
     rsiSeries.setData(bars.map((b, i) => ({ time: times[i], value: indicators.rsi[i] })).filter((d) => !isNaN(d.value)));
-    rsiChart.timeScale().fitContent();
 
     // DMI (DI+/DI-/ADX)
     const dmiChart = createChart(dmiRef.current, { ...CHART_OPTIONS(w), height: 160 });
@@ -136,7 +135,6 @@ export default function BreakoutChartView({ ticker }: Props) {
     diMinusSeries.setData(bars.map((b, i) => ({ time: times[i], value: indicators.diMinus[i] })).filter((d) => !isNaN(d.value)));
     const adxSeries = dmiChart.addSeries(LineSeries, { color: "#f59e0b", lineWidth: 2, lineStyle: 1, title: "ADX" });
     adxSeries.setData(bars.map((b, i) => ({ time: times[i], value: indicators.adx[i] })).filter((d) => !isNaN(d.value)));
-    dmiChart.timeScale().fitContent();
 
     // MACD
     const macdChart = createChart(macdRef.current, { ...CHART_OPTIONS(w), height: 160 });
@@ -154,7 +152,6 @@ export default function BreakoutChartView({ ticker }: Props) {
     macdLineSeries.setData(bars.map((b, i) => ({ time: times[i], value: macd.macd[i] })).filter((d) => !isNaN(d.value)));
     const macdSignalSeries = macdChart.addSeries(LineSeries, { color: "#f59e0b", lineWidth: 1, title: "Signal" });
     macdSignalSeries.setData(bars.map((b, i) => ({ time: times[i], value: macd.signal[i] })).filter((d) => !isNaN(d.value)));
-    macdChart.timeScale().fitContent();
 
     // CMF
     const cmfChart = createChart(cmfRef.current, { ...CHART_OPTIONS(w), height: 160 });
@@ -168,10 +165,18 @@ export default function BreakoutChartView({ ticker }: Props) {
         .map((b, i) => ({ time: times[i], value: indicators.cmf[i], color: indicators.cmf[i] >= 0 ? "#22c55e" : "#ef4444" }))
         .filter((d) => !isNaN(d.value))
     );
-    cmfChart.timeScale().fitContent();
 
     const charts: IChartApi[] = [priceChart, rsiChart, dmiChart, macdChart, cmfChart];
     const primarySeries: ISeriesApi<"Candlestick"> | ISeriesApi<"Line"> = candleSeries;
+
+    // Fit only the price pane (it has the fullest data range) then force every other
+    // pane to that exact logical range — panes with NaN-heavy warm-up periods (ADX, MACD)
+    // would otherwise fitContent() to their own shorter data span and desync the zoom.
+    priceChart.timeScale().fitContent();
+    const initialRange = priceChart.timeScale().getVisibleLogicalRange();
+    if (initialRange) {
+      charts.forEach((c) => { if (c !== priceChart) c.timeScale().setVisibleLogicalRange(initialRange); });
+    }
 
     // Sync visible time range across all panes
     let syncing = false;
