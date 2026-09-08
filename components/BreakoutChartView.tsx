@@ -62,6 +62,7 @@ export default function BreakoutChartView({ ticker }: Props) {
   const [macd, setMacd] = useState<{ macd: number[]; signal: number[]; hist: number[] } | null>(null);
   const [error, setError] = useState("");
   const [legend, setLegend] = useState<Legend | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const priceRef = useRef<HTMLDivElement>(null);
   const rsiRef = useRef<HTMLDivElement>(null);
@@ -193,7 +194,9 @@ export default function BreakoutChartView({ ticker }: Props) {
     // Sync crosshair across all panes + build legend from hovered bar
     let movingCrosshair = false;
     const updateLegend = (idx: number | null) => {
-      if (idx == null) { setLegend(null); return; }
+      // Keep showing the last hovered date's values when the mouse leaves the chart
+      // instead of clearing them, so the Copy button always has something to copy.
+      if (idx == null) return;
       const b = bars[idx];
       setLegend({
         date: new Date(b.time * 1000).toISOString().slice(0, 10),
@@ -246,6 +249,28 @@ export default function BreakoutChartView({ ticker }: Props) {
     };
   }, [bars, indicators, macd]);
 
+  const copyLegend = () => {
+    if (!legend) return;
+    const text = [
+      `Date: ${legend.date}`,
+      `Price: ${fmt(legend.price)}`,
+      `EMA20: ${fmt(legend.ema20)}`,
+      `EMA50: ${fmt(legend.ema50)}`,
+      `RSI: ${fmt(legend.rsi, 1)}`,
+      `DI+: ${fmt(legend.diPlus, 1)}`,
+      `DI-: ${fmt(legend.diMinus, 1)}`,
+      `ADX: ${fmt(legend.adx, 1)}`,
+      `MACD: ${fmt(legend.macd, 3)}`,
+      `Signal: ${fmt(legend.signal, 3)}`,
+      `Hist: ${fmt(legend.hist, 3)}`,
+      `CMF: ${fmt(legend.cmf, 3)}`,
+    ].join("\n");
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
+
   return (
     <div className="w-full">
       {error && <div className="p-6 text-red-400 text-sm">{error}</div>}
@@ -253,7 +278,7 @@ export default function BreakoutChartView({ ticker }: Props) {
 
       {!error && bars && indicators && macd && (
         <div className="w-full">
-          <div className="w-full px-3 py-2 bg-[#0f172a] border-b border-slate-700 flex flex-wrap gap-x-6 gap-y-1 text-xs font-mono">
+          <div className="w-full px-3 py-2 bg-[#0f172a] border-b border-slate-700 flex flex-wrap items-center gap-x-6 gap-y-1 text-xs font-mono">
             <span className="text-slate-300 font-semibold">{legend?.date ?? "—"}</span>
             <span className="text-slate-200">Price <b>{fmt(legend?.price)}</b></span>
             <span className="text-blue-400">EMA20 <b>{fmt(legend?.ema20)}</b></span>
@@ -266,6 +291,13 @@ export default function BreakoutChartView({ ticker }: Props) {
             <span className="text-amber-400">Signal <b>{fmt(legend?.signal, 3)}</b></span>
             <span className={(legend?.hist ?? 0) >= 0 ? "text-green-400" : "text-red-400"}>Hist <b>{fmt(legend?.hist, 3)}</b></span>
             <span className={(legend?.cmf ?? 0) >= 0 ? "text-green-400" : "text-red-400"}>CMF <b>{fmt(legend?.cmf, 3)}</b></span>
+            <button
+              onClick={copyLegend}
+              disabled={!legend}
+              className="ml-auto rounded bg-slate-700 hover:bg-slate-600 disabled:opacity-40 text-slate-100 text-xs font-sans font-semibold px-2.5 py-1"
+            >
+              {copied ? "Copied ✓" : "Copy values"}
+            </button>
           </div>
 
           <div ref={priceRef} className="w-full overflow-hidden" />
