@@ -85,6 +85,12 @@ export default function LowDetectionView() {
   );
   if (oneYearLowIsDuplicate && columnLabels.length > 0) columnLabels[columnLabels.length - 1] = `Low ${columnLabels.length} / 1Y Low`;
 
+  // % change from the trough just before the 1Y low column to the 1Y low column itself — usually
+  // the last RSI<30 dip prior to the actual 1Y low.
+  const showPctChangeCol = troughs.length >= 2;
+  const prevTrough = showPctChangeCol ? troughs[troughs.length - 2] : null;
+  const lastTrough = showPctChangeCol ? troughs[troughs.length - 1] : null;
+
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     runSearch(tickerInput);
@@ -158,6 +164,11 @@ export default function LowDetectionView() {
                     {columnLabels[i]}
                   </th>
                 ))}
+                {showPctChangeCol && (
+                  <th className="text-right px-3 py-1.5 font-medium text-gray-600 border-b border-gray-200 whitespace-nowrap">
+                    % Chg ({columnLabels[columnLabels.length - 2]} → {columnLabels[columnLabels.length - 1]})
+                  </th>
+                )}
               </tr>
             </thead>
             <tbody>
@@ -179,6 +190,19 @@ export default function LowDetectionView() {
                       )}
                     </td>
                   ))}
+                  {showPctChangeCol && (
+                    <td className="text-right px-3 py-1.5 border-b border-gray-100 whitespace-nowrap tabular-nums">
+                      {(() => {
+                        if (row.key === "date" || !prevTrough || !lastTrough) return <span className="text-gray-400">—</span>;
+                        const prevVal = rawValue(prevTrough, row.key);
+                        const lastVal = rawValue(lastTrough, row.key);
+                        if (prevVal == null || lastVal == null || prevVal === 0) return <span className="text-gray-400">—</span>;
+                        const pct = ((lastVal - prevVal) / Math.abs(prevVal)) * 100;
+                        const color = pct > 0 ? "text-emerald-700" : pct < 0 ? "text-red-600" : "text-gray-700";
+                        return <span className={color}>{pct > 0 ? "+" : ""}{pct.toFixed(1)}%</span>;
+                      })()}
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
