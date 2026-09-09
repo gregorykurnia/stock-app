@@ -1692,7 +1692,7 @@ export default function MasterTable({
     );
   };
 
-  const Filters = () => (
+  const filters = (
     <div className="flex flex-wrap gap-2 items-center">
       <input
         type="text"
@@ -1865,7 +1865,7 @@ export default function MasterTable({
       {/* ALL TAB */}
       {activeTab === "all" && (
         <div className="space-y-3">
-          <Filters />
+          {filters}
           <div className="overflow-x-auto overflow-y-auto max-h-[72vh] rounded-lg border border-gray-200">
             <table className="w-full text-sm">
               <thead className="bg-gray-100 border-b border-gray-200 sticky top-0 z-30">
@@ -2084,7 +2084,7 @@ export default function MasterTable({
       {/* FUNDAMENTAL TAB */}
       {activeTab === "fundamental" && (
         <div className="space-y-3">
-          <Filters />
+          {filters}
           <div className="overflow-x-auto overflow-y-auto max-h-[72vh] rounded-lg border border-gray-200">
             <table className="w-full text-sm">
               <thead className="bg-gray-100 border-b border-gray-200 sticky top-0 z-30">
@@ -2154,7 +2154,7 @@ export default function MasterTable({
       {/* VALUATION TAB */}
       {activeTab === "valuation" && (
         <div className="space-y-3">
-          <Filters />
+          {filters}
           <div className="overflow-x-auto overflow-y-auto max-h-[72vh] rounded-lg border border-gray-200">
             <table className="w-full text-sm">
               <thead className="bg-gray-100 border-b border-gray-200 sticky top-0 z-30">
@@ -2227,7 +2227,7 @@ export default function MasterTable({
       {/* TECHNICAL TAB */}
       {activeTab === "technical" && (
         <div className="space-y-3">
-          <Filters />
+          {filters}
           <div className="overflow-x-auto overflow-y-auto max-h-[72vh] rounded-lg border border-gray-200">
             <table className="w-full text-sm">
               <thead className="bg-gray-100 border-b border-gray-200 sticky top-0 z-30">
