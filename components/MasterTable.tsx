@@ -503,7 +503,13 @@ export default function MasterTable({
   const [industryFilter, setIndustryFilter] = useState("all");
   const [urgencyFilter, setUrgencyFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const [searchInput, setSearchInput] = useState("");
   const [starredOnly, setStarredOnly] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(searchInput), 200);
+    return () => clearTimeout(t);
+  }, [searchInput]);
   const [swingSortKey, setSwingSortKey] = useState<SwingSortKey>("ticker");
   const [swingSortDir, setSwingSortDir] = useState<SortDir>("asc");
 
@@ -1691,8 +1697,8 @@ export default function MasterTable({
       <input
         type="text"
         placeholder="Search…"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
+        value={searchInput}
+        onChange={(e) => setSearchInput(e.target.value)}
         className="input-field w-36"
       />
       <select
