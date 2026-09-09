@@ -72,10 +72,16 @@ function calcATRPct(quotes: { high: number; low: number; close: number }[], peri
 async function fetchEMAs(ticker: string): Promise<EMAResult> {
   const now = new Date();
   const threeYearsAgo = new Date(now.getTime() - 3 * 365 * 24 * 3600 * 1000);
+  const twoMonthsAgo = new Date(now.getTime() - 60 * 24 * 3600 * 1000);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const result: any = await yf.chart(ticker, { period1: threeYearsAgo, period2: now, interval: "1wk" });
+  const [result, dailyResult]: [any, any] = await Promise.all([
+    yf.chart(ticker, { period1: threeYearsAgo, period2: now, interval: "1wk" }),
+    yf.chart(ticker, { period1: twoMonthsAgo, period2: now, interval: "1d" }),
+  ]);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const quotes = (result?.quotes ?? []).filter((q: any) => q.open != null && q.high != null && q.low != null && q.close != null && q.volume != null);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const dailyQuotes = (dailyResult?.quotes ?? []).filter((q: any) => q.high != null && q.low != null && q.close != null);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const closes = quotes.map((q: any) => q.close as number);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -83,7 +89,8 @@ async function fetchEMAs(ticker: string): Promise<EMAResult> {
   const last52 = quotes.slice(-52);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supportLow = last52.length > 0 ? Math.min(...last52.map((q: any) => q.close as number)) : null;
-  const atrPct = calcATRPct(quotes, 14);
+  // daily ATR%, consistent with every other tab (Swing/Breakout/Coiling) — weekly bars would inflate this several-fold
+  const atrPct = calcATRPct(dailyQuotes, 14);
 
   const bars = quotes.map((q: any) => ({ open: q.open, high: q.high, low: q.low, close: q.close, volume: q.volume }));
   const ind = calcIndicators(bars);
