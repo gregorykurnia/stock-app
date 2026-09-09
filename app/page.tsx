@@ -15,6 +15,7 @@ import {
   savePortfolioEntry, removePortfolioEntry,
   saveWatchlistEntry, removeWatchlistEntry,
   getMarkedTickers, markTicker, unmarkTicker,
+  getStarredTickers, starTicker, unstarTicker,
   getPeStatsMap,
   getPortfolioDivisionStocks, savePortfolioDivisionStock, removePortfolioDivisionStock, updatePortfolioDivisionEntry,
   type PortfolioDivision,
@@ -58,6 +59,7 @@ export default function Home() {
   const [portfolioSet, setPortfolioSet] = useState<Set<string>>(new Set());
   const [watchlistSet, setWatchlistSet] = useState<Set<string>>(new Set());
   const [markedSet, setMarkedSet] = useState<Set<string>>(new Set());
+  const [starredSet, setStarredSet] = useState<Set<string>>(new Set());
   const [peStats, setPeStats] = useState<Record<string, PeStats>>({});
   const [peRefreshing, setPeRefreshing] = useState(false);
   const [peProgress, setPeProgress] = useState("");
@@ -196,10 +198,11 @@ export default function Home() {
   const [addError, setAddError] = useState("");
 
   async function loadSets() {
-    const [p, w, m] = await Promise.all([getPortfolioTickers(), getWatchlistTickers(), getMarkedTickers()]);
+    const [p, w, m, st] = await Promise.all([getPortfolioTickers(), getWatchlistTickers(), getMarkedTickers(), getStarredTickers()]);
     setPortfolioSet(p);
     setWatchlistSet(w);
     setMarkedSet(m);
+    setStarredSet(st);
   }
 
   async function loadPeStats() {
@@ -628,6 +631,16 @@ export default function Home() {
     } else {
       await markTicker(ticker);
       setMarkedSet((prev) => new Set(prev).add(ticker));
+    }
+  }
+
+  async function handleToggleStar(ticker: string) {
+    if (starredSet.has(ticker)) {
+      await unstarTicker(ticker);
+      setStarredSet((prev) => { const s = new Set(prev); s.delete(ticker); return s; });
+    } else {
+      await starTicker(ticker);
+      setStarredSet((prev) => new Set(prev).add(ticker));
     }
   }
 
@@ -1295,9 +1308,11 @@ export default function Home() {
             portfolioSet={portfolioSet}
             watchlistSet={watchlistSet}
             markedSet={markedSet}
+            starredSet={starredSet}
             onSetStatus={handleSetStatus}
             onRemoveCustom={handleRemoveCustom}
             onToggleMark={handleToggleMark}
+            onToggleStar={handleToggleStar}
             ihsgStocks={IHSG_STOCKS}
             swingStocks={swingStocks}
             swingPrices={swingPrices}
@@ -1351,9 +1366,11 @@ export default function Home() {
             portfolioSet={portfolioSet}
             watchlistSet={watchlistSet}
             markedSet={markedSet}
+            starredSet={starredSet}
             onSetStatus={handleSetStatus}
             onRemoveCustom={handleRemoveCustom}
             onToggleMark={handleToggleMark}
+            onToggleStar={handleToggleStar}
             usSwingStocks={usSwingStocks}
             usSwingPrices={usSwingPrices}
             usSwingPrevCloses={usSwingPrevCloses}

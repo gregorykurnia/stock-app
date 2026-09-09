@@ -498,6 +498,20 @@ export async function unmarkTicker(ticker: string) {
   await deleteDoc(doc(db, "marked", ticker));
 }
 
+// Starred stocks (Master Table - List)
+export async function getStarredTickers(): Promise<Set<string>> {
+  const snap = await getDocs(collection(db, "starred"));
+  return new Set(snap.docs.map((d) => d.id));
+}
+
+export async function starTicker(ticker: string) {
+  await setDoc(doc(db, "starred", ticker), { starred_at: new Date().toISOString() });
+}
+
+export async function unstarTicker(ticker: string) {
+  await deleteDoc(doc(db, "starred", ticker));
+}
+
 // Notes (document editor)
 export async function getNotes(): Promise<import("./types").NoteDoc[]> {
   const snap = await getDocs(collection(db, "notes"));

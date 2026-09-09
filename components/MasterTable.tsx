@@ -158,9 +158,11 @@ interface Props {
   portfolioSet: Set<string>;
   watchlistSet: Set<string>;
   markedSet: Set<string>;
+  starredSet?: Set<string>;
   onSetStatus: (ticker: string, status: "portfolio" | "watchlist") => void;
   onRemoveCustom: (ticker: string) => void;
   onToggleMark: (ticker: string) => void;
+  onToggleStar?: (ticker: string) => void;
   // US "Swing" tab — separate, manually-managed ticker list independent from List
   usSwingStocks?: USSwingStock[];
   usSwingPrices?: Record<string, number | null>;
@@ -287,7 +289,7 @@ function EarningsBadge({ dateStr }: { dateStr: string | null | undefined }) {
 }
 
 export default function MasterTable({
-  market = "us", ihsgStocks, prices, preMarketPrices, verdicts, atrs, ema20s, ema50s, goldenCrossDates = {}, supportLows, rsis, diPluses, diMinuses, adxs = {}, cmfs, macds = {}, macdSignals = {}, macdHists = {}, macdHistDirs = {}, earnings, fundData, peStats = {}, loading, customStocks, portfolioSet, watchlistSet, markedSet, onSetStatus, onRemoveCustom, onToggleMark,
+  market = "us", ihsgStocks, prices, preMarketPrices, verdicts, atrs, ema20s, ema50s, goldenCrossDates = {}, supportLows, rsis, diPluses, diMinuses, adxs = {}, cmfs, macds = {}, macdSignals = {}, macdHists = {}, macdHistDirs = {}, earnings, fundData, peStats = {}, loading, customStocks, portfolioSet, watchlistSet, markedSet, starredSet = new Set(), onSetStatus, onRemoveCustom, onToggleMark, onToggleStar,
   swingStocks = [], swingPrices = {}, swingDailyEma20s = {}, swingDailyEma50s = {}, swingDailyAtrs = {}, swingDailyRsis = {}, swingEmaCrossAbove = {}, swingCrossPrice = {}, swingCrossDate = {},
   swingMacds = {}, swingMacdSignals = {}, swingMacdHists = {}, swingMacdHistDirs = {},
   swingAtr14 = {},
@@ -501,6 +503,7 @@ export default function MasterTable({
   const [industryFilter, setIndustryFilter] = useState("all");
   const [urgencyFilter, setUrgencyFilter] = useState("all");
   const [search, setSearch] = useState("");
+  const [starredOnly, setStarredOnly] = useState(false);
   const [swingSortKey, setSwingSortKey] = useState<SwingSortKey>("ticker");
   const [swingSortDir, setSwingSortDir] = useState<SortDir>("asc");
 
@@ -759,6 +762,7 @@ export default function MasterTable({
     if (industryFilter !== "all") data = data.filter((r) => r.industry === industryFilter);
     if (urgencyFilter !== "all") data = data.filter((r) => r.verdict?.urgency === urgencyFilter);
     if (search) data = data.filter((r) => r.ticker.includes(search.toUpperCase()) || r.name?.toUpperCase().includes(search.toUpperCase()));
+    if (starredOnly) data = data.filter((r) => starredSet.has(r.ticker));
 
     data.sort((a, b) => {
       if (sortKey === "ticker") {
@@ -845,17 +849,19 @@ export default function MasterTable({
     });
 
     return data;
-  }, [allRows, sortKey, sortDir, industryFilter, urgencyFilter, search]);
+  }, [allRows, sortKey, sortDir, industryFilter, urgencyFilter, search, starredOnly, starredSet]);
 
   function exportCsv() {
     const date = new Date().toISOString().slice(0, 10);
     const marked = (r: TableRow) => markedSet.has(r.ticker) ? "yes" : "";
     const portfolio = (r: TableRow) => portfolioSet.has(r.ticker) ? "yes" : "";
     const watchlist = (r: TableRow) => watchlistSet.has(r.ticker) ? "yes" : "";
+    const starred = (r: TableRow) => starredSet.has(r.ticker) ? "yes" : "";
+    const suffix = starredOnly ? "-starred" : "";
 
     if (activeTab === "fundamental") {
       const headers = ["Ticker", "Industry", "Rev Gr%", "Gross%", "Op%", "FCF%",
-        "ROE%", "ROIC%", "Current Ratio", "Beta", "D/E", "EPS TTM", "EPS Fwd", "EPS Past 5Y%", "EPS Next 5Y%", "Short Float%", "Portfolio", "Watchlist", "Marked"];
+        "ROE%", "ROIC%", "Current Ratio", "Beta", "D/E", "EPS TTM", "EPS Fwd", "EPS Past 5Y%", "EPS Next 5Y%", "Short Float%", "Portfolio", "Watchlist", "Marked", "Starred"];
       const data = rows.map((r) => [
         r.ticker, r.industry,
         r.rev_growth != null ? (r.rev_growth * 100).toFixed(1) : "",
@@ -871,24 +877,24 @@ export default function MasterTable({
         r.eps_past_5y != null ? (r.eps_past_5y * 100).toFixed(1) : "",
         r.eps_next_5y != null ? (r.eps_next_5y * 100).toFixed(1) : "",
         r.short_float != null ? (r.short_float * 100).toFixed(1) : "",
-        portfolio(r), watchlist(r), marked(r),
+        portfolio(r), watchlist(r), marked(r), starred(r),
       ]);
-      return downloadCsv(`fundamental-${date}.csv`, headers, data);
+      return downloadCsv(`fundamental${suffix}-${date}.csv`, headers, data);
     }
 
     if (activeTab === "valuation") {
       if (isIhsg) {
-        const headers = ["Ticker", "Industry", "Trail PE", "P/S", "P/B", "EV/Rev", "Portfolio", "Watchlist", "Marked"];
+        const headers = ["Ticker", "Industry", "Trail PE", "P/S", "P/B", "EV/Rev", "Portfolio", "Watchlist", "Marked", "Starred"];
         const data = rows.map((r) => [
           r.ticker, r.industry,
           r.trailing_pe?.toFixed(2) ?? "", r.ps_ratio?.toFixed(2) ?? "",
           r.pb_ratio?.toFixed(2) ?? "", r.ev_revenue?.toFixed(2) ?? "",
-          portfolio(r), watchlist(r), marked(r),
+          portfolio(r), watchlist(r), marked(r), starred(r),
         ]);
-        return downloadCsv(`valuation-ihsg-${date}.csv`, headers, data);
+        return downloadCsv(`valuation-ihsg${suffix}-${date}.csv`, headers, data);
       }
       const headers = ["Ticker", "Industry", "Fwd PE", "Trail PE", "PEG",
-        "P/S", "P/B", "EV/EBITDA", "EV/Rev", "EV/FCF", "P/FCF", "5Y PE Z", "Portfolio", "Watchlist", "Marked"];
+        "P/S", "P/B", "EV/EBITDA", "EV/Rev", "EV/FCF", "P/FCF", "5Y PE Z", "Portfolio", "Watchlist", "Marked", "Starred"];
       const data = rows.map((r) => [
         r.ticker, r.industry,
         r.fwd_pe?.toFixed(2) ?? "", r.trailing_pe?.toFixed(2) ?? "", r.peg?.toFixed(2) ?? "",
@@ -896,9 +902,9 @@ export default function MasterTable({
         r.ev_ebitda?.toFixed(1) ?? "", r.ev_revenue?.toFixed(2) ?? "",
         r.ev_fcf?.toFixed(1) ?? "", r.p_fcf?.toFixed(1) ?? "",
         r.peZScore != null ? r.peZScore.toFixed(2) : "",
-        portfolio(r), watchlist(r), marked(r),
+        portfolio(r), watchlist(r), marked(r), starred(r),
       ]);
-      return downloadCsv(`valuation-${date}.csv`, headers, data);
+      return downloadCsv(`valuation${suffix}-${date}.csv`, headers, data);
     }
 
     const fmtGoldenCrossCsv = (ticker: string) => {
@@ -912,7 +918,7 @@ export default function MasterTable({
     if (activeTab === "technical") {
       const headers = ["Ticker", "Industry", "Price", "Setup",
         "EMA20W", "Dist EMA20%", "EMA50W", "Dist EMA50%", "Golden Cross", "Prev Support",
-        "RSI", "DI+", "DI-", "ADX", "CMF", "ATR%", "Portfolio", "Watchlist", "Marked"];
+        "RSI", "DI+", "DI-", "ADX", "CMF", "ATR%", "Portfolio", "Watchlist", "Marked", "Starred"];
       const data = rows.map((r) => {
         const price = r.price;
         const ema20 = ema20s[r.ticker] ?? null;
@@ -935,10 +941,10 @@ export default function MasterTable({
           adxs[r.ticker]?.toFixed(1) ?? "",
           cmfs[r.ticker]?.toFixed(3) ?? "",
           atrs[r.ticker]?.toFixed(1) ?? "",
-          portfolio(r), watchlist(r), marked(r),
+          portfolio(r), watchlist(r), marked(r), starred(r),
         ];
       });
-      return downloadCsv(`technical-${date}.csv`, headers, data);
+      return downloadCsv(`technical${suffix}-${date}.csv`, headers, data);
     }
 
     // "all" tab — full export
@@ -951,7 +957,7 @@ export default function MasterTable({
       ...(isIhsg ? [] : ["ROIC%", "Current Ratio", "Beta"]),
       "D/E",
       ...(isIhsg ? [] : ["EPS TTM", "EPS Fwd", "EPS Past 5Y%", "EPS Next 5Y%", "Short Float%"]),
-      ...valHeaders, "Portfolio", "Watchlist", "Marked"];
+      ...valHeaders, "Portfolio", "Watchlist", "Marked", "Starred"];
     const data = rows.map((r) => {
       const price = r.price;
       const ema20 = ema20s[r.ticker] ?? null;
@@ -1001,10 +1007,10 @@ export default function MasterTable({
         r.ev_ebitda?.toFixed(1) ?? "", r.ev_revenue?.toFixed(2) ?? "",
         r.ev_fcf?.toFixed(1) ?? "", r.p_fcf?.toFixed(1) ?? "",
       ]),
-      portfolio(r), watchlist(r), marked(r),
+      portfolio(r), watchlist(r), marked(r), starred(r),
       ]; // close inner array
     }); // close rows.map
-    downloadCsv(`master-table-${date}.csv`, headers, data);
+    downloadCsv(`master-table${suffix}-${date}.csv`, headers, data);
   }
 
   function exportSwingCsv() {
@@ -1657,18 +1663,28 @@ export default function MasterTable({
   ];
 
   // Shared ticker sticky cell
-  const TickerCell = ({ r }: { r: TableRow }) => (
-    <td className={`px-3 py-2 font-semibold whitespace-nowrap sticky left-0 z-10 max-w-[92px] sm:max-w-none after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-gray-200 after:content-[''] group-hover:bg-red-50 ${markedSet.has(r.ticker) ? "bg-red-50" : r.isCustom ? "bg-blue-50/30 group-hover:bg-blue-100/40" : "bg-white group-hover:bg-gray-50"}`}>
-      <Link href={`/stock/${isIhsg ? `${r.ticker}.JK` : r.ticker}`} className="text-blue-600 hover:text-blue-800">
-        {r.ticker}
-      </Link>
-      {r.name && (
-        <span className="hidden sm:block text-xs text-gray-400 font-normal leading-tight truncate max-w-[160px]">
-          {r.name}
-        </span>
-      )}
-    </td>
-  );
+  const TickerCell = ({ r }: { r: TableRow }) => {
+    const isStarred = starredSet.has(r.ticker);
+    return (
+      <td className={`px-3 py-2 font-semibold whitespace-nowrap sticky left-0 z-10 max-w-[92px] sm:max-w-none after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-gray-200 after:content-[''] group-hover:bg-red-50 ${markedSet.has(r.ticker) ? "bg-red-50" : r.isCustom ? "bg-blue-50/30 group-hover:bg-blue-100/40" : "bg-white group-hover:bg-gray-50"}`}>
+        <button
+          onClick={() => onToggleStar?.(r.ticker)}
+          className={`mr-1 align-middle ${isStarred ? "text-yellow-500" : "text-gray-300 hover:text-yellow-400"}`}
+          title={isStarred ? "Starred — click to unstar" : "Star this ticker"}
+        >
+          {isStarred ? "★" : "☆"}
+        </button>
+        <Link href={`/stock/${isIhsg ? `${r.ticker}.JK` : r.ticker}`} className="text-blue-600 hover:text-blue-800">
+          {r.ticker}
+        </Link>
+        {r.name && (
+          <span className="hidden sm:block text-xs text-gray-400 font-normal leading-tight truncate max-w-[160px]">
+            {r.name}
+          </span>
+        )}
+      </td>
+    );
+  };
 
   const Filters = () => (
     <div className="flex flex-wrap gap-2 items-center">
@@ -1699,13 +1715,24 @@ export default function MasterTable({
         <option value="hold">Hold</option>
         <option value="avoid">Avoid</option>
       </select>
+      <button
+        onClick={() => setStarredOnly((v) => !v)}
+        className={`text-xs px-2.5 py-1.5 rounded border font-semibold ${
+          starredOnly
+            ? "bg-yellow-100 text-yellow-700 border-yellow-300"
+            : "border-gray-300 text-gray-500 hover:border-yellow-400 hover:text-yellow-600"
+        }`}
+        title={starredOnly ? "Showing starred only — click to show all" : "Show starred only"}
+      >
+        {starredOnly ? "★ Starred only" : "☆ Starred only"}
+      </button>
       {loading && <span className="text-xs text-gray-400 animate-pulse">Loading prices…</span>}
       <span className="text-xs text-gray-400">{rows.length} stocks</span>
       <button
         onClick={exportCsv}
         className="ml-auto btn btn-ghost text-xs px-3 py-1.5"
       >
-        Export CSV
+        Export CSV{starredOnly ? " (Starred)" : ""}
       </button>
     </div>
   );
