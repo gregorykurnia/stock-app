@@ -7,6 +7,18 @@ export async function loadStockData(ticker: string) {
   return snap.exists() ? snap.data() : null;
 }
 
+// Additive storage for long-term assumptions, judgments, and tracking fields.
+export async function getLongTermAnalyses(): Promise<Record<string, Record<string, unknown>>> {
+  const snap = await getDocs(collection(db, "long_term_analysis"));
+  const result: Record<string, Record<string, unknown>> = {};
+  snap.forEach((d) => { result[d.id] = d.data(); });
+  return result;
+}
+
+export async function saveLongTermAnalysis(ticker: string, data: Record<string, unknown>) {
+  await setDoc(doc(db, "long_term_analysis", ticker), { ...data, manual_updated_at: new Date().toISOString() }, { merge: true });
+}
+
 export async function saveBusinessQuality(ticker: string, data: object) {
   const ref = doc(db, "stocks", ticker);
   await setDoc(ref, { business_quality: { ...data, generated_at: new Date().toISOString() } }, { merge: true });

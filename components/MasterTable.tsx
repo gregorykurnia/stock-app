@@ -21,6 +21,7 @@ import {
 import CoilingReversalTable, { type CoilingStock } from "@/components/CoilingReversalTable";
 import type { UpsideInput as UpsideRaw } from "@/lib/upsideScore";
 import BaggerReversalTable from "@/components/BaggerReversalTable";
+import LongTermTable from "@/components/LongTermTable";
 
 type SortKey =
   | "ticker" | "combined" | "val" | "fund" | "price" | "industry" | "urgency" | "atr"
@@ -309,7 +310,7 @@ export default function MasterTable({
   const isIhsg = market === "ihsg";
   // Currency prefix and price formatter
   const fmtPrice = (v: number) => isIhsg ? `Rp${Math.round(v).toLocaleString("id-ID")}` : `$${v.toFixed(2)}`;
-  type MainTab = "list" | "midterm" | "swing" | "portfolio" | "beatendown" | "breakout";
+  type MainTab = "list" | "longterm" | "midterm" | "swing" | "portfolio" | "beatendown" | "breakout";
   const [mainTab, setMainTab] = useState<MainTab>("list");
   const [portfolioDivision, setPortfolioDivision] = useState<PortfolioDivision>("longterm");
   type BeatenDownSubTab = "coiling" | "bagger";
@@ -1813,8 +1814,16 @@ export default function MasterTable({
           onClick={() => setMainTab("list")}
           className={`segmented-btn ${mainTab === "list" ? "is-active" : ""}`}
         >
-          List
+          Master Table
         </button>
+        {!isIhsg && (
+          <button
+            onClick={() => setMainTab("longterm")}
+            className={`segmented-btn ${mainTab === "longterm" ? "is-active" : ""}`}
+          >
+            Long Term
+          </button>
+        )}
         <button
           onClick={() => setMainTab(isIhsg ? "midterm" : "swing")}
           className={`segmented-btn ${mainTab === (isIhsg ? "midterm" : "swing") ? "is-active" : ""}`}
@@ -2358,6 +2367,15 @@ export default function MasterTable({
         </div>
       )}
       </>
+      )}
+
+      {!isIhsg && mainTab === "longterm" && (
+        <LongTermTable stocks={allRows.map((row) => ({
+          ticker: row.ticker,
+          company: row.name,
+          industry: row.industry,
+          currentPrice: row.price,
+        }))} />
       )}
 
       {/* MIDTERM / SWING TAB (IHSG only) — separate, manually-managed ticker list */}
