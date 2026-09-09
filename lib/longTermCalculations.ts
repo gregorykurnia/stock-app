@@ -1,4 +1,7 @@
 export interface TotalReturnPoint { date: string; value: number }
+export type MissingDataReason = "N/A" | "Insufficient history" | "Not meaningful" | "Data unavailable" | "Calculation error" | "Not researched";
+export type DataQualityStatus = "Complete" | "Mostly Complete" | "Partial" | "Insufficient Data" | "Calculation Error";
+export interface DataQualityResult { dataCoverage:number|null; dataQualityStatus:DataQualityStatus; missingKeyMetrics:string; missingDetail:string }
 
 const yearsBetween = (a: string, b: string) =>
   (new Date(b).getTime() - new Date(a).getTime()) / (365.2425 * 86_400_000);
@@ -15,6 +18,14 @@ export function trailingCagr(points: TotalReturnPoint[], years: number): number 
   const start = points.find((p) => new Date(p.date) >= target);
   if (!start || yearsBetween(start.date, end.date) < years * 0.9) return null;
   return cagr(start.value, end.value, yearsBetween(start.date, end.date));
+}
+
+export function availableHistoryYears(points:TotalReturnPoint[]):number {
+  return points.length > 1 ? yearsBetween(points[0].date,points.at(-1)!.date) : 0;
+}
+
+export function historyMissingReason(points:TotalReturnPoint[],years:number):MissingDataReason {
+  return availableHistoryYears(points) < years*.9 ? "Insufficient history" : "Calculation error";
 }
 
 export function rollingCagrs(points: TotalReturnPoint[], years = 5): { start: string; end: string; value: number }[] {
@@ -63,18 +74,27 @@ export function drawdownStats(points: TotalReturnPoint[]) {
   return { maximumDrawdown: max || null, maximumDrawdownPeriod: start && bottom ? `${start} to ${bottom}` : null, recoveryDays, recovered: recovery != null, longestUnderwaterDays: longestDays || null, longestUnderwaterPeriod: longestStart ? `${longestStart} to ${longestEnd ?? "present"}` : null };
 }
 
-export function expectedReturn(growth: number | null, dividendYield: number | null, buybackYield: number | null, currentMultiple: number | null, year5Multiple: number | null) {
-  const valuation = currentMultiple && year5Multiple && currentMultiple > 0 && year5Multiple > 0 ? Math.pow(year5Multiple / currentMultiple, 1 / 5) - 1 : null;
-  const parts = [growth, dividendYield, buybackYield, valuation];
-  return { fundamentalGrowthContribution: growth, dividendContribution: dividendYield, buybackContribution: buybackYield, valuationChangeContribution: valuation, expectedAnnualizedReturn: parts.every((v) => v != null) ? parts.reduce<number>((s, v) => s + (v ?? 0), 0) : null };
+const finite=(value:unknown)=>typeof value==="number"&&Number.isFinite(value);
+export function validateFinancialSnapshot(row:Record<string,unknown>):Record<string,string> {
+  const errors:Record<string,string>={};
+  const gross=row.grossMargin,operating=row.operatingMargin,fcfMargin=row.fcfMargin;
+  if(finite(gross)&&(gross as number)<-1||finite(gross)&&(gross as number)>1.5)errors.grossMargin="Calculation error: implausible margin";
+  if(finite(operating)&&(operating as number)<-2||finite(operating)&&(operating as number)>1.5)errors.operatingMargin="Calculation error: implausible margin";
+  if(finite(gross)&&finite(operating)&&(operating as number)>(gross as number)+.05)errors.operatingMargin="Calculation error: operating margin materially exceeds gross margin";
+  if(finite(fcfMargin)&&(fcfMargin as number)<-5||finite(fcfMargin)&&(fcfMargin as number)>2)errors.fcfMargin="Calculation error: implausible FCF margin";
+  for(const key of ["netDebtEbitda","netDebtFcf","trailingPe","forwardPe","evEbitda","priceFcf","fcfYield"]){if(row[key]!=null&&!finite(row[key]))errors[key]="Calculation error: non-finite value";}
+  if(finite(row.priceFcf)&&finite(row.fcfYield)&&Math.abs((row.priceFcf as number)*(row.fcfYield as number)-1)>.001){errors.fcfYield="Calculation error: FCF Yield and Price/FCF use inconsistent inputs";errors.priceFcf=errors.fcfYield;}
+  return errors;
 }
 
-export const SCORE_WEIGHTS = { businessQualityScore: .25, fundamentalCompoundingScore: .25, financialResilienceScore: .10, historicalReturnQualityScore: .15, valuationScore: .20, managementCapitalAllocationScore: .05 } as const;
-
-export function compounderScore(scores: Partial<Record<keyof typeof SCORE_WEIGHTS, number | null>>) {
-  const available = Object.entries(SCORE_WEIGHTS).filter(([key]) => scores[key as keyof typeof SCORE_WEIGHTS] != null);
-  const weight = available.reduce((s, [, w]) => s + w, 0);
-  const score = weight ? available.reduce((s, [key, w]) => s + (scores[key as keyof typeof SCORE_WEIGHTS]! / 10) * w, 0) / weight * 100 : null;
-  const missing = Object.keys(SCORE_WEIGHTS).filter((key) => scores[key as keyof typeof SCORE_WEIGHTS] == null);
-  return { score, completeness: weight, missing };
+const ESSENTIAL:Record<string,string>={currentPrice:"Current Price",marketCap:"Market Cap",totalReturnCagr5y:"5Y Total-Return CAGR",medianRolling5yCagr:"Median Rolling 5Y CAGR",rolling5yVooWinRate:"Rolling 5Y VOO Win Rate",maximumDrawdown:"Maximum Drawdown",volatility5y:"5Y Annualized Volatility",grossMargin:"Gross Margin",operatingMargin:"Operating Margin",fcfMargin:"FCF Margin",forwardPe:"Forward P/E",fcfYield:"FCF Yield",netDebtEbitda:"Net Debt/EBITDA"};
+export function calculateDataQuality(row:Record<string,unknown>,reasons:Record<string,string>={},validation:Record<string,string>={}):DataQualityResult {
+  const keys=Object.keys(ESSENTIAL);
+  const applicable=keys.filter(key=>!(key==="netDebtEbitda"&&row.isFinancial===true)).filter(key=>reasons[key]!=="N/A"&&reasons[key]!=="Insufficient history"&&reasons[key]!=="Not meaningful");
+  const missing=keys.filter(key=>!finite(row[key])&&reasons[key]!=="N/A").map(key=>`${ESSENTIAL[key]}: ${validation[key]??reasons[key]??"Data unavailable"}`);
+  const present=applicable.filter(key=>finite(row[key])&&!validation[key]).length;
+  const coverage=applicable.length?present/applicable.length:null;
+  const hasInsufficientHistory=Object.values(reasons).includes("Insufficient history");
+  const status:DataQualityStatus=Object.keys(validation).length?"Calculation Error":coverage==null||coverage<.5?"Insufficient Data":coverage>=.9?(hasInsufficientHistory?"Mostly Complete":"Complete"):coverage>=.75?"Mostly Complete":"Partial";
+  return {dataCoverage:coverage,dataQualityStatus:status,missingKeyMetrics:missing.map(x=>x.split(":")[0]).join(", "),missingDetail:missing.join("\n")};
 }
