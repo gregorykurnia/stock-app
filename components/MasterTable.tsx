@@ -1866,12 +1866,8 @@ export default function MasterTable({
                 <tr>
                   <Th label="Ticker"    k="ticker" sticky />
                   <Th label="Industry"  k="industry" />
-                  <Th label="Score"     k="combined" title="Combined score (seed stocks only)" />
-                  <Th label="Val"       k="val"      title="Valuation score (seed stocks only)" />
-                  <Th label="Fund"      k="fund"     title="Fundamentals score (seed stocks only)" />
                   <Th label="Price"     k="price" />
                   <Th label="ATR%" k="atr" title="Weekly ATR% — volatility as % of price" />
-                  <Th label="Urgency"   k="urgency" />
                   <Th label="Earnings" k="earnings" title="Next/last reported earnings date" />
                   <Th label="EMA20W"     k="ema20"      title="EMA20 Weekly" />
                   <Th label="Dist EMA20" k="dist_ema20"  title="Distance from EMA20W" />
@@ -1936,15 +1932,6 @@ export default function MasterTable({
                   <tr key={r.ticker} className={`group transition-colors ${markedSet.has(r.ticker) ? "bg-red-50 hover:bg-red-100" : r.isCustom ? "bg-blue-50/30 hover:bg-gray-50" : "hover:bg-gray-50"}`}>
                     <TickerCell r={r} />
                     <td className="px-3 py-2 text-gray-500 text-xs whitespace-nowrap">{r.industry}</td>
-                    <td className={`px-3 py-2 font-bold ${scoreColor(r.combined)}`}>
-                      {r.combined != null ? r.combined.toFixed(1) : <span className="text-gray-300">—</span>}
-                    </td>
-                    <td className={`px-3 py-2 ${scoreColor(r.val)}`}>
-                      {r.val != null ? r.val.toFixed(1) : <span className="text-gray-300">—</span>}
-                    </td>
-                    <td className={`px-3 py-2 ${scoreColor(r.fund)}`}>
-                      {r.fund != null ? r.fund.toFixed(1) : <span className="text-gray-300">—</span>}
-                    </td>
                     <td className="px-3 py-2 text-gray-900 whitespace-nowrap">
                       {r.price != null ? fmtPrice(r.price) : <span className="text-gray-400">—</span>}
                       {(() => { const pm = preMarketPrices[r.ticker]; return pm != null ? <span className="block text-xs text-blue-500">{fmtPrice(pm)} pre</span> : null; })()}
@@ -1961,13 +1948,6 @@ export default function MasterTable({
                           </div>
                         );
                       })()}
-                    </td>
-                    <td className="px-3 py-2">
-                      {r.verdict?.urgency ? (
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-semibold uppercase ${urgencyStyles[r.verdict.urgency] ?? ""}`}>
-                          {r.verdict.urgency}
-                        </span>
-                      ) : <span className="text-gray-400 text-xs">—</span>}
                     </td>
                     <td className="px-3 py-2"><EarningsBadge dateStr={earnings[r.ticker]} /></td>
                     {(() => {
