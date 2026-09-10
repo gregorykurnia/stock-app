@@ -1,0 +1,18 @@
+name: Capture portfolio snapshot
+
+on:
+  schedule:
+    # 4:15pm New York is 20:15 UTC during EDT and 21:15 UTC during EST.
+    # Both fire year-round; the endpoint rejects the pre-close run and deduplicates the other.
+    - cron: "15 20,21 * * 1-5"
+  workflow_dispatch: {}
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call portfolio snapshot endpoint
+        run: |
+          curl -sf -X GET "https://stock-app-five-sable.vercel.app/api/cron/portfolio-snapshot" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
+

@@ -3,6 +3,43 @@
 const YahooFinance = require("yahoo-finance2").default;
 const yf = new YahooFinance();
 
+function dateInNewYork(value: Date) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit",
+  }).formatToParts(value);
+  const get = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
+export interface SnapshotQuote {
+  price: number | null;
+  marketTime: string | null;
+  marketDate: string | null;
+}
+
+export async function fetchSnapshotQuotes(tickers: string[]): Promise<Record<string, SnapshotQuote>> {
+  const result: Record<string, SnapshotQuote> = {};
+  const unique = [...new Set(tickers)];
+  const chunkSize = 10;
+  for (let i = 0; i < unique.length; i += chunkSize) {
+    await Promise.all(unique.slice(i, i + chunkSize).map(async (ticker) => {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const quote: any = await yf.quote(ticker);
+        const marketTime = quote?.regularMarketTime ? new Date(quote.regularMarketTime).toISOString() : null;
+        result[ticker] = {
+          price: quote?.regularMarketPrice ?? null,
+          marketTime,
+          marketDate: marketTime ? dateInNewYork(new Date(marketTime)) : null,
+        };
+      } catch {
+        result[ticker] = { price: null, marketTime: null, marketDate: null };
+      }
+    }));
+  }
+  return result;
+}
+
 export async function fetchQuotes(tickers: string[]): Promise<{
   prices: Record<string, number | null>;
   preMarketPrices: Record<string, number | null>;

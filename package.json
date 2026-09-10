@@ -11,7 +11,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "tsc tests/longTermCalculations.test.ts lib/longTermCalculations.ts lib/longTermCsv.ts --outDir /tmp/stock-app-tests --module commonjs --target es2022 --esModuleInterop --skipLibCheck && node --test /tmp/stock-app-tests/tests/*.test.js"
+    "test": "tsc tests/longTermCalculations.test.ts tests/portfolioPerformance.test.ts tests/portfolioSchedule.test.ts lib/longTermCalculations.ts lib/longTermCsv.ts lib/portfolioPerformance.ts lib/portfolioSchedule.ts --outDir /tmp/stock-app-tests --module commonjs --target es2022 --esModuleInterop --skipLibCheck && node --test /tmp/stock-app-tests/tests/*.test.js"
   },
   "dependencies": {
     "@tiptap/extension-color": "^3.31.3",

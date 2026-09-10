@@ -1,5 +1,6 @@
 import { doc, getDoc, setDoc, collection, addDoc, getDocs, deleteDoc, deleteField, writeBatch } from "firebase/firestore";
 import { db } from "./firebase";
+import type { PortfolioSnapshot } from "./portfolioPerformance";
 
 export async function loadStockData(ticker: string) {
   const ref = doc(db, "stocks", ticker);
@@ -379,6 +380,24 @@ export async function updatePortfolioDivisionEntry(
   }
 ) {
   await setDoc(doc(db, portfolioDivisionCollection(division), ticker), data, { merge: true });
+}
+
+// Immutable daily portfolio summaries. The US session date is the document id, making
+// scheduled retries idempotent while preserving the position-level inputs for auditing.
+export async function getPortfolioPerformanceSnapshots(): Promise<PortfolioSnapshot[]> {
+  const snap = await getDocs(collection(db, "portfolio_performance_snapshots"));
+  return snap.docs
+    .map((item) => item.data() as PortfolioSnapshot)
+    .sort((a, b) => a.sessionDate.localeCompare(b.sessionDate));
+}
+
+export async function getPortfolioPerformanceSnapshot(sessionDate: string): Promise<PortfolioSnapshot | null> {
+  const snap = await getDoc(doc(db, "portfolio_performance_snapshots", sessionDate));
+  return snap.exists() ? snap.data() as PortfolioSnapshot : null;
+}
+
+export async function savePortfolioPerformanceSnapshot(snapshot: PortfolioSnapshot) {
+  await setDoc(doc(db, "portfolio_performance_snapshots", snapshot.sessionDate), snapshot);
 }
 
 // Watchlist
