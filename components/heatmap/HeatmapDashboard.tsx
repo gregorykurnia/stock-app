@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { GICS_SECTORS, sectorShortLabel, sortSectors } from "@/lib/heatmap/constituents";
 import {
@@ -24,11 +24,18 @@ function metricLabel(metric: HeatmapColorMetric, stock: HeatmapStock, state: Hea
   return metric === "relVolume" ? formatRatio(value) : formatPct(value);
 }
 
+function metricTooltipLabel(metric: HeatmapColorMetric, period: HeatmapViewState["period"]) {
+  const label = METRICS.find((item) => item.value === metric)?.label ?? "Metric";
+  return metric === "relVolume" ? label : `${label} (${period})`;
+}
+
 function statusStyle(status: HeatmapResponse["status"]) {
   return status === "recent" ? "border-green-200 bg-green-50 text-green-800" : status === "delayed" ? "border-amber-200 bg-amber-50 text-amber-800" : "border-red-200 bg-red-50 text-red-800";
 }
 
 function HeatmapTreemap({ stocks, state, benchmarkReturn, onStock, onSector }: { stocks: HeatmapStock[]; state: HeatmapViewState; benchmarkReturn: number | null; onStock: (stock: HeatmapStock) => void; onSector: (sector: string) => void }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [hovered, setHovered] = useState<{ stock: HeatmapStock; x: number; y: number } | null>(null);
   const groups = useMemo(() => {
     const byGroup = new Map<string, HeatmapStock[]>();
     for (const stock of stocks) {
@@ -50,8 +57,17 @@ function HeatmapTreemap({ stocks, state, benchmarkReturn, onStock, onSector }: {
   const map = new Map(stocks.map((stock) => [stock.symbol, stock]));
   const groupLabels = new Map(groups.map((group) => [group.key, group.label]));
   const scale = scaleForMetric(state.colorMetric, state.period);
+  const moveTooltip = (event: React.PointerEvent<SVGGElement>, stock: HeatmapStock) => {
+    const bounds = containerRef.current?.getBoundingClientRect();
+    if (!bounds) return;
+    setHovered({
+      stock,
+      x: Math.max(8, Math.min(event.clientX - bounds.left + 16, bounds.width - 300)),
+      y: Math.max(8, Math.min(event.clientY - bounds.top + 16, bounds.height - 190)),
+    });
+  };
 
-  return <div className="overflow-hidden rounded-xl border border-slate-700 bg-slate-950 p-1 shadow-inner">
+  return <div ref={containerRef} className="relative overflow-hidden rounded-xl border border-slate-700 bg-slate-950 p-1 shadow-inner">
     <svg viewBox="0 0 1200 680" className="block h-auto w-full" role="img" aria-label="Interactive S&P 500 market heatmap. Tiles are grouped by sector and sized by the selected metric.">
       <defs><pattern id="heatmap-missing" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="8" height="8" fill="#475569"/><rect width="3" height="8" fill="#64748b"/></pattern></defs>
       {rects.map((group) => <g key={group.groupKey}>
@@ -65,7 +81,7 @@ function HeatmapTreemap({ stocks, state, benchmarkReturn, onStock, onSector }: {
           const roomy = rect.width >= 72 && rect.height >= 42;
           const named = rect.width >= 120 && rect.height >= 68;
           const label = `${stock.symbol}, ${stock.companyName}, ${metricLabel(state.colorMetric, stock, state, benchmarkReturn)}. ${stock.sector}.`;
-          return <g key={stock.symbol} role="button" tabIndex={0} aria-label={label} className="cursor-pointer outline-none" onClick={() => onStock(stock)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onStock(stock); } }}>
+          return <g key={stock.symbol} role="button" tabIndex={0} aria-label={label} className="cursor-pointer outline-none" onPointerEnter={(event) => moveTooltip(event, stock)} onPointerMove={(event) => moveTooltip(event, stock)} onPointerLeave={() => setHovered(null)} onClick={() => onStock(stock)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); onStock(stock); } }}>
             <title>{label}</title><rect x={rect.x + 1} y={rect.y + 1} width={Math.max(0, rect.width - 2)} height={Math.max(0, rect.height - 2)} fill={fill ?? "url(#heatmap-missing)"} stroke="#0f172a" strokeWidth="1" />
             {roomy && <text x={rect.x + 6} y={rect.y + 16} fill={text} fontSize="12" fontWeight="800">{stock.symbol}</text>}
             {roomy && <text x={rect.x + 6} y={rect.y + 31} fill={text} fontSize="11" fontWeight="600">{metricLabel(state.colorMetric, stock, state, benchmarkReturn)}</text>}
@@ -74,6 +90,12 @@ function HeatmapTreemap({ stocks, state, benchmarkReturn, onStock, onSector }: {
         })}
       </g>)}
     </svg>
+    {hovered && <div role="tooltip" className="pointer-events-none absolute z-10 w-72 rounded-lg border border-slate-700 bg-slate-900/95 p-3 text-left text-xs text-slate-100 shadow-xl backdrop-blur" style={{ left: hovered.x, top: hovered.y }}>
+      <div className="flex items-start justify-between gap-3"><div><p className="font-mono text-sm font-bold text-white">{hovered.stock.symbol}</p><p className="mt-0.5 leading-4 text-slate-300">{hovered.stock.companyName}</p></div><p className="shrink-0 text-right font-semibold text-white">{formatPrice(hovered.stock.price)}</p></div>
+      <dl className="mt-3 space-y-1.5 border-t border-slate-700 pt-2.5"><div className="flex justify-between gap-4"><dt className="text-slate-400">{metricTooltipLabel(state.colorMetric, state.period)}</dt><dd className="font-semibold text-white">{metricLabel(state.colorMetric, hovered.stock, state, benchmarkReturn)}</dd></div><div className="flex justify-between gap-4"><dt className="text-slate-400">Today</dt><dd className="font-semibold text-white">{formatPct(hovered.stock.returns.oneDay)}{hovered.stock.price != null && hovered.stock.previousClose != null ? ` (${formatPrice(hovered.stock.price - hovered.stock.previousClose)})` : ""}</dd></div><div className="flex justify-between gap-4"><dt className="text-slate-400">Market cap</dt><dd className="font-semibold text-white">{formatLargeUsd(hovered.stock.marketCap)}</dd></div></dl>
+      <p className="mt-2.5 truncate text-slate-400">{hovered.stock.sector} · {hovered.stock.industry}</p>
+      <p className="mt-2 text-[10px] text-slate-500">Click for stock details</p>
+    </div>}
   </div>;
 }
 
