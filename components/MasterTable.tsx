@@ -13,7 +13,6 @@ import USBreakoutTable, { type USBreakoutStock, type BreakoutStatus } from "@/co
 import LowDetectionView from "@/components/LowDetectionView";
 import SwingChat from "@/components/SwingChat";
 import PortfolioTable, { PORTFOLIO_DIVISIONS, type PortfolioStock, type PortfolioLevelField } from "@/components/PortfolioTable";
-import PortfolioPerformanceDashboard from "@/components/PortfolioPerformanceDashboard";
 import type { PortfolioDivision } from "@/lib/firestore";
 import {
   getCoilingReversalStocks, saveCoilingReversalStock, removeCoilingReversalStock,
@@ -311,7 +310,7 @@ export default function MasterTable({
   const isIhsg = market === "ihsg";
   // Currency prefix and price formatter
   const fmtPrice = (v: number) => isIhsg ? `Rp${Math.round(v).toLocaleString("id-ID")}` : `$${v.toFixed(2)}`;
-  type MainTab = "list" | "longterm" | "midterm" | "swing" | "portfolio" | "performance" | "beatendown" | "breakout";
+  type MainTab = "list" | "longterm" | "midterm" | "swing" | "portfolio" | "beatendown" | "breakout";
   const [mainTab, setMainTab] = useState<MainTab>("list");
   const [portfolioDivision, setPortfolioDivision] = useState<PortfolioDivision>("longterm");
   type BeatenDownSubTab = "coiling" | "bagger";
@@ -1841,14 +1840,6 @@ export default function MasterTable({
         )}
         {!isIhsg && (
           <button
-            onClick={() => setMainTab("performance")}
-            className={`segmented-btn ${mainTab === "performance" ? "is-active" : ""}`}
-          >
-            Performance
-          </button>
-        )}
-        {!isIhsg && (
-          <button
             onClick={() => setMainTab("beatendown")}
             className={`segmented-btn ${mainTab === "beatendown" ? "is-active" : ""}`}
           >
@@ -2709,8 +2700,6 @@ export default function MasterTable({
           />
         </div>
       )}
-
-      {!isIhsg && mainTab === "performance" && <PortfolioPerformanceDashboard />}
 
       {/* BEATEN DOWN TAB (US only) — Coiling Reversal + Potential Bagger Reversal subtabs */}
       {!isIhsg && mainTab === "beatendown" && (
