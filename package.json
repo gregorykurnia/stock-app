@@ -11,7 +11,7 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "tsc tests/longTermCalculations.test.ts tests/portfolioPerformance.test.ts tests/portfolioSchedule.test.ts tests/marketCalculations.test.ts tests/heatmapCalculations.test.ts tests/listTrialOutcomes.test.ts lib/longTermCalculations.ts lib/longTermCsv.ts lib/portfolioPerformance.ts lib/portfolioSchedule.ts lib/markets/calc.ts lib/markets/regime.ts lib/markets/signals.ts lib/markets/instruments.ts lib/markets/format.ts lib/markets/types.ts lib/heatmap/types.ts lib/heatmap/constituents.ts lib/heatmap/calculations.ts lib/heatmap/layout.ts lib/listTrialOutcomes.ts --outDir /tmp/stock-app-tests --module commonjs --target es2022 --esModuleInterop --resolveJsonModule --skipLibCheck && node --test /tmp/stock-app-tests/tests/*.test.js"
+    "test": "tsc tests/longTermCalculations.test.ts tests/portfolioPerformance.test.ts tests/portfolioSchedule.test.ts tests/marketCalculations.test.ts tests/heatmapCalculations.test.ts tests/listTrialOutcomes.test.ts tests/listTrialScore.test.ts lib/longTermCalculations.ts lib/longTermCsv.ts lib/portfolioPerformance.ts lib/portfolioSchedule.ts lib/markets/calc.ts lib/markets/regime.ts lib/markets/signals.ts lib/markets/instruments.ts lib/markets/format.ts lib/markets/types.ts lib/heatmap/types.ts lib/heatmap/constituents.ts lib/heatmap/calculations.ts lib/heatmap/layout.ts lib/listTrialOutcomes.ts lib/listTrialScore.ts --outDir /tmp/stock-app-tests --module commonjs --target es2022 --esModuleInterop --resolveJsonModule --skipLibCheck && node --test /tmp/stock-app-tests/tests/*.test.js"
   },
   "dependencies": {
     "@tiptap/extension-color": "^3.31.3",

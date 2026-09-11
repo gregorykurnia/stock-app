@@ -6,7 +6,7 @@ Status: frozen experiment contract for the first implementation slice.
 
 List Trial is an experimental, early-bottom research view. It asks whether a beaten-down stock looks like it may be forming a provisional bottom while it is still near the low. It is not a confirmed-recovery signal and is not a trading recommendation.
 
-The first implementation must expose causal, as-of-date evidence before introducing a composite score.
+The implementation exposes causal, as-of-date evidence before applying a composite score. Future outcome labels remain separate from all score inputs.
 
 ## Scope
 
@@ -43,9 +43,9 @@ It must not use any later bar to construct the signal, choose the anchor, select
 
 A stock may base for an extended period after the candidate date. Immediate upside is not required.
 
-## First-version evidence
+## First-version evidence and provisional score
 
-The raw List Trial view should show evidence before a score is added:
+The raw List Trial view shows the following evidence alongside its score:
 
 - drawdown from then-known all-time high
 - distance from the relevant rolling low
@@ -56,7 +56,16 @@ The raw List Trial view should show evidence before a score is added:
 - CMF and volume context
 - ATR and a clearly displayed provisional invalidation reference
 
-The first version must not use MACD or DI bullish crosses, neckline reclaims, future returns, or future drawdowns as inputs to the as-of-date evidence.
+The first Provisional Bottom Score is a fixed, unoptimized 0–100 heuristic. It is withheld, rather than coerced to zero, unless all hard gates pass:
+
+- at least 40% below then-known ATH
+- within 15% of the 20-day rolling low
+- a comparable prior selling episode is available
+- RSI, normalized MACD histogram, DI gap, ADX, and CMF comparison data are all available
+
+When scoreable, it allocates 5 points to drawdown depth, 20 to proximity to the rolling low, 15 to price structure, 15 to RSI improvement, 15 to normalized MACD histogram improvement, 15 to DI/ADX selling-pressure improvement, and 15 to CMF improvement. These weights are deliberately not fitted to benchmark names and must be tested against controls before calibration.
+
+The score must not use MACD or DI bullish crosses, neckline reclaims, future returns, or future drawdowns as inputs.
 
 ## Outcome labels
 
@@ -79,7 +88,6 @@ The first implementation may display a small threshold matrix rather than commit
 - no automatic full-market historical screener
 - no point-in-time reconstruction of the entire Finviz universe
 - no automated historical replay yet
-- no Bottom Candidate Score yet
 - no changes to existing Breakout or Low Detection calculations
 - no position sizing or buy/sell recommendation
 - no weight fitting against the benchmark names

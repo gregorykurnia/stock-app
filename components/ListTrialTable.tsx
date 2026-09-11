@@ -49,6 +49,12 @@ interface TrialEvidence {
     enoughHistoryForPriorEpisode: boolean;
     requestedDateWasTradingDay: boolean;
   };
+  bottomCandidate: {
+    score: number | null;
+    gates: {
+      reasons: string[];
+    };
+  };
 }
 
 type EvidenceState = { evidence?: TrialEvidence; error?: string };
@@ -195,6 +201,7 @@ export default function ListTrialTable({ records, loading = false, saving = fals
               <th className="px-3 py-2 font-semibold">CMF Δ</th>
               <th className="px-3 py-2 font-semibold">ATR%</th>
               <th className="px-3 py-2 font-semibold">Rel vol</th>
+              <th className="border-l-2 border-blue-200 bg-blue-50/50 px-3 py-2 font-semibold">Bottom score</th>
               <th className="border-l-2 border-amber-200 bg-amber-50/50 px-3 py-2 font-semibold">+20% / −12% outcome</th>
               <th className="bg-amber-50/50 px-3 py-2 font-semibold">Days to +20%</th>
               <th className="bg-amber-50/50 px-3 py-2 font-semibold">Max adverse</th>
@@ -206,8 +213,8 @@ export default function ListTrialTable({ records, loading = false, saving = fals
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {loading && <tr><td colSpan={23} className="px-3 py-6 text-center text-gray-500">Loading trial rows…</td></tr>}
-            {!loading && records.length === 0 && <tr><td colSpan={23} className="px-3 py-6 text-center text-gray-500">No trial rows yet. Add a benchmark or control candidate above.</td></tr>}
+            {loading && <tr><td colSpan={24} className="px-3 py-6 text-center text-gray-500">Loading trial rows…</td></tr>}
+            {!loading && records.length === 0 && <tr><td colSpan={24} className="px-3 py-6 text-center text-gray-500">No trial rows yet. Add a benchmark or control candidate above.</td></tr>}
             {!loading && records.map((record) => (
               <tr key={record.id}>
                 <td className="px-3 py-2 font-mono font-semibold text-gray-800">{record.ticker}</td>
@@ -219,8 +226,8 @@ export default function ListTrialTable({ records, loading = false, saving = fals
                   const evidence = evidenceState?.evidence;
                   const outcomeState = outcomesByKey[key];
                   const outcome = outcomeState?.outcome;
-                  if (evidenceState?.error) return <td colSpan={18} className="px-3 py-2 text-red-600">{evidenceState.error}</td>;
-                  if (!evidence) return <td colSpan={18} className="px-3 py-2 text-gray-400">Loading as-of-date evidence…</td>;
+                  if (evidenceState?.error) return <td colSpan={19} className="px-3 py-2 text-red-600">{evidenceState.error}</td>;
+                  if (!evidence) return <td colSpan={19} className="px-3 py-2 text-gray-400">Loading as-of-date evidence…</td>;
                   return <>
                     <td className="px-3 py-2">{formatPercent(evidence.drawdownFromAthPct)}</td>
                     <td className="px-3 py-2">{evidence.eligibleAt40PctBelowAth ? <span className="font-medium text-green-700">Yes</span> : <span className="text-gray-500">No</span>}</td>
@@ -234,6 +241,7 @@ export default function ListTrialTable({ records, loading = false, saving = fals
                     <td className="px-3 py-2">{formatNumber(evidence.indicators.cmfDeltaCurrentVsPrior, 3)}</td>
                     <td className="px-3 py-2">{formatPercent(evidence.indicators.atrPct)}</td>
                     <td className="px-3 py-2">{formatNumber(evidence.indicators.relativeVolume20, 2)}{!evidence.dataQuality.requestedDateWasTradingDay && <span className="ml-1 text-xs text-amber-600" title={`Nearest available trading date: ${evidence.asOfDate}`}>*</span>}</td>
+                    <td className={`border-l-2 border-blue-200 bg-blue-50/50 px-3 py-2 font-semibold ${evidence.bottomCandidate.score == null ? "text-gray-500" : evidence.bottomCandidate.score >= 75 ? "text-green-700" : evidence.bottomCandidate.score >= 55 ? "text-amber-700" : "text-red-700"}`} title={evidence.bottomCandidate.gates.reasons.join("; ") || "All score gates passed"}>{evidence.bottomCandidate.score == null ? "Not scoreable" : evidence.bottomCandidate.score.toFixed(1)}</td>
                     {outcomeState?.error ? <td colSpan={6} className="border-l-2 border-amber-200 bg-amber-50/50 px-3 py-2 text-red-600">{outcomeState.error}</td> : !outcome ? <td colSpan={6} className="border-l-2 border-amber-200 bg-amber-50/50 px-3 py-2 text-gray-400">Loading future outcome…</td> : <>
                       <td className={`border-l-2 border-amber-200 bg-amber-50/50 px-3 py-2 font-medium ${outcome.primaryOutcome.status === "target_first" ? "text-green-700" : outcome.primaryOutcome.status === "breakdown_first" ? "text-red-700" : "text-gray-600"}`}>{outcomeLabel[outcome.primaryOutcome.status]}</td>
                       <td className="bg-amber-50/50 px-3 py-2">{formatNumber(outcome.primaryOutcome.daysToTarget, 0)}</td>

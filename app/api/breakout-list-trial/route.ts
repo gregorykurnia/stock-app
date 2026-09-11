@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { calcIndicators, macdSeriesFull } from "@/lib/indicators";
+import { calcBottomCandidateScore } from "@/lib/listTrialScore";
 import type { OHLCVBar } from "@/lib/types";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -134,6 +135,29 @@ export async function GET(req: NextRequest) {
   const avgVolume20 = average(volume20);
   const atr = valueAt(indicators.atr, asOfIndex);
   const rollingLowForBreakdown = currentLow ?? asOf.close;
+  const drawdownFromAthPct = percentChange(asOf.close, allTimeHigh);
+  const pctAboveCurrentRollingLow = percentChange(asOf.close, currentLow);
+  const currentLowVsPriorLowPct = percentChange(currentLow, priorLow);
+  const rsiDeltaCurrentVsPrior = currentLow != null && priorLow != null ? difference(valueAt(indicators.rsi, currentLowIndex), valueAt(indicators.rsi, priorLowIndex)) : null;
+  const macdHistPctDeltaCurrentVsPrior = difference(currentLowHistPct, priorLowHistPct);
+  const diGapDeltaCurrentVsPrior = difference(
+    difference(valueAt(indicators.diPlus, currentLowIndex), valueAt(indicators.diMinus, currentLowIndex)),
+    difference(valueAt(indicators.diPlus, priorLowIndex), valueAt(indicators.diMinus, priorLowIndex))
+  );
+  const adxDeltaCurrentVsPrior = difference(valueAt(indicators.adx, currentLowIndex), valueAt(indicators.adx, priorLowIndex));
+  const cmfDeltaCurrentVsPrior = difference(valueAt(indicators.cmf, currentLowIndex), valueAt(indicators.cmf, priorLowIndex));
+  const eligibleAt40PctBelowAth = asOf.close <= allTimeHigh * 0.6;
+  const bottomCandidate = calcBottomCandidateScore({
+    eligibleAt40PctBelowAth,
+    drawdownFromAthPct,
+    pctAboveCurrentRollingLow,
+    currentLowVsPriorLowPct,
+    rsiDeltaCurrentVsPrior,
+    macdHistPctDeltaCurrentVsPrior,
+    diGapDeltaCurrentVsPrior,
+    adxDeltaCurrentVsPrior,
+    cmfDeltaCurrentVsPrior,
+  });
 
   return NextResponse.json({
     ticker,
@@ -142,36 +166,36 @@ export async function GET(req: NextRequest) {
     barsThroughDate: bars.length,
     price: asOf.close,
     allTimeHighThroughDate: allTimeHigh,
-    drawdownFromAthPct: percentChange(asOf.close, allTimeHigh),
-    eligibleAt40PctBelowAth: asOf.close <= allTimeHigh * 0.6,
+    drawdownFromAthPct,
+    eligibleAt40PctBelowAth,
     currentLowWindowDays: Math.min(CURRENT_LOW_WINDOW, bars.length),
     currentRollingLow: valueAt(closes, currentLowIndex),
     currentRollingLowDate: currentLowIndex == null ? null : bars[currentLowIndex].dateKey,
-    pctAboveCurrentRollingLow: percentChange(asOf.close, currentLow),
+    pctAboveCurrentRollingLow,
     priorSellingEpisodeLow: priorLow,
     priorSellingEpisodeLowDate: priorLowIndex == null ? null : bars[priorLowIndex].dateKey,
-    currentLowVsPriorLowPct: percentChange(currentLow, priorLow),
+    currentLowVsPriorLowPct,
     indicators: {
       rsi: valueAt(indicators.rsi, asOfIndex),
       rsiAtCurrentLow: valueAt(indicators.rsi, currentLowIndex),
       rsiAtPriorLow: valueAt(indicators.rsi, priorLowIndex),
-      rsiDeltaCurrentVsPrior: currentLow != null && priorLow != null ? difference(valueAt(indicators.rsi, currentLowIndex), valueAt(indicators.rsi, priorLowIndex)) : null,
+      rsiDeltaCurrentVsPrior,
       macdHist: valueAt(hist, asOfIndex),
       macdHistPctOfPrice: hist[asOfIndex] != null && !Number.isNaN(hist[asOfIndex]) ? (hist[asOfIndex] / asOf.close) * 100 : null,
       macdHistPctAtCurrentLow: currentLowHistPct,
       macdHistPctAtPriorLow: priorLowHistPct,
-      macdHistPctDeltaCurrentVsPrior: difference(currentLowHistPct, priorLowHistPct),
+      macdHistPctDeltaCurrentVsPrior,
       diGap: difference(valueAt(indicators.diPlus, asOfIndex), valueAt(indicators.diMinus, asOfIndex)),
       diGapAtCurrentLow: currentLowIndex == null ? null : difference(valueAt(indicators.diPlus, currentLowIndex), valueAt(indicators.diMinus, currentLowIndex)),
       diGapAtPriorLow: priorLowIndex == null ? null : difference(valueAt(indicators.diPlus, priorLowIndex), valueAt(indicators.diMinus, priorLowIndex)),
       adx: valueAt(indicators.adx, asOfIndex),
       adxAtCurrentLow: valueAt(indicators.adx, currentLowIndex),
       adxAtPriorLow: valueAt(indicators.adx, priorLowIndex),
-      adxDeltaCurrentVsPrior: difference(valueAt(indicators.adx, currentLowIndex), valueAt(indicators.adx, priorLowIndex)),
+      adxDeltaCurrentVsPrior,
       cmf: valueAt(indicators.cmf, asOfIndex),
       cmfAtCurrentLow: valueAt(indicators.cmf, currentLowIndex),
       cmfAtPriorLow: valueAt(indicators.cmf, priorLowIndex),
-      cmfDeltaCurrentVsPrior: difference(valueAt(indicators.cmf, currentLowIndex), valueAt(indicators.cmf, priorLowIndex)),
+      cmfDeltaCurrentVsPrior,
       atr14: atr,
       atrPct: atr != null && asOf.close > 0 ? (atr / asOf.close) * 100 : null,
       volume: asOf.volume,
@@ -179,6 +203,7 @@ export async function GET(req: NextRequest) {
       relativeVolume20: avgVolume20 != null && avgVolume20 > 0 ? asOf.volume / avgVolume20 : null,
     },
     provisionalBreakdownReferences: BREAKDOWN_THRESHOLDS.map((pct) => ({ pct, price: rollingLowForBreakdown * (1 + pct / 100) })),
+    bottomCandidate,
     dataQuality: {
       enoughHistoryForIndicators: bars.length >= 50,
       enoughHistoryForPriorEpisode: priorLowIndex != null,
