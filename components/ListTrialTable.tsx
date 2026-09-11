@@ -92,10 +92,38 @@ interface ReplayResponse {
   scoreBasis: "as_of_date_only";
   outcomeBasis: string;
   eligibleDates: number;
+  rawQualifyingDayCount?: number;
+  episodeCount?: number;
   signalCount: number;
+  rawQualifyingDays?: { date: string; score: number }[];
   truncated: boolean;
-  bands: { label: string; total: number; targetFirst: number; breakdownFirst: number; open: number; targetFirstPct: number | null }[];
-  signals: { date: string; score: number; primaryOutcome: TrialOutcome["primaryOutcome"]["status"]; daysToTarget: number | null; maxAdverseExcursionPct: number | null; return60d: number | null }[];
+  bands: { label: string; total: number; targetFirst: number; breakdownFirst: number; open: number; targetFirstPct: number | null; missedZone?: number; notEntered?: number }[];
+  episodes?: ReplayEpisode[];
+  signals: ReplayEpisode[];
+}
+
+type ReplayEntry =
+  | { status: "entered"; entryDate: string; entryIndex: number; entryOpen: number; assumedEntryPrice: number }
+  | { status: "missed_zone"; entryDate: string; entryIndex: number; entryOpen: number }
+  | { status: "not_entered_no_future_data" }
+  | { status: "not_entered_invalid_open"; entryDate: string; entryIndex: number };
+
+interface ReplayEpisode {
+  date: string;
+  score: number;
+  episodeId?: string;
+  triggerDate?: string;
+  triggerScore?: number;
+  firstQualifyingDate?: string;
+  lastQualifyingDate?: string;
+  qualifyingDayCount?: number;
+  entryPlan?: { zoneLow: number; zoneHigh: number } | null;
+  entryPlanStatus?: string;
+  entry?: ReplayEntry;
+  primaryOutcome: TrialOutcome["primaryOutcome"]["status"] | "not_entered";
+  daysToTarget: number | null;
+  maxAdverseExcursionPct: number | null;
+  return60d: number | null;
 }
 
 const formatNumber = (value: number | null | undefined, digits = 1) => value == null ? "—" : value.toFixed(digits);
@@ -105,6 +133,12 @@ const outcomeLabel: Record<TrialOutcome["primaryOutcome"]["status"], string> = {
   breakdown_first: "Breakdown first",
   open: "Open",
   insufficient_future: "Too recent",
+};
+const entryLabel: Record<ReplayEntry["status"], string> = {
+  entered: "Entered",
+  missed_zone: "Missed zone",
+  not_entered_no_future_data: "Insufficient future data",
+  not_entered_invalid_open: "Invalid next open",
 };
 
 export default function ListTrialTable({ records, loading = false, saving = false, error = "", onAdd, onRemove, liveRecords, liveLoading = false, liveSaving = false, liveError = "", onLiveAdd, onLiveRemove }: ListTrialTableProps) {
@@ -275,19 +309,36 @@ export default function ListTrialTable({ records, loading = false, saving = fals
         </form>
         {replayError && <p className="mt-3 text-sm text-red-600" role="alert">{replayError}</p>}
         {replay && <div className="mt-4 space-y-3">
-          <p className="text-xs text-gray-600">{replay.ticker} · {replay.start} to {replay.end} · {replay.signalCount} signals from {replay.eligibleDates} eligible dates · score ≥ {replay.minScore}</p>
+          <p className="text-xs text-gray-600">{replay.ticker} · {replay.start} to {replay.end} · {replay.rawQualifyingDayCount ?? replay.signalCount} qualifying days grouped into {replay.episodeCount ?? replay.signalCount} episodes from {replay.eligibleDates} eligible dates · score ≥ {replay.minScore}</p>
+          <p className="rounded border border-violet-100 bg-violet-50/60 px-3 py-2 text-xs text-violet-900">
+            Episodes open on the first qualifying day, then re-arm after 10 consecutive non-qualifying trading sessions. The trigger score and entry zone stay frozen; execution is attempted only on the next session&apos;s open, so a gap above the zone is recorded as missed rather than chased.
+          </p>
           <div className="overflow-x-auto rounded border border-violet-100 bg-white">
             <table className="min-w-full text-left text-xs">
-              <thead className="bg-violet-50 text-violet-900"><tr><th className="px-3 py-2">Score band</th><th className="px-3 py-2">Signals</th><th className="px-3 py-2">Target first</th><th className="px-3 py-2">Breakdown first</th><th className="px-3 py-2">Open</th><th className="px-3 py-2">Target-first rate</th></tr></thead>
-              <tbody className="divide-y divide-violet-50">{replay.bands.map((band) => <tr key={band.label}><td className="px-3 py-2 font-medium">{band.label}</td><td className="px-3 py-2">{band.total}</td><td className="px-3 py-2 text-green-700">{band.targetFirst}</td><td className="px-3 py-2 text-red-700">{band.breakdownFirst}</td><td className="px-3 py-2">{band.open}</td><td className="px-3 py-2">{formatPercent(band.targetFirstPct)}</td></tr>)}</tbody>
+              <thead className="bg-violet-50 text-violet-900"><tr><th className="px-3 py-2">Score band</th><th className="px-3 py-2">Entered episodes</th><th className="px-3 py-2">Target first</th><th className="px-3 py-2">Breakdown first</th><th className="px-3 py-2">Open / insufficient</th><th className="px-3 py-2">Missed zone</th><th className="px-3 py-2">Not entered</th><th className="px-3 py-2">Target-first rate</th></tr></thead>
+              <tbody className="divide-y divide-violet-50">{replay.bands.map((band) => <tr key={band.label}><td className="px-3 py-2 font-medium">{band.label}</td><td className="px-3 py-2">{band.total}</td><td className="px-3 py-2 text-green-700">{band.targetFirst}</td><td className="px-3 py-2 text-red-700">{band.breakdownFirst}</td><td className="px-3 py-2">{band.open}</td><td className="px-3 py-2 text-amber-700">{band.missedZone ?? 0}</td><td className="px-3 py-2 text-gray-600">{band.notEntered ?? 0}</td><td className="px-3 py-2">{formatPercent(band.targetFirstPct)}</td></tr>)}</tbody>
             </table>
           </div>
-          {replay.signals.length > 0 && <div className="overflow-x-auto rounded border border-violet-100 bg-white">
+          {(replay.episodes ?? replay.signals).length > 0 && <div className="overflow-x-auto rounded border border-violet-100 bg-white">
             <table className="min-w-full text-left text-xs">
-              <thead className="bg-violet-50 text-violet-900"><tr><th className="px-3 py-2">Signal date</th><th className="px-3 py-2">Score</th><th className="px-3 py-2">+20% / −12%</th><th className="px-3 py-2">Days to +20%</th><th className="px-3 py-2">Max adverse</th><th className="px-3 py-2">60d return</th></tr></thead>
-              <tbody className="divide-y divide-violet-50">{replay.signals.map((signal) => <tr key={signal.date}><td className="px-3 py-2">{signal.date}</td><td className="px-3 py-2 font-semibold">{signal.score.toFixed(1)}</td><td className={`px-3 py-2 ${signal.primaryOutcome === "target_first" ? "text-green-700" : signal.primaryOutcome === "breakdown_first" ? "text-red-700" : "text-gray-600"}`}>{outcomeLabel[signal.primaryOutcome]}</td><td className="px-3 py-2">{formatNumber(signal.daysToTarget, 0)}</td><td className="px-3 py-2">{formatPercent(signal.maxAdverseExcursionPct)}</td><td className="px-3 py-2">{formatPercent(signal.return60d)}</td></tr>)}</tbody>
+              <thead className="bg-violet-50 text-violet-900"><tr><th className="px-3 py-2">Trigger / qualifying span</th><th className="px-3 py-2">Frozen score</th><th className="px-3 py-2">Zone</th><th className="px-3 py-2">Entry</th><th className="px-3 py-2">Outcome</th><th className="px-3 py-2">Days to +20%</th><th className="px-3 py-2">Max adverse</th><th className="px-3 py-2">60d return</th></tr></thead>
+              <tbody className="divide-y divide-violet-50">{(replay.episodes ?? replay.signals).map((episode) => {
+                const entry = episode.entry;
+                const entryStatus = entry?.status;
+                const outcome = episode.primaryOutcome;
+                const isActive = episode.lastQualifyingDate != null && episode.lastQualifyingDate === replay.rawQualifyingDays?.at(-1)?.date;
+                return <tr key={episode.episodeId ?? episode.date}>
+                  <td className="px-3 py-2"><div className="font-medium">{episode.triggerDate ?? episode.date}</div><div className="text-gray-500">{episode.firstQualifyingDate ?? episode.date} → {episode.lastQualifyingDate ?? episode.date} · {episode.qualifyingDayCount ?? 1} day{(episode.qualifyingDayCount ?? 1) === 1 ? "" : "s"}{isActive && <span className="ml-1 rounded bg-blue-100 px-1 text-blue-700">Active</span>}</div></td>
+                  <td className="px-3 py-2 font-semibold">{(episode.triggerScore ?? episode.score).toFixed(1)}</td>
+                  <td className="px-3 py-2">{episode.entryPlan ? <>{formatNumber(episode.entryPlan.zoneLow, 2)}–{formatNumber(episode.entryPlan.zoneHigh, 2)}</> : <span className="text-gray-500">Unavailable</span>}</td>
+                  <td className="px-3 py-2"><div className={entryStatus === "entered" ? "font-medium text-green-700" : entryStatus === "missed_zone" ? "font-medium text-amber-700" : "text-gray-600"}>{entryStatus ? entryLabel[entryStatus] : "Not entered"}</div>{entry?.status === "entered" && <div className="text-gray-500">{entry.entryDate} · {formatNumber(entry.assumedEntryPrice, 2)} assumed fill · next open + 10 bps</div>}{entry?.status === "missed_zone" && <div className="text-gray-500">{entry.entryDate} · open {formatNumber(entry.entryOpen, 2)}</div>}{entry?.status === "not_entered_invalid_open" && <div className="text-gray-500">{entry.entryDate}</div>}</td>
+                  <td className={`px-3 py-2 ${outcome === "target_first" ? "text-green-700" : outcome === "breakdown_first" ? "text-red-700" : "text-gray-600"}`}>{outcome === "not_entered" ? (entryStatus === "missed_zone" ? "Missed zone" : "Insufficient / not entered") : outcomeLabel[outcome]}</td>
+                  <td className="px-3 py-2">{formatNumber(episode.daysToTarget, 0)}</td><td className="px-3 py-2">{formatPercent(episode.maxAdverseExcursionPct)}</td><td className="px-3 py-2">{formatPercent(episode.return60d)}</td>
+                </tr>;
+              })}</tbody>
             </table>
           </div>}
+          {(replay.episodes ?? replay.signals).length === 0 && <p className="rounded border border-violet-100 bg-white px-3 py-5 text-center text-xs text-gray-500">No qualifying episodes in this range.</p>}
           {replay.truncated && <p className="text-xs text-amber-700">Only the first 150 signals are shown; the band summary includes all signals.</p>}
         </div>}
       </section>
