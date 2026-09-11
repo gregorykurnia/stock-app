@@ -77,6 +77,20 @@ interface TrialOutcome {
 
 type OutcomeState = { outcome?: TrialOutcome; error?: string };
 
+interface ReplayResponse {
+  ticker: string;
+  start: string;
+  end: string;
+  minScore: number;
+  scoreBasis: "as_of_date_only";
+  outcomeBasis: string;
+  eligibleDates: number;
+  signalCount: number;
+  truncated: boolean;
+  bands: { label: string; total: number; targetFirst: number; breakdownFirst: number; open: number; targetFirstPct: number | null }[];
+  signals: { date: string; score: number; primaryOutcome: TrialOutcome["primaryOutcome"]["status"]; daysToTarget: number | null; maxAdverseExcursionPct: number | null; return60d: number | null }[];
+}
+
 const formatNumber = (value: number | null | undefined, digits = 1) => value == null ? "—" : value.toFixed(digits);
 const formatPercent = (value: number | null | undefined, digits = 1) => value == null ? "—" : `${value.toFixed(digits)}%`;
 const outcomeLabel: Record<TrialOutcome["primaryOutcome"]["status"], string> = {
@@ -93,6 +107,13 @@ export default function ListTrialTable({ records, loading = false, saving = fals
   const [note, setNote] = useState("");
   const [evidenceByKey, setEvidenceByKey] = useState<Record<string, EvidenceState>>({});
   const [outcomesByKey, setOutcomesByKey] = useState<Record<string, OutcomeState>>({});
+  const [replayTicker, setReplayTicker] = useState("");
+  const [replayStart, setReplayStart] = useState("");
+  const [replayEnd, setReplayEnd] = useState("");
+  const [replayMinScore, setReplayMinScore] = useState("55");
+  const [replayLoading, setReplayLoading] = useState(false);
+  const [replayError, setReplayError] = useState("");
+  const [replay, setReplay] = useState<ReplayResponse | null>(null);
 
   useEffect(() => {
     if (records.length === 0) return;
@@ -145,12 +166,32 @@ export default function ListTrialTable({ records, loading = false, saving = fals
     setNote("");
   }
 
+  async function handleReplay(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const normalizedTicker = replayTicker.trim().toUpperCase();
+    if (!normalizedTicker || !replayStart || !replayEnd) return;
+    setReplayLoading(true);
+    setReplayError("");
+    setReplay(null);
+    try {
+      const params = new URLSearchParams({ ticker: normalizedTicker, start: replayStart, end: replayEnd, minScore: replayMinScore });
+      const response = await fetch(`/api/breakout-list-trial-replay?${params}`);
+      const payload = await response.json() as ReplayResponse & { error?: string };
+      if (!response.ok) throw new Error(payload.error ?? "Replay unavailable");
+      setReplay(payload);
+    } catch (reason) {
+      setReplayError(reason instanceof Error ? reason.message : "Replay unavailable");
+    } finally {
+      setReplayLoading(false);
+    }
+  }
+
   return (
     <section className="space-y-4" aria-labelledby="list-trial-title">
       <div className="rounded-lg border border-blue-200 bg-blue-50/40 p-5">
         <h2 id="list-trial-title" className="text-base font-semibold text-gray-800">List Trial</h2>
         <p className="mt-1 max-w-3xl text-sm text-gray-600">
-          Add historical candidate dates to compare known recoveries with false-bottom controls. Evidence below is calculated using only data available through each candidate date; no score is calculated yet.
+          Add historical candidate dates to compare known recoveries with false-bottom controls. Evidence and the provisional score use only data available through each candidate date; outcome labels are shown separately.
         </p>
       </div>
 
@@ -181,6 +222,37 @@ export default function ListTrialTable({ records, loading = false, saving = fals
         </div>
         {error && <p className="mt-2 text-sm text-red-600" role="alert">{error}</p>}
       </form>
+
+      <section className="rounded-lg border border-violet-200 bg-violet-50/40 p-4" aria-labelledby="list-trial-replay-title">
+        <div>
+          <h3 id="list-trial-replay-title" className="text-sm font-semibold text-gray-800">Causal historical replay</h3>
+          <p className="mt-1 text-xs text-gray-600">Runs one selected ticker through the chosen range. Scores use only each day&apos;s available history; future daily closes only grade +20% before −12% outcomes.</p>
+        </div>
+        <form onSubmit={handleReplay} className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_110px_auto] lg:items-end">
+          <label className="block text-xs font-medium text-gray-600">Ticker<input value={replayTicker} onChange={(event) => setReplayTicker(event.target.value)} placeholder="TEAM" className="mt-1 w-full rounded border border-gray-300 bg-white px-2.5 py-2 text-sm uppercase" required /></label>
+          <label className="block text-xs font-medium text-gray-600">Start date<input type="date" value={replayStart} onChange={(event) => setReplayStart(event.target.value)} className="mt-1 w-full rounded border border-gray-300 bg-white px-2.5 py-2 text-sm" required /></label>
+          <label className="block text-xs font-medium text-gray-600">End date<input type="date" value={replayEnd} onChange={(event) => setReplayEnd(event.target.value)} className="mt-1 w-full rounded border border-gray-300 bg-white px-2.5 py-2 text-sm" required /></label>
+          <label className="block text-xs font-medium text-gray-600">Min score<input type="number" min="0" max="100" step="1" value={replayMinScore} onChange={(event) => setReplayMinScore(event.target.value)} className="mt-1 w-full rounded border border-gray-300 bg-white px-2.5 py-2 text-sm" required /></label>
+          <button type="submit" disabled={replayLoading} className="rounded bg-violet-700 px-3 py-2 text-sm font-medium text-white hover:bg-violet-800 disabled:cursor-not-allowed disabled:opacity-50">{replayLoading ? "Replaying…" : "Run replay"}</button>
+        </form>
+        {replayError && <p className="mt-3 text-sm text-red-600" role="alert">{replayError}</p>}
+        {replay && <div className="mt-4 space-y-3">
+          <p className="text-xs text-gray-600">{replay.ticker} · {replay.start} to {replay.end} · {replay.signalCount} signals from {replay.eligibleDates} eligible dates · score ≥ {replay.minScore}</p>
+          <div className="overflow-x-auto rounded border border-violet-100 bg-white">
+            <table className="min-w-full text-left text-xs">
+              <thead className="bg-violet-50 text-violet-900"><tr><th className="px-3 py-2">Score band</th><th className="px-3 py-2">Signals</th><th className="px-3 py-2">Target first</th><th className="px-3 py-2">Breakdown first</th><th className="px-3 py-2">Open</th><th className="px-3 py-2">Target-first rate</th></tr></thead>
+              <tbody className="divide-y divide-violet-50">{replay.bands.map((band) => <tr key={band.label}><td className="px-3 py-2 font-medium">{band.label}</td><td className="px-3 py-2">{band.total}</td><td className="px-3 py-2 text-green-700">{band.targetFirst}</td><td className="px-3 py-2 text-red-700">{band.breakdownFirst}</td><td className="px-3 py-2">{band.open}</td><td className="px-3 py-2">{formatPercent(band.targetFirstPct)}</td></tr>)}</tbody>
+            </table>
+          </div>
+          {replay.signals.length > 0 && <div className="overflow-x-auto rounded border border-violet-100 bg-white">
+            <table className="min-w-full text-left text-xs">
+              <thead className="bg-violet-50 text-violet-900"><tr><th className="px-3 py-2">Signal date</th><th className="px-3 py-2">Score</th><th className="px-3 py-2">+20% / −12%</th><th className="px-3 py-2">Days to +20%</th><th className="px-3 py-2">Max adverse</th><th className="px-3 py-2">60d return</th></tr></thead>
+              <tbody className="divide-y divide-violet-50">{replay.signals.map((signal) => <tr key={signal.date}><td className="px-3 py-2">{signal.date}</td><td className="px-3 py-2 font-semibold">{signal.score.toFixed(1)}</td><td className={`px-3 py-2 ${signal.primaryOutcome === "target_first" ? "text-green-700" : signal.primaryOutcome === "breakdown_first" ? "text-red-700" : "text-gray-600"}`}>{outcomeLabel[signal.primaryOutcome]}</td><td className="px-3 py-2">{formatNumber(signal.daysToTarget, 0)}</td><td className="px-3 py-2">{formatPercent(signal.maxAdverseExcursionPct)}</td><td className="px-3 py-2">{formatPercent(signal.return60d)}</td></tr>)}</tbody>
+            </table>
+          </div>}
+          {replay.truncated && <p className="text-xs text-amber-700">Only the first 150 signals are shown; the band summary includes all signals.</p>}
+        </div>}
+      </section>
 
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
         <table className="min-w-[2100px] text-left text-sm">

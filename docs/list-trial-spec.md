@@ -83,11 +83,17 @@ Success is event-ordered: a candidate succeeds for a given target only when that
 
 The first implementation may display a small threshold matrix rather than committing to one final downside threshold. Initial trial variants are -8%, -12%, and -15%, with ATR-relative context shown where practical.
 
+## Small causal replay
+
+List Trial supports an on-demand replay for one ticker over a user-selected range of up to five years. For every qualifying day in that range, the score is calculated from that day and earlier bars only; future daily closes are used only to grade the saved signal under the +20% before -12% primary outcome.
+
+The replay is intentionally limited to selected tickers and ranges. It reports score-band outcome summaries and the individual qualifying dates, but does not attempt a full-market historical screen or persist a replay dataset.
+
 ## Explicit non-goals for the first slice
 
 - no automatic full-market historical screener
 - no point-in-time reconstruction of the entire Finviz universe
-- no automated historical replay yet
+- no batch job or persistent full-universe replay dataset
 - no changes to existing Breakout or Low Detection calculations
 - no position sizing or buy/sell recommendation
 - no weight fitting against the benchmark names
