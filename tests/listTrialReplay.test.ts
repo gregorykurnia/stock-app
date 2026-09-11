@@ -1,5 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { groupListTrialEpisodes, type ListTrialEpisodeObservation } from "../lib/listTrialEpisodes";
+import { calculateListTrialEvidenceAt } from "../lib/listTrialEvidence";
 import { calculateListTrialReplay, type ListTrialReplayBar } from "../lib/listTrialReplay";
 
 function bars(length: number): ListTrialReplayBar[] {
@@ -22,5 +24,66 @@ test("replay score dates and values do not change when future bars are appended"
   assert.deepEqual(
     extendedReplay.signals.map((signal) => ({ date: signal.date, score: signal.score })),
     baseReplay.signals.map((signal) => ({ date: signal.date, score: signal.score }))
+  );
+});
+
+function observations(qualifyingIndexes: number[], total = 15): ListTrialEpisodeObservation[] {
+  return Array.from({ length: total }, (_, index) => ({
+    date: `2024-01-${String(index + 1).padStart(2, "0")}`,
+    qualifyingDay: qualifyingIndexes.includes(index) ? {
+      date: `2024-01-${String(index + 1).padStart(2, "0")}`,
+      score: 60 + index,
+      anchors: {
+        allTimeHigh: 100 + index,
+        currentRollingLow: { date: "2023-12-20", index: 10, close: 50 + index },
+        priorSellingLow: { date: "2023-10-20", index: 1, close: 70 },
+      },
+    } : null,
+  }));
+}
+
+test("episode grouping collapses consecutive qualifying days and freezes the first trigger", () => {
+  const source = observations([1, 2, 3]);
+  const episodes = groupListTrialEpisodes(source);
+  assert.deepEqual(episodes, [{
+    triggerDate: "2024-01-02",
+    triggerScore: 61,
+    triggerAnchors: { allTimeHigh: 101, currentRollingLow: { date: "2023-12-20", index: 10, close: 51 }, priorSellingLow: { date: "2023-10-20", index: 1, close: 70 } },
+    firstQualifyingDate: "2024-01-02",
+    lastQualifyingDate: "2024-01-04",
+    qualifyingDayCount: 3,
+  }]);
+  source[1].qualifyingDay!.anchors.currentRollingLow!.close = 0;
+  assert.equal(episodes[0].triggerAnchors.currentRollingLow!.close, 51);
+});
+
+test("episode grouping re-arms only after ten consecutive non-qualifying trading days", () => {
+  assert.equal(groupListTrialEpisodes(observations([0, 10], 11)).length, 1);
+  const episodes = groupListTrialEpisodes(observations([0, 11], 12));
+  assert.equal(episodes.length, 2);
+  assert.equal(episodes[1].triggerDate, "2024-01-12");
+});
+
+test("episode grouping emits a trailing active episode", () => {
+  const episodes = groupListTrialEpisodes(observations([14]));
+  assert.equal(episodes.length, 1);
+  assert.equal(episodes[0].lastQualifyingDate, "2024-01-15");
+});
+
+test("evidence trigger score and anchors are prefix-stable when future bars are appended", () => {
+  const base = bars(150);
+  const extended = [...base, ...bars(20).map((bar, index) => ({ ...bar, date: `2024-06-${String(index + 1).padStart(2, "0")}`, time: 1_717_200_000 + index * 86_400, close: 150, open: 150, high: 151, low: 149 }))];
+  const index = 140;
+  const baseEvidence = calculateListTrialEvidenceAt(base, index)!;
+  const extendedEvidence = calculateListTrialEvidenceAt(extended, index)!;
+  assert.notEqual(baseEvidence.score.score, null);
+  assert.notEqual(extendedEvidence.score.score, null);
+  const episodeFrom = (evidence: typeof baseEvidence) => groupListTrialEpisodes([{
+    date: evidence.date,
+    qualifyingDay: { date: evidence.date, score: evidence.score.score!, anchors: evidence.anchors },
+  }])[0];
+  assert.deepEqual(
+    episodeFrom(extendedEvidence),
+    episodeFrom(baseEvidence)
   );
 });
