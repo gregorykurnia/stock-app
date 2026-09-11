@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import type { UsBreakoutListTrialCohort, UsBreakoutListTrialRecord } from "@/lib/firestore";
+import type { UsBreakoutListTrialCohort, UsBreakoutListTrialLiveRecord, UsBreakoutListTrialRecord } from "@/lib/firestore";
 
 interface ListTrialTableProps {
   records: UsBreakoutListTrialRecord[];
@@ -10,6 +10,12 @@ interface ListTrialTableProps {
   error?: string;
   onAdd: (record: Omit<UsBreakoutListTrialRecord, "id">) => void;
   onRemove: (id: string) => void;
+  liveRecords: UsBreakoutListTrialLiveRecord[];
+  liveLoading?: boolean;
+  liveSaving?: boolean;
+  liveError?: string;
+  onLiveAdd: (record: Omit<UsBreakoutListTrialLiveRecord, "id">) => void;
+  onLiveRemove: (id: string) => void;
 }
 
 const cohortLabel: Record<UsBreakoutListTrialCohort, string> = {
@@ -58,6 +64,7 @@ interface TrialEvidence {
 }
 
 type EvidenceState = { evidence?: TrialEvidence; error?: string };
+type LiveEvidenceState = { evidence?: TrialEvidence; error?: string };
 
 interface TrialOutcome {
   asOfDate: string;
@@ -100,7 +107,7 @@ const outcomeLabel: Record<TrialOutcome["primaryOutcome"]["status"], string> = {
   insufficient_future: "Too recent",
 };
 
-export default function ListTrialTable({ records, loading = false, saving = false, error = "", onAdd, onRemove }: ListTrialTableProps) {
+export default function ListTrialTable({ records, loading = false, saving = false, error = "", onAdd, onRemove, liveRecords, liveLoading = false, liveSaving = false, liveError = "", onLiveAdd, onLiveRemove }: ListTrialTableProps) {
   const [ticker, setTicker] = useState("");
   const [candidateDate, setCandidateDate] = useState("");
   const [cohort, setCohort] = useState<UsBreakoutListTrialCohort>("benchmark");
@@ -114,6 +121,9 @@ export default function ListTrialTable({ records, loading = false, saving = fals
   const [replayLoading, setReplayLoading] = useState(false);
   const [replayError, setReplayError] = useState("");
   const [replay, setReplay] = useState<ReplayResponse | null>(null);
+  const [liveTicker, setLiveTicker] = useState("");
+  const [liveNote, setLiveNote] = useState("");
+  const [liveEvidenceById, setLiveEvidenceById] = useState<Record<string, LiveEvidenceState>>({});
 
   useEffect(() => {
     if (records.length === 0) return;
@@ -134,6 +144,25 @@ export default function ListTrialTable({ records, loading = false, saving = fals
     });
     return () => { active = false; };
   }, [records]);
+
+  useEffect(() => {
+    if (liveRecords.length === 0) return;
+    let active = true;
+    const date = new Date().toISOString().slice(0, 10);
+    void Promise.all(liveRecords.map(async (record) => {
+      try {
+        const response = await fetch(`/api/breakout-list-trial?ticker=${encodeURIComponent(record.ticker)}&date=${date}`);
+        const payload = await response.json() as TrialEvidence & { error?: string };
+        if (!response.ok) throw new Error(payload.error ?? "Snapshot unavailable");
+        return [record.id, { evidence: payload }] as const;
+      } catch (reason) {
+        return [record.id, { error: reason instanceof Error ? reason.message : "Snapshot unavailable" }] as const;
+      }
+    })).then((entries) => {
+      if (active) setLiveEvidenceById(Object.fromEntries(entries));
+    });
+    return () => { active = false; };
+  }, [liveRecords]);
 
   useEffect(() => {
     if (records.length === 0) return;
@@ -184,6 +213,15 @@ export default function ListTrialTable({ records, loading = false, saving = fals
     } finally {
       setReplayLoading(false);
     }
+  }
+
+  function handleLiveSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const normalizedTicker = liveTicker.trim().toUpperCase();
+    if (!normalizedTicker) return;
+    onLiveAdd({ ticker: normalizedTicker, addedAt: new Date().toISOString(), note: liveNote.trim() });
+    setLiveTicker("");
+    setLiveNote("");
   }
 
   return (
@@ -252,6 +290,45 @@ export default function ListTrialTable({ records, loading = false, saving = fals
           </div>}
           {replay.truncated && <p className="text-xs text-amber-700">Only the first 150 signals are shown; the band summary includes all signals.</p>}
         </div>}
+      </section>
+
+      <section className="rounded-lg border border-emerald-200 bg-emerald-50/40 p-4" aria-labelledby="list-trial-live-title">
+        <div>
+          <h3 id="list-trial-live-title" className="text-sm font-semibold text-gray-800">Live candidates</h3>
+          <p className="mt-1 text-xs text-gray-600">Manually add beaten-down names from your Finviz run. This shows a causal snapshot as of today (or the latest trading day), without future outcome labels or automatic imports.</p>
+        </div>
+        <form onSubmit={handleLiveSubmit} className="mt-3 grid gap-3 sm:grid-cols-[1fr_2fr_auto] sm:items-end">
+          <label className="block text-xs font-medium text-gray-600">Ticker<input value={liveTicker} onChange={(event) => setLiveTicker(event.target.value)} placeholder="TEAM" className="mt-1 w-full rounded border border-gray-300 bg-white px-2.5 py-2 text-sm uppercase" required /></label>
+          <label className="block text-xs font-medium text-gray-600">Note <span className="font-normal text-gray-400">(optional)</span><input value={liveNote} onChange={(event) => setLiveNote(event.target.value)} placeholder="Why it entered the live trial" className="mt-1 w-full rounded border border-gray-300 bg-white px-2.5 py-2 text-sm" /></label>
+          <button type="submit" disabled={liveSaving || liveLoading} className="rounded bg-emerald-700 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-800 disabled:cursor-not-allowed disabled:opacity-50">{liveSaving ? "Adding…" : "Add live candidate"}</button>
+        </form>
+        {liveError && <p className="mt-2 text-sm text-red-600" role="alert">{liveError}</p>}
+        <div className="mt-4 overflow-x-auto rounded border border-emerald-100 bg-white">
+          <table className="min-w-[1100px] text-left text-xs">
+            <thead className="bg-emerald-50 text-emerald-900"><tr><th className="px-3 py-2">Ticker</th><th className="px-3 py-2">Added</th><th className="px-3 py-2">As of</th><th className="px-3 py-2">Drawdown</th><th className="px-3 py-2">Above low</th><th className="px-3 py-2">Bottom score</th><th className="px-3 py-2">Gate notes</th><th className="px-3 py-2">Note</th><th className="px-3 py-2"><span className="sr-only">Actions</span></th></tr></thead>
+            <tbody className="divide-y divide-emerald-50">
+              {liveLoading && <tr><td colSpan={9} className="px-3 py-5 text-center text-gray-500">Loading live candidates…</td></tr>}
+              {!liveLoading && liveRecords.length === 0 && <tr><td colSpan={9} className="px-3 py-5 text-center text-gray-500">No live candidates yet.</td></tr>}
+              {!liveLoading && liveRecords.map((record) => {
+                const state = liveEvidenceById[record.id];
+                const evidence = state?.evidence;
+                return <tr key={record.id}>
+                  <td className="px-3 py-2 font-mono font-semibold">{record.ticker}</td>
+                  <td className="px-3 py-2 text-gray-600">{record.addedAt.slice(0, 10)}</td>
+                  {!evidence ? <td colSpan={5} className="px-3 py-2 text-gray-400">{state?.error ?? "Loading today’s causal snapshot…"}</td> : <>
+                    <td className="px-3 py-2">{evidence.asOfDate}{!evidence.dataQuality.requestedDateWasTradingDay && <span className="ml-1 text-amber-600">*</span>}</td>
+                    <td className="px-3 py-2">{formatPercent(evidence.drawdownFromAthPct)}</td>
+                    <td className="px-3 py-2">{formatPercent(evidence.pctAboveCurrentRollingLow)}</td>
+                    <td className={`px-3 py-2 font-semibold ${evidence.bottomCandidate.score == null ? "text-gray-500" : evidence.bottomCandidate.score >= 75 ? "text-green-700" : evidence.bottomCandidate.score >= 55 ? "text-amber-700" : "text-red-700"}`}>{evidence.bottomCandidate.score == null ? "Not scoreable" : evidence.bottomCandidate.score.toFixed(1)}</td>
+                    <td className="max-w-sm px-3 py-2 text-gray-600" title={evidence.bottomCandidate.gates.reasons.join("; ")}>{evidence.bottomCandidate.gates.reasons.length > 0 ? evidence.bottomCandidate.gates.reasons.join("; ") : "All gates passed"}</td>
+                  </>}
+                  <td className="max-w-xs px-3 py-2 text-gray-600">{record.note || <span className="text-gray-400">—</span>}</td>
+                  <td className="px-3 py-2 text-right"><button type="button" onClick={() => onLiveRemove(record.id)} className="text-xs font-medium text-red-600 hover:text-red-800">Remove</button></td>
+                </tr>;
+              })}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">

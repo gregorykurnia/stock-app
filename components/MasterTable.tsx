@@ -11,7 +11,7 @@ import type { FundData } from "@/app/api/funddata/route";
 import USSwingTable, { type USSwingStock, type CategoryKey, CATEGORY_DEFS, computeCategoryFlags, computeGrandScore, daysUntilEarnings } from "@/components/USSwingTable";
 import USBreakoutTable, { type USBreakoutStock, type BreakoutStatus } from "@/components/USBreakoutTable";
 import ListTrialTable from "@/components/ListTrialTable";
-import type { UsBreakoutListTrialRecord } from "@/lib/firestore";
+import type { UsBreakoutListTrialLiveRecord, UsBreakoutListTrialRecord } from "@/lib/firestore";
 import LowDetectionView from "@/components/LowDetectionView";
 import SwingChat from "@/components/SwingChat";
 import PortfolioTable, { PORTFOLIO_DIVISIONS, type PortfolioStock, type PortfolioLevelField } from "@/components/PortfolioTable";
@@ -251,6 +251,12 @@ interface Props {
   usBreakoutListTrialError?: string;
   onUsBreakoutListTrialAdd?: (record: Omit<UsBreakoutListTrialRecord, "id">) => void;
   onUsBreakoutListTrialRemove?: (id: string) => void;
+  usBreakoutListTrialLiveRecords?: UsBreakoutListTrialLiveRecord[];
+  usBreakoutListTrialLiveLoading?: boolean;
+  usBreakoutListTrialLiveSaving?: boolean;
+  usBreakoutListTrialLiveError?: string;
+  onUsBreakoutListTrialLiveAdd?: (record: Omit<UsBreakoutListTrialLiveRecord, "id">) => void;
+  onUsBreakoutListTrialLiveRemove?: (id: string) => void;
   // "Portfolio" tab — three independent, manually-managed divisions (Long Term / Index / Swing)
   portfolioStocks?: Record<PortfolioDivision, PortfolioStock[]>;
   portfolioPrices?: Record<string, number | null>;
@@ -310,6 +316,7 @@ export default function MasterTable({
   usBreakoutStocks = [], usBreakoutPrices = {}, usBreakoutData = {}, usBreakoutShortFloats = {}, usBreakoutAdvs = {}, usBreakoutEarnings = {}, usBreakoutLoading = false, onUsBreakoutTabOpen,
   usBreakoutAddTicker = "", usBreakoutAddLoading = false, usBreakoutAddError = "", onUsBreakoutAddTickerChange, onUsBreakoutAdd, onUsBreakoutRemove, onUsBreakoutToggleStar, onUsBreakoutTypeChange,
   usBreakoutListTrialRecords = [], usBreakoutListTrialLoading = false, usBreakoutListTrialSaving = false, usBreakoutListTrialError = "", onUsBreakoutListTrialAdd, onUsBreakoutListTrialRemove,
+  usBreakoutListTrialLiveRecords = [], usBreakoutListTrialLiveLoading = false, usBreakoutListTrialLiveSaving = false, usBreakoutListTrialLiveError = "", onUsBreakoutListTrialLiveAdd, onUsBreakoutListTrialLiveRemove,
   portfolioStocks = { longterm: [], index: [], swing: [] }, portfolioPrices = {}, portfolioPrevCloses = {},
   portfolioLoading = { longterm: false, index: false, swing: false }, onPortfolioTabOpen,
   portfolioAddTicker = { longterm: "", index: "", swing: "" }, portfolioAddLoading = { longterm: false, index: false, swing: false },
@@ -2679,6 +2686,12 @@ export default function MasterTable({
               error={usBreakoutListTrialError}
               onAdd={onUsBreakoutListTrialAdd ?? (() => {})}
               onRemove={onUsBreakoutListTrialRemove ?? (() => {})}
+              liveRecords={usBreakoutListTrialLiveRecords}
+              liveLoading={usBreakoutListTrialLiveLoading}
+              liveSaving={usBreakoutListTrialLiveSaving}
+              liveError={usBreakoutListTrialLiveError}
+              onLiveAdd={onUsBreakoutListTrialLiveAdd ?? (() => {})}
+              onLiveRemove={onUsBreakoutListTrialLiveRemove ?? (() => {})}
             />
           )}
 

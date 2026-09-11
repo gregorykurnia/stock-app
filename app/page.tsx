@@ -12,6 +12,7 @@ import {
   getUsSwingStocks, saveUsSwingStock, removeUsSwingStock, updateUsSwingStar, updateUsSwingPortfolio,
   getUsBreakoutStocks, saveUsBreakoutStock, removeUsBreakoutStock, updateUsBreakoutStar, updateUsBreakoutType,
   getUsBreakoutListTrialRecords, saveUsBreakoutListTrialRecord, removeUsBreakoutListTrialRecord,
+  getUsBreakoutListTrialLiveRecords, saveUsBreakoutListTrialLiveRecord, removeUsBreakoutListTrialLiveRecord,
   getPortfolioTickers, getWatchlistTickers,
   savePortfolioEntry, removePortfolioEntry,
   saveWatchlistEntry, removeWatchlistEntry,
@@ -26,7 +27,7 @@ import type { CustomStock, PeStats } from "@/lib/types";
 import type { BandarScoreResult } from "@/lib/indicators";
 import type { FundData } from "@/app/api/funddata/route";
 import type { BreakoutStatus } from "@/components/USBreakoutTable";
-import type { UsBreakoutListTrialRecord } from "@/lib/firestore";
+import type { UsBreakoutListTrialLiveRecord, UsBreakoutListTrialRecord } from "@/lib/firestore";
 
 const SEED_TICKERS = new Set(SEED_STOCKS.map((s) => s.ticker));
 const IHSG_TICKERS = new Set(IHSG_STOCKS.map((s) => s.ticker));
@@ -144,6 +145,11 @@ export default function Home() {
   const [usBreakoutListTrialLoaded, setUsBreakoutListTrialLoaded] = useState(false);
   const [usBreakoutListTrialSaving, setUsBreakoutListTrialSaving] = useState(false);
   const [usBreakoutListTrialError, setUsBreakoutListTrialError] = useState("");
+  const [usBreakoutListTrialLiveRecords, setUsBreakoutListTrialLiveRecords] = useState<UsBreakoutListTrialLiveRecord[]>([]);
+  const [usBreakoutListTrialLiveLoading, setUsBreakoutListTrialLiveLoading] = useState(false);
+  const [usBreakoutListTrialLiveLoaded, setUsBreakoutListTrialLiveLoaded] = useState(false);
+  const [usBreakoutListTrialLiveSaving, setUsBreakoutListTrialLiveSaving] = useState(false);
+  const [usBreakoutListTrialLiveError, setUsBreakoutListTrialLiveError] = useState("");
 
   // "Portfolio" tab — three independent, manually-managed divisions (Long Term / Index / Swing)
   const [portfolioStocks, setPortfolioStocks] = useState<Record<PortfolioDivision, PortfolioStock[]>>({ longterm: [], index: [], swing: [] });
@@ -459,6 +465,11 @@ export default function Home() {
     setUsBreakoutListTrialRecords(records);
   }
 
+  async function loadUsBreakoutListTrialLiveRecords() {
+    const records = await getUsBreakoutListTrialLiveRecords().catch(() => []);
+    setUsBreakoutListTrialLiveRecords(records);
+  }
+
   async function handleToggleUsBreakoutStar(ticker: string) {
     const current = usBreakoutStocks.find((s) => s.ticker === ticker)?.starred ?? false;
     const next = !current;
@@ -478,6 +489,11 @@ export default function Home() {
       setUsBreakoutListTrialLoaded(true);
       setUsBreakoutListTrialLoading(true);
       loadUsBreakoutListTrialRecords().finally(() => setUsBreakoutListTrialLoading(false));
+    }
+    if (!usBreakoutListTrialLiveLoaded) {
+      setUsBreakoutListTrialLiveLoaded(true);
+      setUsBreakoutListTrialLiveLoading(true);
+      loadUsBreakoutListTrialLiveRecords().finally(() => setUsBreakoutListTrialLiveLoading(false));
     }
     setUsBreakoutLoading(true);
     loadUsBreakoutStocks().then((list) => {
@@ -513,6 +529,29 @@ export default function Home() {
       setUsBreakoutListTrialRecords((prev) => prev.filter((record) => record.id !== id));
     } catch (err) {
       setUsBreakoutListTrialError(err instanceof Error ? err.message : "Failed to remove trial row");
+    }
+  }
+
+  async function handleAddUsBreakoutListTrialLiveRecord(record: Omit<UsBreakoutListTrialLiveRecord, "id">) {
+    setUsBreakoutListTrialLiveSaving(true);
+    setUsBreakoutListTrialLiveError("");
+    try {
+      const id = await saveUsBreakoutListTrialLiveRecord(record);
+      setUsBreakoutListTrialLiveRecords((prev) => [...prev, { ...record, id }].sort((a, b) => a.addedAt.localeCompare(b.addedAt) || a.ticker.localeCompare(b.ticker)));
+    } catch (err) {
+      setUsBreakoutListTrialLiveError(err instanceof Error ? err.message : "Failed to save live candidate");
+    } finally {
+      setUsBreakoutListTrialLiveSaving(false);
+    }
+  }
+
+  async function handleRemoveUsBreakoutListTrialLiveRecord(id: string) {
+    setUsBreakoutListTrialLiveError("");
+    try {
+      await removeUsBreakoutListTrialLiveRecord(id);
+      setUsBreakoutListTrialLiveRecords((prev) => prev.filter((record) => record.id !== id));
+    } catch (err) {
+      setUsBreakoutListTrialLiveError(err instanceof Error ? err.message : "Failed to remove live candidate");
     }
   }
 
@@ -1473,6 +1512,12 @@ export default function Home() {
             usBreakoutListTrialError={usBreakoutListTrialError}
             onUsBreakoutListTrialAdd={handleAddUsBreakoutListTrialRecord}
             onUsBreakoutListTrialRemove={handleRemoveUsBreakoutListTrialRecord}
+            usBreakoutListTrialLiveRecords={usBreakoutListTrialLiveRecords}
+            usBreakoutListTrialLiveLoading={usBreakoutListTrialLiveLoading}
+            usBreakoutListTrialLiveSaving={usBreakoutListTrialLiveSaving}
+            usBreakoutListTrialLiveError={usBreakoutListTrialLiveError}
+            onUsBreakoutListTrialLiveAdd={handleAddUsBreakoutListTrialLiveRecord}
+            onUsBreakoutListTrialLiveRemove={handleRemoveUsBreakoutListTrialLiveRecord}
             portfolioStocks={portfolioStocks}
             portfolioPrices={portfolioPrices}
             portfolioPrevCloses={portfolioPrevCloses}

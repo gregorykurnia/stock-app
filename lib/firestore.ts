@@ -195,6 +195,44 @@ export async function removeUsBreakoutListTrialRecord(id: string) {
   await deleteDoc(doc(db, US_BREAKOUT_LIST_TRIAL_COLLECTION, id));
 }
 
+export interface UsBreakoutListTrialLiveRecord {
+  id: string;
+  ticker: string;
+  addedAt: string;
+  note: string;
+}
+
+const US_BREAKOUT_LIST_TRIAL_LIVE_COLLECTION = "us_breakout_list_trial_live";
+
+export async function getUsBreakoutListTrialLiveRecords(): Promise<UsBreakoutListTrialLiveRecord[]> {
+  const snap = await getDocs(collection(db, US_BREAKOUT_LIST_TRIAL_LIVE_COLLECTION));
+  const records: UsBreakoutListTrialLiveRecord[] = [];
+  snap.forEach((d) => {
+    const data = d.data();
+    if (typeof data.ticker !== "string" || typeof data.added_at !== "string") return;
+    records.push({
+      id: d.id,
+      ticker: data.ticker,
+      addedAt: data.added_at,
+      note: typeof data.note === "string" ? data.note : "",
+    });
+  });
+  return records.sort((a, b) => a.addedAt.localeCompare(b.addedAt) || a.ticker.localeCompare(b.ticker));
+}
+
+export async function saveUsBreakoutListTrialLiveRecord(record: Omit<UsBreakoutListTrialLiveRecord, "id">): Promise<string> {
+  const ref = await addDoc(collection(db, US_BREAKOUT_LIST_TRIAL_LIVE_COLLECTION), {
+    ticker: record.ticker,
+    added_at: record.addedAt,
+    note: record.note,
+  });
+  return ref.id;
+}
+
+export async function removeUsBreakoutListTrialLiveRecord(id: string) {
+  await deleteDoc(doc(db, US_BREAKOUT_LIST_TRIAL_LIVE_COLLECTION, id));
+}
+
 // Beaten Down — Coiling Reversal watchlist — a separate, manually-managed ticker list
 export async function getCoilingReversalStocks(): Promise<Record<string, object>> {
   const snap = await getDocs(collection(db, "coiling_reversal_stocks"));

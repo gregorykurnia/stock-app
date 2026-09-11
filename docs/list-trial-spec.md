@@ -89,6 +89,12 @@ List Trial supports an on-demand replay for one ticker over a user-selected rang
 
 The replay is intentionally limited to selected tickers and ranges. It reports score-band outcome summaries and the individual qualifying dates, but does not attempt a full-market historical screen or persist a replay dataset.
 
+## Live candidate trial
+
+The Live Candidates panel is a small, manually curated prospective watchlist. Tickers are added from the user's beaten-down Finviz run, with an optional note and the timestamp when the candidate entered the trial.
+
+When the panel loads, each ticker receives the same causal evidence and provisional score as a snapshot through today (or the latest available trading day). It does not attach future outcome labels, import Finviz automatically, schedule background scans, or tune the score. The live list is therefore a clean place to observe whether the current score/evidence remains useful before adding any automation or execution workflow.
+
 ## Explicit non-goals for the first slice
 
 - no automatic full-market historical screener
