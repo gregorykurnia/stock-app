@@ -53,8 +53,32 @@ interface TrialEvidence {
 
 type EvidenceState = { evidence?: TrialEvidence; error?: string };
 
+interface TrialOutcome {
+  asOfDate: string;
+  entryPrice: number;
+  outcomeBasis: "daily_close";
+  primaryOutcome: {
+    targetPct: number;
+    breakdownPct: number;
+    status: "target_first" | "breakdown_first" | "open" | "insufficient_future";
+    targetHitDate: string | null;
+    breakdownHitDate: string | null;
+    daysToTarget: number | null;
+    maxAdverseExcursionPct: number | null;
+  };
+  returns: Record<"60" | "120" | "250", number | null>;
+}
+
+type OutcomeState = { outcome?: TrialOutcome; error?: string };
+
 const formatNumber = (value: number | null | undefined, digits = 1) => value == null ? "—" : value.toFixed(digits);
 const formatPercent = (value: number | null | undefined, digits = 1) => value == null ? "—" : `${value.toFixed(digits)}%`;
+const outcomeLabel: Record<TrialOutcome["primaryOutcome"]["status"], string> = {
+  target_first: "Target first",
+  breakdown_first: "Breakdown first",
+  open: "Open",
+  insufficient_future: "Too recent",
+};
 
 export default function ListTrialTable({ records, loading = false, saving = false, error = "", onAdd, onRemove }: ListTrialTableProps) {
   const [ticker, setTicker] = useState("");
@@ -62,6 +86,7 @@ export default function ListTrialTable({ records, loading = false, saving = fals
   const [cohort, setCohort] = useState<UsBreakoutListTrialCohort>("benchmark");
   const [note, setNote] = useState("");
   const [evidenceByKey, setEvidenceByKey] = useState<Record<string, EvidenceState>>({});
+  const [outcomesByKey, setOutcomesByKey] = useState<Record<string, OutcomeState>>({});
 
   useEffect(() => {
     if (records.length === 0) return;
@@ -79,6 +104,26 @@ export default function ListTrialTable({ records, loading = false, saving = fals
       }
     })).then((entries) => {
       if (active) setEvidenceByKey(Object.fromEntries(entries));
+    });
+    return () => { active = false; };
+  }, [records]);
+
+  useEffect(() => {
+    if (records.length === 0) return;
+    let active = true;
+    const uniqueRequests = [...new Map(records.map((record) => [`${record.ticker}:${record.candidateDate}`, record])).values()];
+    void Promise.all(uniqueRequests.map(async (record) => {
+      const key = `${record.ticker}:${record.candidateDate}`;
+      try {
+        const response = await fetch(`/api/breakout-list-trial-outcome?ticker=${encodeURIComponent(record.ticker)}&date=${encodeURIComponent(record.candidateDate)}`);
+        const payload = await response.json() as TrialOutcome & { error?: string };
+        if (!response.ok) throw new Error(payload.error ?? "Outcome unavailable");
+        return [key, { outcome: payload }] as const;
+      } catch (reason) {
+        return [key, { error: reason instanceof Error ? reason.message : "Outcome unavailable" }] as const;
+      }
+    })).then((entries) => {
+      if (active) setOutcomesByKey(Object.fromEntries(entries));
     });
     return () => { active = false; };
   }, [records]);
@@ -132,7 +177,7 @@ export default function ListTrialTable({ records, loading = false, saving = fals
       </form>
 
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
-        <table className="min-w-[1500px] text-left text-sm">
+        <table className="min-w-[2100px] text-left text-sm">
           <thead className="border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
             <tr>
               <th className="px-3 py-2 font-semibold">Ticker</th>
@@ -150,13 +195,19 @@ export default function ListTrialTable({ records, loading = false, saving = fals
               <th className="px-3 py-2 font-semibold">CMF Δ</th>
               <th className="px-3 py-2 font-semibold">ATR%</th>
               <th className="px-3 py-2 font-semibold">Rel vol</th>
+              <th className="border-l-2 border-amber-200 bg-amber-50/50 px-3 py-2 font-semibold">+20% / −12% outcome</th>
+              <th className="bg-amber-50/50 px-3 py-2 font-semibold">Days to +20%</th>
+              <th className="bg-amber-50/50 px-3 py-2 font-semibold">Max adverse</th>
+              <th className="bg-amber-50/50 px-3 py-2 font-semibold">60d return</th>
+              <th className="bg-amber-50/50 px-3 py-2 font-semibold">120d return</th>
+              <th className="bg-amber-50/50 px-3 py-2 font-semibold">250d return</th>
               <th className="px-3 py-2 font-semibold">Note</th>
               <th className="px-3 py-2"><span className="sr-only">Actions</span></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {loading && <tr><td colSpan={17} className="px-3 py-6 text-center text-gray-500">Loading trial rows…</td></tr>}
-            {!loading && records.length === 0 && <tr><td colSpan={17} className="px-3 py-6 text-center text-gray-500">No trial rows yet. Add a benchmark or control candidate above.</td></tr>}
+            {loading && <tr><td colSpan={23} className="px-3 py-6 text-center text-gray-500">Loading trial rows…</td></tr>}
+            {!loading && records.length === 0 && <tr><td colSpan={23} className="px-3 py-6 text-center text-gray-500">No trial rows yet. Add a benchmark or control candidate above.</td></tr>}
             {!loading && records.map((record) => (
               <tr key={record.id}>
                 <td className="px-3 py-2 font-mono font-semibold text-gray-800">{record.ticker}</td>
@@ -164,10 +215,12 @@ export default function ListTrialTable({ records, loading = false, saving = fals
                 <td className="px-3 py-2"><span className={`rounded-full px-2 py-0.5 text-xs font-medium ${record.cohort === "benchmark" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>{cohortLabel[record.cohort]}</span></td>
                 {(() => {
                   const key = `${record.ticker}:${record.candidateDate}`;
-                  const state = evidenceByKey[key];
-                  const evidence = state?.evidence;
-                  if (state?.error) return <td colSpan={12} className="px-3 py-2 text-red-600">{state.error}</td>;
-                  if (!evidence) return <td colSpan={12} className="px-3 py-2 text-gray-400">Loading as-of-date evidence…</td>;
+                  const evidenceState = evidenceByKey[key];
+                  const evidence = evidenceState?.evidence;
+                  const outcomeState = outcomesByKey[key];
+                  const outcome = outcomeState?.outcome;
+                  if (evidenceState?.error) return <td colSpan={18} className="px-3 py-2 text-red-600">{evidenceState.error}</td>;
+                  if (!evidence) return <td colSpan={18} className="px-3 py-2 text-gray-400">Loading as-of-date evidence…</td>;
                   return <>
                     <td className="px-3 py-2">{formatPercent(evidence.drawdownFromAthPct)}</td>
                     <td className="px-3 py-2">{evidence.eligibleAt40PctBelowAth ? <span className="font-medium text-green-700">Yes</span> : <span className="text-gray-500">No</span>}</td>
@@ -181,6 +234,14 @@ export default function ListTrialTable({ records, loading = false, saving = fals
                     <td className="px-3 py-2">{formatNumber(evidence.indicators.cmfDeltaCurrentVsPrior, 3)}</td>
                     <td className="px-3 py-2">{formatPercent(evidence.indicators.atrPct)}</td>
                     <td className="px-3 py-2">{formatNumber(evidence.indicators.relativeVolume20, 2)}{!evidence.dataQuality.requestedDateWasTradingDay && <span className="ml-1 text-xs text-amber-600" title={`Nearest available trading date: ${evidence.asOfDate}`}>*</span>}</td>
+                    {outcomeState?.error ? <td colSpan={6} className="border-l-2 border-amber-200 bg-amber-50/50 px-3 py-2 text-red-600">{outcomeState.error}</td> : !outcome ? <td colSpan={6} className="border-l-2 border-amber-200 bg-amber-50/50 px-3 py-2 text-gray-400">Loading future outcome…</td> : <>
+                      <td className={`border-l-2 border-amber-200 bg-amber-50/50 px-3 py-2 font-medium ${outcome.primaryOutcome.status === "target_first" ? "text-green-700" : outcome.primaryOutcome.status === "breakdown_first" ? "text-red-700" : "text-gray-600"}`}>{outcomeLabel[outcome.primaryOutcome.status]}</td>
+                      <td className="bg-amber-50/50 px-3 py-2">{formatNumber(outcome.primaryOutcome.daysToTarget, 0)}</td>
+                      <td className="bg-amber-50/50 px-3 py-2">{formatPercent(outcome.primaryOutcome.maxAdverseExcursionPct)}</td>
+                      <td className="bg-amber-50/50 px-3 py-2">{formatPercent(outcome.returns["60"])}</td>
+                      <td className="bg-amber-50/50 px-3 py-2">{formatPercent(outcome.returns["120"])}</td>
+                      <td className="bg-amber-50/50 px-3 py-2">{formatPercent(outcome.returns["250"])}</td>
+                    </>}
                   </>;
                 })()}
                 <td className="max-w-sm px-3 py-2 text-gray-600">{record.note || <span className="text-gray-400">—</span>}</td>
