@@ -10,6 +10,8 @@ import type { CustomStock, PeStats } from "@/lib/types";
 import type { FundData } from "@/app/api/funddata/route";
 import USSwingTable, { type USSwingStock, type CategoryKey, CATEGORY_DEFS, computeCategoryFlags, computeGrandScore, daysUntilEarnings } from "@/components/USSwingTable";
 import USBreakoutTable, { type USBreakoutStock, type BreakoutStatus } from "@/components/USBreakoutTable";
+import ListTrialTable from "@/components/ListTrialTable";
+import type { UsBreakoutListTrialRecord } from "@/lib/firestore";
 import LowDetectionView from "@/components/LowDetectionView";
 import SwingChat from "@/components/SwingChat";
 import PortfolioTable, { PORTFOLIO_DIVISIONS, type PortfolioStock, type PortfolioLevelField } from "@/components/PortfolioTable";
@@ -243,6 +245,12 @@ interface Props {
   onUsBreakoutRemove?: (ticker: string) => void;
   onUsBreakoutToggleStar?: (ticker: string) => void;
   onUsBreakoutTypeChange?: (ticker: string, breakoutType: "benchmark" | "new") => void;
+  usBreakoutListTrialRecords?: UsBreakoutListTrialRecord[];
+  usBreakoutListTrialLoading?: boolean;
+  usBreakoutListTrialSaving?: boolean;
+  usBreakoutListTrialError?: string;
+  onUsBreakoutListTrialAdd?: (record: Omit<UsBreakoutListTrialRecord, "id">) => void;
+  onUsBreakoutListTrialRemove?: (id: string) => void;
   // "Portfolio" tab — three independent, manually-managed divisions (Long Term / Index / Swing)
   portfolioStocks?: Record<PortfolioDivision, PortfolioStock[]>;
   portfolioPrices?: Record<string, number | null>;
@@ -301,6 +309,7 @@ export default function MasterTable({
   usSwingAddTicker = "", usSwingAddLoading = false, usSwingAddError = "", onUsSwingAddTickerChange, onUsSwingAdd, onUsSwingRemove, onUsSwingToggleStar, onUsSwingTogglePortfolio,
   usBreakoutStocks = [], usBreakoutPrices = {}, usBreakoutData = {}, usBreakoutShortFloats = {}, usBreakoutAdvs = {}, usBreakoutEarnings = {}, usBreakoutLoading = false, onUsBreakoutTabOpen,
   usBreakoutAddTicker = "", usBreakoutAddLoading = false, usBreakoutAddError = "", onUsBreakoutAddTickerChange, onUsBreakoutAdd, onUsBreakoutRemove, onUsBreakoutToggleStar, onUsBreakoutTypeChange,
+  usBreakoutListTrialRecords = [], usBreakoutListTrialLoading = false, usBreakoutListTrialSaving = false, usBreakoutListTrialError = "", onUsBreakoutListTrialAdd, onUsBreakoutListTrialRemove,
   portfolioStocks = { longterm: [], index: [], swing: [] }, portfolioPrices = {}, portfolioPrevCloses = {},
   portfolioLoading = { longterm: false, index: false, swing: false }, onPortfolioTabOpen,
   portfolioAddTicker = { longterm: "", index: "", swing: "" }, portfolioAddLoading = { longterm: false, index: false, swing: false },
@@ -2663,15 +2672,14 @@ export default function MasterTable({
           )}
 
           {breakoutSubTab === "listTrial" && (
-            <section className="rounded-lg border border-dashed border-blue-200 bg-blue-50/40 p-6" aria-labelledby="list-trial-title">
-              <h2 id="list-trial-title" className="text-base font-semibold text-gray-800">List Trial</h2>
-              <p className="mt-1 max-w-2xl text-sm text-gray-600">
-                Experimental provisional-bottom research. This view will evaluate beaten-down stocks using only information available on each candidate date.
-              </p>
-              <p className="mt-3 text-xs text-gray-500">
-                Manual trial rows and raw as-of-date evidence will be added in the next step. No score or recovery confirmation is calculated yet.
-              </p>
-            </section>
+            <ListTrialTable
+              records={usBreakoutListTrialRecords}
+              loading={usBreakoutListTrialLoading}
+              saving={usBreakoutListTrialSaving}
+              error={usBreakoutListTrialError}
+              onAdd={onUsBreakoutListTrialAdd ?? (() => {})}
+              onRemove={onUsBreakoutListTrialRemove ?? (() => {})}
+            />
           )}
 
           {breakoutSubTab === "lowDetection" && <LowDetectionView />}

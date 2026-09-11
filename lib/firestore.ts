@@ -151,6 +151,50 @@ export async function updateUsBreakoutType(ticker: string, breakoutType: "benchm
   await setDoc(doc(db, "us_breakout_stocks", ticker), { breakout_type: breakoutType }, { merge: true });
 }
 
+export type UsBreakoutListTrialCohort = "benchmark" | "control";
+
+export interface UsBreakoutListTrialRecord {
+  id: string;
+  ticker: string;
+  candidateDate: string;
+  cohort: UsBreakoutListTrialCohort;
+  note: string;
+}
+
+const US_BREAKOUT_LIST_TRIAL_COLLECTION = "us_breakout_list_trial";
+
+export async function getUsBreakoutListTrialRecords(): Promise<UsBreakoutListTrialRecord[]> {
+  const snap = await getDocs(collection(db, US_BREAKOUT_LIST_TRIAL_COLLECTION));
+  const records: UsBreakoutListTrialRecord[] = [];
+  snap.forEach((d) => {
+    const data = d.data();
+    if (typeof data.ticker !== "string" || typeof data.candidate_date !== "string") return;
+    records.push({
+      id: d.id,
+      ticker: data.ticker,
+      candidateDate: data.candidate_date,
+      cohort: data.cohort === "control" ? "control" : "benchmark",
+      note: typeof data.note === "string" ? data.note : "",
+    });
+  });
+  return records.sort((a, b) => a.candidateDate.localeCompare(b.candidateDate) || a.ticker.localeCompare(b.ticker));
+}
+
+export async function saveUsBreakoutListTrialRecord(record: Omit<UsBreakoutListTrialRecord, "id">): Promise<string> {
+  const ref = await addDoc(collection(db, US_BREAKOUT_LIST_TRIAL_COLLECTION), {
+    ticker: record.ticker,
+    candidate_date: record.candidateDate,
+    cohort: record.cohort,
+    note: record.note,
+    created_at: new Date().toISOString(),
+  });
+  return ref.id;
+}
+
+export async function removeUsBreakoutListTrialRecord(id: string) {
+  await deleteDoc(doc(db, US_BREAKOUT_LIST_TRIAL_COLLECTION, id));
+}
+
 // Beaten Down — Coiling Reversal watchlist — a separate, manually-managed ticker list
 export async function getCoilingReversalStocks(): Promise<Record<string, object>> {
   const snap = await getDocs(collection(db, "coiling_reversal_stocks"));

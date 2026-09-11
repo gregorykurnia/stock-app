@@ -11,6 +11,7 @@ import {
   getIhsgSwingStocks, saveIhsgSwingStock, removeIhsgSwingStock, updateIhsgSwingEntryPrice,
   getUsSwingStocks, saveUsSwingStock, removeUsSwingStock, updateUsSwingStar, updateUsSwingPortfolio,
   getUsBreakoutStocks, saveUsBreakoutStock, removeUsBreakoutStock, updateUsBreakoutStar, updateUsBreakoutType,
+  getUsBreakoutListTrialRecords, saveUsBreakoutListTrialRecord, removeUsBreakoutListTrialRecord,
   getPortfolioTickers, getWatchlistTickers,
   savePortfolioEntry, removePortfolioEntry,
   saveWatchlistEntry, removeWatchlistEntry,
@@ -25,6 +26,7 @@ import type { CustomStock, PeStats } from "@/lib/types";
 import type { BandarScoreResult } from "@/lib/indicators";
 import type { FundData } from "@/app/api/funddata/route";
 import type { BreakoutStatus } from "@/components/USBreakoutTable";
+import type { UsBreakoutListTrialRecord } from "@/lib/firestore";
 
 const SEED_TICKERS = new Set(SEED_STOCKS.map((s) => s.ticker));
 const IHSG_TICKERS = new Set(IHSG_STOCKS.map((s) => s.ticker));
@@ -137,6 +139,11 @@ export default function Home() {
   const [usBreakoutAddTicker, setUsBreakoutAddTicker] = useState("");
   const [usBreakoutAddLoading, setUsBreakoutAddLoading] = useState(false);
   const [usBreakoutAddError, setUsBreakoutAddError] = useState("");
+  const [usBreakoutListTrialRecords, setUsBreakoutListTrialRecords] = useState<UsBreakoutListTrialRecord[]>([]);
+  const [usBreakoutListTrialLoading, setUsBreakoutListTrialLoading] = useState(false);
+  const [usBreakoutListTrialLoaded, setUsBreakoutListTrialLoaded] = useState(false);
+  const [usBreakoutListTrialSaving, setUsBreakoutListTrialSaving] = useState(false);
+  const [usBreakoutListTrialError, setUsBreakoutListTrialError] = useState("");
 
   // "Portfolio" tab — three independent, manually-managed divisions (Long Term / Index / Swing)
   const [portfolioStocks, setPortfolioStocks] = useState<Record<PortfolioDivision, PortfolioStock[]>>({ longterm: [], index: [], swing: [] });
@@ -447,6 +454,11 @@ export default function Home() {
     return list;
   }
 
+  async function loadUsBreakoutListTrialRecords() {
+    const records = await getUsBreakoutListTrialRecords().catch(() => []);
+    setUsBreakoutListTrialRecords(records);
+  }
+
   async function handleToggleUsBreakoutStar(ticker: string) {
     const current = usBreakoutStocks.find((s) => s.ticker === ticker)?.starred ?? false;
     const next = !current;
@@ -462,6 +474,11 @@ export default function Home() {
   function handleUsBreakoutTabOpen() {
     if (usBreakoutLoaded || market !== "us") return;
     setUsBreakoutLoaded(true);
+    if (!usBreakoutListTrialLoaded) {
+      setUsBreakoutListTrialLoaded(true);
+      setUsBreakoutListTrialLoading(true);
+      loadUsBreakoutListTrialRecords().finally(() => setUsBreakoutListTrialLoading(false));
+    }
     setUsBreakoutLoading(true);
     loadUsBreakoutStocks().then((list) => {
       setUsBreakoutLoading(false);
@@ -474,6 +491,29 @@ export default function Home() {
       fetchUsBreakoutDaily(tickers);
       fetchUsBreakoutFundAndEarnings(tickers);
     });
+  }
+
+  async function handleAddUsBreakoutListTrialRecord(record: Omit<UsBreakoutListTrialRecord, "id">) {
+    setUsBreakoutListTrialSaving(true);
+    setUsBreakoutListTrialError("");
+    try {
+      const id = await saveUsBreakoutListTrialRecord(record);
+      setUsBreakoutListTrialRecords((prev) => [...prev, { ...record, id }].sort((a, b) => a.candidateDate.localeCompare(b.candidateDate) || a.ticker.localeCompare(b.ticker)));
+    } catch (err) {
+      setUsBreakoutListTrialError(err instanceof Error ? err.message : "Failed to save trial row");
+    } finally {
+      setUsBreakoutListTrialSaving(false);
+    }
+  }
+
+  async function handleRemoveUsBreakoutListTrialRecord(id: string) {
+    setUsBreakoutListTrialError("");
+    try {
+      await removeUsBreakoutListTrialRecord(id);
+      setUsBreakoutListTrialRecords((prev) => prev.filter((record) => record.id !== id));
+    } catch (err) {
+      setUsBreakoutListTrialError(err instanceof Error ? err.message : "Failed to remove trial row");
+    }
   }
 
   async function handleAddUsBreakoutTicker(e: React.FormEvent) {
@@ -1427,6 +1467,12 @@ export default function Home() {
             onUsBreakoutRemove={handleRemoveUsBreakoutTicker}
             onUsBreakoutToggleStar={handleToggleUsBreakoutStar}
             onUsBreakoutTypeChange={handleUsBreakoutTypeChange}
+            usBreakoutListTrialRecords={usBreakoutListTrialRecords}
+            usBreakoutListTrialLoading={usBreakoutListTrialLoading}
+            usBreakoutListTrialSaving={usBreakoutListTrialSaving}
+            usBreakoutListTrialError={usBreakoutListTrialError}
+            onUsBreakoutListTrialAdd={handleAddUsBreakoutListTrialRecord}
+            onUsBreakoutListTrialRemove={handleRemoveUsBreakoutListTrialRecord}
             portfolioStocks={portfolioStocks}
             portfolioPrices={portfolioPrices}
             portfolioPrevCloses={portfolioPrevCloses}
