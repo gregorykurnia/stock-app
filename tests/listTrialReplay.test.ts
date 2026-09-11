@@ -87,3 +87,29 @@ test("evidence trigger score and anchors are prefix-stable when future bars are 
     episodeFrom(baseEvidence)
   );
 });
+
+test("replay exposes raw qualifying days separately from grouped episodes", () => {
+  const replay = calculateListTrialReplay(bars(180), "2024-05-01", "2024-05-29", 55);
+  assert.ok(replay.rawQualifyingDayCount >= replay.episodeCount);
+  assert.equal(replay.episodes.length, replay.episodeCount);
+  assert.equal(replay.signals.length, replay.episodeCount);
+  for (const episode of replay.episodes) {
+    assert.equal(episode.triggerDate, episode.date);
+    assert.equal(episode.triggerScore, episode.score);
+    assert.ok(episode.qualifyingDayCount >= 1);
+    assert.ok(episode.entryPlan == null || episode.entryPlan.triggerDate === episode.triggerDate);
+  }
+});
+
+test("replay bands count entered episodes and keep non-entered states outside outcomes", () => {
+  const replay = calculateListTrialReplay(bars(180), "2024-05-01", "2024-05-29", 55);
+  const entered = replay.episodes.filter((episode) => episode.entry.status === "entered").length;
+  const bandEntered = replay.bands.reduce((sum, band) => sum + band.total, 0);
+  assert.equal(bandEntered, entered);
+  for (const episode of replay.episodes) {
+    if (episode.entry.status !== "entered") {
+      assert.equal(episode.primaryOutcome, "not_entered");
+      assert.equal(episode.daysToTarget, null);
+    }
+  }
+});
