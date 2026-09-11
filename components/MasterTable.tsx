@@ -315,7 +315,7 @@ export default function MasterTable({
   const [portfolioDivision, setPortfolioDivision] = useState<PortfolioDivision>("longterm");
   type BeatenDownSubTab = "coiling" | "bagger";
   const [beatenDownSubTab, setBeatenDownSubTab] = useState<BeatenDownSubTab>("coiling");
-  type BreakoutSubTab = "list" | "lowDetection";
+  type BreakoutSubTab = "list" | "listTrial" | "lowDetection";
   const [breakoutSubTab, setBreakoutSubTab] = useState<BreakoutSubTab>("list");
 
   useEffect(() => {
@@ -2625,6 +2625,7 @@ export default function MasterTable({
           <div className="flex gap-1 border-b border-gray-200">
             {([
               { id: "list", label: "List" },
+              { id: "listTrial", label: "List Trial" },
               { id: "lowDetection", label: "Low Detection" },
             ] as { id: BreakoutSubTab; label: string }[]).map((t) => (
               <button
@@ -2659,6 +2660,18 @@ export default function MasterTable({
               onToggleStar={onUsBreakoutToggleStar}
               onTypeChange={onUsBreakoutTypeChange}
             />
+          )}
+
+          {breakoutSubTab === "listTrial" && (
+            <section className="rounded-lg border border-dashed border-blue-200 bg-blue-50/40 p-6" aria-labelledby="list-trial-title">
+              <h2 id="list-trial-title" className="text-base font-semibold text-gray-800">List Trial</h2>
+              <p className="mt-1 max-w-2xl text-sm text-gray-600">
+                Experimental provisional-bottom research. This view will evaluate beaten-down stocks using only information available on each candidate date.
+              </p>
+              <p className="mt-3 text-xs text-gray-500">
+                Manual trial rows and raw as-of-date evidence will be added in the next step. No score or recovery confirmation is calculated yet.
+              </p>
+            </section>
           )}
 
           {breakoutSubTab === "lowDetection" && <LowDetectionView />}
