@@ -19,8 +19,12 @@ export interface ListTrialEvidenceAnchors {
 export interface ListTrialEvidence {
   date: string;
   index: number;
+  close: number;
   score: BottomCandidateScoreResult;
   anchors: ListTrialEvidenceAnchors;
+  // Wilder ATR(14) at this as-of date. It is exposed so an executable plan can
+  // freeze the trigger-day volatility reference without inspecting later bars.
+  atr14: number | null;
 }
 
 export interface ListTrialEvidenceContext {
@@ -92,7 +96,9 @@ export function calculateListTrialEvidenceAt(
   return {
     date: bars[index].date,
     index,
+    close: bars[index].close,
     score,
     anchors: { allTimeHigh, currentRollingLow: anchor(currentLowIndex), priorSellingLow: anchor(priorLowIndex) },
+    atr14: valueAt(indicators.atr, index),
   };
 }
