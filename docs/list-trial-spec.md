@@ -87,7 +87,11 @@ The first implementation may display a small threshold matrix rather than commit
 
 List Trial supports an on-demand replay for one ticker over a user-selected range of up to five years. For every qualifying day in that range, the score is calculated from that day and earlier bars only; future daily closes are used only to grade the saved signal under the +20% before -12% primary outcome.
 
-The replay is intentionally limited to selected tickers and ranges. It reports score-band outcome summaries and the individual qualifying dates, but does not attempt a full-market historical screen or persist a replay dataset.
+Repeated qualifying days are grouped into one bottoming episode. An episode opens on its first qualifying day and re-arms only after 10 consecutive non-qualifying trading sessions. The episode keeps the first qualifying day's trigger score, evidence anchors, and entry plan; later qualifying days do not replace those values. Replay reports raw qualifying-day counts separately, while outcome and score-band accounting is episode-level.
+
+The entry plan is causal and executable: the zone is frozen from the trigger day's 20-day rolling low through `min(trigger close, rolling low + 1 × ATR14)`. Execution is allowed only at the next trading session's open, with a fixed 10 bps buy-slippage assumption. A next-session open above the zone is `missed_zone`; if no next session is available, the episode is `not_entered_no_future_data`. These states are reported separately from entered-episode outcomes.
+
+The replay is intentionally limited to selected tickers and ranges. It does not attempt a full-market historical screen or persist a replay dataset.
 
 ## Live candidate trial
 
