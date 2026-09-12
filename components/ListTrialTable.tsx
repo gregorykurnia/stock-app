@@ -141,6 +141,51 @@ const entryLabel: Record<ReplayEntry["status"], string> = {
   not_entered_invalid_open: "Invalid next open",
 };
 
+const csvCell = (value: string | number | boolean | null | undefined) => {
+  const text = value == null ? "" : String(value);
+  return /[",\n\r]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
+};
+
+const evidenceCsvHeaders = [
+  "record_id", "ticker", "candidate_date", "cohort", "as_of_date", "price", "all_time_high_through_date",
+  "drawdown_from_ath_pct", "eligible_at_40_pct_below_ath", "current_rolling_low", "current_rolling_low_date",
+  "pct_above_current_rolling_low", "prior_selling_episode_low", "prior_selling_episode_low_date",
+  "current_low_vs_prior_low_pct", "rsi_at_current_low", "rsi_at_prior_low", "rsi_delta_current_vs_prior",
+  "macd_hist_pct_at_current_low", "macd_hist_pct_at_prior_low", "macd_hist_pct_delta_current_vs_prior",
+  "di_gap_at_current_low", "di_gap_at_prior_low", "di_gap_delta_current_vs_prior", "adx_delta_current_vs_prior",
+  "cmf_delta_current_vs_prior", "atr_pct", "relative_volume_20", "bottom_score", "gate_status", "gate_reasons",
+  "enough_history_for_prior_episode", "requested_date_was_trading_day", "evidence_status", "evidence_error",
+  "note",
+];
+
+function buildEvidenceCsv(records: UsBreakoutListTrialRecord[], evidenceByKey: Record<string, EvidenceState>) {
+  const rows = records.map((record) => {
+    const key = `${record.ticker}:${record.candidateDate}`;
+    const state = evidenceByKey[key];
+    const evidence = state?.evidence;
+    const indicators = evidence?.indicators;
+    const diGapDelta = indicators?.diGapAtCurrentLow != null && indicators.diGapAtPriorLow != null
+      ? indicators.diGapAtCurrentLow - indicators.diGapAtPriorLow
+      : null;
+    return [
+      record.id, record.ticker, record.candidateDate, cohortLabel[record.cohort], evidence?.asOfDate,
+      evidence?.price, evidence?.allTimeHighThroughDate, evidence?.drawdownFromAthPct,
+      evidence?.eligibleAt40PctBelowAth, evidence?.currentRollingLow, evidence?.currentRollingLowDate,
+      evidence?.pctAboveCurrentRollingLow, evidence?.priorSellingEpisodeLow, evidence?.priorSellingEpisodeLowDate,
+      evidence?.currentLowVsPriorLowPct, indicators?.rsiAtCurrentLow, indicators?.rsiAtPriorLow,
+      indicators?.rsiDeltaCurrentVsPrior, indicators?.macdHistPctAtCurrentLow, indicators?.macdHistPctAtPriorLow,
+      indicators?.macdHistPctDeltaCurrentVsPrior, indicators?.diGapAtCurrentLow, indicators?.diGapAtPriorLow,
+      diGapDelta, indicators?.adxDeltaCurrentVsPrior, indicators?.cmfDeltaCurrentVsPrior, indicators?.atrPct,
+      indicators?.relativeVolume20, evidence?.bottomCandidate.score,
+      evidence ? (evidence.bottomCandidate.gates.reasons.length > 0 ? "failed" : "passed") : "unavailable",
+      evidence?.bottomCandidate.gates.reasons.join("; "), evidence?.dataQuality.enoughHistoryForPriorEpisode,
+      evidence?.dataQuality.requestedDateWasTradingDay, evidence ? "available" : state?.error ? "error" : "loading",
+      state?.error, record.note,
+    ].map(csvCell).join(",");
+  });
+  return [evidenceCsvHeaders.join(","), ...rows].join("\r\n");
+}
+
 export default function ListTrialTable({ records, loading = false, saving = false, error = "", onAdd, onRemove, liveRecords, liveLoading = false, liveSaving = false, liveError = "", onLiveAdd, onLiveRemove }: ListTrialTableProps) {
   const [ticker, setTicker] = useState("");
   const [candidateDate, setCandidateDate] = useState("");
@@ -256,6 +301,19 @@ export default function ListTrialTable({ records, loading = false, saving = fals
     onLiveAdd({ ticker: normalizedTicker, addedAt: new Date().toISOString(), note: liveNote.trim() });
     setLiveTicker("");
     setLiveNote("");
+  }
+
+  function handleExportEvidence() {
+    if (records.length === 0 || loading) return;
+    const blob = new Blob([buildEvidenceCsv(records, evidenceByKey)], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `list-trial-evidence-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
   }
 
   return (
@@ -383,6 +441,12 @@ export default function ListTrialTable({ records, loading = false, saving = fals
       </section>
 
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
+        <div className="flex items-center justify-between gap-3 border-b border-gray-200 bg-gray-50 px-3 py-2">
+          <p className="text-xs text-gray-600">Historical evidence only; future outcome labels and returns are excluded.</p>
+          <button type="button" onClick={handleExportEvidence} disabled={loading || records.length === 0} className="shrink-0 rounded border border-blue-300 bg-white px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50">
+            Export Evidence CSV
+          </button>
+        </div>
         <table className="min-w-[2100px] text-left text-sm">
           <thead className="border-b border-gray-200 bg-gray-50 text-xs uppercase tracking-wide text-gray-500">
             <tr>
