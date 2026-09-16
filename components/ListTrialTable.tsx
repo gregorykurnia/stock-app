@@ -127,7 +127,7 @@ const priceStructureStatus = (value: number | null | undefined) => {
     case "deeper_lower_low": return { label: "Deeper lower low", description: "Current low is 20% to 30% below the prior selling-episode low, so it receives 5 of 15 price-structure points.", className: "bg-orange-100 text-orange-800" };
     case "within_trial_range": return { label: "Within trial range", description: "Current low is between 20% below and 5% above the prior selling-episode low, so it receives all 15 price-structure points.", className: "bg-emerald-100 text-emerald-800" };
     case "higher_low": return { label: "Higher low", description: "Current low is 5% to 15% above the prior selling-episode low, so it receives 8 of 15 price-structure points.", className: "bg-amber-100 text-amber-800" };
-    case "too_far_above": return { label: "Too far above", description: "Current low is more than 15% above the prior selling-episode low, so it receives no price-structure points.", className: "bg-amber-100 text-amber-800" };
+    case "too_far_above": return { label: "Too far above", description: "Current low is more than 15% above the prior selling-episode low, so it receives no price-structure points.", className: "bg-violet-100 text-violet-800" };
   }
 };
 const outcomeLabel: Record<TrialOutcome["primaryOutcome"]["status"], string> = {
