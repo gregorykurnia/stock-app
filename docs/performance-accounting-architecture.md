@@ -266,6 +266,50 @@ Show two separate chart modes:
 
 Annotate deposits, withdrawals, transfers, dividends, fees, buys, and sells. For a Long Term → Index transfer, the equity/allocation view should move, while the total return view should remain flat.
 
+### Activity and transaction history
+
+Add a separate Activity History view in a later phase. Snapshot History and Activity History answer different questions:
+
+- Snapshot History shows what the portfolio was worth at each daily market-close capture.
+- Activity History shows what the user did and what happened between captures.
+
+Activity History should show, at minimum:
+
+- buy and sell date/time;
+- pocket;
+- ticker, when applicable;
+- quantity;
+- execution price;
+- gross amount;
+- fees;
+- net cash movement;
+- cost basis of shares sold;
+- realized gain/loss for sells;
+- remaining quantity after the transaction;
+- deposit and withdrawal amounts;
+- pocket transfers with source and destination;
+- dividend and fee events;
+- whether the entry was recorded late or estimated.
+
+Example activity records:
+
+| Date | Type | Pocket | Ticker | Quantity | Amount | Realized P/L |
+|---|---|---|---|---:|---:|---:|
+| Sep 16 | Buy | Long Term | VOO | 10 | $4,500 | — |
+| Sep 17 | Deposit | Long Term | — | — | $2,000 | — |
+| Sep 20 | Sell | Swing | ABC | 20 | $2,200 | +$300 |
+| Sep 22 | Transfer | Long Term → Index | — | — | $1,000 | — |
+
+A deposit into Long Term and a later VOO purchase should be two separate records. The deposit belongs to the pocket and is an external flow; the buy identifies the ticker and is an internal cash-to-security movement. If the user wants to associate the deposit with a planned ticker, that can be an optional note or purpose field, but it should not replace the accounting events.
+
+Activity History should support filtering by total portfolio, pocket, ticker, transaction type, and date range. It should also support late/backdated entries by showing both occurredAt (when the event happened) and recordedAt (when it was entered). Adding a late event should identify the affected snapshots and trigger recalculation of derived performance from the earliest affected date.
+
+A buy has no realized gain/loss yet; it creates cost basis and future unrealized gain/loss. A sell should calculate:
+
+    realized gain/loss = net sale proceeds - cost basis of shares sold
+
+The history must be append-only for accounting events. Corrections should create a new adjustment or correction record rather than silently deleting the original history.
+
 ## Manual edits after the ledger exists
 
 Replace direct quantity editing with a Record activity form:
@@ -323,6 +367,9 @@ Add accounting-invariant tests and a way to reconcile the ledger-derived current
 - Partial sales calculate realized P/L from recorded cost basis.
 - Dividends increase performance; fees reduce performance.
 - Transfers preserve total equity and total return while changing pocket allocation.
+- Activity History shows buys, sells, deposits, withdrawals, transfers, dividends, and fees with dates, amounts, and relevant realized P/L.
+- A deposit into a pocket and a later ticker purchase appear as separate activity records.
+- Late/backdated activity records show occurredAt and recordedAt and cause affected derived metrics to recalculate.
 - Multiple transactions on one day are processed in timestamp order.
 - USD and IDR returns have explicit, documented FX behavior.
 - Missing quotes cannot silently create a false return.
