@@ -120,6 +120,12 @@ interface ReplayEpisode {
 const formatNumber = (value: number | null | undefined, digits = 1) => value == null ? "—" : value.toFixed(digits);
 const formatPercent = (value: number | null | undefined, digits = 1) => value == null ? "—" : `${value.toFixed(digits)}%`;
 const formatPrice = (value: number | null | undefined) => value == null ? "—" : `$${value.toFixed(2)}`;
+const priceStructureStatus = (value: number | null | undefined) => {
+  if (value == null) return { label: "Unavailable", description: "No comparable prior selling-episode low is available.", className: "bg-slate-100 text-slate-600" };
+  if (value >= -20 && value <= 5) return { label: "Within trial range", description: "Current low is between 20% below and 5% above the prior selling-episode low, so it receives the price-structure allocation.", className: "bg-emerald-100 text-emerald-800" };
+  if (value < -20) return { label: "Deeper lower low", description: "Current low is more than 20% below the prior selling-episode low, so it receives no price-structure points under the current rule.", className: "bg-rose-100 text-rose-800" };
+  return { label: "Higher than prior low", description: "Current low is more than 5% above the prior selling-episode low, so it receives no price-structure points under the current rule.", className: "bg-amber-100 text-amber-800" };
+};
 const outcomeLabel: Record<TrialOutcome["primaryOutcome"]["status"], string> = {
   target_first: "Target first",
   breakdown_first: "Breakdown first",
@@ -438,14 +444,15 @@ export default function ListTrialTable({ records, loading = false, saving = fals
         </form>
         {liveError && <p className="mt-2 text-sm text-red-600" role="alert">{liveError}</p>}
         <div className="mt-4 overflow-x-auto rounded border border-emerald-100 bg-white">
-          <table className="min-w-[1360px] text-left text-xs">
-            <thead className="bg-emerald-50 text-emerald-900"><tr><th className="px-3 py-2">Ticker</th><th className="px-3 py-2">Added</th><th className="px-3 py-2">As of</th><th className="px-3 py-2">As-of price</th><th className="px-3 py-2">Current state</th><th className="px-3 py-2">Drawdown</th><th className="px-3 py-2">Above low</th><th className="px-3 py-2">Bottom score</th><th className="px-3 py-2">Gate notes</th><th className="px-3 py-2">Note</th><th className="px-3 py-2"><span className="sr-only">Actions</span></th></tr></thead>
+          <table className="min-w-[1480px] text-left text-xs">
+            <thead className="bg-emerald-50 text-emerald-900"><tr><th className="px-3 py-2">Ticker</th><th className="px-3 py-2">Added</th><th className="px-3 py-2">As of</th><th className="px-3 py-2">As-of price</th><th className="px-3 py-2">Current state</th><th className="px-3 py-2">Drawdown</th><th className="px-3 py-2">Above low</th><th className="px-3 py-2">Price structure</th><th className="px-3 py-2">Bottom score</th><th className="px-3 py-2">Gate notes</th><th className="px-3 py-2">Note</th><th className="px-3 py-2"><span className="sr-only">Actions</span></th></tr></thead>
             <tbody className="divide-y divide-emerald-50">
-              {liveLoading && <tr><td colSpan={11} className="px-3 py-5 text-center text-gray-500">Loading live candidates…</td></tr>}
-              {!liveLoading && liveRecords.length === 0 && <tr><td colSpan={11} className="px-3 py-5 text-center text-gray-500">No live candidates yet.</td></tr>}
+              {liveLoading && <tr><td colSpan={12} className="px-3 py-5 text-center text-gray-500">Loading live candidates…</td></tr>}
+              {!liveLoading && liveRecords.length === 0 && <tr><td colSpan={12} className="px-3 py-5 text-center text-gray-500">No live candidates yet.</td></tr>}
               {!liveLoading && liveRecords.map((record) => {
                 const state = liveEvidenceById[record.id];
                 const evidence = state?.evidence;
+                const structure = evidence ? priceStructureStatus(evidence.currentLowVsPriorLowPct) : null;
                 const explanationKey = `live:${record.id}`;
                 const explanationId = `bottom-score-explanation-${record.id}`;
                 const expanded = expandedScoreKey === explanationKey;
@@ -456,20 +463,21 @@ export default function ListTrialTable({ records, loading = false, saving = fals
                   <tr>
                     <td className="px-3 py-2 font-mono font-semibold">{record.ticker}</td>
                     <td className="px-3 py-2 text-gray-600">{record.addedAt.slice(0, 10)}</td>
-                    {!evidence ? <td colSpan={7} className="px-3 py-2 text-gray-400">{state?.error ?? "Loading today’s causal snapshot…"}</td> : <>
+                    {!evidence ? <td colSpan={8} className="px-3 py-2 text-gray-400">{state?.error ?? "Loading today’s causal snapshot…"}</td> : <>
                       <td className="px-3 py-2">{evidence.asOfDate}{!evidence.dataQuality.requestedDateWasTradingDay && <span className="ml-1 text-amber-600">*</span>}</td>
                       <td className="px-3 py-2 font-medium text-gray-800">{formatPrice(evidence.price)}</td>
                       <td className="max-w-[270px] px-3 py-2 text-gray-700"><div className="overflow-hidden text-ellipsis"><ListTrialIndicatorStateSummary state={evidence.indicators} /></div><button type="button" onClick={() => toggleIndicatorState(indicatorStateKey)} aria-expanded={indicatorStateExpanded} aria-controls={indicatorStateId} className="mt-1 font-medium text-blue-700 underline decoration-dotted underline-offset-2 hover:text-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1">{indicatorStateExpanded ? "Hide details" : "View details"}<span className="sr-only"> for {record.ticker}</span></button></td>
                       <td className="px-3 py-2">{formatPercent(evidence.drawdownFromAthPct)}</td>
                       <td className="px-3 py-2">{formatPercent(evidence.pctAboveCurrentRollingLow)}</td>
+                      <td className="px-3 py-2" title={structure!.description}><div className="font-medium text-gray-800">{formatPercent(evidence.currentLowVsPriorLowPct)}</div><span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${structure!.className}`}>{structure!.label}</span><span className="sr-only"> {structure!.description}</span></td>
                       <td className={`px-3 py-2 ${scoreTone(evidence.bottomCandidate.score)}`}><BottomScoreTrigger ticker={record.ticker} explanation={evidence.bottomCandidate.explanation} expanded={expanded} controlsId={explanationId} onToggle={() => toggleScoreExplanation(explanationKey)} /></td>
                       <td className="max-w-sm px-3 py-2 text-gray-600" title={evidence.bottomCandidate.gates.reasons.join("; ")}>{evidence.bottomCandidate.gates.reasons.length > 0 ? evidence.bottomCandidate.gates.reasons.join("; ") : "All gates passed"}</td>
                     </>}
                     <td className="max-w-xs px-3 py-2 text-gray-600">{record.note || <span className="text-gray-400">—</span>}</td>
                     <td className="px-3 py-2 text-right"><button type="button" onClick={() => onLiveRemove(record.id)} className="text-xs font-medium text-red-600 hover:text-red-800">Remove</button></td>
                   </tr>
-                  {evidence && expanded && <tr id={explanationId}><td colSpan={11} className="p-3"><BottomScoreExplanation explanation={evidence.bottomCandidate.explanation} /></td></tr>}
-                  {evidence && indicatorStateExpanded && <tr id={indicatorStateId}><td colSpan={11} className="p-3"><ListTrialIndicatorState state={evidence.indicators} asOfDate={evidence.asOfDate} price={evidence.price} currentRollingLow={evidence.currentRollingLow} pctAboveCurrentRollingLow={evidence.pctAboveCurrentRollingLow} requestedDateWasTradingDay={evidence.dataQuality.requestedDateWasTradingDay} heading="Latest available state" /></td></tr>}
+                  {evidence && expanded && <tr id={explanationId}><td colSpan={12} className="p-3"><BottomScoreExplanation explanation={evidence.bottomCandidate.explanation} /></td></tr>}
+                  {evidence && indicatorStateExpanded && <tr id={indicatorStateId}><td colSpan={12} className="p-3"><ListTrialIndicatorState state={evidence.indicators} asOfDate={evidence.asOfDate} price={evidence.price} currentRollingLow={evidence.currentRollingLow} pctAboveCurrentRollingLow={evidence.pctAboveCurrentRollingLow} requestedDateWasTradingDay={evidence.dataQuality.requestedDateWasTradingDay} heading="Latest available state" /></td></tr>}
                 </Fragment>;
               })}
             </tbody>
