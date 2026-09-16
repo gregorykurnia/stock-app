@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { Fragment, useEffect, useState, type FormEvent } from "react";
 import type { UsBreakoutListTrialCohort, UsBreakoutListTrialLiveRecord, UsBreakoutListTrialRecord } from "@/lib/firestore";
+import type { BottomScoreExplanation as BottomScoreExplanationData } from "@/lib/listTrialScore";
+import BottomScoreExplanation from "./BottomScoreExplanation";
 
 interface ListTrialTableProps {
   records: UsBreakoutListTrialRecord[];
@@ -60,6 +62,7 @@ interface TrialEvidence {
     gates: {
       reasons: string[];
     };
+    explanation: BottomScoreExplanationData;
   };
 }
 
@@ -141,6 +144,28 @@ const entryLabel: Record<ReplayEntry["status"], string> = {
   not_entered_invalid_open: "Invalid next open",
 };
 
+const scoreTone = (score: number | null) => score == null
+  ? "text-gray-500"
+  : score >= 75 ? "text-green-700" : score >= 55 ? "text-amber-700" : "text-red-700";
+
+interface BottomScoreTriggerProps {
+  ticker: string;
+  explanation: BottomScoreExplanationData;
+  expanded: boolean;
+  controlsId: string;
+  onToggle: () => void;
+}
+
+function BottomScoreTrigger({ ticker, explanation, expanded, controlsId, onToggle }: BottomScoreTriggerProps) {
+  return (
+    <button type="button" onClick={onToggle} aria-expanded={expanded} aria-controls={controlsId} className="group flex w-full min-w-[82px] flex-col items-start gap-0.5 rounded px-1 py-0.5 text-left hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1">
+      <span className={`font-semibold ${scoreTone(explanation.score)}`}>{explanation.score == null ? "Not scoreable" : explanation.score.toFixed(1)}</span>
+      <span className="text-[10px] font-medium text-blue-700 underline decoration-dotted underline-offset-2 group-hover:text-blue-900">{expanded ? "Hide explanation" : "Explain score"}</span>
+      <span className="sr-only"> for {ticker}</span>
+    </button>
+  );
+}
+
 const csvCell = (value: string | number | boolean | null | undefined) => {
   const text = value == null ? "" : String(value);
   return /[",\n\r]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text;
@@ -203,6 +228,11 @@ export default function ListTrialTable({ records, loading = false, saving = fals
   const [liveTicker, setLiveTicker] = useState("");
   const [liveNote, setLiveNote] = useState("");
   const [liveEvidenceById, setLiveEvidenceById] = useState<Record<string, LiveEvidenceState>>({});
+  const [expandedScoreKey, setExpandedScoreKey] = useState<string | null>(null);
+
+  function toggleScoreExplanation(key: string) {
+    setExpandedScoreKey((current) => current === key ? null : key);
+  }
 
   useEffect(() => {
     if (records.length === 0) return;
@@ -405,6 +435,7 @@ export default function ListTrialTable({ records, loading = false, saving = fals
         <div>
           <h3 id="list-trial-live-title" className="text-sm font-semibold text-gray-800">Live candidates</h3>
           <p className="mt-1 text-xs text-gray-600">Manually add beaten-down names from your Finviz run. This shows a causal snapshot as of today (or the latest trading day), without future outcome labels or automatic imports.</p>
+          <p className="mt-2 max-w-3xl text-xs leading-5 text-gray-600"><span className="font-semibold text-gray-700">Bottom score:</span> a fixed 0–100 heuristic for the strength of early-bottom evidence. It is not a probability of recovery; higher scores indicate stronger alignment with the experimental rules when all hard gates pass. Select <span className="font-medium text-blue-700">Explain score</span> to see the calculation.</p>
         </div>
         <form onSubmit={handleLiveSubmit} className="mt-3 grid gap-3 sm:grid-cols-[1fr_2fr_auto] sm:items-end">
           <label className="block text-xs font-medium text-gray-600">Ticker<input value={liveTicker} onChange={(event) => setLiveTicker(event.target.value)} placeholder="TEAM" className="mt-1 w-full rounded border border-gray-300 bg-white px-2.5 py-2 text-sm uppercase" required /></label>
@@ -421,19 +452,25 @@ export default function ListTrialTable({ records, loading = false, saving = fals
               {!liveLoading && liveRecords.map((record) => {
                 const state = liveEvidenceById[record.id];
                 const evidence = state?.evidence;
-                return <tr key={record.id}>
-                  <td className="px-3 py-2 font-mono font-semibold">{record.ticker}</td>
-                  <td className="px-3 py-2 text-gray-600">{record.addedAt.slice(0, 10)}</td>
-                  {!evidence ? <td colSpan={5} className="px-3 py-2 text-gray-400">{state?.error ?? "Loading today’s causal snapshot…"}</td> : <>
-                    <td className="px-3 py-2">{evidence.asOfDate}{!evidence.dataQuality.requestedDateWasTradingDay && <span className="ml-1 text-amber-600">*</span>}</td>
-                    <td className="px-3 py-2">{formatPercent(evidence.drawdownFromAthPct)}</td>
-                    <td className="px-3 py-2">{formatPercent(evidence.pctAboveCurrentRollingLow)}</td>
-                    <td className={`px-3 py-2 font-semibold ${evidence.bottomCandidate.score == null ? "text-gray-500" : evidence.bottomCandidate.score >= 75 ? "text-green-700" : evidence.bottomCandidate.score >= 55 ? "text-amber-700" : "text-red-700"}`}>{evidence.bottomCandidate.score == null ? "Not scoreable" : evidence.bottomCandidate.score.toFixed(1)}</td>
-                    <td className="max-w-sm px-3 py-2 text-gray-600" title={evidence.bottomCandidate.gates.reasons.join("; ")}>{evidence.bottomCandidate.gates.reasons.length > 0 ? evidence.bottomCandidate.gates.reasons.join("; ") : "All gates passed"}</td>
-                  </>}
-                  <td className="max-w-xs px-3 py-2 text-gray-600">{record.note || <span className="text-gray-400">—</span>}</td>
-                  <td className="px-3 py-2 text-right"><button type="button" onClick={() => onLiveRemove(record.id)} className="text-xs font-medium text-red-600 hover:text-red-800">Remove</button></td>
-                </tr>;
+                const explanationKey = `live:${record.id}`;
+                const explanationId = `bottom-score-explanation-${record.id}`;
+                const expanded = expandedScoreKey === explanationKey;
+                return <Fragment key={record.id}>
+                  <tr>
+                    <td className="px-3 py-2 font-mono font-semibold">{record.ticker}</td>
+                    <td className="px-3 py-2 text-gray-600">{record.addedAt.slice(0, 10)}</td>
+                    {!evidence ? <td colSpan={5} className="px-3 py-2 text-gray-400">{state?.error ?? "Loading today’s causal snapshot…"}</td> : <>
+                      <td className="px-3 py-2">{evidence.asOfDate}{!evidence.dataQuality.requestedDateWasTradingDay && <span className="ml-1 text-amber-600">*</span>}</td>
+                      <td className="px-3 py-2">{formatPercent(evidence.drawdownFromAthPct)}</td>
+                      <td className="px-3 py-2">{formatPercent(evidence.pctAboveCurrentRollingLow)}</td>
+                      <td className={`px-3 py-2 ${scoreTone(evidence.bottomCandidate.score)}`}><BottomScoreTrigger ticker={record.ticker} explanation={evidence.bottomCandidate.explanation} expanded={expanded} controlsId={explanationId} onToggle={() => toggleScoreExplanation(explanationKey)} /></td>
+                      <td className="max-w-sm px-3 py-2 text-gray-600" title={evidence.bottomCandidate.gates.reasons.join("; ")}>{evidence.bottomCandidate.gates.reasons.length > 0 ? evidence.bottomCandidate.gates.reasons.join("; ") : "All gates passed"}</td>
+                    </>}
+                    <td className="max-w-xs px-3 py-2 text-gray-600">{record.note || <span className="text-gray-400">—</span>}</td>
+                    <td className="px-3 py-2 text-right"><button type="button" onClick={() => onLiveRemove(record.id)} className="text-xs font-medium text-red-600 hover:text-red-800">Remove</button></td>
+                  </tr>
+                  {evidence && expanded && <tr id={explanationId}><td colSpan={9} className="p-3"><BottomScoreExplanation explanation={evidence.bottomCandidate.explanation} /></td></tr>}
+                </Fragment>;
               })}
             </tbody>
           </table>
@@ -442,7 +479,7 @@ export default function ListTrialTable({ records, loading = false, saving = fals
 
       <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white">
         <div className="flex items-center justify-between gap-3 border-b border-gray-200 bg-gray-50 px-3 py-2">
-          <p className="text-xs text-gray-600">Historical evidence only; future outcome labels and returns are excluded.</p>
+          <p className="text-xs leading-5 text-gray-600">Historical evidence only; future outcome labels and returns are excluded. <span className="font-semibold text-gray-700">Bottom score</span> is a fixed 0–100 heuristic, not a probability or trading recommendation. Select <span className="font-medium text-blue-700">Explain score</span> for the inputs, gates, and points.</p>
           <button type="button" onClick={handleExportEvidence} disabled={loading || records.length === 0} className="shrink-0 rounded border border-blue-300 bg-white px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50">
             Export Evidence CSV
           </button>
@@ -465,7 +502,7 @@ export default function ListTrialTable({ records, loading = false, saving = fals
               <th className="px-3 py-2 font-semibold">CMF Δ</th>
               <th className="px-3 py-2 font-semibold">ATR%</th>
               <th className="px-3 py-2 font-semibold">Rel vol</th>
-              <th className="border-l-2 border-blue-200 bg-blue-50/50 px-3 py-2 font-semibold">Bottom score</th>
+              <th className="border-l-2 border-blue-200 bg-blue-50/50 px-3 py-2 font-semibold"><span className="block">Bottom score</span><span className="mt-0.5 block normal-case font-normal tracking-normal text-blue-700">heuristic · select to explain</span></th>
               <th className="border-l-2 border-amber-200 bg-amber-50/50 px-3 py-2 font-semibold">+20% / −12% outcome</th>
               <th className="bg-amber-50/50 px-3 py-2 font-semibold">Days to +20%</th>
               <th className="bg-amber-50/50 px-3 py-2 font-semibold">Max adverse</th>
@@ -479,13 +516,17 @@ export default function ListTrialTable({ records, loading = false, saving = fals
           <tbody className="divide-y divide-gray-100">
             {loading && <tr><td colSpan={24} className="px-3 py-6 text-center text-gray-500">Loading trial rows…</td></tr>}
             {!loading && records.length === 0 && <tr><td colSpan={24} className="px-3 py-6 text-center text-gray-500">No trial rows yet. Add a benchmark or control candidate above.</td></tr>}
-            {!loading && records.map((record) => (
-              <tr key={record.id}>
+            {!loading && records.map((record) => {
+              const key = `${record.ticker}:${record.candidateDate}`;
+              const explanationKey = `historical:${key}`;
+              const explanationId = `bottom-score-explanation-${record.id}`;
+              const expanded = expandedScoreKey === explanationKey;
+              return <Fragment key={record.id}>
+              <tr>
                 <td className="px-3 py-2 font-mono font-semibold text-gray-800">{record.ticker}</td>
                 <td className="px-3 py-2 text-gray-700">{record.candidateDate}</td>
                 <td className="px-3 py-2"><span className={`rounded-full px-2 py-0.5 text-xs font-medium ${record.cohort === "benchmark" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>{cohortLabel[record.cohort]}</span></td>
                 {(() => {
-                  const key = `${record.ticker}:${record.candidateDate}`;
                   const evidenceState = evidenceByKey[key];
                   const evidence = evidenceState?.evidence;
                   const outcomeState = outcomesByKey[key];
@@ -505,7 +546,7 @@ export default function ListTrialTable({ records, loading = false, saving = fals
                     <td className="px-3 py-2">{formatNumber(evidence.indicators.cmfDeltaCurrentVsPrior, 3)}</td>
                     <td className="px-3 py-2">{formatPercent(evidence.indicators.atrPct)}</td>
                     <td className="px-3 py-2">{formatNumber(evidence.indicators.relativeVolume20, 2)}{!evidence.dataQuality.requestedDateWasTradingDay && <span className="ml-1 text-xs text-amber-600" title={`Nearest available trading date: ${evidence.asOfDate}`}>*</span>}</td>
-                    <td className={`border-l-2 border-blue-200 bg-blue-50/50 px-3 py-2 font-semibold ${evidence.bottomCandidate.score == null ? "text-gray-500" : evidence.bottomCandidate.score >= 75 ? "text-green-700" : evidence.bottomCandidate.score >= 55 ? "text-amber-700" : "text-red-700"}`} title={evidence.bottomCandidate.gates.reasons.join("; ") || "All score gates passed"}>{evidence.bottomCandidate.score == null ? "Not scoreable" : evidence.bottomCandidate.score.toFixed(1)}</td>
+                    <td className="border-l-2 border-blue-200 bg-blue-50/50 px-3 py-2"><BottomScoreTrigger ticker={record.ticker} explanation={evidence.bottomCandidate.explanation} expanded={expanded} controlsId={explanationId} onToggle={() => toggleScoreExplanation(explanationKey)} /></td>
                     {outcomeState?.error ? <td colSpan={6} className="border-l-2 border-amber-200 bg-amber-50/50 px-3 py-2 text-red-600">{outcomeState.error}</td> : !outcome ? <td colSpan={6} className="border-l-2 border-amber-200 bg-amber-50/50 px-3 py-2 text-gray-400">Loading future outcome…</td> : <>
                       <td className={`border-l-2 border-amber-200 bg-amber-50/50 px-3 py-2 font-medium ${outcome.primaryOutcome.status === "target_first" ? "text-green-700" : outcome.primaryOutcome.status === "breakdown_first" ? "text-red-700" : "text-gray-600"}`}>{outcomeLabel[outcome.primaryOutcome.status]}</td>
                       <td className="bg-amber-50/50 px-3 py-2">{formatNumber(outcome.primaryOutcome.daysToTarget, 0)}</td>
@@ -519,7 +560,9 @@ export default function ListTrialTable({ records, loading = false, saving = fals
                 <td className="max-w-sm px-3 py-2 text-gray-600">{record.note || <span className="text-gray-400">—</span>}</td>
                 <td className="px-3 py-2 text-right"><button type="button" onClick={() => onRemove(record.id)} className="text-xs font-medium text-red-600 hover:text-red-800">Remove</button></td>
               </tr>
-            ))}
+              {evidenceByKey[key]?.evidence && expanded && <tr id={explanationId}><td colSpan={24} className="p-3"><BottomScoreExplanation explanation={evidenceByKey[key].evidence!.bottomCandidate.explanation} /></td></tr>}
+              </Fragment>;
+            })}
           </tbody>
         </table>
       </div>

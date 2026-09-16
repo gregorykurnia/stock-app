@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { calcIndicators, macdSeriesFull } from "@/lib/indicators";
-import { calcBottomCandidateScore } from "@/lib/listTrialScore";
+import { calcBottomCandidateScore, explainBottomCandidateScore } from "@/lib/listTrialScore";
 import type { OHLCVBar } from "@/lib/types";
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -147,7 +147,7 @@ export async function GET(req: NextRequest) {
   const adxDeltaCurrentVsPrior = difference(valueAt(indicators.adx, currentLowIndex), valueAt(indicators.adx, priorLowIndex));
   const cmfDeltaCurrentVsPrior = difference(valueAt(indicators.cmf, currentLowIndex), valueAt(indicators.cmf, priorLowIndex));
   const eligibleAt40PctBelowAth = asOf.close <= allTimeHigh * 0.6;
-  const bottomCandidate = calcBottomCandidateScore({
+  const bottomScoreInput = {
     eligibleAt40PctBelowAth,
     drawdownFromAthPct,
     pctAboveCurrentRollingLow,
@@ -157,6 +157,12 @@ export async function GET(req: NextRequest) {
     diGapDeltaCurrentVsPrior,
     adxDeltaCurrentVsPrior,
     cmfDeltaCurrentVsPrior,
+  };
+  const bottomCandidate = calcBottomCandidateScore(bottomScoreInput);
+  const bottomScoreExplanation = explainBottomCandidateScore(bottomScoreInput, bottomCandidate, {
+    allTimeHigh,
+    currentRollingLow: currentLowIndex == null ? null : { date: bars[currentLowIndex].dateKey, close: currentLow! },
+    priorSellingLow: priorLowIndex == null ? null : { date: bars[priorLowIndex].dateKey, close: priorLow! },
   });
 
   return NextResponse.json({
@@ -203,7 +209,10 @@ export async function GET(req: NextRequest) {
       relativeVolume20: avgVolume20 != null && avgVolume20 > 0 ? asOf.volume / avgVolume20 : null,
     },
     provisionalBreakdownReferences: BREAKDOWN_THRESHOLDS.map((pct) => ({ pct, price: rollingLowForBreakdown * (1 + pct / 100) })),
-    bottomCandidate,
+    bottomCandidate: {
+      ...bottomCandidate,
+      explanation: bottomScoreExplanation,
+    },
     dataQuality: {
       enoughHistoryForIndicators: bars.length >= 50,
       enoughHistoryForPriorEpisode: priorLowIndex != null,
