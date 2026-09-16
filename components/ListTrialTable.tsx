@@ -143,6 +143,29 @@ const scoreTone = (score: number | null) => score == null
   ? "text-gray-500"
   : score >= 75 ? "text-green-700" : score >= 55 ? "text-amber-700" : "text-red-700";
 
+type LiveSortKey = "drawdown" | "aboveLow" | "priceStructure" | "bottomScore";
+type LiveSortDirection = "asc" | "desc";
+
+const liveSortDefaultDirection: Record<LiveSortKey, LiveSortDirection> = {
+  drawdown: "asc",
+  aboveLow: "asc",
+  priceStructure: "asc",
+  bottomScore: "desc",
+};
+
+interface LiveSortableHeaderProps {
+  label: string;
+  sortKey: LiveSortKey;
+  activeKey: LiveSortKey | null;
+  direction: LiveSortDirection;
+  onSort: (sortKey: LiveSortKey) => void;
+}
+
+function LiveSortableHeader({ label, sortKey, activeKey, direction, onSort }: LiveSortableHeaderProps) {
+  const active = activeKey === sortKey;
+  return <th className="px-3 py-2"><button type="button" onClick={() => onSort(sortKey)} aria-label={`Sort Live Candidates by ${label}`} aria-pressed={active} className="whitespace-nowrap font-medium hover:text-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1">{label} <span aria-hidden="true" className={active ? "text-blue-700" : "text-gray-400"}>{active ? direction === "asc" ? "↑" : "↓" : "↕"}</span><span className="sr-only">{active ? `, sorted ${direction === "asc" ? "ascending" : "descending"}` : ", activate to sort"}</span></button></th>;
+}
+
 interface BottomScoreTriggerProps {
   ticker: string;
   explanation: BottomScoreExplanationData;
@@ -225,6 +248,8 @@ export default function ListTrialTable({ records, loading = false, saving = fals
   const [liveEvidenceById, setLiveEvidenceById] = useState<Record<string, LiveEvidenceState>>({});
   const [expandedScoreKey, setExpandedScoreKey] = useState<string | null>(null);
   const [expandedIndicatorKey, setExpandedIndicatorKey] = useState<string | null>(null);
+  const [liveSortKey, setLiveSortKey] = useState<LiveSortKey | null>(null);
+  const [liveSortDirection, setLiveSortDirection] = useState<LiveSortDirection>("asc");
 
   function toggleScoreExplanation(key: string) {
     setExpandedScoreKey((current) => current === key ? null : key);
@@ -233,6 +258,29 @@ export default function ListTrialTable({ records, loading = false, saving = fals
   function toggleIndicatorState(key: string) {
     setExpandedIndicatorKey((current) => current === key ? null : key);
   }
+
+  function handleLiveSort(sortKey: LiveSortKey) {
+    if (liveSortKey === sortKey) {
+      setLiveSortDirection((current) => current === "asc" ? "desc" : "asc");
+      return;
+    }
+    setLiveSortKey(sortKey);
+    setLiveSortDirection(liveSortDefaultDirection[sortKey]);
+  }
+
+  const sortedLiveRecords = liveSortKey == null
+    ? liveRecords
+    : liveRecords.map((record, index) => ({ record, index })).sort((a, b) => {
+      const evidenceA = liveEvidenceById[a.record.id]?.evidence;
+      const evidenceB = liveEvidenceById[b.record.id]?.evidence;
+      const valueA = evidenceA == null ? null : liveSortKey === "drawdown" ? evidenceA.drawdownFromAthPct : liveSortKey === "aboveLow" ? evidenceA.pctAboveCurrentRollingLow : liveSortKey === "priceStructure" ? evidenceA.currentLowVsPriorLowPct : evidenceA.bottomCandidate.score;
+      const valueB = evidenceB == null ? null : liveSortKey === "drawdown" ? evidenceB.drawdownFromAthPct : liveSortKey === "aboveLow" ? evidenceB.pctAboveCurrentRollingLow : liveSortKey === "priceStructure" ? evidenceB.currentLowVsPriorLowPct : evidenceB.bottomCandidate.score;
+      if (valueA == null && valueB == null) return a.index - b.index;
+      if (valueA == null) return 1;
+      if (valueB == null) return -1;
+      if (valueA === valueB) return a.index - b.index;
+      return (valueA - valueB) * (liveSortDirection === "asc" ? 1 : -1);
+    }).map(({ record }) => record);
 
   useEffect(() => {
     if (records.length === 0) return;
@@ -436,6 +484,7 @@ export default function ListTrialTable({ records, loading = false, saving = fals
           <h3 id="list-trial-live-title" className="text-sm font-semibold text-gray-800">Live candidates</h3>
           <p className="mt-1 text-xs text-gray-600">Manually add beaten-down names from your Finviz run. This shows a causal snapshot as of today (or the latest trading day), without future outcome labels or automatic imports.</p>
           <p className="mt-2 max-w-3xl text-xs leading-5 text-gray-600"><span className="font-semibold text-gray-700">Bottom score:</span> a fixed 0–100 heuristic for the strength of early-bottom evidence. It is not a probability of recovery; higher scores indicate stronger alignment with the experimental rules when all hard gates pass. Select <span className="font-medium text-blue-700">Explain score</span> to see the calculation.</p>
+          <p className="mt-1 text-xs text-gray-500">Select the <span className="font-medium">Drawdown</span>, <span className="font-medium">Above low</span>, <span className="font-medium">Price structure</span>, or <span className="font-medium">Bottom score</span> headers to sort. Unavailable values stay at the bottom.</p>
         </div>
         <form onSubmit={handleLiveSubmit} className="mt-3 grid gap-3 sm:grid-cols-[1fr_2fr_auto] sm:items-end">
           <label className="block text-xs font-medium text-gray-600">Ticker<input value={liveTicker} onChange={(event) => setLiveTicker(event.target.value)} placeholder="TEAM" className="mt-1 w-full rounded border border-gray-300 bg-white px-2.5 py-2 text-sm uppercase" required /></label>
@@ -445,11 +494,11 @@ export default function ListTrialTable({ records, loading = false, saving = fals
         {liveError && <p className="mt-2 text-sm text-red-600" role="alert">{liveError}</p>}
         <div className="mt-4 overflow-x-auto rounded border border-emerald-100 bg-white">
           <table className="min-w-[1480px] text-left text-xs">
-            <thead className="bg-emerald-50 text-emerald-900"><tr><th className="px-3 py-2">Ticker</th><th className="px-3 py-2">Added</th><th className="px-3 py-2">As of</th><th className="px-3 py-2">As-of price</th><th className="px-3 py-2">Current state</th><th className="px-3 py-2">Drawdown</th><th className="px-3 py-2">Above low</th><th className="px-3 py-2">Price structure</th><th className="px-3 py-2">Bottom score</th><th className="px-3 py-2">Gate notes</th><th className="px-3 py-2">Note</th><th className="px-3 py-2"><span className="sr-only">Actions</span></th></tr></thead>
+            <thead className="bg-emerald-50 text-emerald-900"><tr><th className="px-3 py-2">Ticker</th><th className="px-3 py-2">Added</th><th className="px-3 py-2">As of</th><th className="px-3 py-2">As-of price</th><th className="px-3 py-2">Current state</th><LiveSortableHeader label="Drawdown" sortKey="drawdown" activeKey={liveSortKey} direction={liveSortDirection} onSort={handleLiveSort} /><LiveSortableHeader label="Above low" sortKey="aboveLow" activeKey={liveSortKey} direction={liveSortDirection} onSort={handleLiveSort} /><LiveSortableHeader label="Price structure" sortKey="priceStructure" activeKey={liveSortKey} direction={liveSortDirection} onSort={handleLiveSort} /><LiveSortableHeader label="Bottom score" sortKey="bottomScore" activeKey={liveSortKey} direction={liveSortDirection} onSort={handleLiveSort} /><th className="px-3 py-2">Gate notes</th><th className="px-3 py-2">Note</th><th className="px-3 py-2"><span className="sr-only">Actions</span></th></tr></thead>
             <tbody className="divide-y divide-emerald-50">
               {liveLoading && <tr><td colSpan={12} className="px-3 py-5 text-center text-gray-500">Loading live candidates…</td></tr>}
               {!liveLoading && liveRecords.length === 0 && <tr><td colSpan={12} className="px-3 py-5 text-center text-gray-500">No live candidates yet.</td></tr>}
-              {!liveLoading && liveRecords.map((record) => {
+              {!liveLoading && sortedLiveRecords.map((record) => {
                 const state = liveEvidenceById[record.id];
                 const evidence = state?.evidence;
                 const structure = evidence ? priceStructureStatus(evidence.currentLowVsPriorLowPct) : null;
