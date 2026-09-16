@@ -30,6 +30,32 @@ export interface BottomCandidateScoreResult {
   };
 }
 
+export type PriceStructureBand =
+  | "unavailable"
+  | "severe_lower_low"
+  | "deeper_lower_low"
+  | "within_trial_range"
+  | "higher_low"
+  | "too_far_above";
+
+export function getPriceStructureBand(value: number | null): PriceStructureBand {
+  if (value == null) return "unavailable";
+  if (value < -30) return "severe_lower_low";
+  if (value < -20) return "deeper_lower_low";
+  if (value <= 5) return "within_trial_range";
+  if (value <= 15) return "higher_low";
+  return "too_far_above";
+}
+
+export function getPriceStructurePoints(value: number | null): number {
+  switch (getPriceStructureBand(value)) {
+    case "deeper_lower_low": return 5;
+    case "within_trial_range": return 15;
+    case "higher_low": return 8;
+    default: return 0;
+  }
+}
+
 export type BottomScoreComponentStatus = "favorable" | "neutral" | "unfavorable" | "unavailable";
 
 export interface BottomScoreExplanationInput {
@@ -104,9 +130,12 @@ function describeProximity(input: BottomCandidateScoreInput, points: number): st
 
 function describePriceStructure(input: BottomCandidateScoreInput, points: number): string {
   if (input.currentLowVsPriorLowPct == null) return "The current low cannot be compared with a prior selling-episode low.";
-  if (points >= 15) return `The current low is ${input.currentLowVsPriorLowPct.toFixed(1)}% versus the prior selling-episode low, inside the accepted -20% to +5% range.`;
-  if (input.currentLowVsPriorLowPct < -20) return `The current low is ${Math.abs(input.currentLowVsPriorLowPct).toFixed(1)}% below the prior selling-episode low; the first score does not reward a decline deeper than 20%.`;
-  return `The current low is ${input.currentLowVsPriorLowPct.toFixed(1)}% above the prior selling-episode low, outside the accepted -20% to +5% range.`;
+  const value = input.currentLowVsPriorLowPct;
+  if (points >= 15) return `The current low is ${value.toFixed(1)}% versus the prior selling-episode low, inside the full-credit -20% to +5% range and earning 15 points.`;
+  if (value < -30) return `The current low is ${Math.abs(value).toFixed(1)}% below the prior selling-episode low, beyond the -30% limit, so this factor earns no points.`;
+  if (value < -20) return `The current low is ${Math.abs(value).toFixed(1)}% below the prior selling-episode low, in the -30% to -20% partial-credit range and earning 5 points.`;
+  if (value <= 15) return `The current low is ${value.toFixed(1)}% above the prior selling-episode low, in the +5% to +15% higher-low range and earning 8 points.`;
+  return `The current low is ${value.toFixed(1)}% above the prior selling-episode low, beyond the +15% limit, so this factor earns no points.`;
 }
 
 function describeSingleImprovement(value: number | null, label: string, cap: number, unit: string): string {
@@ -299,10 +328,9 @@ export function calcBottomCandidateScore(input: BottomCandidateScoreInput): Bott
   const proximity = input.pctAboveCurrentRollingLow != null
     ? clamp(1 - input.pctAboveCurrentRollingLow / 15) * 20
     : 0;
-  // A lower/equal low is valid from -20% to +5% versus the prior selling episode. A large gap
-  // higher is no longer a near-bottom attempt; a much deeper decline is left for trial evidence,
-  // not rewarded by the first score.
-  const priceStructure = input.currentLowVsPriorLowPct != null && input.currentLowVsPriorLowPct >= -20 && input.currentLowVsPriorLowPct <= 5 ? 15 : 0;
+  // Keep the original -20% to +5% band as the full-credit core, while giving limited credit to
+  // moderately deeper and higher-low structures. Extreme gaps remain evidence-only and score 0.
+  const priceStructure = getPriceStructurePoints(input.currentLowVsPriorLowPct);
   const rsi = input.rsiDeltaCurrentVsPrior != null ? clamp(input.rsiDeltaCurrentVsPrior / 10) * 15 : 0;
   const macd = input.macdHistPctDeltaCurrentVsPrior != null ? clamp(input.macdHistPctDeltaCurrentVsPrior / 0.5) * 15 : 0;
   const directionalPressure = input.diGapDeltaCurrentVsPrior != null && input.adxDeltaCurrentVsPrior != null

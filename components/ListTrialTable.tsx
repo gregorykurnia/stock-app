@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useState, type FormEvent } from "react";
 import type { UsBreakoutListTrialCohort, UsBreakoutListTrialLiveRecord, UsBreakoutListTrialRecord } from "@/lib/firestore";
-import type { BottomScoreExplanation as BottomScoreExplanationData } from "@/lib/listTrialScore";
+import { getPriceStructureBand, type BottomScoreExplanation as BottomScoreExplanationData } from "@/lib/listTrialScore";
 import BottomScoreExplanation from "./BottomScoreExplanation";
 import ListTrialIndicatorState, { ListTrialIndicatorStateSummary, type ListTrialIndicatorStateData } from "./ListTrialIndicatorState";
 
@@ -121,10 +121,14 @@ const formatNumber = (value: number | null | undefined, digits = 1) => value == 
 const formatPercent = (value: number | null | undefined, digits = 1) => value == null ? "—" : `${value.toFixed(digits)}%`;
 const formatPrice = (value: number | null | undefined) => value == null ? "—" : `$${value.toFixed(2)}`;
 const priceStructureStatus = (value: number | null | undefined) => {
-  if (value == null) return { label: "Unavailable", description: "No comparable prior selling-episode low is available.", className: "bg-slate-100 text-slate-600" };
-  if (value >= -20 && value <= 5) return { label: "Within trial range", description: "Current low is between 20% below and 5% above the prior selling-episode low, so it receives the price-structure allocation.", className: "bg-emerald-100 text-emerald-800" };
-  if (value < -20) return { label: "Deeper lower low", description: "Current low is more than 20% below the prior selling-episode low, so it receives no price-structure points under the current rule.", className: "bg-rose-100 text-rose-800" };
-  return { label: "Higher than prior low", description: "Current low is more than 5% above the prior selling-episode low, so it receives no price-structure points under the current rule.", className: "bg-amber-100 text-amber-800" };
+  switch (getPriceStructureBand(value == null ? null : value)) {
+    case "unavailable": return { label: "Unavailable", description: "No comparable prior selling-episode low is available.", className: "bg-slate-100 text-slate-600" };
+    case "severe_lower_low": return { label: "Severe lower low", description: "Current low is more than 30% below the prior selling-episode low, so it receives no price-structure points.", className: "bg-rose-100 text-rose-800" };
+    case "deeper_lower_low": return { label: "Deeper lower low", description: "Current low is 20% to 30% below the prior selling-episode low, so it receives 5 of 15 price-structure points.", className: "bg-orange-100 text-orange-800" };
+    case "within_trial_range": return { label: "Within trial range", description: "Current low is between 20% below and 5% above the prior selling-episode low, so it receives all 15 price-structure points.", className: "bg-emerald-100 text-emerald-800" };
+    case "higher_low": return { label: "Higher low", description: "Current low is 5% to 15% above the prior selling-episode low, so it receives 8 of 15 price-structure points.", className: "bg-amber-100 text-amber-800" };
+    case "too_far_above": return { label: "Too far above", description: "Current low is more than 15% above the prior selling-episode low, so it receives no price-structure points.", className: "bg-amber-100 text-amber-800" };
+  }
 };
 const outcomeLabel: Record<TrialOutcome["primaryOutcome"]["status"], string> = {
   target_first: "Target first",

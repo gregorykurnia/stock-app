@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { calcBottomCandidateScore, explainBottomCandidateScore } from "../lib/listTrialScore";
+import { calcBottomCandidateScore, explainBottomCandidateScore, getPriceStructureBand } from "../lib/listTrialScore";
 
 const strongCandidate = {
   eligibleAt40PctBelowAth: true,
@@ -18,6 +18,25 @@ test("scores a complete near-low candidate from causal evidence only", () => {
   const result = calcBottomCandidateScore(strongCandidate);
   assert.ok(Math.abs((result.score ?? 0) - 97.33333333333333) < 1e-9);
   assert.deepEqual(result.gates.reasons, []);
+});
+
+test("uses the expanded price-structure bands and points at each boundary", () => {
+  const cases = [
+    { value: -30.1, band: "severe_lower_low", points: 0 },
+    { value: -30, band: "deeper_lower_low", points: 5 },
+    { value: -20.1, band: "deeper_lower_low", points: 5 },
+    { value: -20, band: "within_trial_range", points: 15 },
+    { value: 5, band: "within_trial_range", points: 15 },
+    { value: 5.1, band: "higher_low", points: 8 },
+    { value: 15, band: "higher_low", points: 8 },
+    { value: 15.1, band: "too_far_above", points: 0 },
+  ] as const;
+
+  for (const { value, band, points } of cases) {
+    const result = calcBottomCandidateScore({ ...strongCandidate, currentLowVsPriorLowPct: value });
+    assert.equal(getPriceStructureBand(value), band);
+    assert.equal(result.parts.priceStructure, points);
+  }
 });
 
 test("withholds a score when the candidate fails an eligibility gate", () => {
