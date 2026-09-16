@@ -4,6 +4,7 @@ import { Fragment, useEffect, useState, type FormEvent } from "react";
 import type { UsBreakoutListTrialCohort, UsBreakoutListTrialLiveRecord, UsBreakoutListTrialRecord } from "@/lib/firestore";
 import type { BottomScoreExplanation as BottomScoreExplanationData } from "@/lib/listTrialScore";
 import BottomScoreExplanation from "./BottomScoreExplanation";
+import ListTrialIndicatorState, { ListTrialIndicatorStateSummary, type ListTrialIndicatorStateData } from "./ListTrialIndicatorState";
 
 interface ListTrialTableProps {
   records: UsBreakoutListTrialRecord[];
@@ -39,20 +40,7 @@ interface TrialEvidence {
   priorSellingEpisodeLow: number | null;
   priorSellingEpisodeLowDate: string | null;
   currentLowVsPriorLowPct: number | null;
-  indicators: {
-    rsiAtCurrentLow: number | null;
-    rsiAtPriorLow: number | null;
-    rsiDeltaCurrentVsPrior: number | null;
-    macdHistPctAtCurrentLow: number | null;
-    macdHistPctAtPriorLow: number | null;
-    macdHistPctDeltaCurrentVsPrior: number | null;
-    diGapAtCurrentLow: number | null;
-    diGapAtPriorLow: number | null;
-    adxDeltaCurrentVsPrior: number | null;
-    cmfDeltaCurrentVsPrior: number | null;
-    atrPct: number | null;
-    relativeVolume20: number | null;
-  };
+  indicators: ListTrialIndicatorStateData;
   dataQuality: {
     enoughHistoryForPriorEpisode: boolean;
     requestedDateWasTradingDay: boolean;
@@ -230,9 +218,14 @@ export default function ListTrialTable({ records, loading = false, saving = fals
   const [liveNote, setLiveNote] = useState("");
   const [liveEvidenceById, setLiveEvidenceById] = useState<Record<string, LiveEvidenceState>>({});
   const [expandedScoreKey, setExpandedScoreKey] = useState<string | null>(null);
+  const [expandedIndicatorKey, setExpandedIndicatorKey] = useState<string | null>(null);
 
   function toggleScoreExplanation(key: string) {
     setExpandedScoreKey((current) => current === key ? null : key);
+  }
+
+  function toggleIndicatorState(key: string) {
+    setExpandedIndicatorKey((current) => current === key ? null : key);
   }
 
   useEffect(() => {
@@ -445,24 +438,28 @@ export default function ListTrialTable({ records, loading = false, saving = fals
         </form>
         {liveError && <p className="mt-2 text-sm text-red-600" role="alert">{liveError}</p>}
         <div className="mt-4 overflow-x-auto rounded border border-emerald-100 bg-white">
-          <table className="min-w-[1160px] text-left text-xs">
-            <thead className="bg-emerald-50 text-emerald-900"><tr><th className="px-3 py-2">Ticker</th><th className="px-3 py-2">Added</th><th className="px-3 py-2">As of</th><th className="px-3 py-2">As-of price</th><th className="px-3 py-2">Drawdown</th><th className="px-3 py-2">Above low</th><th className="px-3 py-2">Bottom score</th><th className="px-3 py-2">Gate notes</th><th className="px-3 py-2">Note</th><th className="px-3 py-2"><span className="sr-only">Actions</span></th></tr></thead>
+          <table className="min-w-[1360px] text-left text-xs">
+            <thead className="bg-emerald-50 text-emerald-900"><tr><th className="px-3 py-2">Ticker</th><th className="px-3 py-2">Added</th><th className="px-3 py-2">As of</th><th className="px-3 py-2">As-of price</th><th className="px-3 py-2">Current state</th><th className="px-3 py-2">Drawdown</th><th className="px-3 py-2">Above low</th><th className="px-3 py-2">Bottom score</th><th className="px-3 py-2">Gate notes</th><th className="px-3 py-2">Note</th><th className="px-3 py-2"><span className="sr-only">Actions</span></th></tr></thead>
             <tbody className="divide-y divide-emerald-50">
-              {liveLoading && <tr><td colSpan={10} className="px-3 py-5 text-center text-gray-500">Loading live candidates…</td></tr>}
-              {!liveLoading && liveRecords.length === 0 && <tr><td colSpan={10} className="px-3 py-5 text-center text-gray-500">No live candidates yet.</td></tr>}
+              {liveLoading && <tr><td colSpan={11} className="px-3 py-5 text-center text-gray-500">Loading live candidates…</td></tr>}
+              {!liveLoading && liveRecords.length === 0 && <tr><td colSpan={11} className="px-3 py-5 text-center text-gray-500">No live candidates yet.</td></tr>}
               {!liveLoading && liveRecords.map((record) => {
                 const state = liveEvidenceById[record.id];
                 const evidence = state?.evidence;
                 const explanationKey = `live:${record.id}`;
                 const explanationId = `bottom-score-explanation-${record.id}`;
                 const expanded = expandedScoreKey === explanationKey;
+                const indicatorStateKey = `live:${record.id}`;
+                const indicatorStateId = `indicator-state-${record.id}`;
+                const indicatorStateExpanded = expandedIndicatorKey === indicatorStateKey;
                 return <Fragment key={record.id}>
                   <tr>
                     <td className="px-3 py-2 font-mono font-semibold">{record.ticker}</td>
                     <td className="px-3 py-2 text-gray-600">{record.addedAt.slice(0, 10)}</td>
-                    {!evidence ? <td colSpan={6} className="px-3 py-2 text-gray-400">{state?.error ?? "Loading today’s causal snapshot…"}</td> : <>
+                    {!evidence ? <td colSpan={7} className="px-3 py-2 text-gray-400">{state?.error ?? "Loading today’s causal snapshot…"}</td> : <>
                       <td className="px-3 py-2">{evidence.asOfDate}{!evidence.dataQuality.requestedDateWasTradingDay && <span className="ml-1 text-amber-600">*</span>}</td>
                       <td className="px-3 py-2 font-medium text-gray-800">{formatPrice(evidence.price)}</td>
+                      <td className="max-w-[270px] px-3 py-2 text-gray-700"><div className="overflow-hidden text-ellipsis"><ListTrialIndicatorStateSummary state={evidence.indicators} /></div><button type="button" onClick={() => toggleIndicatorState(indicatorStateKey)} aria-expanded={indicatorStateExpanded} aria-controls={indicatorStateId} className="mt-1 font-medium text-blue-700 underline decoration-dotted underline-offset-2 hover:text-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1">{indicatorStateExpanded ? "Hide details" : "View details"}<span className="sr-only"> for {record.ticker}</span></button></td>
                       <td className="px-3 py-2">{formatPercent(evidence.drawdownFromAthPct)}</td>
                       <td className="px-3 py-2">{formatPercent(evidence.pctAboveCurrentRollingLow)}</td>
                       <td className={`px-3 py-2 ${scoreTone(evidence.bottomCandidate.score)}`}><BottomScoreTrigger ticker={record.ticker} explanation={evidence.bottomCandidate.explanation} expanded={expanded} controlsId={explanationId} onToggle={() => toggleScoreExplanation(explanationKey)} /></td>
@@ -471,7 +468,8 @@ export default function ListTrialTable({ records, loading = false, saving = fals
                     <td className="max-w-xs px-3 py-2 text-gray-600">{record.note || <span className="text-gray-400">—</span>}</td>
                     <td className="px-3 py-2 text-right"><button type="button" onClick={() => onLiveRemove(record.id)} className="text-xs font-medium text-red-600 hover:text-red-800">Remove</button></td>
                   </tr>
-                  {evidence && expanded && <tr id={explanationId}><td colSpan={10} className="p-3"><BottomScoreExplanation explanation={evidence.bottomCandidate.explanation} /></td></tr>}
+                  {evidence && expanded && <tr id={explanationId}><td colSpan={11} className="p-3"><BottomScoreExplanation explanation={evidence.bottomCandidate.explanation} /></td></tr>}
+                  {evidence && indicatorStateExpanded && <tr id={indicatorStateId}><td colSpan={11} className="p-3"><ListTrialIndicatorState state={evidence.indicators} asOfDate={evidence.asOfDate} price={evidence.price} currentRollingLow={evidence.currentRollingLow} pctAboveCurrentRollingLow={evidence.pctAboveCurrentRollingLow} requestedDateWasTradingDay={evidence.dataQuality.requestedDateWasTradingDay} heading="Latest available state" /></td></tr>}
                 </Fragment>;
               })}
             </tbody>
@@ -562,7 +560,7 @@ export default function ListTrialTable({ records, loading = false, saving = fals
                 <td className="max-w-sm px-3 py-2 text-gray-600">{record.note || <span className="text-gray-400">—</span>}</td>
                 <td className="px-3 py-2 text-right"><button type="button" onClick={() => onRemove(record.id)} className="text-xs font-medium text-red-600 hover:text-red-800">Remove</button></td>
               </tr>
-              {evidenceByKey[key]?.evidence && expanded && <tr id={explanationId}><td colSpan={24} className="p-3"><BottomScoreExplanation explanation={evidenceByKey[key].evidence!.bottomCandidate.explanation} /></td></tr>}
+              {evidenceByKey[key]?.evidence && expanded && <tr id={explanationId}><td colSpan={24} className="p-3"><BottomScoreExplanation explanation={evidenceByKey[key].evidence!.bottomCandidate.explanation} indicatorState={evidenceByKey[key].evidence!.indicators} asOfDate={evidenceByKey[key].evidence!.asOfDate} price={evidenceByKey[key].evidence!.price} currentRollingLow={evidenceByKey[key].evidence!.currentRollingLow} pctAboveCurrentRollingLow={evidenceByKey[key].evidence!.pctAboveCurrentRollingLow} requestedDateWasTradingDay={evidenceByKey[key].evidence!.dataQuality.requestedDateWasTradingDay} /></td></tr>}
               </Fragment>;
             })}
           </tbody>

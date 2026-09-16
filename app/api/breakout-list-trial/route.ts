@@ -191,6 +191,8 @@ export async function GET(req: NextRequest) {
       macdHistPctAtCurrentLow: currentLowHistPct,
       macdHistPctAtPriorLow: priorLowHistPct,
       macdHistPctDeltaCurrentVsPrior,
+      diPlus: valueAt(indicators.diPlus, asOfIndex),
+      diMinus: valueAt(indicators.diMinus, asOfIndex),
       diGap: difference(valueAt(indicators.diPlus, asOfIndex), valueAt(indicators.diMinus, asOfIndex)),
       diGapAtCurrentLow: currentLowIndex == null ? null : difference(valueAt(indicators.diPlus, currentLowIndex), valueAt(indicators.diMinus, currentLowIndex)),
       diGapAtPriorLow: priorLowIndex == null ? null : difference(valueAt(indicators.diPlus, priorLowIndex), valueAt(indicators.diMinus, priorLowIndex)),

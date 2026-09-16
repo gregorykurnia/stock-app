@@ -1,7 +1,14 @@
 import type { BottomScoreComponentStatus, BottomScoreExplanation as BottomScoreExplanationData } from "@/lib/listTrialScore";
+import ListTrialIndicatorState, { type ListTrialIndicatorStateData } from "./ListTrialIndicatorState";
 
 interface BottomScoreExplanationProps {
   explanation: BottomScoreExplanationData;
+  indicatorState?: ListTrialIndicatorStateData;
+  asOfDate?: string;
+  price?: number | null;
+  currentRollingLow?: number | null;
+  pctAboveCurrentRollingLow?: number | null;
+  requestedDateWasTradingDay?: boolean;
 }
 
 const statusLabel: Record<BottomScoreComponentStatus, string> = {
@@ -28,7 +35,7 @@ const formatInput = (value: number | null, unit: "percent" | "percentagePoints" 
 
 const formatPrice = (value: number | null) => value == null ? "Unavailable" : value.toFixed(2);
 
-export default function BottomScoreExplanation({ explanation }: BottomScoreExplanationProps) {
+export default function BottomScoreExplanation({ explanation, indicatorState, asOfDate, price, currentRollingLow, pctAboveCurrentRollingLow, requestedDateWasTradingDay = true }: BottomScoreExplanationProps) {
   return (
     <div className="space-y-4 rounded-lg border border-blue-200 bg-blue-50/50 p-4 text-left" data-testid="bottom-score-explanation">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -60,6 +67,8 @@ export default function BottomScoreExplanation({ explanation }: BottomScoreExpla
           </ul>
         </div>
       </div>
+
+      {indicatorState && asOfDate && <ListTrialIndicatorState state={indicatorState} asOfDate={asOfDate} price={price ?? null} currentRollingLow={currentRollingLow ?? null} pctAboveCurrentRollingLow={pctAboveCurrentRollingLow ?? null} requestedDateWasTradingDay={requestedDateWasTradingDay} heading="As-of candidate-date indicator state" />}
 
       <div>
         <div className="mb-2 flex items-center justify-between gap-2">
