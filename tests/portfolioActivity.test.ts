@@ -120,6 +120,30 @@ test("reconciliation preview rejects duplicate cash and position targets", () =>
   }), /position target is duplicated/);
 });
 
+test("reconciliation applies a cost-basis-only correction when quantity is unchanged", () => {
+  const opening = transaction("opening_balance", {
+    bucket: "swing", ticker: "ABC", quantity: 10, price: 100,
+  });
+  const currentState = reducePortfolioLedger([opening]);
+  const adjustments = buildReconciliationAdjustments({
+    currentState,
+    cashTargets: [],
+    positionTargets: [{ bucket: "swing", ticker: "ABC", quantity: 10, costBasisUsd: 950 }],
+    occurredAt: "2026-09-18T09:00:00.000Z",
+    recordedAt: "2026-09-18T10:00:00.000Z",
+    notes: "Broker statement cost-basis correction",
+    idFactory: (kind, index) => `${kind}-${index}`,
+  });
+  const finalState = reducePortfolioLedger([opening, ...adjustments]);
+
+  assert.equal(adjustments.length, 1);
+  assert.equal(adjustments[0].quantity, undefined);
+  assert.equal(adjustments[0].costBasisDeltaUsd, -50);
+  assert.equal(finalState.buckets.swing.positions.ABC.quantity, 10);
+  assert.equal(finalState.buckets.swing.positions.ABC.costBasisUsd, 950);
+  assert.equal(finalState.buckets.swing.positions.ABC.averageCostUsd, 95);
+});
+
 test("activity rows combine transfer legs and show late sell P/L and remaining quantity", () => {
   const activity = [
     transaction("opening_balance", { bucket: "longterm", ticker: "ABC", quantity: 10, price: 100, occurredAt: "2026-09-16T09:00:00.000Z" }),

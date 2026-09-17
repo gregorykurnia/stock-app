@@ -640,7 +640,9 @@ function applyTransaction(state: PortfolioLedgerState, transaction: LedgerTransa
       break;
     case "reconciliation_adjustment":
       applyCash(state, bucketId, currency, cashDelta, transaction.transactionId);
-      if (Math.abs(amount(transaction.quantity)) > EPSILON) applyPositionAdjustment(state, transaction);
+      if (Math.abs(amount(transaction.quantity)) > EPSILON || Math.abs(amount(transaction.costBasisDeltaUsd)) > EPSILON) {
+        applyPositionAdjustment(state, transaction);
+      }
       break;
     case "transfer":
     case "fx_conversion":
