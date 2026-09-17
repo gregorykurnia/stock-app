@@ -170,6 +170,8 @@ export default function PortfolioAccountingPanel({ onLedgerChanged }: Props) {
   const [historyType, setHistoryType] = useState("all");
   const [historyBucket, setHistoryBucket] = useState("all");
   const [historySearch, setHistorySearch] = useState("");
+  const [historyFrom, setHistoryFrom] = useState("");
+  const [historyTo, setHistoryTo] = useState("");
 
   async function reload() {
     setLoading(true);
@@ -212,15 +214,18 @@ export default function PortfolioAccountingPanel({ onLedgerChanged }: Props) {
   const historyRows = useMemo(() => {
     const search = historySearch.trim().toUpperCase();
     return buildPortfolioActivityRows(transactions).filter((row) => {
+      const occurredDate = row.occurredAt.slice(0, 10);
       const typeMatches = historyType === "all" || row.type === historyType;
       const bucketMatches = historyBucket === "all"
         || row.bucket === historyBucket
         || row.fromBucket === historyBucket
         || row.toBucket === historyBucket;
       const searchMatches = !search || row.ticker?.includes(search) || row.notes?.toUpperCase().includes(search);
-      return typeMatches && bucketMatches && searchMatches;
+      const fromMatches = !historyFrom || occurredDate >= historyFrom;
+      const toMatches = !historyTo || occurredDate <= historyTo;
+      return typeMatches && bucketMatches && searchMatches && fromMatches && toMatches;
     });
-  }, [historyBucket, historySearch, historyType, transactions]);
+  }, [historyBucket, historyFrom, historySearch, historyTo, historyType, transactions]);
 
   async function saveRecords(records: LedgerTransaction[], message: string): Promise<boolean> {
     if (records.length === 0) throw new Error("There is nothing to record");
@@ -482,7 +487,7 @@ export default function PortfolioAccountingPanel({ onLedgerChanged }: Props) {
             <button className="btn btn-primary" type="submit" disabled={saving || !ledgerReady}>{saving ? "Recording…" : "Record reconciliation"}</button>
           </form>}
 
-          {tab === "history" && <div className="space-y-3 px-4 py-4 sm:px-5"><div className="grid gap-2 md:grid-cols-3"><select className="input-field" value={historyType} onChange={(event) => setHistoryType(event.target.value)}><option value="all">All activity types</option>{[...ACTIVITY_TYPES, { id: "opening_balance" as const, label: "Opening balance" }, { id: "reconciliation_adjustment" as const, label: "Reconciliation" }].map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select><select className="input-field" value={historyBucket} onChange={(event) => setHistoryBucket(event.target.value)}><option value="all">All pockets</option>{BUCKETS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select><input className="input-field" value={historySearch} onChange={(event) => setHistorySearch(event.target.value)} placeholder="Filter ticker or note" /></div><div className="overflow-x-auto rounded-xl border border-gray-100"><table className="min-w-full text-left text-xs"><thead className="bg-gray-50 text-[10px] uppercase tracking-wide text-gray-500"><tr><th className="px-3 py-2">Occurred / recorded</th><th className="px-3 py-2">Activity</th><th className="px-3 py-2">Pocket / ticker</th><th className="px-3 py-2">Qty</th><th className="px-3 py-2">Amount</th><th className="px-3 py-2">Realized P/L</th><th className="px-3 py-2">Remaining</th></tr></thead><tbody className="divide-y divide-gray-100">{historyRows.length === 0 ? <tr><td colSpan={7} className="px-3 py-6 text-center text-gray-400">No ledger activity matches these filters.</td></tr> : historyRows.map((row) => <ActivityRowView key={row.transactionIds.join("/")} row={row} />)}</tbody></table></div></div>}
+          {tab === "history" && <div className="space-y-3 px-4 py-4 sm:px-5"><div className="grid gap-2 md:grid-cols-5"><select className="input-field" value={historyType} onChange={(event) => setHistoryType(event.target.value)}><option value="all">All activity types</option>{[...ACTIVITY_TYPES, { id: "opening_balance" as const, label: "Opening balance" }, { id: "reconciliation_adjustment" as const, label: "Reconciliation" }].map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select><select className="input-field" value={historyBucket} onChange={(event) => setHistoryBucket(event.target.value)}><option value="all">Total portfolio</option>{BUCKETS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select><input className="input-field" type="date" value={historyFrom} onChange={(event) => setHistoryFrom(event.target.value)} aria-label="Activity from date" /><input className="input-field" type="date" value={historyTo} onChange={(event) => setHistoryTo(event.target.value)} aria-label="Activity to date" /><input className="input-field" value={historySearch} onChange={(event) => setHistorySearch(event.target.value)} placeholder="Filter ticker or note" /></div><div className="overflow-x-auto rounded-xl border border-gray-100"><table className="min-w-full text-left text-xs"><thead className="bg-gray-50 text-[10px] uppercase tracking-wide text-gray-500"><tr><th className="px-3 py-2">Occurred / recorded</th><th className="px-3 py-2">Activity</th><th className="px-3 py-2">Pocket / ticker</th><th className="px-3 py-2">Qty</th><th className="px-3 py-2">Price</th><th className="px-3 py-2">Gross / amount</th><th className="px-3 py-2">Fees</th><th className="px-3 py-2">Net cash</th><th className="px-3 py-2">Cost basis</th><th className="px-3 py-2">Realized P/L</th><th className="px-3 py-2">Remaining</th></tr></thead><tbody className="divide-y divide-gray-100">{historyRows.length === 0 ? <tr><td colSpan={11} className="px-3 py-6 text-center text-gray-400">No ledger activity matches these filters.</td></tr> : historyRows.map((row) => <ActivityRowView key={row.transactionIds.join("/")} row={row} />)}</tbody></table></div></div>}
         </>
       )}
     </section>
@@ -492,5 +497,6 @@ export default function PortfolioAccountingPanel({ onLedgerChanged }: Props) {
 function ActivityRowView({ row }: { row: PortfolioActivityRow }) {
   const pocket = row.fromBucket && row.toBucket ? `${row.fromBucket} → ${row.toBucket}` : row.bucket ?? "—";
   const amount = row.grossAmount ?? (row.cashDelta != null ? Math.abs(row.cashDelta) : undefined);
-  return <tr className="align-top hover:bg-gray-50"><td className="whitespace-nowrap px-3 py-2"><div className="font-semibold">{row.occurredAt.slice(0, 16).replace("T", " ")}</div><div className="text-[10px] text-gray-400">recorded {row.recordedAt.slice(0, 16).replace("T", " ")}{row.isLate ? " · late" : ""}</div></td><td className="px-3 py-2"><span className="font-semibold">{humanType(row.type)}</span>{row.notes && <div className="mt-0.5 max-w-xs text-[10px] text-gray-400">{row.notes}</div>}</td><td className="px-3 py-2"><div className="capitalize text-gray-600">{pocket}</div>{row.ticker && <div className="font-mono font-semibold">{row.ticker}</div>}</td><td className="px-3 py-2">{row.quantity == null ? "—" : formatNumber(row.quantity)}</td><td className="px-3 py-2">{amount == null ? "—" : `${formatMoney(amount, row.currency)}${row.currency ? ` ${row.currency}` : ""}`}</td><td className={`px-3 py-2 font-semibold ${(row.realizedGainUsd ?? 0) >= 0 ? "text-green-600" : "text-red-500"}`}>{row.realizedGainUsd == null ? "—" : formatMoney(row.realizedGainUsd, "USD")}</td><td className="px-3 py-2">{row.remainingQuantity == null ? "—" : formatNumber(row.remainingQuantity)}</td></tr>;
+  const signedCash = row.cashDelta;
+  return <tr className="align-top hover:bg-gray-50"><td className="whitespace-nowrap px-3 py-2"><div className="font-semibold">{row.occurredAt.slice(0, 16).replace("T", " ")}</div><div className="text-[10px] text-gray-400">recorded {row.recordedAt.slice(0, 16).replace("T", " ")}{row.isLate ? " · late" : ""}</div></td><td className="px-3 py-2"><span className="font-semibold">{humanType(row.type)}</span>{row.notes && <div className="mt-0.5 max-w-xs text-[10px] text-gray-400">{row.notes}</div>}</td><td className="px-3 py-2"><div className="capitalize text-gray-600">{pocket}</div>{row.ticker && <div className="font-mono font-semibold">{row.ticker}</div>}</td><td className="px-3 py-2">{row.quantity == null ? "—" : formatNumber(row.quantity)}</td><td className="px-3 py-2">{row.price == null ? "—" : formatMoney(row.price, "USD")}</td><td className="px-3 py-2">{amount == null ? "—" : `${formatMoney(amount, row.currency)}${row.currency ? ` ${row.currency}` : ""}`}</td><td className="px-3 py-2">{row.fees == null ? "—" : `${formatMoney(row.fees, row.currency)}${row.currency ? ` ${row.currency}` : ""}`}</td><td className={`px-3 py-2 ${(signedCash ?? 0) >= 0 ? "text-green-600" : "text-red-500"}`}>{signedCash == null ? "—" : `${signedCash >= 0 ? "+" : ""}${formatMoney(signedCash, row.currency)}${row.currency ? ` ${row.currency}` : ""}`}</td><td className="px-3 py-2">{row.costBasisUsd == null ? "—" : formatMoney(row.costBasisUsd, "USD")}</td><td className={`px-3 py-2 font-semibold ${(row.realizedGainUsd ?? 0) >= 0 ? "text-green-600" : "text-red-500"}`}>{row.realizedGainUsd == null ? "—" : formatMoney(row.realizedGainUsd, "USD")}</td><td className="px-3 py-2">{row.remainingQuantity == null ? "—" : formatNumber(row.remainingQuantity)}</td></tr>;
 }

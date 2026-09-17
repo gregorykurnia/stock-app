@@ -121,6 +121,7 @@ export interface PortfolioActivityRow {
   price?: number;
   grossAmount?: number;
   fees?: number;
+  costBasisUsd?: number;
   cashDelta?: number;
   currency: LedgerCurrency | null;
   externalFlow?: number;
@@ -190,7 +191,9 @@ export function buildPortfolioActivityRows(transactions: readonly LedgerTransact
       price: representative.price,
       grossAmount: eventAmount(event),
       fees: event.reduce((sum, item) => sum + (item.fees ?? 0), 0) || undefined,
-      cashDelta: event.reduce((sum, item) => sum + (item.cashDelta ?? 0), 0) || undefined,
+      cashDelta: event.some((item) => item.cashDelta != null)
+        ? event.reduce((sum, item) => sum + (item.cashDelta ?? 0), 0)
+        : undefined,
       currency: sameCurrency ? representative.currency : null,
       externalFlow: event.reduce((sum, item) => sum + (item.externalFlow ?? 0), 0) || undefined,
       notes: uniqueNotes(event),
@@ -199,9 +202,10 @@ export function buildPortfolioActivityRows(transactions: readonly LedgerTransact
 
     if (representative.type === "sell" && representative.bucket && representative.ticker) {
       const beforePosition = before.buckets[representative.bucket].positions[representative.ticker];
+      row.costBasisUsd = (beforePosition?.averageCostUsd ?? 0) * (representative.quantity ?? 0);
       row.realizedGainUsd = (representative.grossAmount ?? 0)
         - (representative.fees ?? 0)
-        - (beforePosition?.averageCostUsd ?? 0) * (representative.quantity ?? 0);
+        - row.costBasisUsd;
     }
 
     const positionBucket = representative.bucket ?? representative.toBucket;

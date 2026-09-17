@@ -63,6 +63,11 @@ test("activity rows combine transfer legs and show late sell P/L and remaining q
   const transfer = rows.find((row) => row.type === "transfer");
 
   assert.equal(rows.length, 3);
+  assert.equal(sell?.price, 120);
+  assert.equal(sell?.grossAmount, 120);
+  assert.equal(sell?.fees, undefined);
+  assert.equal(sell?.cashDelta, 120);
+  assert.equal(sell?.costBasisUsd, 100);
   assert.equal(sell?.realizedGainUsd, 20);
   assert.equal(sell?.remainingQuantity, 1);
   assert.equal(sell?.isLate, true);
