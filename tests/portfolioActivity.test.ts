@@ -101,6 +101,25 @@ test("reconciliation preview reports deltas without mutating the current ledger 
   assert.equal(currentState.buckets.swing.positions.ABC.quantity, 10);
 });
 
+test("reconciliation preview rejects duplicate cash and position targets", () => {
+  const currentState = reducePortfolioLedger([]);
+  const base = {
+    currentState,
+    cashTargets: [{ bucket: "swing" as const, currency: "USD" as const, cash: 100 }],
+    positionTargets: [{ bucket: "swing" as const, ticker: "ABC", quantity: 1, costBasisUsd: 100 }],
+    notes: "Broker statement reconciliation",
+  };
+
+  assert.throws(() => buildReconciliationPreview({
+    ...base,
+    cashTargets: [...base.cashTargets, { bucket: "swing", currency: "USD", cash: 200 }],
+  }), /cash target is duplicated/);
+  assert.throws(() => buildReconciliationPreview({
+    ...base,
+    positionTargets: [...base.positionTargets, { bucket: "swing", ticker: "abc", quantity: 2, costBasisUsd: 200 }],
+  }), /position target is duplicated/);
+});
+
 test("activity rows combine transfer legs and show late sell P/L and remaining quantity", () => {
   const activity = [
     transaction("opening_balance", { bucket: "longterm", ticker: "ABC", quantity: 10, price: 100, occurredAt: "2026-09-16T09:00:00.000Z" }),

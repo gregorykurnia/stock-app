@@ -79,7 +79,11 @@ function finiteNonNegative(value: number, label: string) {
 export function buildReconciliationPreview(input: BuildReconciliationPreviewInput): ReconciliationPreview {
   if (!input.notes.trim()) throw new Error("A reconciliation reason is required");
 
+  const cashTargetKeys = new Set<string>();
   const cash = input.cashTargets.map((target) => {
+    const key = `${target.bucket}:${target.currency}`;
+    if (cashTargetKeys.has(key)) throw new Error(`${target.bucket} ${target.currency} cash target is duplicated`);
+    cashTargetKeys.add(key);
     finiteNonNegative(target.cash, `${target.bucket} ${target.currency} cash`);
     const currentCash = input.currentState.buckets[target.bucket].cash[target.currency];
     return {
@@ -91,9 +95,13 @@ export function buildReconciliationPreview(input: BuildReconciliationPreviewInpu
     };
   });
 
+  const positionTargetKeys = new Set<string>();
   const positions = input.positionTargets.map((target) => {
     const ticker = target.ticker.trim().toUpperCase();
     if (!ticker) throw new Error("Reconciliation ticker is required");
+    const key = `${target.bucket}:${ticker}`;
+    if (positionTargetKeys.has(key)) throw new Error(`${target.bucket} ${ticker} position target is duplicated`);
+    positionTargetKeys.add(key);
     finiteNonNegative(target.quantity, `${ticker} quantity`);
     finiteNonNegative(target.costBasisUsd, `${ticker} cost basis`);
 
