@@ -7,6 +7,7 @@ import type { LedgerTransaction } from "@/lib/portfolioLedger";
 import {
   buildPerformancePoints,
   calculateReturnStatistics,
+  findLedgerSnapshotImpact,
   snapshotBucketValueIdr,
   snapshotBucketValueUsd,
   snapshotTotalValueUsd,
@@ -132,7 +133,15 @@ export default function PortfolioPerformanceDashboard() {
   const filtered = useMemo(() => (
     selectedStart ? sortedSnapshots.filter((snapshot) => snapshot.sessionDate >= selectedStart) : sortedSnapshots
   ), [selectedStart, sortedSnapshots]);
-  const points = useMemo(() => buildPerformancePoints(filtered, currency, { openingSnapshot: openingSnapshot ?? undefined, ledgerTransactions }), [filtered, currency, openingSnapshot, ledgerTransactions]);
+  const ledgerSnapshotImpact = useMemo(
+    () => findLedgerSnapshotImpact(sortedSnapshots, ledgerTransactions ?? []),
+    [ledgerTransactions, sortedSnapshots],
+  );
+  const points = useMemo(() => buildPerformancePoints(filtered, currency, {
+    openingSnapshot: openingSnapshot ?? undefined,
+    ledgerTransactions,
+    invalidatedFromSessionDate: ledgerSnapshotImpact.firstAffectedSessionDate ?? undefined,
+  }), [filtered, currency, openingSnapshot, ledgerSnapshotImpact.firstAffectedSessionDate, ledgerTransactions]);
   const stats = useMemo(() => calculateReturnStatistics(points), [points]);
   const latest = points.at(-1);
   const latestValue = latest ? (currency === "idr" ? snapshotTotalValueIdr(latest) : snapshotTotalValueUsd(latest)) : 0;
@@ -184,6 +193,12 @@ export default function PortfolioPerformanceDashboard() {
           <div className={`mt-4 rounded-xl border px-3 py-2.5 text-xs ${preview.status === "complete" ? "border-green-200 bg-green-50 text-green-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
             <strong>Live test passed:</strong> {preview.total.positionCount} positions valued at {formatMoney(snapshotTotalValueIdr(preview), "idr")} ({formatMoney(snapshotTotalValueUsd(preview), "usd")}) using Rp{preview.fxRateUsdIdr.toLocaleString("id-ID")}/USD. Nothing was saved.
             {preview.missingTickers.length > 0 && <span> Missing: {preview.missingTickers.join(", ")}.</span>}
+          </div>
+        )}
+        {ledgerSnapshotImpact.firstAffectedSessionDate && (
+          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs leading-5 text-amber-900">
+            <strong>Historical recapture needed:</strong> ledger activity was entered after a schema-version-2 snapshot was captured. Returns from {ledgerSnapshotImpact.firstAffectedSessionDate} onward are suppressed until those snapshots are recaptured.
+            {ledgerSnapshotImpact.transactionIds.length > 0 && <span> Affected entries: {ledgerSnapshotImpact.transactionIds.length}.</span>}
           </div>
         )}
         {error && <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{error}</div>}
@@ -271,7 +286,7 @@ export default function PortfolioPerformanceDashboard() {
           <div className="overflow-x-auto border-t border-[var(--border)]">
             <table className="w-full text-sm">
             <thead className="bg-gray-50 text-left text-[10px] uppercase tracking-wide text-gray-500"><tr><th className="px-3 py-2">Session</th><th className="px-3 py-2">Total IDR</th><th className="px-3 py-2">Total USD</th><th className="px-3 py-2">TWR/day</th><th className="px-3 py-2">External flow</th><th className="px-3 py-2">USD/IDR</th><th className="px-3 py-2">Status</th></tr></thead>
-              <tbody className="divide-y divide-gray-100">{[...points].reverse().map((point) => <tr key={point.sessionDate} className="hover:bg-gray-50"><td className="px-3 py-2 font-semibold">{point.sessionDate}</td><td className="px-3 py-2">{formatMoney(snapshotTotalValueIdr(point), "idr")}</td><td className="px-3 py-2">{formatMoney(snapshotTotalValueUsd(point), "usd")}</td><td className={`px-3 py-2 font-semibold ${(point.dailyReturnPct ?? 0) >= 0 ? "text-green-600" : "text-red-500"}`}>{point.returnStatus === "suppressed" ? "Suppressed" : formatPct(point.dailyReturnPct)}</td><td className="px-3 py-2 text-gray-600"><div>{formatMoney(point.inferredFlowUsd, "usd")}</div><div className="text-[10px] uppercase text-gray-400">{point.flowSource}</div></td><td className="px-3 py-2">Rp{point.fxRateUsdIdr.toLocaleString("id-ID")}</td><td className="px-3 py-2"><span className={`badge ${point.status === "complete" ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-700"}`}>{point.status}</span></td></tr>)}</tbody>
+              <tbody className="divide-y divide-gray-100">{[...points].reverse().map((point) => <tr key={point.sessionDate} className="hover:bg-gray-50"><td className="px-3 py-2 font-semibold">{point.sessionDate}</td><td className="px-3 py-2">{formatMoney(snapshotTotalValueIdr(point), "idr")}</td><td className="px-3 py-2">{formatMoney(snapshotTotalValueUsd(point), "usd")}</td><td className={`px-3 py-2 font-semibold ${(point.dailyReturnPct ?? 0) >= 0 ? "text-green-600" : "text-red-500"}`}>{point.needsRecapture ? "Needs recapture" : point.returnStatus === "suppressed" ? "Suppressed" : formatPct(point.dailyReturnPct)}</td><td className="px-3 py-2 text-gray-600"><div>{formatMoney(point.inferredFlowUsd, "usd")}</div><div className="text-[10px] uppercase text-gray-400">{point.flowSource}</div></td><td className="px-3 py-2">Rp{point.fxRateUsdIdr.toLocaleString("id-ID")}</td><td className="px-3 py-2"><span className={`badge ${point.needsRecapture ? "bg-amber-50 text-amber-700" : point.status === "complete" ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-700"}`}>{point.needsRecapture ? "recapture" : point.status}</span></td></tr>)}</tbody>
             </table>
           </div>
         )}

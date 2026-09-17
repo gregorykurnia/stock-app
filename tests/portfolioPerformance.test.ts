@@ -4,6 +4,7 @@ import {
   buildPerformancePoints,
   calculateReturnStatistics,
   emptySnapshotBuckets,
+  findLedgerSnapshotImpact,
   type PortfolioSnapshot,
   type SnapshotPosition,
 } from "../lib/portfolioPerformance";
@@ -157,6 +158,38 @@ test("late ledger deposits recalculate the affected snapshot flow", () => {
   assert.equal(points[1].inferredFlowUsd, 50);
   assert.equal(points[1].flowSource, "ledger");
   assert.equal(points[1].dailyReturnPct, 0);
+});
+
+test("backdated ledger activity invalidates later v2 snapshots until recapture", () => {
+  const snapshots = [
+    ledgerSnapshot("2026-09-08", 10, 0, 0),
+    ledgerSnapshot("2026-09-09", 10, 50, 0),
+  ];
+  const lateTransaction = {
+    transactionId: "late-dividend",
+    occurredAt: "2026-09-08T14:00:00.000Z",
+    recordedAt: "2026-09-10T14:00:00.000Z",
+    type: "dividend" as const,
+    bucket: "longterm" as const,
+    ticker: "TEST",
+    currency: "USD" as const,
+    grossAmount: 50,
+    cashDelta: 50,
+    source: "manual" as const,
+  };
+  const impact = findLedgerSnapshotImpact(snapshots, [lateTransaction]);
+
+  assert.equal(impact.firstAffectedSessionDate, "2026-09-08");
+  assert.deepEqual(impact.affectedSnapshotDates, ["2026-09-08", "2026-09-09"]);
+  assert.deepEqual(impact.transactionIds, ["late-dividend"]);
+
+  const points = buildPerformancePoints(snapshots, "usd", {
+    ledgerTransactions: [lateTransaction],
+    invalidatedFromSessionDate: impact.firstAffectedSessionDate ?? undefined,
+  });
+  assert.equal(points.every((point) => point.needsRecapture), true);
+  assert.equal(points.every((point) => point.returnStatus === "suppressed"), true);
+  assert.equal(calculateReturnStatistics(points).quality, "partial");
 });
 
 test("pocket returns neutralize internal cash and position transfers", () => {

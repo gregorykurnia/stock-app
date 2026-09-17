@@ -57,6 +57,7 @@ export interface PerformancePoint extends PortfolioSnapshot {
   inferredFlowUsd: number;
   inferredFlowIdr: number;
   flowSource: "estimated" | "ledger";
+  needsRecapture: boolean;
   returnStatus: "baseline" | "valid" | "suppressed";
   dailyReturnPct: number | null;
   dailyValueChangeUsd: number | null;
@@ -70,6 +71,14 @@ export interface PerformanceBuildOptions {
   ledgerTransactions?: readonly LedgerTransaction[];
   /** Restrict ledger flow recalculation to one pocket for bucket-level returns. */
   bucket?: PortfolioBucket;
+  /** Suppress returns from this schema-version-2 session onward until snapshots are recaptured. */
+  invalidatedFromSessionDate?: string;
+}
+
+export interface LedgerSnapshotImpact {
+  firstAffectedSessionDate: string | null;
+  affectedSnapshotDates: string[];
+  transactionIds: string[];
 }
 
 export interface ReturnStatistics {
@@ -103,6 +112,49 @@ const FLOW_EPSILON = 1e-8;
 function newYorkSessionDate(timestamp: string) {
   const parts = Object.fromEntries(NEW_YORK_DATE_PARTS.formatToParts(new Date(timestamp)).map((part) => [part.type, part.value]));
   return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+/**
+ * Finds ledger activity entered after a ledger-backed snapshot was captured but
+ * effective on or before that snapshot. Legacy v1 history is intentionally excluded.
+ */
+export function findLedgerSnapshotImpact(
+  snapshots: readonly PortfolioSnapshot[],
+  transactions: readonly LedgerTransaction[],
+): LedgerSnapshotImpact {
+  const ledgerSnapshots = snapshots
+    .filter((snapshot) => snapshot.schemaVersion === 2)
+    .sort((left, right) => left.sessionDate.localeCompare(right.sessionDate));
+  let firstAffectedSessionDate: string | null = null;
+  const transactionIds = new Set<string>();
+
+  for (const transaction of transactions) {
+    const occurredAt = Date.parse(transaction.occurredAt);
+    const recordedAt = Date.parse(transaction.recordedAt);
+    if (Number.isNaN(occurredAt) || Number.isNaN(recordedAt)) continue;
+    const occurredSessionDate = newYorkSessionDate(transaction.occurredAt);
+    const firstMissingSnapshot = ledgerSnapshots.find((snapshot) => (
+      occurredSessionDate <= snapshot.sessionDate
+      && recordedAt > Date.parse(snapshot.capturedAt)
+    ));
+    if (!firstMissingSnapshot) continue;
+    transactionIds.add(transaction.transactionId);
+    if (firstAffectedSessionDate == null || firstMissingSnapshot.sessionDate < firstAffectedSessionDate) {
+      firstAffectedSessionDate = firstMissingSnapshot.sessionDate;
+    }
+  }
+
+  const affectedSnapshotDates = firstAffectedSessionDate == null
+    ? []
+    : ledgerSnapshots
+      .filter((snapshot) => snapshot.sessionDate >= firstAffectedSessionDate)
+      .map((snapshot) => snapshot.sessionDate);
+
+  return {
+    firstAffectedSessionDate,
+    affectedSnapshotDates,
+    transactionIds: [...transactionIds].sort(),
+  };
 }
 
 function snapshotPosition(snapshot: PortfolioSnapshot, bucket: PortfolioBucket, ticker: string) {
@@ -194,13 +246,19 @@ export function buildPerformancePoints(
   const input = openingSnapshot ? [openingSnapshot, ...sorted] : sorted;
   const points: PerformancePoint[] = input.map((snapshot, index) => {
     const previous = input[index - 1];
+    const needsRecapture = Boolean(
+      options.invalidatedFromSessionDate
+      && snapshot.schemaVersion === 2
+      && snapshot.sessionDate >= options.invalidatedFromSessionDate,
+    );
     if (!previous) {
       return {
         ...snapshot,
         inferredFlowUsd: 0,
         inferredFlowIdr: 0,
         flowSource: snapshot.schemaVersion === 2 ? "ledger" : "estimated",
-        returnStatus: snapshot.status === "complete" ? "baseline" : "suppressed",
+        needsRecapture,
+        returnStatus: !needsRecapture && snapshot.status === "complete" ? "baseline" : "suppressed",
         dailyReturnPct: null,
         dailyValueChangeUsd: null,
         dailyValueChangeIdr: null,
@@ -232,7 +290,7 @@ export function buildPerformancePoints(
     const previousValue = currency === "idr" ? snapshotTotalValueIdr(previous) : snapshotTotalValueUsd(previous);
     const currentValue = currency === "idr" ? snapshotTotalValueIdr(snapshot) : snapshotTotalValueUsd(snapshot);
     const flow = currency === "idr" ? inferredFlowIdr : inferredFlowUsd;
-    const returnStatus = previous.status === "complete" && snapshot.status === "complete" ? "valid" : "suppressed";
+    const returnStatus = !needsRecapture && previous.status === "complete" && snapshot.status === "complete" ? "valid" : "suppressed";
     const dailyReturnPct = returnStatus === "valid" && previousValue > 0
       ? ((currentValue - flow) / previousValue - 1) * 100
       : null;
@@ -242,6 +300,7 @@ export function buildPerformancePoints(
       inferredFlowUsd,
       inferredFlowIdr: round(inferredFlowIdr, 2),
       flowSource: ledgerTransactionsAvailable || snapshotLedgerFlowAvailable ? "ledger" : "estimated",
+      needsRecapture,
       returnStatus,
       dailyReturnPct: dailyReturnPct == null ? null : round(dailyReturnPct, 6),
       dailyValueChangeUsd: round(snapshotTotalValueUsd(snapshot) - snapshotTotalValueUsd(previous), 2),
