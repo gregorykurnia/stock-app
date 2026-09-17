@@ -13,6 +13,7 @@ import PortfolioPerformanceChart, {
   type PerformanceMetric,
   type PerformanceSeries,
 } from "@/components/PortfolioPerformanceChart";
+import PerformanceMacroContext from "@/components/PerformanceMacroContext";
 
 type Range = "1M" | "3M" | "6M" | "YTD" | "1Y" | "ALL";
 
@@ -149,6 +150,8 @@ export default function PortfolioPerformanceDashboard() {
           </div>
         ))}
       </section>
+
+      <PerformanceMacroContext />
 
       <section className="surface-card overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
