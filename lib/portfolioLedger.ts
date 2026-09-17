@@ -406,6 +406,47 @@ export function validateLedgerTransactionSet(transactions: readonly LedgerTransa
   validateTransferGroups(transactions);
 }
 
+const LEDGER_TRANSACTION_KEYS: (keyof LedgerTransaction)[] = [
+  "transactionId", "occurredAt", "recordedAt", "type", "bucket", "fromBucket", "toBucket",
+  "ticker", "quantity", "price", "grossAmount", "fees", "costBasisDeltaUsd", "currency", "cashDelta",
+  "externalFlow", "transferId", "notes", "source",
+];
+
+export function ledgerTransactionsEqual(left: LedgerTransaction, right: LedgerTransaction): boolean {
+  return LEDGER_TRANSACTION_KEYS.every((key) => left[key] === right[key]);
+}
+
+export interface LedgerAppendPlan {
+  transactions: LedgerTransaction[];
+  pending: LedgerTransaction[];
+}
+
+/**
+ * Validates the append-only write contract without touching persistence. Existing
+ * identical ids are safe retries; an existing id with different data is a conflict.
+ */
+export function prepareLedgerAppend(
+  existingTransactions: readonly LedgerTransaction[],
+  requestedTransactions: readonly LedgerTransaction[],
+): LedgerAppendPlan {
+  if (requestedTransactions.length === 0) return { transactions: [...existingTransactions], pending: [] };
+  validateLedgerTransactionSet(requestedTransactions);
+
+  const existingById = new Map(existingTransactions.map((transaction) => [transaction.transactionId, transaction]));
+  const pending = requestedTransactions.filter((transaction) => {
+    const existing = existingById.get(transaction.transactionId);
+    if (!existing) return true;
+    if (!ledgerTransactionsEqual(existing, transaction)) {
+      throw new LedgerValidationError(`Ledger transaction ${transaction.transactionId} already exists with different data`);
+    }
+    return false;
+  });
+  const transactions = [...existingTransactions, ...pending];
+  validateLedgerTransactionSet(transactions);
+  reducePortfolioLedger(transactions);
+  return { transactions, pending };
+}
+
 export function sortLedgerTransactions(transactions: readonly LedgerTransaction[]): LedgerTransaction[] {
   return [...transactions].sort((left, right) => (
     Date.parse(left.occurredAt) - Date.parse(right.occurredAt)

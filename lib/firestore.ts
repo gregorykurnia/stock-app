@@ -2,9 +2,10 @@ import { doc, getDoc, setDoc, collection, addDoc, getDocs, deleteDoc, deleteFiel
 import { db } from "./firebase";
 import type { PortfolioSnapshot } from "./portfolioPerformance";
 import {
+  ledgerTransactionsEqual,
+  prepareLedgerAppend,
   reducePortfolioLedger,
   sortLedgerTransactions,
-  validateLedgerTransactionSet,
   type LedgerTransaction,
   type PortfolioLedgerState,
   type ReduceLedgerOptions,
@@ -491,26 +492,12 @@ export async function getPortfolioLedgerState(options?: ReduceLedgerOptions): Pr
   return reducePortfolioLedger(transactions, options);
 }
 
-function sameLedgerTransaction(left: LedgerTransaction, right: LedgerTransaction): boolean {
-  const keys: (keyof LedgerTransaction)[] = [
-    "transactionId", "occurredAt", "recordedAt", "type", "bucket", "fromBucket", "toBucket",
-    "ticker", "quantity", "price", "grossAmount", "fees", "costBasisDeltaUsd", "currency", "cashDelta",
-    "externalFlow", "transferId", "notes", "source",
-  ];
-  return keys.every((key) => left[key] === right[key]);
-}
-
 export async function appendPortfolioLedgerTransactions(transactions: readonly LedgerTransaction[]): Promise<void> {
   if (transactions.length === 0) return;
-  validateLedgerTransactionSet(transactions);
   const existingTransactions = await getPortfolioLedgerTransactions();
-  const existingById = new Map(existingTransactions.map((item) => [item.transactionId, item]));
-  const pending = transactions.filter((item) => !existingById.has(item.transactionId));
-  validateLedgerTransactionSet([...existingTransactions, ...pending]);
-  // Reducing before the write prevents a client from appending an activity that would
-  // leave a pocket with negative cash or an impossible position. The transaction below
-  // still makes retries idempotent by checking the document payloads.
-  reducePortfolioLedger([...existingTransactions, ...pending]);
+  // Validate the full append contract before the write. The transaction below still
+  // rechecks document payloads because another client may have written concurrently.
+  prepareLedgerAppend(existingTransactions, transactions);
   const refs = transactions.map((item) => doc(db, PORTFOLIO_LEDGER_COLLECTION, item.transactionId));
 
   await runTransaction(db, async (transaction) => {
@@ -522,7 +509,7 @@ export async function appendPortfolioLedgerTransactions(transactions: readonly L
     for (let index = 0; index < transactions.length; index += 1) {
       const current = transactions[index];
       const saved = existing[index];
-      if (saved && !sameLedgerTransaction(saved, current)) {
+      if (saved && !ledgerTransactionsEqual(saved, current)) {
         throw new Error(`Ledger transaction ${current.transactionId} already exists with different data`);
       }
       if (!saved) transaction.set(refs[index], current);

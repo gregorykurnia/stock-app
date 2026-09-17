@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   LedgerValidationError,
+  prepareLedgerAppend,
   reducePortfolioLedger,
   type LedgerTransaction,
 } from "../lib/portfolioLedger";
@@ -215,4 +216,16 @@ test("invalid transactions and duplicate ids are rejected", () => {
   const deposit = transaction("deposit", { bucket: "swing", cashDelta: 100, externalFlow: 100 });
   const duplicate = { ...deposit };
   assert.throws(() => reducePortfolioLedger([deposit, duplicate]), /duplicate transactionId/);
+});
+
+test("append planning treats identical retries as no-ops and rejects conflicting ids", () => {
+  const opening = transaction("opening_balance", { bucket: "swing", cashDelta: 500 });
+  const deposit = transaction("deposit", { bucket: "swing", cashDelta: 100, externalFlow: 100 });
+
+  const plan = prepareLedgerAppend([opening], [opening, deposit]);
+  assert.deepEqual(plan.pending, [deposit]);
+  assert.equal(plan.transactions.length, 2);
+  assert.equal(reducePortfolioLedger(plan.transactions).buckets.swing.cash.USD, 600);
+
+  assert.throws(() => prepareLedgerAppend([opening], [{ ...opening, notes: "different payload" }]), /already exists with different data/);
 });
