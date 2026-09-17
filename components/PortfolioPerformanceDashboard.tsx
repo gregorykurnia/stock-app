@@ -94,17 +94,31 @@ export default function PortfolioPerformanceDashboard() {
     }
   }
 
-  const filtered = useMemo(() => {
-    const latestDate = snapshots.at(-1)?.sessionDate;
-    if (!latestDate) return [];
-    const start = rangeStart(range, latestDate);
-    return start ? snapshots.filter((snapshot) => snapshot.sessionDate >= start) : snapshots;
-  }, [snapshots, range]);
-  const points = useMemo(() => buildPerformancePoints(filtered, currency), [filtered, currency]);
+  const sortedSnapshots = useMemo(() => [...snapshots].sort((a, b) => a.sessionDate.localeCompare(b.sessionDate)), [snapshots]);
+  const selectedStart = useMemo(() => {
+    const latestDate = sortedSnapshots.at(-1)?.sessionDate;
+    return latestDate ? rangeStart(range, latestDate) : null;
+  }, [range, sortedSnapshots]);
+  const openingSnapshot = useMemo(() => {
+    if (!selectedStart) return null;
+    for (let index = sortedSnapshots.length - 1; index >= 0; index -= 1) {
+      if (sortedSnapshots[index].sessionDate < selectedStart) return sortedSnapshots[index];
+    }
+    return null;
+  }, [selectedStart, sortedSnapshots]);
+  const filtered = useMemo(() => (
+    selectedStart ? sortedSnapshots.filter((snapshot) => snapshot.sessionDate >= selectedStart) : sortedSnapshots
+  ), [selectedStart, sortedSnapshots]);
+  const points = useMemo(() => buildPerformancePoints(filtered, currency, { openingSnapshot: openingSnapshot ?? undefined }), [filtered, currency, openingSnapshot]);
   const stats = useMemo(() => calculateReturnStatistics(points), [points]);
   const latest = points.at(-1);
   const latestValue = latest ? (currency === "idr" ? snapshotTotalValueIdr(latest) : snapshotTotalValueUsd(latest)) : 0;
   const latestChange = latest ? (currency === "idr" ? latest.dailyValueChangeIdr : latest.dailyValueChangeUsd) : null;
+  const latestFlow = latest ? (currency === "idr" ? latest.inferredFlowIdr : latest.inferredFlowUsd) : null;
+  const openingForMetrics = openingSnapshot ?? filtered[0] ?? null;
+  const openingValue = openingForMetrics ? (currency === "idr" ? snapshotTotalValueIdr(openingForMetrics) : snapshotTotalValueUsd(openingForMetrics)) : null;
+  const netContributions = points.length === 0 ? null : points.reduce((sum, point) => sum + (currency === "idr" ? point.inferredFlowIdr : point.inferredFlowUsd), 0);
+  const investmentGain = latest && openingValue != null && netContributions != null ? latestValue - openingValue - netContributions : null;
   const hasEstimatedFlows = points.some((point) => point.flowSource === "estimated");
 
   function toggleSeries(series: PerformanceSeries) {
@@ -116,13 +130,14 @@ export default function PortfolioPerformanceDashboard() {
   }
 
   const cards = [
-    { label: "Current Value", value: latest ? formatMoney(latestValue, currency) : "—", detail: latest ? formatMoney(snapshotTotalValueUsd(latest), "usd") : "No snapshot yet", tone: "text-gray-900" },
-    { label: "Latest Change", value: latestChange == null ? "—" : `${latestChange >= 0 ? "+" : ""}${formatMoney(latestChange, currency)}`, detail: `${formatPct(latest?.dailyReturnPct ?? null)} · ${latest?.flowSource === "ledger" ? "Ledger flow" : "Estimated flow"}`, tone: (latestChange ?? 0) >= 0 ? "text-green-600" : "text-red-500" },
-    { label: "Period Return", value: formatPct(stats.periodReturnPct), detail: range === "ALL" ? "Since tracking began" : `Selected ${range} window`, tone: (stats.periodReturnPct ?? 0) >= 0 ? "text-green-600" : "text-red-500" },
-    { label: "Avg Daily", value: formatPct(stats.averageDailyPct), detail: "Flow-adjusted estimate", tone: (stats.averageDailyPct ?? 0) >= 0 ? "text-green-600" : "text-red-500" },
-    { label: "Avg Weekly", value: formatPct(stats.averageWeeklyPct), detail: "Compounded by week", tone: (stats.averageWeeklyPct ?? 0) >= 0 ? "text-green-600" : "text-red-500" },
-    { label: "Avg Monthly", value: formatPct(stats.averageMonthlyPct), detail: "Compounded by month", tone: (stats.averageMonthlyPct ?? 0) >= 0 ? "text-green-600" : "text-red-500" },
-    { label: "Max Drawdown", value: formatPct(stats.maxDrawdownPct), detail: "From prior performance peak", tone: "text-red-500" },
+    { label: "Current Equity", value: latest ? formatMoney(latestValue, currency) : "—", detail: latest ? formatMoney(snapshotTotalValueUsd(latest), "usd") : "No snapshot yet", tone: "text-gray-900" },
+    { label: "Latest Equity Change", value: latestChange == null ? "—" : `${latestChange >= 0 ? "+" : ""}${formatMoney(latestChange, currency)}`, detail: "Raw cash + market-value change", tone: (latestChange ?? 0) >= 0 ? "text-green-600" : "text-red-500" },
+    { label: "Latest External Flow", value: latestFlow == null ? "—" : `${latestFlow >= 0 ? "+" : ""}${formatMoney(latestFlow, currency)}`, detail: latest?.flowSource === "ledger" ? "Ledger contribution / withdrawal" : "Estimated legacy flow", tone: (latestFlow ?? 0) >= 0 ? "text-green-600" : "text-red-500" },
+    { label: "Net Contributions", value: netContributions == null ? "—" : formatMoney(netContributions, currency), detail: range === "ALL" ? "Since first snapshot" : `Selected ${range} window`, tone: (netContributions ?? 0) >= 0 ? "text-gray-900" : "text-red-500" },
+    { label: "Investment Gain/Loss", value: investmentGain == null ? "—" : `${investmentGain >= 0 ? "+" : ""}${formatMoney(investmentGain, currency)}`, detail: "Equity − opening − external flow", tone: (investmentGain ?? 0) >= 0 ? "text-green-600" : "text-red-500" },
+    { label: "Period Return (TWR)", value: formatPct(stats.periodReturnPct), detail: stats.quality === "partial" ? "Suppressed: partial snapshot" : (range === "ALL" ? "Since tracking began" : `Selected ${range} window`), tone: (stats.periodReturnPct ?? 0) >= 0 ? "text-green-600" : "text-red-500" },
+    { label: "Avg Daily TWR", value: formatPct(stats.averageDailyPct), detail: "Geometric average of valid days", tone: (stats.averageDailyPct ?? 0) >= 0 ? "text-green-600" : "text-red-500" },
+    { label: "Max Drawdown", value: formatPct(stats.maxDrawdownPct), detail: "From normalized TWR peak", tone: "text-red-500" },
   ];
 
   return (
@@ -151,7 +166,7 @@ export default function PortfolioPerformanceDashboard() {
         {error && <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">{error}</div>}
       </section>
 
-      <section className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-8">
         {cards.map((card) => (
           <div key={card.label} className="surface-card min-w-0 p-3.5">
             <div className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">{card.label}</div>
@@ -193,14 +208,18 @@ export default function PortfolioPerformanceDashboard() {
               <h3 className="mt-3 font-semibold text-gray-900">Your performance chart will appear here</h3>
               <p className="mt-1 max-w-md text-xs leading-relaxed text-gray-500">Use “Test snapshot now” to verify all holdings and the live FX rate today. The scheduled job saves the first point after the next US market close.</p>
             </div>
-          ) : <PortfolioPerformanceChart snapshots={filtered} currency={currency} metric={metric} visibleSeries={visibleSeries} />}
+          ) : <PortfolioPerformanceChart snapshots={filtered} openingSnapshot={openingSnapshot ?? undefined} currency={currency} metric={metric} visibleSeries={visibleSeries} />}
       </section>
 
       {latest && (
         <section className="grid gap-3 md:grid-cols-3">
           {BUCKETS.map((bucket) => {
             const summary = latest.buckets[bucket.id];
-            const bucketPoints = buildPerformancePoints(filtered.map((snapshot) => bucketSnapshot(snapshot, bucket.id)), currency);
+            const bucketPoints = buildPerformancePoints(
+              filtered.map((snapshot) => bucketSnapshot(snapshot, bucket.id)),
+              currency,
+              { openingSnapshot: openingSnapshot ? bucketSnapshot(openingSnapshot, bucket.id) : undefined },
+            );
             const bucketStats = calculateReturnStatistics(bucketPoints);
             const allocation = snapshotTotalValueUsd(latest) > 0 ? snapshotBucketValueUsd(summary) / snapshotTotalValueUsd(latest) * 100 : 0;
             return (
@@ -223,14 +242,14 @@ export default function PortfolioPerformanceDashboard() {
         {historyOpen && (
           <div className="overflow-x-auto border-t border-[var(--border)]">
             <table className="w-full text-sm">
-            <thead className="bg-gray-50 text-left text-[10px] uppercase tracking-wide text-gray-500"><tr><th className="px-3 py-2">Session</th><th className="px-3 py-2">Total IDR</th><th className="px-3 py-2">Total USD</th><th className="px-3 py-2">Daily return</th><th className="px-3 py-2">Flow</th><th className="px-3 py-2">USD/IDR</th><th className="px-3 py-2">Status</th></tr></thead>
-              <tbody className="divide-y divide-gray-100">{[...points].reverse().map((point) => <tr key={point.sessionDate} className="hover:bg-gray-50"><td className="px-3 py-2 font-semibold">{point.sessionDate}</td><td className="px-3 py-2">{formatMoney(snapshotTotalValueIdr(point), "idr")}</td><td className="px-3 py-2">{formatMoney(snapshotTotalValueUsd(point), "usd")}</td><td className={`px-3 py-2 font-semibold ${(point.dailyReturnPct ?? 0) >= 0 ? "text-green-600" : "text-red-500"}`}>{formatPct(point.dailyReturnPct)}</td><td className="px-3 py-2 text-gray-600"><div>{formatMoney(point.inferredFlowUsd, "usd")}</div><div className="text-[10px] uppercase text-gray-400">{point.flowSource}</div></td><td className="px-3 py-2">Rp{point.fxRateUsdIdr.toLocaleString("id-ID")}</td><td className="px-3 py-2"><span className={`badge ${point.status === "complete" ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-700"}`}>{point.status}</span></td></tr>)}</tbody>
+            <thead className="bg-gray-50 text-left text-[10px] uppercase tracking-wide text-gray-500"><tr><th className="px-3 py-2">Session</th><th className="px-3 py-2">Total IDR</th><th className="px-3 py-2">Total USD</th><th className="px-3 py-2">TWR/day</th><th className="px-3 py-2">External flow</th><th className="px-3 py-2">USD/IDR</th><th className="px-3 py-2">Status</th></tr></thead>
+              <tbody className="divide-y divide-gray-100">{[...points].reverse().map((point) => <tr key={point.sessionDate} className="hover:bg-gray-50"><td className="px-3 py-2 font-semibold">{point.sessionDate}</td><td className="px-3 py-2">{formatMoney(snapshotTotalValueIdr(point), "idr")}</td><td className="px-3 py-2">{formatMoney(snapshotTotalValueUsd(point), "usd")}</td><td className={`px-3 py-2 font-semibold ${(point.dailyReturnPct ?? 0) >= 0 ? "text-green-600" : "text-red-500"}`}>{point.returnStatus === "suppressed" ? "Suppressed" : formatPct(point.dailyReturnPct)}</td><td className="px-3 py-2 text-gray-600"><div>{formatMoney(point.inferredFlowUsd, "usd")}</div><div className="text-[10px] uppercase text-gray-400">{point.flowSource}</div></td><td className="px-3 py-2">Rp{point.fxRateUsdIdr.toLocaleString("id-ID")}</td><td className="px-3 py-2"><span className={`badge ${point.status === "complete" ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-700"}`}>{point.status}</span></td></tr>)}</tbody>
             </table>
           </div>
         )}
       </section>
 
-      <p className="px-1 text-[10px] leading-relaxed text-gray-400">{hasEstimatedFlows ? "Legacy snapshots use estimated flows from position quantity changes. Ledger-backed snapshots use recorded external flows and include cash in total value; mixed ranges remain visibly identified above." : "Ledger-backed snapshots use recorded external flows and include cash in total value. Time-weighted return calculations will be refined in the next accounting phase."}</p>
+      <p className="px-1 text-[10px] leading-relaxed text-gray-400">{stats.quality === "partial" ? "TWR statistics are suppressed because the selected range includes a partial snapshot. Equity and external-flow values remain visible." : hasEstimatedFlows ? "Legacy snapshots use estimated flows from position quantity changes. Ledger-backed snapshots use recorded external flows and daily TWR conventions; mixed ranges remain visibly identified above." : "Ledger-backed snapshots use recorded external flows and daily TWR conventions. Equity and flow-neutralized return are shown as separate measures."}</p>
 
       <PortfolioAccountingPanel onLedgerChanged={() => { refreshSnapshots().catch(() => undefined); }} />
     </div>

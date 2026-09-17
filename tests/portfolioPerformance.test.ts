@@ -114,6 +114,49 @@ test("schema-version-2 snapshots use ledger external flow instead of inferred po
   assert.equal(points[1].dailyReturnPct, 0);
 });
 
+test("selected ranges use the immediately preceding snapshot as their opening baseline", () => {
+  const opening = snapshot("2026-09-08", 100, 10);
+  const selected = buildPerformancePoints([
+    snapshot("2026-09-09", 110, 10),
+  ], "usd", { openingSnapshot: opening });
+
+  assert.equal(selected.length, 1);
+  assert.ok(Math.abs((selected[0].dailyReturnPct ?? 0) - 10) < 1e-9);
+  assert.equal(selected[0].dailyValueChangeUsd, 100);
+  assert.equal(selected[0].returnStatus, "valid");
+});
+
+test("ledger external flow is excluded from a range return with a baseline", () => {
+  const opening = ledgerSnapshot("2026-09-08", 10, 0, 1_000);
+  const selected = ledgerSnapshot("2026-09-09", 10, 100, 1_100);
+  const points = buildPerformancePoints([selected], "usd", { openingSnapshot: opening });
+
+  assert.equal(points[0].inferredFlowUsd, 100);
+  assert.equal(points[0].dailyValueChangeUsd, 100);
+  assert.equal(points[0].dailyReturnPct, 0);
+});
+
+test("partial snapshots suppress TWR returns and statistics", () => {
+  const partial = { ...snapshot("2026-09-09", 110, 10), status: "partial" as const };
+  const points = buildPerformancePoints([snapshot("2026-09-08", 100, 10), partial]);
+  const stats = calculateReturnStatistics(points);
+
+  assert.equal(points[1].dailyReturnPct, null);
+  assert.equal(points[1].returnStatus, "suppressed");
+  assert.equal(stats.quality, "partial");
+  assert.equal(stats.periodReturnPct, null);
+});
+
+test("average daily return is geometric", () => {
+  const stats = calculateReturnStatistics(buildPerformancePoints([
+    snapshot("2026-09-08", 100, 10),
+    snapshot("2026-09-09", 110, 10),
+    snapshot("2026-09-10", 110, 10),
+  ]));
+
+  assert.ok(Math.abs((stats.averageDailyPct ?? 0) - (Math.sqrt(1.1) - 1) * 100) < 1e-9);
+});
+
 test("compounds period return and reports peak-to-trough drawdown", () => {
   const points = buildPerformancePoints([
     snapshot("2026-09-07", 100, 10),

@@ -18,6 +18,7 @@ export type PerformanceMetric = "value" | "return";
 
 interface Props {
   snapshots: PortfolioSnapshot[];
+  openingSnapshot?: PortfolioSnapshot;
   currency: PerformanceCurrency;
   metric: PerformanceMetric;
   visibleSeries: Set<PerformanceSeries>;
@@ -56,7 +57,7 @@ function formatMoney(value: number, currency: PerformanceCurrency, compact = fal
   }).format(value);
 }
 
-export default function PortfolioPerformanceChart({ snapshots, currency, metric, visibleSeries }: Props) {
+export default function PortfolioPerformanceChart({ snapshots, openingSnapshot, currency, metric, visibleSeries }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [hoveredDate, setHoveredDate] = useState<string | null>(null);
   const snapshotMap = useMemo(() => new Map(snapshots.map((snapshot) => [snapshot.sessionDate, snapshot])), [snapshots]);
@@ -99,10 +100,16 @@ export default function PortfolioPerformanceChart({ snapshots, currency, metric,
           };
         }));
       } else {
-        const points = buildPerformancePoints(snapshots.map((snapshot) => snapshotForSeries(snapshot, definition.id)), currency);
+        const points = buildPerformancePoints(
+          snapshots.map((snapshot) => snapshotForSeries(snapshot, definition.id)),
+          currency,
+          { openingSnapshot: openingSnapshot ? snapshotForSeries(openingSnapshot, definition.id) : undefined },
+        );
         let growth = 1;
         series.setData(points.map((point) => {
-          if (point.dailyReturnPct != null) growth *= 1 + point.dailyReturnPct / 100;
+          if (point.returnStatus === "baseline") return { time: point.sessionDate as Time, value: 0 };
+          if (point.dailyReturnPct == null) return { time: point.sessionDate as Time };
+          growth *= 1 + point.dailyReturnPct / 100;
           return { time: point.sessionDate as Time, value: (growth - 1) * 100 };
         }));
       }
@@ -118,11 +125,13 @@ export default function PortfolioPerformanceChart({ snapshots, currency, metric,
       observer.disconnect();
       chart.remove();
     };
-  }, [snapshots, currency, metric, visibleSeries]);
+  }, [snapshots, openingSnapshot, currency, metric, visibleSeries]);
 
   const hovered = hoveredDate ? snapshotMap.get(hoveredDate) : snapshots.at(-1);
   const hoveredIndex = hovered ? snapshots.findIndex((snapshot) => snapshot.sessionDate === hovered.sessionDate) : -1;
-  const previous = hoveredIndex > 0 ? snapshots[hoveredIndex - 1] : null;
+  const previous = hoveredIndex > 0 ? snapshots[hoveredIndex - 1] : openingSnapshot ?? null;
+  const performancePoints = useMemo(() => buildPerformancePoints(snapshots, currency, { openingSnapshot }), [snapshots, currency, openingSnapshot]);
+  const performancePoint = hovered ? performancePoints.find((point) => point.sessionDate === hovered.sessionDate) : undefined;
   const changePct = hovered && previous && snapshotTotalValueUsd(previous) > 0
     ? ((snapshotTotalValueUsd(hovered) / snapshotTotalValueUsd(previous)) - 1) * 100
     : null;
@@ -137,7 +146,8 @@ export default function PortfolioPerformanceChart({ snapshots, currency, metric,
           <div className="mt-0.5 text-[11px] text-gray-500">
             {formatMoney(snapshotTotalValueUsd(hovered), "usd")} · Rp{hovered.fxRateUsdIdr.toLocaleString("id-ID")}/USD
           </div>
-          {changePct != null && <div className={`mt-1 text-xs font-semibold ${changePct >= 0 ? "text-green-600" : "text-red-500"}`}>{changePct >= 0 ? "+" : ""}{changePct.toFixed(2)}% value change</div>}
+          {changePct != null && <div className={`mt-1 text-xs font-semibold ${changePct >= 0 ? "text-green-600" : "text-red-500"}`}>{changePct >= 0 ? "+" : ""}{changePct.toFixed(2)}% equity change</div>}
+          {performancePoint && <div className="mt-1 text-[11px] text-gray-500">Investment return: {performancePoint.returnStatus === "suppressed" ? "suppressed" : performancePoint.dailyReturnPct == null ? "baseline" : `${performancePoint.dailyReturnPct >= 0 ? "+" : ""}${performancePoint.dailyReturnPct.toFixed(2)}%`} · external flow {formatMoney(currency === "idr" ? performancePoint.inferredFlowIdr : performancePoint.inferredFlowUsd, currency)}</div>}
           <div className="mt-2 grid grid-cols-3 gap-3 border-t border-gray-100 pt-1.5 text-[10px] text-gray-500">
             {(["longterm", "index", "swing"] as PortfolioBucket[]).map((bucket) => (
               <div key={bucket}><span className="block">{LABELS[bucket]}</span><strong className="font-semibold text-gray-700">{formatMoney(currency === "idr" ? snapshotBucketValueIdr(hovered.buckets[bucket]) : snapshotBucketValueUsd(hovered.buckets[bucket]), currency, true)}</strong></div>

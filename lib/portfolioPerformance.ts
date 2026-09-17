@@ -55,9 +55,15 @@ export interface PerformancePoint extends PortfolioSnapshot {
   inferredFlowUsd: number;
   inferredFlowIdr: number;
   flowSource: "estimated" | "ledger";
+  returnStatus: "baseline" | "valid" | "suppressed";
   dailyReturnPct: number | null;
   dailyValueChangeUsd: number | null;
   dailyValueChangeIdr: number | null;
+}
+
+export interface PerformanceBuildOptions {
+  /** The last snapshot before a selected range, used only as its opening baseline. */
+  openingSnapshot?: PortfolioSnapshot;
 }
 
 export interface ReturnStatistics {
@@ -66,6 +72,7 @@ export interface ReturnStatistics {
   averageMonthlyPct: number | null;
   periodReturnPct: number | null;
   maxDrawdownPct: number | null;
+  quality: "complete" | "partial";
 }
 
 const BUCKETS: PortfolioBucket[] = ["longterm", "index", "swing"];
@@ -117,16 +124,25 @@ export function inferPositionFlowUsd(previous: PortfolioSnapshot, current: Portf
   return round(flow);
 }
 
-export function buildPerformancePoints(snapshots: PortfolioSnapshot[], currency: "usd" | "idr" = "usd"): PerformancePoint[] {
+export function buildPerformancePoints(
+  snapshots: PortfolioSnapshot[],
+  currency: "usd" | "idr" = "usd",
+  options: PerformanceBuildOptions = {},
+): PerformancePoint[] {
   const sorted = [...snapshots].sort((a, b) => a.sessionDate.localeCompare(b.sessionDate));
-  return sorted.map((snapshot, index) => {
-    const previous = sorted[index - 1];
+  const openingSnapshot = options.openingSnapshot && (sorted.length === 0 || options.openingSnapshot.sessionDate < sorted[0].sessionDate)
+    ? options.openingSnapshot
+    : undefined;
+  const input = openingSnapshot ? [openingSnapshot, ...sorted] : sorted;
+  const points: PerformancePoint[] = input.map((snapshot, index) => {
+    const previous = input[index - 1];
     if (!previous) {
       return {
         ...snapshot,
         inferredFlowUsd: 0,
         inferredFlowIdr: 0,
         flowSource: snapshot.schemaVersion === 2 ? "ledger" : "estimated",
+        returnStatus: snapshot.status === "complete" ? "baseline" : "suppressed",
         dailyReturnPct: null,
         dailyValueChangeUsd: null,
         dailyValueChangeIdr: null,
@@ -148,7 +164,8 @@ export function buildPerformancePoints(snapshots: PortfolioSnapshot[], currency:
     const previousValue = currency === "idr" ? snapshotTotalValueIdr(previous) : snapshotTotalValueUsd(previous);
     const currentValue = currency === "idr" ? snapshotTotalValueIdr(snapshot) : snapshotTotalValueUsd(snapshot);
     const flow = currency === "idr" ? inferredFlowIdr : inferredFlowUsd;
-    const dailyReturnPct = previousValue > 0
+    const returnStatus = previous.status === "complete" && snapshot.status === "complete" ? "valid" : "suppressed";
+    const dailyReturnPct = returnStatus === "valid" && previousValue > 0
       ? ((currentValue - flow) / previousValue - 1) * 100
       : null;
 
@@ -157,16 +174,20 @@ export function buildPerformancePoints(snapshots: PortfolioSnapshot[], currency:
       inferredFlowUsd,
       inferredFlowIdr: round(inferredFlowIdr, 2),
       flowSource: ledgerFlowAvailable ? "ledger" : "estimated",
+      returnStatus,
       dailyReturnPct: dailyReturnPct == null ? null : round(dailyReturnPct, 6),
       dailyValueChangeUsd: round(snapshotTotalValueUsd(snapshot) - snapshotTotalValueUsd(previous), 2),
       dailyValueChangeIdr: round(snapshotTotalValueIdr(snapshot) - snapshotTotalValueIdr(previous), 2),
     };
   });
+
+  return openingSnapshot ? points.slice(1) : points;
 }
 
-function average(values: number[]): number | null {
+function geometricAverage(values: number[]): number | null {
   if (values.length === 0) return null;
-  return values.reduce((sum, value) => sum + value, 0) / values.length;
+  const growth = values.reduce((product, value) => product * (1 + value / 100), 1);
+  return growth >= 0 ? (growth ** (1 / values.length) - 1) * 100 : null;
 }
 
 function periodKey(date: string, cadence: "week" | "month") {
@@ -192,6 +213,17 @@ function compoundedPeriodReturns(points: PerformancePoint[], cadence: "week" | "
 }
 
 export function calculateReturnStatistics(points: PerformancePoint[]): ReturnStatistics {
+  const quality = points.some((point) => point.returnStatus === "suppressed") ? "partial" : "complete";
+  if (quality === "partial") {
+    return {
+      averageDailyPct: null,
+      averageWeeklyPct: null,
+      averageMonthlyPct: null,
+      periodReturnPct: null,
+      maxDrawdownPct: null,
+      quality,
+    };
+  }
   const daily = points.flatMap((point) => point.dailyReturnPct == null ? [] : [point.dailyReturnPct]);
   const weekly = compoundedPeriodReturns(points, "week");
   const monthly = compoundedPeriodReturns(points, "month");
@@ -209,11 +241,12 @@ export function calculateReturnStatistics(points: PerformancePoint[]): ReturnSta
   }
 
   return {
-    averageDailyPct: average(daily),
-    averageWeeklyPct: average(weekly),
-    averageMonthlyPct: average(monthly),
+    averageDailyPct: geometricAverage(daily),
+    averageWeeklyPct: geometricAverage(weekly),
+    averageMonthlyPct: geometricAverage(monthly),
     periodReturnPct,
     maxDrawdownPct: daily.length === 0 ? null : maxDrawdown,
+    quality,
   };
 }
 
