@@ -48,6 +48,32 @@ function snapshot(
   };
 }
 
+function ledgerSnapshot(sessionDate: string, quantity: number, cashUsd: number, externalFlowUsd: number): PortfolioSnapshot {
+  const base = snapshot(sessionDate, 100, quantity);
+  const investedValueUsd = quantity * 100;
+  const totalValueUsd = investedValueUsd + cashUsd;
+  const summary = {
+    ...base.total,
+    valueUsd: totalValueUsd,
+    valueIdr: totalValueUsd * 15_000,
+    cashValueUsd: cashUsd,
+    cashValueIdr: cashUsd * 15_000,
+    investedValueUsd,
+    investedValueIdr: investedValueUsd * 15_000,
+    totalValueUsd,
+    totalValueIdr: totalValueUsd * 15_000,
+    externalFlowUsd,
+    externalFlowIdr: externalFlowUsd * 15_000,
+  };
+  return {
+    ...base,
+    schemaVersion: 2,
+    baseCurrency: "USD",
+    total: summary,
+    buckets: { ...base.buckets, longterm: summary },
+  };
+}
+
 test("calculates daily market return when quantity is unchanged", () => {
   const points = buildPerformancePoints([
     snapshot("2026-09-08", 100, 10),
@@ -76,6 +102,18 @@ test("IDR return includes currency movement while USD return does not", () => {
   assert.equal(buildPerformancePoints(values, "idr")[1].dailyReturnPct, 10);
 });
 
+test("schema-version-2 snapshots use ledger external flow instead of inferred position flow", () => {
+  const points = buildPerformancePoints([
+    ledgerSnapshot("2026-09-08", 10, 1_000, 1_000),
+    ledgerSnapshot("2026-09-09", 20, 0, 1_000),
+  ]);
+
+  assert.equal(points[1].inferredFlowUsd, 0);
+  assert.equal(points[1].flowSource, "ledger");
+  assert.equal(points[1].dailyValueChangeUsd, 0);
+  assert.equal(points[1].dailyReturnPct, 0);
+});
+
 test("compounds period return and reports peak-to-trough drawdown", () => {
   const points = buildPerformancePoints([
     snapshot("2026-09-07", 100, 10),
@@ -86,4 +124,3 @@ test("compounds period return and reports peak-to-trough drawdown", () => {
   assert.ok(Math.abs((stats.periodReturnPct ?? 0) - (-1)) < 1e-9);
   assert.ok(Math.abs((stats.maxDrawdownPct ?? 0) - (-10)) < 1e-9);
 });
-

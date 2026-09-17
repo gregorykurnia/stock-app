@@ -5,6 +5,10 @@ import { getPortfolioPerformanceSnapshots } from "@/lib/firestore";
 import {
   buildPerformancePoints,
   calculateReturnStatistics,
+  snapshotBucketValueIdr,
+  snapshotBucketValueUsd,
+  snapshotTotalValueUsd,
+  snapshotTotalValueIdr,
   type PortfolioBucket,
   type PortfolioSnapshot,
 } from "@/lib/portfolioPerformance";
@@ -93,8 +97,9 @@ export default function PortfolioPerformanceDashboard() {
   const points = useMemo(() => buildPerformancePoints(filtered, currency), [filtered, currency]);
   const stats = useMemo(() => calculateReturnStatistics(points), [points]);
   const latest = points.at(-1);
-  const latestValue = latest ? (currency === "idr" ? latest.total.valueIdr : latest.total.valueUsd) : 0;
+  const latestValue = latest ? (currency === "idr" ? snapshotTotalValueIdr(latest) : snapshotTotalValueUsd(latest)) : 0;
   const latestChange = latest ? (currency === "idr" ? latest.dailyValueChangeIdr : latest.dailyValueChangeUsd) : null;
+  const hasEstimatedFlows = points.some((point) => point.flowSource === "estimated");
 
   function toggleSeries(series: PerformanceSeries) {
     setVisibleSeries((current) => {
@@ -105,8 +110,8 @@ export default function PortfolioPerformanceDashboard() {
   }
 
   const cards = [
-    { label: "Current Value", value: latest ? formatMoney(latestValue, currency) : "—", detail: latest ? formatMoney(latest.total.valueUsd, "usd") : "No snapshot yet", tone: "text-gray-900" },
-    { label: "Latest Change", value: latestChange == null ? "—" : `${latestChange >= 0 ? "+" : ""}${formatMoney(latestChange, currency)}`, detail: formatPct(latest?.dailyReturnPct ?? null), tone: (latestChange ?? 0) >= 0 ? "text-green-600" : "text-red-500" },
+    { label: "Current Value", value: latest ? formatMoney(latestValue, currency) : "—", detail: latest ? formatMoney(snapshotTotalValueUsd(latest), "usd") : "No snapshot yet", tone: "text-gray-900" },
+    { label: "Latest Change", value: latestChange == null ? "—" : `${latestChange >= 0 ? "+" : ""}${formatMoney(latestChange, currency)}`, detail: `${formatPct(latest?.dailyReturnPct ?? null)} · ${latest?.flowSource === "ledger" ? "Ledger flow" : "Estimated flow"}`, tone: (latestChange ?? 0) >= 0 ? "text-green-600" : "text-red-500" },
     { label: "Period Return", value: formatPct(stats.periodReturnPct), detail: range === "ALL" ? "Since tracking began" : `Selected ${range} window`, tone: (stats.periodReturnPct ?? 0) >= 0 ? "text-green-600" : "text-red-500" },
     { label: "Avg Daily", value: formatPct(stats.averageDailyPct), detail: "Flow-adjusted estimate", tone: (stats.averageDailyPct ?? 0) >= 0 ? "text-green-600" : "text-red-500" },
     { label: "Avg Weekly", value: formatPct(stats.averageWeeklyPct), detail: "Compounded by week", tone: (stats.averageWeeklyPct ?? 0) >= 0 ? "text-green-600" : "text-red-500" },
@@ -133,7 +138,7 @@ export default function PortfolioPerformanceDashboard() {
         </div>
         {preview && (
           <div className={`mt-4 rounded-xl border px-3 py-2.5 text-xs ${preview.status === "complete" ? "border-green-200 bg-green-50 text-green-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
-            <strong>Live test passed:</strong> {preview.total.positionCount} positions valued at {formatMoney(preview.total.valueIdr, "idr")} ({formatMoney(preview.total.valueUsd, "usd")}) using Rp{preview.fxRateUsdIdr.toLocaleString("id-ID")}/USD. Nothing was saved.
+            <strong>Live test passed:</strong> {preview.total.positionCount} positions valued at {formatMoney(snapshotTotalValueIdr(preview), "idr")} ({formatMoney(snapshotTotalValueUsd(preview), "usd")}) using Rp{preview.fxRateUsdIdr.toLocaleString("id-ID")}/USD. Nothing was saved.
             {preview.missingTickers.length > 0 && <span> Missing: {preview.missingTickers.join(", ")}.</span>}
           </div>
         )}
@@ -191,11 +196,11 @@ export default function PortfolioPerformanceDashboard() {
             const summary = latest.buckets[bucket.id];
             const bucketPoints = buildPerformancePoints(filtered.map((snapshot) => bucketSnapshot(snapshot, bucket.id)), currency);
             const bucketStats = calculateReturnStatistics(bucketPoints);
-            const allocation = latest.total.valueUsd > 0 ? summary.valueUsd / latest.total.valueUsd * 100 : 0;
+            const allocation = snapshotTotalValueUsd(latest) > 0 ? snapshotBucketValueUsd(summary) / snapshotTotalValueUsd(latest) * 100 : 0;
             return (
               <div key={bucket.id} className="surface-card p-4">
                 <div className="flex items-center justify-between"><div className="flex items-center gap-2 text-sm font-bold"><span className="h-2.5 w-2.5 rounded-full" style={{ background: bucket.color }} />{bucket.label}</div><span className="text-xs font-semibold text-gray-500">{allocation.toFixed(1)}%</span></div>
-                <div className="mt-3 text-xl font-bold text-gray-900">{formatMoney(currency === "idr" ? summary.valueIdr : summary.valueUsd, currency)}</div>
+                <div className="mt-3 text-xl font-bold text-gray-900">{formatMoney(currency === "idr" ? snapshotBucketValueIdr(summary) : snapshotBucketValueUsd(summary), currency)}</div>
                 <div className="mt-2 flex justify-between text-xs text-gray-500"><span>{summary.positionCount} positions</span><span className={(bucketStats.periodReturnPct ?? 0) >= 0 ? "font-semibold text-green-600" : "font-semibold text-red-500"}>{formatPct(bucketStats.periodReturnPct)} period</span></div>
                 <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-gray-100"><div className="h-full rounded-full" style={{ width: `${allocation}%`, background: bucket.color }} /></div>
               </div>
@@ -206,20 +211,20 @@ export default function PortfolioPerformanceDashboard() {
 
       <section className="surface-card overflow-hidden">
         <button onClick={() => setHistoryOpen((open) => !open)} className="flex w-full items-center justify-between px-4 py-3 text-left">
-          <div><h3 className="text-sm font-bold">Snapshot history</h3><p className="mt-0.5 text-[11px] text-gray-500">Stored daily values, FX rates, data quality, and inferred position flows</p></div>
+          <div><h3 className="text-sm font-bold">Snapshot history</h3><p className="mt-0.5 text-[11px] text-gray-500">Stored daily values, FX rates, data quality, and ledger or estimated flows</p></div>
           <span className="text-sm text-gray-400">{historyOpen ? "Hide ↑" : `Show ${snapshots.length} ↓`}</span>
         </button>
         {historyOpen && (
           <div className="overflow-x-auto border-t border-[var(--border)]">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-left text-[10px] uppercase tracking-wide text-gray-500"><tr><th className="px-3 py-2">Session</th><th className="px-3 py-2">Total IDR</th><th className="px-3 py-2">Total USD</th><th className="px-3 py-2">Daily return</th><th className="px-3 py-2">Inferred flow</th><th className="px-3 py-2">USD/IDR</th><th className="px-3 py-2">Status</th></tr></thead>
-              <tbody className="divide-y divide-gray-100">{[...points].reverse().map((point) => <tr key={point.sessionDate} className="hover:bg-gray-50"><td className="px-3 py-2 font-semibold">{point.sessionDate}</td><td className="px-3 py-2">{formatMoney(point.total.valueIdr, "idr")}</td><td className="px-3 py-2">{formatMoney(point.total.valueUsd, "usd")}</td><td className={`px-3 py-2 font-semibold ${(point.dailyReturnPct ?? 0) >= 0 ? "text-green-600" : "text-red-500"}`}>{formatPct(point.dailyReturnPct)}</td><td className="px-3 py-2 text-gray-600">{formatMoney(point.inferredFlowUsd, "usd")}</td><td className="px-3 py-2">Rp{point.fxRateUsdIdr.toLocaleString("id-ID")}</td><td className="px-3 py-2"><span className={`badge ${point.status === "complete" ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-700"}`}>{point.status}</span></td></tr>)}</tbody>
+            <thead className="bg-gray-50 text-left text-[10px] uppercase tracking-wide text-gray-500"><tr><th className="px-3 py-2">Session</th><th className="px-3 py-2">Total IDR</th><th className="px-3 py-2">Total USD</th><th className="px-3 py-2">Daily return</th><th className="px-3 py-2">Flow</th><th className="px-3 py-2">USD/IDR</th><th className="px-3 py-2">Status</th></tr></thead>
+              <tbody className="divide-y divide-gray-100">{[...points].reverse().map((point) => <tr key={point.sessionDate} className="hover:bg-gray-50"><td className="px-3 py-2 font-semibold">{point.sessionDate}</td><td className="px-3 py-2">{formatMoney(snapshotTotalValueIdr(point), "idr")}</td><td className="px-3 py-2">{formatMoney(snapshotTotalValueUsd(point), "usd")}</td><td className={`px-3 py-2 font-semibold ${(point.dailyReturnPct ?? 0) >= 0 ? "text-green-600" : "text-red-500"}`}>{formatPct(point.dailyReturnPct)}</td><td className="px-3 py-2 text-gray-600"><div>{formatMoney(point.inferredFlowUsd, "usd")}</div><div className="text-[10px] uppercase text-gray-400">{point.flowSource}</div></td><td className="px-3 py-2">Rp{point.fxRateUsdIdr.toLocaleString("id-ID")}</td><td className="px-3 py-2"><span className={`badge ${point.status === "complete" ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-700"}`}>{point.status}</span></td></tr>)}</tbody>
             </table>
           </div>
         )}
       </section>
 
-      <p className="px-1 text-[10px] leading-relaxed text-gray-400">Returns remove estimated flows caused by position quantity changes, valued at the ending close. This is more useful than raw balance change, but dividends, fees, cash, and intraday transaction prices require a future transaction ledger for exact time-weighted returns.</p>
+      <p className="px-1 text-[10px] leading-relaxed text-gray-400">{hasEstimatedFlows ? "Legacy snapshots use estimated flows from position quantity changes. Ledger-backed snapshots use recorded external flows and include cash in total value; mixed ranges remain visibly identified above." : "Ledger-backed snapshots use recorded external flows and include cash in total value. Time-weighted return calculations will be refined in the next accounting phase."}</p>
     </div>
   );
 }

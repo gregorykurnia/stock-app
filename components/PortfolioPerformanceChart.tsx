@@ -4,6 +4,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ColorType, CrosshairMode, createChart, LineSeries, type Time } from "lightweight-charts";
 import {
   buildPerformancePoints,
+  snapshotBucketValueIdr,
+  snapshotBucketValueUsd,
+  snapshotTotalValueIdr,
+  snapshotTotalValueUsd,
   type PortfolioBucket,
   type PortfolioSnapshot,
 } from "@/lib/portfolioPerformance";
@@ -91,7 +95,7 @@ export default function PortfolioPerformanceChart({ snapshots, currency, metric,
           const summary = definition.id === "total" ? snapshot.total : snapshot.buckets[definition.id];
           return {
             time: snapshot.sessionDate as Time,
-            value: currency === "idr" ? summary.valueIdr : summary.valueUsd,
+            value: currency === "idr" ? snapshotBucketValueIdr(summary) : snapshotBucketValueUsd(summary),
           };
         }));
       } else {
@@ -119,8 +123,8 @@ export default function PortfolioPerformanceChart({ snapshots, currency, metric,
   const hovered = hoveredDate ? snapshotMap.get(hoveredDate) : snapshots.at(-1);
   const hoveredIndex = hovered ? snapshots.findIndex((snapshot) => snapshot.sessionDate === hovered.sessionDate) : -1;
   const previous = hoveredIndex > 0 ? snapshots[hoveredIndex - 1] : null;
-  const changePct = hovered && previous && previous.total.valueUsd > 0
-    ? ((hovered.total.valueUsd / previous.total.valueUsd) - 1) * 100
+  const changePct = hovered && previous && snapshotTotalValueUsd(previous) > 0
+    ? ((snapshotTotalValueUsd(hovered) / snapshotTotalValueUsd(previous)) - 1) * 100
     : null;
 
   return (
@@ -129,14 +133,14 @@ export default function PortfolioPerformanceChart({ snapshots, currency, metric,
       {hovered && (
         <div className="pointer-events-none absolute left-3 top-3 z-10 rounded-xl border border-[var(--border)] bg-white/95 px-3 py-2 shadow-[var(--shadow-md)] backdrop-blur-sm">
           <div className="text-xs font-semibold text-gray-900">{hovered.sessionDate}</div>
-          <div className="mt-1 text-sm font-bold text-indigo-600">{formatMoney(currency === "idr" ? hovered.total.valueIdr : hovered.total.valueUsd, currency)}</div>
+          <div className="mt-1 text-sm font-bold text-indigo-600">{formatMoney(currency === "idr" ? snapshotTotalValueIdr(hovered) : snapshotTotalValueUsd(hovered), currency)}</div>
           <div className="mt-0.5 text-[11px] text-gray-500">
-            {formatMoney(hovered.total.valueUsd, "usd")} · Rp{hovered.fxRateUsdIdr.toLocaleString("id-ID")}/USD
+            {formatMoney(snapshotTotalValueUsd(hovered), "usd")} · Rp{hovered.fxRateUsdIdr.toLocaleString("id-ID")}/USD
           </div>
           {changePct != null && <div className={`mt-1 text-xs font-semibold ${changePct >= 0 ? "text-green-600" : "text-red-500"}`}>{changePct >= 0 ? "+" : ""}{changePct.toFixed(2)}% value change</div>}
           <div className="mt-2 grid grid-cols-3 gap-3 border-t border-gray-100 pt-1.5 text-[10px] text-gray-500">
             {(["longterm", "index", "swing"] as PortfolioBucket[]).map((bucket) => (
-              <div key={bucket}><span className="block">{LABELS[bucket]}</span><strong className="font-semibold text-gray-700">{formatMoney(currency === "idr" ? hovered.buckets[bucket].valueIdr : hovered.buckets[bucket].valueUsd, currency, true)}</strong></div>
+              <div key={bucket}><span className="block">{LABELS[bucket]}</span><strong className="font-semibold text-gray-700">{formatMoney(currency === "idr" ? snapshotBucketValueIdr(hovered.buckets[bucket]) : snapshotBucketValueUsd(hovered.buckets[bucket]), currency, true)}</strong></div>
             ))}
           </div>
         </div>

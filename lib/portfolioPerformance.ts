@@ -9,6 +9,9 @@ export interface SnapshotPosition {
   valueIdr: number;
   entryPriceUsd: number | null;
   costBasisUsd: number | null;
+  marketValueUsd?: number;
+  marketValueIdr?: number;
+  unrealizedGainUsd?: number;
 }
 
 export interface SnapshotBucket {
@@ -17,6 +20,17 @@ export interface SnapshotBucket {
   costBasisUsd: number;
   unrealizedUsd: number;
   positionCount: number;
+  cashValueUsd?: number;
+  cashValueIdr?: number;
+  investedValueUsd?: number;
+  investedValueIdr?: number;
+  totalValueUsd?: number;
+  totalValueIdr?: number;
+  realizedGainUsd?: number;
+  incomeUsd?: number;
+  feesUsd?: number;
+  externalFlowUsd?: number;
+  externalFlowIdr?: number;
 }
 
 export interface PortfolioSnapshot {
@@ -31,12 +45,16 @@ export interface PortfolioSnapshot {
   missingTickers: string[];
   status: "complete" | "partial";
   source: "scheduled" | "manual" | "preview";
-  schemaVersion: 1;
+  schemaVersion: 1 | 2;
+  baseCurrency?: "USD";
+  ledgerAsOf?: string | null;
+  ledgerVersion?: number;
 }
 
 export interface PerformancePoint extends PortfolioSnapshot {
   inferredFlowUsd: number;
   inferredFlowIdr: number;
+  flowSource: "estimated" | "ledger";
   dailyReturnPct: number | null;
   dailyValueChangeUsd: number | null;
   dailyValueChangeIdr: number | null;
@@ -59,6 +77,22 @@ function round(value: number, decimals = 4) {
 
 function positionKey(position: SnapshotPosition) {
   return `${position.bucket}:${position.ticker}`;
+}
+
+export function snapshotTotalValueUsd(snapshot: PortfolioSnapshot): number {
+  return snapshotBucketValueUsd(snapshot.total);
+}
+
+export function snapshotTotalValueIdr(snapshot: PortfolioSnapshot): number {
+  return snapshotBucketValueIdr(snapshot.total);
+}
+
+export function snapshotBucketValueUsd(bucket: SnapshotBucket): number {
+  return bucket.totalValueUsd ?? bucket.valueUsd;
+}
+
+export function snapshotBucketValueIdr(bucket: SnapshotBucket): number {
+  return bucket.totalValueIdr ?? bucket.valueIdr;
 }
 
 /**
@@ -92,16 +126,27 @@ export function buildPerformancePoints(snapshots: PortfolioSnapshot[], currency:
         ...snapshot,
         inferredFlowUsd: 0,
         inferredFlowIdr: 0,
+        flowSource: snapshot.schemaVersion === 2 ? "ledger" : "estimated",
         dailyReturnPct: null,
         dailyValueChangeUsd: null,
         dailyValueChangeIdr: null,
       };
     }
 
-    const inferredFlowUsd = inferPositionFlowUsd(previous, snapshot);
-    const inferredFlowIdr = inferredFlowUsd * snapshot.fxRateUsdIdr;
-    const previousValue = currency === "idr" ? previous.total.valueIdr : previous.total.valueUsd;
-    const currentValue = currency === "idr" ? snapshot.total.valueIdr : snapshot.total.valueUsd;
+    const ledgerFlowAvailable = previous.schemaVersion === 2
+      && snapshot.schemaVersion === 2
+      && previous.total.externalFlowUsd != null
+      && snapshot.total.externalFlowUsd != null
+      && previous.total.externalFlowIdr != null
+      && snapshot.total.externalFlowIdr != null;
+    const inferredFlowUsd = ledgerFlowAvailable
+      ? snapshot.total.externalFlowUsd! - previous.total.externalFlowUsd!
+      : inferPositionFlowUsd(previous, snapshot);
+    const inferredFlowIdr = ledgerFlowAvailable
+      ? snapshot.total.externalFlowIdr! - previous.total.externalFlowIdr!
+      : inferredFlowUsd * snapshot.fxRateUsdIdr;
+    const previousValue = currency === "idr" ? snapshotTotalValueIdr(previous) : snapshotTotalValueUsd(previous);
+    const currentValue = currency === "idr" ? snapshotTotalValueIdr(snapshot) : snapshotTotalValueUsd(snapshot);
     const flow = currency === "idr" ? inferredFlowIdr : inferredFlowUsd;
     const dailyReturnPct = previousValue > 0
       ? ((currentValue - flow) / previousValue - 1) * 100
@@ -111,9 +156,10 @@ export function buildPerformancePoints(snapshots: PortfolioSnapshot[], currency:
       ...snapshot,
       inferredFlowUsd,
       inferredFlowIdr: round(inferredFlowIdr, 2),
+      flowSource: ledgerFlowAvailable ? "ledger" : "estimated",
       dailyReturnPct: dailyReturnPct == null ? null : round(dailyReturnPct, 6),
-      dailyValueChangeUsd: round(snapshot.total.valueUsd - previous.total.valueUsd, 2),
-      dailyValueChangeIdr: round(snapshot.total.valueIdr - previous.total.valueIdr, 2),
+      dailyValueChangeUsd: round(snapshotTotalValueUsd(snapshot) - snapshotTotalValueUsd(previous), 2),
+      dailyValueChangeIdr: round(snapshotTotalValueIdr(snapshot) - snapshotTotalValueIdr(previous), 2),
     };
   });
 }
