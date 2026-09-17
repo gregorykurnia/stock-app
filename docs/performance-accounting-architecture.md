@@ -339,6 +339,15 @@ Do not pretend historical snapshots can become exact without historical transact
 
 Document base currency, dividend/fee treatment, cost-basis method, pocket-transfer rules, and whether cash is tracked separately per pocket.
 
+#### Adopted defaults for the first implementation
+
+- USD is the ledger base currency. IDR cash is supported as a separate cash currency, while IDR valuation and FX decomposition remain snapshot/calculation work.
+- Positions use weighted-average cost basis. Trade fees are included in buy cost basis and reduce net sale proceeds; dividends are income and fees are expenses.
+- Cash is derived separately for each pocket and then summed into portfolio totals.
+- The first activity workflow is manual entry. Broker integration and historical CSV import remain later work.
+- Opening balances and reconciliation adjustments establish the accurate-history start point. Existing schema-version-1 snapshots remain legacy estimated history.
+- TWR is the future primary return measure; Modified Dietz and XIRR are deferred to the calculations phase.
+
 ### Phase 2: ledger and cash
 
 Add the transaction collection, transaction types, cash balances, linked transfers, opening balances, reconciliation entries, and duplicate/idempotency protections.

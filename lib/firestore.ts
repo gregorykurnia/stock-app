@@ -1,6 +1,14 @@
-import { doc, getDoc, setDoc, collection, addDoc, getDocs, deleteDoc, deleteField, writeBatch } from "firebase/firestore";
+import { doc, getDoc, setDoc, collection, addDoc, getDocs, deleteDoc, deleteField, writeBatch, runTransaction } from "firebase/firestore";
 import { db } from "./firebase";
 import type { PortfolioSnapshot } from "./portfolioPerformance";
+import {
+  reducePortfolioLedger,
+  sortLedgerTransactions,
+  validateLedgerTransactionSet,
+  type LedgerTransaction,
+  type PortfolioLedgerState,
+  type ReduceLedgerOptions,
+} from "./portfolioLedger";
 
 export async function loadStockData(ticker: string) {
   const ref = doc(db, "stocks", ticker);
@@ -462,6 +470,60 @@ export async function updatePortfolioDivisionEntry(
   }
 ) {
   await setDoc(doc(db, portfolioDivisionCollection(division), ticker), data, { merge: true });
+}
+
+const PORTFOLIO_LEDGER_COLLECTION = "portfolio_ledger";
+
+// Append-only accounting activity. Document ids are transaction ids so a retry can be
+// safely treated as an idempotent no-op, while a conflicting payload is rejected.
+export async function getPortfolioLedgerTransactions(): Promise<LedgerTransaction[]> {
+  const snap = await getDocs(collection(db, PORTFOLIO_LEDGER_COLLECTION));
+  return sortLedgerTransactions(snap.docs.map((item) => item.data() as LedgerTransaction));
+}
+
+export async function getPortfolioLedgerTransaction(transactionId: string): Promise<LedgerTransaction | null> {
+  const snap = await getDoc(doc(db, PORTFOLIO_LEDGER_COLLECTION, transactionId));
+  return snap.exists() ? snap.data() as LedgerTransaction : null;
+}
+
+export async function getPortfolioLedgerState(options?: ReduceLedgerOptions): Promise<PortfolioLedgerState> {
+  const transactions = await getPortfolioLedgerTransactions();
+  return reducePortfolioLedger(transactions, options);
+}
+
+function sameLedgerTransaction(left: LedgerTransaction, right: LedgerTransaction): boolean {
+  const keys: (keyof LedgerTransaction)[] = [
+    "transactionId", "occurredAt", "recordedAt", "type", "bucket", "fromBucket", "toBucket",
+    "ticker", "quantity", "price", "grossAmount", "fees", "currency", "cashDelta",
+    "externalFlow", "transferId", "notes", "source",
+  ];
+  return keys.every((key) => left[key] === right[key]);
+}
+
+export async function appendPortfolioLedgerTransactions(transactions: readonly LedgerTransaction[]): Promise<void> {
+  if (transactions.length === 0) return;
+  validateLedgerTransactionSet(transactions);
+  const refs = transactions.map((item) => doc(db, PORTFOLIO_LEDGER_COLLECTION, item.transactionId));
+
+  await runTransaction(db, async (transaction) => {
+    const existing = [] as (LedgerTransaction | null)[];
+    for (const ref of refs) {
+      const snapshot = await transaction.get(ref);
+      existing.push(snapshot.exists() ? snapshot.data() as LedgerTransaction : null);
+    }
+    for (let index = 0; index < transactions.length; index += 1) {
+      const current = transactions[index];
+      const saved = existing[index];
+      if (saved && !sameLedgerTransaction(saved, current)) {
+        throw new Error(`Ledger transaction ${current.transactionId} already exists with different data`);
+      }
+      if (!saved) transaction.set(refs[index], current);
+    }
+  });
+}
+
+export async function appendPortfolioLedgerTransaction(transaction: LedgerTransaction): Promise<void> {
+  await appendPortfolioLedgerTransactions([transaction]);
 }
 
 // Immutable daily portfolio summaries. The US session date is the document id, making
