@@ -98,23 +98,48 @@ const NEW_YORK_DATE_PARTS = new Intl.DateTimeFormat("en-US", {
   month: "2-digit",
   day: "2-digit",
 });
+const FLOW_EPSILON = 1e-8;
 
 function newYorkSessionDate(timestamp: string) {
   const parts = Object.fromEntries(NEW_YORK_DATE_PARTS.formatToParts(new Date(timestamp)).map((part) => [part.type, part.value]));
   return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
-function ledgerExternalFlowAtDate(
+function snapshotPosition(snapshot: PortfolioSnapshot, bucket: PortfolioBucket, ticker: string) {
+  return snapshot.positions.find((position) => position.bucket === bucket && position.ticker === ticker);
+}
+
+function ledgerFlowBetweenSnapshots(
   transactions: readonly LedgerTransaction[],
-  sessionDate: string,
+  previous: PortfolioSnapshot,
+  current: PortfolioSnapshot,
   bucket: PortfolioBucket | undefined,
 ) {
   return transactions.reduce((flow, transaction) => {
-    if (transaction.type !== "deposit" && transaction.type !== "withdrawal") return flow;
-    if (bucket && transaction.bucket !== bucket) return flow;
-    if (newYorkSessionDate(transaction.occurredAt) > sessionDate) return flow;
-    if (transaction.currency === "USD") flow.usd += transaction.externalFlow ?? 0;
-    else flow.idr += transaction.externalFlow ?? 0;
+    const sessionDate = newYorkSessionDate(transaction.occurredAt);
+    if (sessionDate <= previous.sessionDate || sessionDate > current.sessionDate) return flow;
+
+    if (transaction.type === "deposit" || transaction.type === "withdrawal") {
+      if (bucket && transaction.bucket !== bucket) return flow;
+      if (transaction.currency === "USD") flow.usd += transaction.externalFlow ?? 0;
+      else flow.idr += transaction.externalFlow ?? 0;
+      return flow;
+    }
+
+    // Transfers are internal at the total-portfolio level, but they are real
+    // cash/security flows for the source and destination pocket return series.
+    if (transaction.type !== "transfer" || !bucket || transaction.bucket !== bucket) return flow;
+    if (Math.abs(transaction.cashDelta ?? 0) > FLOW_EPSILON) {
+      if (transaction.currency === "USD") flow.usd += transaction.cashDelta ?? 0;
+      else flow.idr += transaction.cashDelta ?? 0;
+      return flow;
+    }
+    if (transaction.ticker && Math.abs(transaction.quantity ?? 0) > FLOW_EPSILON) {
+      const price = snapshotPosition(current, bucket, transaction.ticker)?.priceUsd
+        ?? snapshotPosition(previous, bucket, transaction.ticker)?.priceUsd
+        ?? 0;
+      flow.usd += (transaction.quantity ?? 0) * price;
+    }
     return flow;
   }, { usd: 0, idr: 0 });
 }
@@ -191,21 +216,16 @@ export function buildPerformancePoints(
     const ledgerTransactionsAvailable = options.ledgerTransactions !== undefined
       && previous.schemaVersion === 2
       && snapshot.schemaVersion === 2;
-    const previousLedgerFlow = ledgerTransactionsAvailable
-      ? ledgerExternalFlowAtDate(options.ledgerTransactions!, previous.sessionDate, options.bucket)
-      : null;
-    const currentLedgerFlow = ledgerTransactionsAvailable
-      ? ledgerExternalFlowAtDate(options.ledgerTransactions!, snapshot.sessionDate, options.bucket)
+    const ledgerFlow = ledgerTransactionsAvailable
+      ? ledgerFlowBetweenSnapshots(options.ledgerTransactions!, previous, snapshot, options.bucket)
       : null;
     const inferredFlowUsd = ledgerTransactionsAvailable
-      ? (currentLedgerFlow!.usd + currentLedgerFlow!.idr / snapshot.fxRateUsdIdr)
-        - (previousLedgerFlow!.usd + previousLedgerFlow!.idr / previous.fxRateUsdIdr)
+      ? ledgerFlow!.usd + ledgerFlow!.idr / snapshot.fxRateUsdIdr
       : snapshotLedgerFlowAvailable
         ? snapshot.total.externalFlowUsd! - previous.total.externalFlowUsd!
       : inferPositionFlowUsd(previous, snapshot);
     const inferredFlowIdr = ledgerTransactionsAvailable
-      ? (currentLedgerFlow!.idr + currentLedgerFlow!.usd * snapshot.fxRateUsdIdr)
-        - (previousLedgerFlow!.idr + previousLedgerFlow!.usd * previous.fxRateUsdIdr)
+      ? ledgerFlow!.idr + ledgerFlow!.usd * snapshot.fxRateUsdIdr
       : snapshotLedgerFlowAvailable
         ? snapshot.total.externalFlowIdr! - previous.total.externalFlowIdr!
       : inferredFlowUsd * snapshot.fxRateUsdIdr;

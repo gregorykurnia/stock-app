@@ -159,6 +159,51 @@ test("late ledger deposits recalculate the affected snapshot flow", () => {
   assert.equal(points[1].dailyReturnPct, 0);
 });
 
+test("pocket returns neutralize internal cash and position transfers", () => {
+  const before = ledgerSnapshot("2026-09-08", 1, 0, 0);
+  const after = ledgerSnapshot("2026-09-10", 0, 0, 0);
+  const transferLegs = [
+    {
+      transactionId: "transfer-out",
+      occurredAt: "2026-09-09T14:00:00.000Z",
+      recordedAt: "2026-09-09T14:00:00.000Z",
+      type: "transfer" as const,
+      bucket: "longterm" as const,
+      fromBucket: "longterm" as const,
+      toBucket: "index" as const,
+      ticker: "TEST",
+      quantity: -1,
+      currency: "USD" as const,
+      transferId: "transfer-1",
+      source: "manual" as const,
+    },
+    {
+      transactionId: "transfer-in",
+      occurredAt: "2026-09-09T14:00:00.000Z",
+      recordedAt: "2026-09-09T14:00:00.000Z",
+      type: "transfer" as const,
+      bucket: "index" as const,
+      fromBucket: "longterm" as const,
+      toBucket: "index" as const,
+      ticker: "TEST",
+      quantity: 1,
+      currency: "USD" as const,
+      transferId: "transfer-1",
+      source: "manual" as const,
+    },
+  ];
+
+  const longtermPoints = buildPerformancePoints([before, after], "usd", {
+    bucket: "longterm",
+    ledgerTransactions: transferLegs,
+  });
+  const totalPoints = buildPerformancePoints([before, after], "usd", { ledgerTransactions: transferLegs });
+
+  assert.equal(longtermPoints[1].inferredFlowUsd, -100);
+  assert.equal(longtermPoints[1].dailyReturnPct, 0);
+  assert.equal(totalPoints[1].inferredFlowUsd, 0);
+});
+
 test("partial snapshots suppress TWR returns and statistics", () => {
   const partial = { ...snapshot("2026-09-09", 110, 10), status: "partial" as const };
   const points = buildPerformancePoints([snapshot("2026-09-08", 100, 10), partial]);
