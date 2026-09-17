@@ -1,7 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ColorType, CrosshairMode, createChart, LineSeries, type Time } from "lightweight-charts";
+import {
+  ColorType,
+  CrosshairMode,
+  createChart,
+  createSeriesMarkers,
+  LineSeries,
+  type SeriesMarker,
+  type Time,
+} from "lightweight-charts";
+import type { PortfolioActivityRow } from "@/lib/portfolioActivity";
 import {
   buildPerformancePoints,
   snapshotBucketValueIdr,
@@ -19,6 +28,7 @@ export type PerformanceMetric = "value" | "return";
 interface Props {
   snapshots: PortfolioSnapshot[];
   openingSnapshot?: PortfolioSnapshot;
+  activityRows?: PortfolioActivityRow[];
   currency: PerformanceCurrency;
   metric: PerformanceMetric;
   visibleSeries: Set<PerformanceSeries>;
@@ -34,6 +44,45 @@ const SERIES: { id: PerformanceSeries; label: string; color: string; width: 1 | 
 const LABELS: Record<PerformanceSeries, string> = {
   total: "Total", longterm: "Long Term", index: "Index", swing: "Swing",
 };
+
+const ACTIVITY_MARKER_STYLES: Record<PortfolioActivityRow["type"], { color: string; shape: "circle" | "square" | "arrowUp" | "arrowDown"; label: string }> = {
+  deposit: { color: "#16a34a", shape: "arrowUp", label: "D" },
+  withdrawal: { color: "#dc2626", shape: "arrowDown", label: "W" },
+  buy: { color: "#2563eb", shape: "arrowUp", label: "B" },
+  sell: { color: "#ea580c", shape: "arrowDown", label: "S" },
+  transfer: { color: "#7c3aed", shape: "square", label: "T" },
+  dividend: { color: "#0891b2", shape: "circle", label: "Div" },
+  fee: { color: "#be123c", shape: "arrowDown", label: "F" },
+  fx_conversion: { color: "#64748b", shape: "square", label: "FX" },
+  opening_balance: { color: "#4f46e5", shape: "circle", label: "O" },
+  reconciliation_adjustment: { color: "#ca8a04", shape: "square", label: "R" },
+};
+
+function activityMarkers(rows: readonly PortfolioActivityRow[], snapshots: readonly PortfolioSnapshot[]): SeriesMarker<Time>[] {
+  const visibleDates = new Set(snapshots.map((snapshot) => snapshot.sessionDate));
+  const byDate = new Map<string, PortfolioActivityRow[]>();
+  for (const row of rows) {
+    const date = row.occurredAt.slice(0, 10);
+    if (!visibleDates.has(date)) continue;
+    const current = byDate.get(date) ?? [];
+    current.push(row);
+    byDate.set(date, current);
+  }
+
+  return [...byDate.entries()].sort(([left], [right]) => left.localeCompare(right)).map(([date, dateRows]) => {
+    const first = ACTIVITY_MARKER_STYLES[dateRows[0].type];
+    const multiple = dateRows.length > 1;
+    return {
+      id: `activity-${date}`,
+      time: date as Time,
+      position: "aboveBar",
+      shape: multiple ? "circle" : first.shape,
+      color: multiple ? "#4f46e5" : first.color,
+      text: multiple ? String(dateRows.length) : first.label,
+      size: multiple ? 1.5 : 1,
+    };
+  });
+}
 
 function snapshotForSeries(snapshot: PortfolioSnapshot, series: PerformanceSeries): PortfolioSnapshot {
   if (series === "total") return snapshot;
@@ -57,7 +106,7 @@ function formatMoney(value: number, currency: PerformanceCurrency, compact = fal
   }).format(value);
 }
 
-export default function PortfolioPerformanceChart({ snapshots, openingSnapshot, currency, metric, visibleSeries }: Props) {
+export default function PortfolioPerformanceChart({ snapshots, openingSnapshot, activityRows = [], currency, metric, visibleSeries }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [hoveredDate, setHoveredDate] = useState<string | null>(null);
   const snapshotMap = useMemo(() => new Map(snapshots.map((snapshot) => [snapshot.sessionDate, snapshot])), [snapshots]);
@@ -80,6 +129,7 @@ export default function PortfolioPerformanceChart({ snapshots, openingSnapshot, 
       },
     });
 
+    const renderedSeries = new Map<PerformanceSeries, ReturnType<typeof chart.addSeries>>();
     for (const definition of SERIES) {
       if (!visibleSeries.has(definition.id)) continue;
       const series = chart.addSeries(LineSeries, {
@@ -90,6 +140,7 @@ export default function PortfolioPerformanceChart({ snapshots, openingSnapshot, 
         lastValueVisible: false,
         crosshairMarkerRadius: definition.id === "total" ? 5 : 4,
       });
+      renderedSeries.set(definition.id, series);
 
       if (metric === "value") {
         series.setData(snapshots.map((snapshot) => {
@@ -115,6 +166,11 @@ export default function PortfolioPerformanceChart({ snapshots, openingSnapshot, 
       }
     }
 
+    const markerSeries = renderedSeries.get("total") ?? renderedSeries.get(SERIES.find((definition) => visibleSeries.has(definition.id))?.id ?? "total");
+    if (markerSeries && activityRows.length > 0) {
+      createSeriesMarkers(markerSeries, activityMarkers(activityRows, snapshots));
+    }
+
     chart.timeScale().fitContent();
     chart.subscribeCrosshairMove((param) => {
       setHoveredDate(typeof param.time === "string" ? param.time : null);
@@ -125,7 +181,7 @@ export default function PortfolioPerformanceChart({ snapshots, openingSnapshot, 
       observer.disconnect();
       chart.remove();
     };
-  }, [snapshots, openingSnapshot, currency, metric, visibleSeries]);
+  }, [snapshots, openingSnapshot, activityRows, currency, metric, visibleSeries]);
 
   const hovered = hoveredDate ? snapshotMap.get(hoveredDate) : snapshots.at(-1);
   const hoveredIndex = hovered ? snapshots.findIndex((snapshot) => snapshot.sessionDate === hovered.sessionDate) : -1;

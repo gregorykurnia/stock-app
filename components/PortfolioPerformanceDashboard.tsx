@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { getPortfolioPerformanceSnapshots } from "@/lib/firestore";
+import { getPortfolioLedgerTransactions, getPortfolioPerformanceSnapshots } from "@/lib/firestore";
+import { buildPortfolioActivityRows, type PortfolioActivityRow } from "@/lib/portfolioActivity";
 import {
   buildPerformancePoints,
   calculateReturnStatistics,
@@ -57,6 +58,7 @@ function bucketSnapshot(snapshot: PortfolioSnapshot, bucket: PortfolioBucket): P
 
 export default function PortfolioPerformanceDashboard() {
   const [snapshots, setSnapshots] = useState<PortfolioSnapshot[]>([]);
+  const [activityRows, setActivityRows] = useState<PortfolioActivityRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [range, setRange] = useState<Range>("ALL");
@@ -68,15 +70,22 @@ export default function PortfolioPerformanceDashboard() {
   const [historyOpen, setHistoryOpen] = useState(false);
 
   useEffect(() => {
-    getPortfolioPerformanceSnapshots()
-      .then((data) => { setSnapshots(data); setError(""); })
+    Promise.all([
+      getPortfolioPerformanceSnapshots(),
+      getPortfolioLedgerTransactions().catch(() => []),
+    ])
+      .then(([data, transactions]) => { setSnapshots(data); setActivityRows(buildPortfolioActivityRows(transactions)); setError(""); })
       .catch((loadError: unknown) => setError(loadError instanceof Error ? loadError.message : "Could not load performance history"))
       .finally(() => setLoading(false));
   }, []);
 
-  async function refreshSnapshots() {
-    const data = await getPortfolioPerformanceSnapshots();
+  async function refreshPerformanceData() {
+    const [data, transactions] = await Promise.all([
+      getPortfolioPerformanceSnapshots(),
+      getPortfolioLedgerTransactions().catch(() => []),
+    ]);
     setSnapshots(data);
+    setActivityRows(buildPortfolioActivityRows(transactions));
   }
 
   async function runPreview() {
@@ -208,7 +217,7 @@ export default function PortfolioPerformanceDashboard() {
               <h3 className="mt-3 font-semibold text-gray-900">Your performance chart will appear here</h3>
               <p className="mt-1 max-w-md text-xs leading-relaxed text-gray-500">Use “Test snapshot now” to verify all holdings and the live FX rate today. The scheduled job saves the first point after the next US market close.</p>
             </div>
-          ) : <PortfolioPerformanceChart snapshots={filtered} openingSnapshot={openingSnapshot ?? undefined} currency={currency} metric={metric} visibleSeries={visibleSeries} />}
+          ) : <PortfolioPerformanceChart snapshots={filtered} openingSnapshot={openingSnapshot ?? undefined} activityRows={activityRows} currency={currency} metric={metric} visibleSeries={visibleSeries} />}
       </section>
 
       {latest && (
@@ -251,7 +260,7 @@ export default function PortfolioPerformanceDashboard() {
 
       <p className="px-1 text-[10px] leading-relaxed text-gray-400">{stats.quality === "partial" ? "TWR statistics are suppressed because the selected range includes a partial snapshot. Equity and external-flow values remain visible." : hasEstimatedFlows ? "Legacy snapshots use estimated flows from position quantity changes. Ledger-backed snapshots use recorded external flows and daily TWR conventions; mixed ranges remain visibly identified above." : "Ledger-backed snapshots use recorded external flows and daily TWR conventions. Equity and flow-neutralized return are shown as separate measures."}</p>
 
-      <PortfolioAccountingPanel onLedgerChanged={() => { refreshSnapshots().catch(() => undefined); }} />
+      <PortfolioAccountingPanel onLedgerChanged={() => { refreshPerformanceData().catch(() => undefined); }} />
     </div>
   );
 }
