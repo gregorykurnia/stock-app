@@ -40,6 +40,17 @@ function formatPct(value: number | null) {
   return value == null ? "—" : `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
 }
 
+function snapshotComponentValue(
+  bucket: PortfolioSnapshot["total"],
+  component: "cash" | "invested",
+  currency: PerformanceCurrency,
+) {
+  const value = component === "cash"
+    ? currency === "idr" ? bucket.cashValueIdr : bucket.cashValueUsd
+    : currency === "idr" ? bucket.investedValueIdr : bucket.investedValueUsd;
+  return value == null ? null : formatMoney(value, currency);
+}
+
 function rangeStart(range: Range, latestDate: string): string | null {
   if (range === "ALL") return null;
   const latest = new Date(`${latestDate}T12:00:00Z`);
@@ -142,7 +153,7 @@ export default function PortfolioPerformanceDashboard() {
   }
 
   const cards = [
-    { label: "Current Equity", value: latest ? formatMoney(latestValue, currency) : "—", detail: latest ? formatMoney(snapshotTotalValueUsd(latest), "usd") : "No snapshot yet", tone: "text-gray-900" },
+    { label: "Current Equity", value: latest ? formatMoney(latestValue, currency) : "—", detail: latest ? (snapshotComponentValue(latest.total, "cash", currency) == null ? "Legacy snapshot · cash unavailable" : `Cash ${snapshotComponentValue(latest.total, "cash", currency)} · invested ${snapshotComponentValue(latest.total, "invested", currency)}`) : "No snapshot yet", tone: "text-gray-900" },
     { label: "Latest Equity Change", value: latestChange == null ? "—" : `${latestChange >= 0 ? "+" : ""}${formatMoney(latestChange, currency)}`, detail: "Raw cash + market-value change", tone: (latestChange ?? 0) >= 0 ? "text-green-600" : "text-red-500" },
     { label: "Latest External Flow", value: latestFlow == null ? "—" : `${latestFlow >= 0 ? "+" : ""}${formatMoney(latestFlow, currency)}`, detail: latest?.flowSource === "ledger" ? "Ledger contribution / withdrawal" : "Estimated legacy flow", tone: (latestFlow ?? 0) >= 0 ? "text-green-600" : "text-red-500" },
     { label: "Net Contributions", value: netContributions == null ? "—" : formatMoney(netContributions, currency), detail: range === "ALL" ? "Since first snapshot" : `Selected ${range} window`, tone: (netContributions ?? 0) >= 0 ? "text-gray-900" : "text-red-500" },
@@ -243,6 +254,7 @@ export default function PortfolioPerformanceDashboard() {
                 <div className="flex items-center justify-between"><div className="flex items-center gap-2 text-sm font-bold"><span className="h-2.5 w-2.5 rounded-full" style={{ background: bucket.color }} />{bucket.label}</div><span className="text-xs font-semibold text-gray-500">{allocation.toFixed(1)}%</span></div>
                 <div className="mt-3 text-xl font-bold text-gray-900">{formatMoney(currency === "idr" ? snapshotBucketValueIdr(summary) : snapshotBucketValueUsd(summary), currency)}</div>
                 <div className="mt-2 flex justify-between text-xs text-gray-500"><span>{summary.positionCount} positions</span><span className={(bucketStats.periodReturnPct ?? 0) >= 0 ? "font-semibold text-green-600" : "font-semibold text-red-500"}>{formatPct(bucketStats.periodReturnPct)} period</span></div>
+                {snapshotComponentValue(summary, "cash", currency) == null ? <div className="mt-2 text-[10px] text-gray-400">Legacy snapshot · cash unavailable</div> : <div className="mt-2 flex justify-between gap-2 text-[10px] text-gray-400"><span>Cash {snapshotComponentValue(summary, "cash", currency)}</span><span>Invested {snapshotComponentValue(summary, "invested", currency)}</span></div>}
                 <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-gray-100"><div className="h-full rounded-full" style={{ width: `${allocation}%`, background: bucket.color }} /></div>
               </div>
             );
