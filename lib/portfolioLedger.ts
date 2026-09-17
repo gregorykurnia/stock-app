@@ -30,6 +30,8 @@ export interface LedgerTransaction {
   price?: number;
   grossAmount?: number;
   fees?: number;
+  /** Optional exact cost-basis change for reconciliation position adjustments. */
+  costBasisDeltaUsd?: number;
   currency: LedgerCurrency;
   /** Signed cash movement for the transaction's bucket and currency. */
   cashDelta?: number;
@@ -172,6 +174,7 @@ function validateCommon(transaction: LedgerTransaction) {
     price: transaction.price,
     grossAmount: transaction.grossAmount,
     fees: transaction.fees,
+    costBasisDeltaUsd: transaction.costBasisDeltaUsd,
     cashDelta: transaction.cashDelta,
     externalFlow: transaction.externalFlow,
   })) {
@@ -307,13 +310,14 @@ export function validateLedgerTransaction(transaction: LedgerTransaction): void 
       requireBucket(transaction);
       requireCurrency(transaction);
       if (!transaction.notes?.trim()) throw new LedgerValidationError(`${transaction.transactionId}: reconciliation adjustment requires notes`);
-      if (Math.abs(cashDelta) <= EPSILON && Math.abs(amount(transaction.quantity)) <= EPSILON) {
+      if (Math.abs(cashDelta) <= EPSILON && Math.abs(amount(transaction.quantity)) <= EPSILON && Math.abs(amount(transaction.costBasisDeltaUsd)) <= EPSILON) {
         throw new LedgerValidationError(`${transaction.transactionId}: reconciliation adjustment must change cash or a position`);
       }
-      if (Math.abs(amount(transaction.quantity)) > EPSILON) {
+      if (Math.abs(amount(transaction.quantity)) > EPSILON || Math.abs(amount(transaction.costBasisDeltaUsd)) > EPSILON) {
         requireUsdPosition(transaction);
-        requirePositive(transaction, "price", transaction.price);
         if (!transaction.ticker?.trim()) throw new LedgerValidationError(`${transaction.transactionId}: ticker is required`);
+        if (transaction.costBasisDeltaUsd === undefined) requirePositive(transaction, "price", transaction.price);
+        else if (transaction.price !== undefined && transaction.price <= 0) throw new LedgerValidationError(`${transaction.transactionId}: price must be positive when provided`);
       }
       requireNoExternalFlow(transaction);
       break;
@@ -494,29 +498,31 @@ function addPosition(bucket: LedgerBucketState, ticker: string, quantity: number
 
 function applyPositionAdjustment(state: PortfolioLedgerState, transaction: LedgerTransaction) {
   const bucket = state.buckets[transaction.bucket as PortfolioBucket];
-  const quantity = transaction.quantity as number;
+  const quantity = amount(transaction.quantity);
   const ticker = transaction.ticker as string;
-  const price = transaction.price as number;
-  if (quantity > 0) {
-    addPosition(bucket, ticker, quantity, quantity * price);
-  } else {
-    const position = getPosition(bucket, ticker);
-    if (position.quantity + EPSILON < Math.abs(quantity)) {
-      throw new LedgerValidationError(`${transaction.transactionId}: cannot reconcile more ${ticker} than the current position`);
-    }
-    const removedCostBasis = Math.abs(quantity) * price;
-    if (position.costBasisUsd + EPSILON < removedCostBasis) {
-      throw new LedgerValidationError(`${transaction.transactionId}: reconciliation would make ${ticker} cost basis negative`);
-    }
-    position.quantity -= Math.abs(quantity);
-    position.costBasisUsd -= removedCostBasis;
-    if (position.quantity <= EPSILON) delete bucket.positions[ticker];
-    else {
-      position.costBasisUsd = Math.max(0, position.costBasisUsd);
-      position.averageCostUsd = position.costBasisUsd / position.quantity;
-      bucket.positions[ticker] = position;
-    }
+  const position = getPosition(bucket, ticker);
+  const costBasisDelta = transaction.costBasisDeltaUsd ?? quantity * (transaction.price as number);
+  const nextQuantity = position.quantity + quantity;
+  const nextCostBasis = position.costBasisUsd + costBasisDelta;
+  if (nextQuantity < -EPSILON) {
+    throw new LedgerValidationError(`${transaction.transactionId}: cannot reconcile more ${ticker} than the current position`);
   }
+  if (nextCostBasis < -EPSILON) {
+    throw new LedgerValidationError(`${transaction.transactionId}: reconciliation would make ${ticker} cost basis negative`);
+  }
+  if (Math.abs(nextQuantity) <= EPSILON) {
+    if (Math.abs(nextCostBasis) > EPSILON) {
+      throw new LedgerValidationError(`${transaction.transactionId}: a zero-quantity position cannot retain cost basis`);
+    }
+    delete bucket.positions[ticker];
+    return;
+  }
+  bucket.positions[ticker] = {
+    ticker,
+    quantity: Math.max(0, nextQuantity),
+    costBasisUsd: Math.max(0, nextCostBasis),
+    averageCostUsd: Math.max(0, nextCostBasis) / Math.max(0, nextQuantity),
+  };
 }
 
 function applyTransferGroup(state: PortfolioLedgerState, group: LedgerTransaction[]) {

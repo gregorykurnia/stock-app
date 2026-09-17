@@ -494,7 +494,7 @@ export async function getPortfolioLedgerState(options?: ReduceLedgerOptions): Pr
 function sameLedgerTransaction(left: LedgerTransaction, right: LedgerTransaction): boolean {
   const keys: (keyof LedgerTransaction)[] = [
     "transactionId", "occurredAt", "recordedAt", "type", "bucket", "fromBucket", "toBucket",
-    "ticker", "quantity", "price", "grossAmount", "fees", "currency", "cashDelta",
+    "ticker", "quantity", "price", "grossAmount", "fees", "costBasisDeltaUsd", "currency", "cashDelta",
     "externalFlow", "transferId", "notes", "source",
   ];
   return keys.every((key) => left[key] === right[key]);
@@ -503,6 +503,14 @@ function sameLedgerTransaction(left: LedgerTransaction, right: LedgerTransaction
 export async function appendPortfolioLedgerTransactions(transactions: readonly LedgerTransaction[]): Promise<void> {
   if (transactions.length === 0) return;
   validateLedgerTransactionSet(transactions);
+  const existingTransactions = await getPortfolioLedgerTransactions();
+  const existingById = new Map(existingTransactions.map((item) => [item.transactionId, item]));
+  const pending = transactions.filter((item) => !existingById.has(item.transactionId));
+  validateLedgerTransactionSet([...existingTransactions, ...pending]);
+  // Reducing before the write prevents a client from appending an activity that would
+  // leave a pocket with negative cash or an impossible position. The transaction below
+  // still makes retries idempotent by checking the document payloads.
+  reducePortfolioLedger([...existingTransactions, ...pending]);
   const refs = transactions.map((item) => doc(db, PORTFOLIO_LEDGER_COLLECTION, item.transactionId));
 
   await runTransaction(db, async (transaction) => {

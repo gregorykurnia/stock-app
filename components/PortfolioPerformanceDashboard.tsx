@@ -17,6 +17,7 @@ import PortfolioPerformanceChart, {
   type PerformanceMetric,
   type PerformanceSeries,
 } from "@/components/PortfolioPerformanceChart";
+import PortfolioAccountingPanel from "@/components/PortfolioAccountingPanel";
 
 type Range = "1M" | "3M" | "6M" | "YTD" | "1Y" | "ALL";
 
@@ -72,6 +73,11 @@ export default function PortfolioPerformanceDashboard() {
       .catch((loadError: unknown) => setError(loadError instanceof Error ? loadError.message : "Could not load performance history"))
       .finally(() => setLoading(false));
   }, []);
+
+  async function refreshSnapshots() {
+    const data = await getPortfolioPerformanceSnapshots();
+    setSnapshots(data);
+  }
 
   async function runPreview() {
     setPreviewLoading(true);
@@ -225,6 +231,8 @@ export default function PortfolioPerformanceDashboard() {
       </section>
 
       <p className="px-1 text-[10px] leading-relaxed text-gray-400">{hasEstimatedFlows ? "Legacy snapshots use estimated flows from position quantity changes. Ledger-backed snapshots use recorded external flows and include cash in total value; mixed ranges remain visibly identified above." : "Ledger-backed snapshots use recorded external flows and include cash in total value. Time-weighted return calculations will be refined in the next accounting phase."}</p>
+
+      <PortfolioAccountingPanel onLedgerChanged={() => { refreshSnapshots().catch(() => undefined); }} />
     </div>
   );
 }
