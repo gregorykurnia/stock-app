@@ -193,6 +193,29 @@ test("backdated ledger activity invalidates later v2 snapshots until recapture",
   assert.equal(calculateReturnStatistics(points).quality, "partial");
 });
 
+test("ledger corrections invalidate snapshots whose stored ledger version is stale", () => {
+  const snapshots = [
+    { ...ledgerSnapshot("2026-09-08", 10, 0, 0), ledgerVersion: 3 },
+    { ...ledgerSnapshot("2026-09-09", 10, 0, 0), ledgerVersion: 3 },
+  ];
+  const transactions = [{
+    transactionId: "opening-position",
+    occurredAt: "2026-09-08T14:00:00.000Z",
+    recordedAt: "2026-09-08T14:00:00.000Z",
+    type: "opening_balance" as const,
+    bucket: "longterm" as const,
+    ticker: "TEST",
+    quantity: 10,
+    price: 90,
+    currency: "USD" as const,
+    source: "manual" as const,
+  }];
+  const impact = findLedgerSnapshotImpact(snapshots, transactions);
+
+  assert.equal(impact.firstAffectedSessionDate, "2026-09-08");
+  assert.deepEqual(impact.affectedSnapshotDates, ["2026-09-08", "2026-09-09"]);
+});
+
 test("XIRR calculates annualized USD return from ledger-backed terminal value", () => {
   const result = calculateXirr([
     ledgerSnapshot("2025-01-01", 10, 0, 0),

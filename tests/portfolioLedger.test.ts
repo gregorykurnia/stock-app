@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   LedgerValidationError,
   prepareLedgerAppend,
+  prepareLedgerRemoval,
   reducePortfolioLedger,
   type LedgerTransaction,
 } from "../lib/portfolioLedger";
@@ -228,4 +229,22 @@ test("append planning treats identical retries as no-ops and rejects conflicting
   assert.equal(reducePortfolioLedger(plan.transactions).buckets.swing.cash.USD, 600);
 
   assert.throws(() => prepareLedgerAppend([opening], [{ ...opening, notes: "different payload" }]), /already exists with different data/);
+});
+
+test("removal planning deletes a manual activity only when the remaining ledger replays", () => {
+  const opening = transaction("opening_balance", { bucket: "swing", ticker: "ABC", quantity: 10, price: 100 });
+  const cash = transaction("opening_balance", { bucket: "swing", cashDelta: 1_000 });
+  const sell = transaction("sell", {
+    bucket: "swing", ticker: "ABC", quantity: 2, price: 110, grossAmount: 220, cashDelta: 220,
+  });
+  const plan = prepareLedgerRemoval([opening, cash, sell], [sell.transactionId]);
+
+  assert.deepEqual(plan.removed, [sell]);
+  assert.deepEqual(plan.transactions, [opening, cash]);
+  assert.equal(reducePortfolioLedger(plan.transactions).buckets.swing.positions.ABC.quantity, 10);
+});
+
+test("removal planning protects opening balances and reconciliation records", () => {
+  const opening = transaction("opening_balance", { bucket: "swing", cashDelta: 1_000 });
+  assert.throws(() => prepareLedgerRemoval([opening], [opening.transactionId]), /Only manually recorded activity/);
 });

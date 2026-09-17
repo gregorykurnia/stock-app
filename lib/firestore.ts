@@ -4,6 +4,7 @@ import type { PortfolioSnapshot } from "./portfolioPerformance";
 import {
   ledgerTransactionsEqual,
   prepareLedgerAppend,
+  prepareLedgerRemoval,
   reducePortfolioLedger,
   sortLedgerTransactions,
   type LedgerTransaction,
@@ -519,6 +520,35 @@ export async function appendPortfolioLedgerTransactions(transactions: readonly L
 
 export async function appendPortfolioLedgerTransaction(transaction: LedgerTransaction): Promise<void> {
   await appendPortfolioLedgerTransactions([transaction]);
+}
+
+/**
+ * Removes manually entered activity after validating that the remaining ledger
+ * is still a valid, replayable accounting history. This is a deliberate
+ * correction path for mistaken manual entries; opening balances and
+ * reconciliation records remain immutable.
+ */
+export async function removePortfolioLedgerTransactions(transactionIds: readonly string[]): Promise<void> {
+  if (transactionIds.length === 0) return;
+  const existingTransactions = await getPortfolioLedgerTransactions();
+  const plan = prepareLedgerRemoval(existingTransactions, transactionIds);
+  const refs = plan.removed.map((item) => doc(db, PORTFOLIO_LEDGER_COLLECTION, item.transactionId));
+
+  await runTransaction(db, async (transaction) => {
+    const existing = [] as (LedgerTransaction | null)[];
+    for (const ref of refs) {
+      const snapshot = await transaction.get(ref);
+      existing.push(snapshot.exists() ? snapshot.data() as LedgerTransaction : null);
+    }
+    for (let index = 0; index < plan.removed.length; index += 1) {
+      const saved = existing[index];
+      const current = plan.removed[index];
+      if (!saved || !ledgerTransactionsEqual(saved, current)) {
+        throw new Error(`Ledger transaction ${current.transactionId} changed before it could be removed`);
+      }
+    }
+    for (const ref of refs) transaction.delete(ref);
+  });
 }
 
 // Immutable daily portfolio summaries. The US session date is the document id, making

@@ -5,6 +5,7 @@ import {
   appendPortfolioLedgerTransactions,
   getPortfolioDivisionStocks,
   getPortfolioLedgerTransactions,
+  removePortfolioLedgerTransactions,
 } from "@/lib/firestore";
 import {
   reducePortfolioLedger,
@@ -303,6 +304,25 @@ export default function PortfolioAccountingPanel({ onLedgerChanged }: Props) {
     }
   }
 
+  async function removeActivity(row: PortfolioActivityRow) {
+    const label = `${humanType(row.type)}${row.ticker ? ` · ${row.ticker}` : ""}`;
+    if (!window.confirm(`Remove ${label} from the ledger and Activity history? This cannot be undone from the app.`)) return;
+
+    setSaving(true);
+    setError("");
+    setSuccess("");
+    try {
+      await removePortfolioLedgerTransactions(row.transactionIds);
+      await reload();
+      setSuccess(`${label} removed. Re-enter it under Record activity if it was meant to be recorded with different details.`);
+      onLedgerChanged?.();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Could not remove activity");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function submitOpening(event: FormEvent) {
     event.preventDefault();
     if (!ledgerState || transactions.length > 0) {
@@ -586,16 +606,16 @@ export default function PortfolioAccountingPanel({ onLedgerChanged }: Props) {
             </div>
           </form>}
 
-          {tab === "history" && <div className="space-y-3 px-4 py-4 sm:px-5"><div className="grid gap-2 md:grid-cols-5"><select className="input-field" value={historyType} onChange={(event) => setHistoryType(event.target.value)}><option value="all">All activity types</option>{[...ACTIVITY_TYPES, { id: "opening_balance" as const, label: "Opening balance" }, { id: "reconciliation_adjustment" as const, label: "Reconciliation" }].map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select><select className="input-field" value={historyBucket} onChange={(event) => setHistoryBucket(event.target.value)}><option value="all">Total portfolio</option>{BUCKETS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select><input className="input-field" type="date" value={historyFrom} onChange={(event) => setHistoryFrom(event.target.value)} aria-label="Activity from date" /><input className="input-field" type="date" value={historyTo} onChange={(event) => setHistoryTo(event.target.value)} aria-label="Activity to date" /><input className="input-field" value={historySearch} onChange={(event) => setHistorySearch(event.target.value)} placeholder="Filter ticker or note" /></div><div className="overflow-x-auto rounded-xl border border-gray-100"><table className="min-w-full text-left text-xs"><thead className="bg-gray-50 text-[10px] uppercase tracking-wide text-gray-500"><tr><th className="px-3 py-2">Occurred / recorded</th><th className="px-3 py-2">Activity</th><th className="px-3 py-2">Pocket / ticker</th><th className="px-3 py-2">Qty</th><th className="px-3 py-2">Price</th><th className="px-3 py-2">Gross / amount</th><th className="px-3 py-2">Fees</th><th className="px-3 py-2">Net cash</th><th className="px-3 py-2">Cost basis</th><th className="px-3 py-2">Realized P/L</th><th className="px-3 py-2">Remaining</th></tr></thead><tbody className="divide-y divide-gray-100">{historyRows.length === 0 ? <tr><td colSpan={11} className="px-3 py-6 text-center text-gray-400">No ledger activity matches these filters.</td></tr> : historyRows.map((row) => <ActivityRowView key={row.transactionIds.join("/")} row={row} />)}</tbody></table></div></div>}
+          {tab === "history" && <div className="space-y-3 px-4 py-4 sm:px-5"><div className="grid gap-2 md:grid-cols-5"><select className="input-field" value={historyType} onChange={(event) => setHistoryType(event.target.value)}><option value="all">All activity types</option>{[...ACTIVITY_TYPES, { id: "opening_balance" as const, label: "Opening balance" }, { id: "reconciliation_adjustment" as const, label: "Reconciliation" }].map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select><select className="input-field" value={historyBucket} onChange={(event) => setHistoryBucket(event.target.value)}><option value="all">Total portfolio</option>{BUCKETS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select><input className="input-field" type="date" value={historyFrom} onChange={(event) => setHistoryFrom(event.target.value)} aria-label="Activity from date" /><input className="input-field" type="date" value={historyTo} onChange={(event) => setHistoryTo(event.target.value)} aria-label="Activity to date" /><input className="input-field" value={historySearch} onChange={(event) => setHistorySearch(event.target.value)} placeholder="Filter ticker or note" /></div><div className="overflow-x-auto rounded-xl border border-gray-100"><table className="min-w-full text-left text-xs"><thead className="bg-gray-50 text-[10px] uppercase tracking-wide text-gray-500"><tr><th className="px-3 py-2">Occurred / recorded</th><th className="px-3 py-2">Activity</th><th className="px-3 py-2">Pocket / ticker</th><th className="px-3 py-2">Qty</th><th className="px-3 py-2">Price</th><th className="px-3 py-2">Gross / amount</th><th className="px-3 py-2">Fees</th><th className="px-3 py-2">Net cash</th><th className="px-3 py-2">Cost basis</th><th className="px-3 py-2">Realized P/L</th><th className="px-3 py-2">Remaining</th><th className="px-3 py-2">Action</th></tr></thead><tbody className="divide-y divide-gray-100">{historyRows.length === 0 ? <tr><td colSpan={12} className="px-3 py-6 text-center text-gray-400">No ledger activity matches these filters.</td></tr> : historyRows.map((row) => { const canRemove = row.transactionIds.every((id) => { const transaction = transactions.find((item) => item.transactionId === id); return Boolean(transaction && transaction.source === "manual" && transaction.type !== "opening_balance" && transaction.type !== "reconciliation_adjustment"); }); return <ActivityRowView key={row.transactionIds.join("/")} row={row} onRemove={canRemove ? () => { void removeActivity(row); } : undefined} />; })}</tbody></table></div></div>}
         </>
       )}
     </section>
   );
 }
 
-function ActivityRowView({ row }: { row: PortfolioActivityRow }) {
+function ActivityRowView({ row, onRemove }: { row: PortfolioActivityRow; onRemove?: () => void }) {
   const pocket = row.fromBucket && row.toBucket ? `${row.fromBucket} → ${row.toBucket}` : row.bucket ?? "—";
   const amount = row.grossAmount ?? (row.cashDelta != null ? Math.abs(row.cashDelta) : undefined);
   const signedCash = row.cashDelta;
-  return <tr className="align-top hover:bg-gray-50"><td className="whitespace-nowrap px-3 py-2"><div className="font-semibold">{row.occurredAt.slice(0, 16).replace("T", " ")}</div><div className="text-[10px] text-gray-400">recorded {row.recordedAt.slice(0, 16).replace("T", " ")}{row.isLate ? " · late" : ""}</div></td><td className="px-3 py-2"><span className="font-semibold">{humanType(row.type)}</span>{row.notes && <div className="mt-0.5 max-w-xs text-[10px] text-gray-400">{row.notes}</div>}</td><td className="px-3 py-2"><div className="capitalize text-gray-600">{pocket}</div>{row.ticker && <div className="font-mono font-semibold">{row.ticker}</div>}</td><td className="px-3 py-2">{row.quantity == null ? "—" : formatNumber(row.quantity)}</td><td className="px-3 py-2">{row.price == null ? "—" : formatMoney(row.price, "USD")}</td><td className="px-3 py-2">{amount == null ? "—" : `${formatMoney(amount, row.currency)}${row.currency ? ` ${row.currency}` : ""}`}</td><td className="px-3 py-2">{row.fees == null ? "—" : `${formatMoney(row.fees, row.currency)}${row.currency ? ` ${row.currency}` : ""}`}</td><td className={`px-3 py-2 ${(signedCash ?? 0) >= 0 ? "text-green-600" : "text-red-500"}`}>{signedCash == null ? "—" : `${signedCash >= 0 ? "+" : ""}${formatMoney(signedCash, row.currency)}${row.currency ? ` ${row.currency}` : ""}`}</td><td className="px-3 py-2">{row.costBasisUsd == null ? "—" : formatMoney(row.costBasisUsd, "USD")}</td><td className={`px-3 py-2 font-semibold ${(row.realizedGainUsd ?? 0) >= 0 ? "text-green-600" : "text-red-500"}`}>{row.realizedGainUsd == null ? "—" : formatMoney(row.realizedGainUsd, "USD")}</td><td className="px-3 py-2">{row.remainingQuantity == null ? "—" : formatNumber(row.remainingQuantity)}</td></tr>;
+  return <tr className="align-top hover:bg-gray-50"><td className="whitespace-nowrap px-3 py-2"><div className="font-semibold">{row.occurredAt.slice(0, 16).replace("T", " ")}</div><div className="text-[10px] text-gray-400">recorded {row.recordedAt.slice(0, 16).replace("T", " ")}{row.isLate ? " · late" : ""}</div></td><td className="px-3 py-2"><span className="font-semibold">{humanType(row.type)}</span>{row.notes && <div className="mt-0.5 max-w-xs text-[10px] text-gray-400">{row.notes}</div>}</td><td className="px-3 py-2"><div className="capitalize text-gray-600">{pocket}</div>{row.ticker && <div className="font-mono font-semibold">{row.ticker}</div>}</td><td className="px-3 py-2">{row.quantity == null ? "—" : formatNumber(row.quantity)}</td><td className="px-3 py-2">{row.price == null ? "—" : formatMoney(row.price, "USD")}</td><td className="px-3 py-2">{amount == null ? "—" : `${formatMoney(amount, row.currency)}${row.currency ? ` ${row.currency}` : ""}`}</td><td className="px-3 py-2">{row.fees == null ? "—" : `${formatMoney(row.fees, row.currency)}${row.currency ? ` ${row.currency}` : ""}`}</td><td className={`px-3 py-2 ${(signedCash ?? 0) >= 0 ? "text-green-600" : "text-red-500"}`}>{signedCash == null ? "—" : `${signedCash >= 0 ? "+" : ""}${formatMoney(signedCash, row.currency)}${row.currency ? ` ${row.currency}` : ""}`}</td><td className="px-3 py-2">{row.costBasisUsd == null ? "—" : formatMoney(row.costBasisUsd, "USD")}</td><td className={`px-3 py-2 font-semibold ${(row.realizedGainUsd ?? 0) >= 0 ? "text-green-600" : "text-red-500"}`}>{row.realizedGainUsd == null ? "—" : formatMoney(row.realizedGainUsd, "USD")}</td><td className="px-3 py-2">{row.remainingQuantity == null ? "—" : formatNumber(row.remainingQuantity)}</td><td className="px-3 py-2">{onRemove ? <button className="text-xs font-semibold text-red-600 hover:text-red-800 disabled:opacity-50" type="button" onClick={onRemove}>Remove</button> : <span className="text-gray-300">—</span>}</td></tr>;
 }

@@ -421,6 +421,11 @@ export interface LedgerAppendPlan {
   pending: LedgerTransaction[];
 }
 
+export interface LedgerRemovalPlan {
+  transactions: LedgerTransaction[];
+  removed: LedgerTransaction[];
+}
+
 /**
  * Validates the append-only write contract without touching persistence. Existing
  * identical ids are safe retries; an existing id with different data is a conflict.
@@ -445,6 +450,47 @@ export function prepareLedgerAppend(
   validateLedgerTransactionSet(transactions);
   reducePortfolioLedger(transactions);
   return { transactions, pending };
+}
+
+/**
+ * Validates a user-requested removal before persistence. This is intentionally
+ * limited to manually entered activity; opening balances and reconciliation
+ * adjustments remain immutable. Removing a linked transfer/FX leg removes the
+ * complete linked event so the ledger never retains an orphaned leg.
+ */
+export function prepareLedgerRemoval(
+  existingTransactions: readonly LedgerTransaction[],
+  transactionIds: readonly string[],
+): LedgerRemovalPlan {
+  if (transactionIds.length === 0) throw new LedgerValidationError("At least one transaction is required");
+
+  validateLedgerTransactionSet(existingTransactions);
+  const requestedIds = new Set(transactionIds);
+  if (requestedIds.size !== transactionIds.length) {
+    throw new LedgerValidationError("Duplicate transaction ids cannot be removed");
+  }
+
+  const requested = existingTransactions.filter((transaction) => requestedIds.has(transaction.transactionId));
+  if (requested.length !== requestedIds.size) {
+    throw new LedgerValidationError("One or more transactions could not be found");
+  }
+  if (requested.some((transaction) => transaction.source !== "manual" || transaction.type === "opening_balance" || transaction.type === "reconciliation_adjustment")) {
+    throw new LedgerValidationError("Only manually recorded activity can be removed");
+  }
+
+  const linkedTransferIds = new Set(requested.map((transaction) => transaction.transferId).filter(Boolean));
+  const removalIds = new Set(requestedIds);
+  if (linkedTransferIds.size > 0) {
+    for (const transaction of existingTransactions) {
+      if (transaction.transferId && linkedTransferIds.has(transaction.transferId)) removalIds.add(transaction.transactionId);
+    }
+  }
+
+  const removed = existingTransactions.filter((transaction) => removalIds.has(transaction.transactionId));
+  const transactions = existingTransactions.filter((transaction) => !removalIds.has(transaction.transactionId));
+  validateLedgerTransactionSet(transactions);
+  reducePortfolioLedger(transactions);
+  return { transactions: [...transactions], removed };
 }
 
 export function sortLedgerTransactions(transactions: readonly LedgerTransaction[]): LedgerTransaction[] {

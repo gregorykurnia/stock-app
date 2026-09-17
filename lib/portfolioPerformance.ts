@@ -123,7 +123,9 @@ function newYorkSessionDate(timestamp: string) {
 
 /**
  * Finds ledger activity entered after a ledger-backed snapshot was captured but
- * effective on or before that snapshot. Legacy v1 history is intentionally excluded.
+ * effective on or before that snapshot, as well as snapshots whose stored
+ * ledger version no longer matches the current ledger after a correction.
+ * Legacy v1 history is intentionally excluded.
  */
 export function findLedgerSnapshotImpact(
   snapshots: readonly PortfolioSnapshot[],
@@ -148,6 +150,18 @@ export function findLedgerSnapshotImpact(
     transactionIds.add(transaction.transactionId);
     if (firstAffectedSessionDate == null || firstMissingSnapshot.sessionDate < firstAffectedSessionDate) {
       firstAffectedSessionDate = firstMissingSnapshot.sessionDate;
+    }
+  }
+
+  for (const snapshot of ledgerSnapshots) {
+    if (snapshot.ledgerVersion == null) continue;
+    const expectedLedgerVersion = transactions.filter((transaction) => (
+      newYorkSessionDate(transaction.occurredAt) <= snapshot.sessionDate
+    )).length;
+    if (snapshot.ledgerVersion !== expectedLedgerVersion) {
+      if (firstAffectedSessionDate == null || snapshot.sessionDate < firstAffectedSessionDate) {
+        firstAffectedSessionDate = snapshot.sessionDate;
+      }
     }
   }
 

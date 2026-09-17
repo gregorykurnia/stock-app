@@ -308,7 +308,7 @@ A buy has no realized gain/loss yet; it creates cost basis and future unrealized
 
     realized gain/loss = net sale proceeds - cost basis of shares sold
 
-The history must be append-only for accounting events. Corrections should create a new adjustment or correction record rather than silently deleting the original history.
+The history is append-only during normal accounting. For a mistaken manually entered activity, the UI provides a confirmed removal path that first replays the remaining ledger and refuses the removal if it would make later activity invalid. Opening balances and reconciliation adjustments remain immutable; after removing a mistake, re-enter the corrected activity. This keeps correction behavior explicit without allowing silent edits to accounting records.
 
 ## Manual edits after the ledger exists
 
@@ -320,6 +320,7 @@ Replace direct quantity editing with a Record activity form:
 - Removing a position means closing/archiving it, not deleting its history.
 - Manual edits remain available only as reconciliation adjustments requiring an effective date and reason.
 - entry_price should become derived average cost or a display field; it should not silently overwrite ledger history.
+- A mistaken manual activity can be removed from Activity History after confirmation and full-ledger validation, then re-entered with the correct details. Opening balances and reconciliation records cannot be removed through this path.
 
 ## Migration strategy
 
