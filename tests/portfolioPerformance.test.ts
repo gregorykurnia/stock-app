@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   buildPerformancePoints,
+  calculateXirr,
   calculateReturnStatistics,
   emptySnapshotBuckets,
   findLedgerSnapshotImpact,
@@ -190,6 +191,56 @@ test("backdated ledger activity invalidates later v2 snapshots until recapture",
   assert.equal(points.every((point) => point.needsRecapture), true);
   assert.equal(points.every((point) => point.returnStatus === "suppressed"), true);
   assert.equal(calculateReturnStatistics(points).quality, "partial");
+});
+
+test("XIRR calculates annualized USD return from ledger-backed terminal value", () => {
+  const result = calculateXirr([
+    ledgerSnapshot("2025-01-01", 10, 0, 0),
+    ledgerSnapshot("2026-01-01", 11, 0, 0),
+  ], []);
+
+  assert.equal(result.status, "valid");
+  assert.ok(Math.abs((result.annualizedPct ?? 0) - 10) < 1e-6);
+});
+
+test("XIRR neutralizes a USD deposit at its actual cash-flow date", () => {
+  const result = calculateXirr([
+    ledgerSnapshot("2025-01-01", 10, 0, 0),
+    ledgerSnapshot("2026-01-01", 10, 100, 100),
+  ], [{
+    transactionId: "midyear-deposit",
+    occurredAt: "2025-07-01T14:00:00.000Z",
+    recordedAt: "2025-07-01T14:00:00.000Z",
+    type: "deposit",
+    bucket: "longterm",
+    currency: "USD",
+    cashDelta: 100,
+    externalFlow: 100,
+    source: "manual",
+  }]);
+
+  assert.equal(result.status, "valid");
+  assert.ok(Math.abs(result.annualizedPct ?? 1) < 1e-6);
+});
+
+test("XIRR fails closed when the period contains an IDR external flow", () => {
+  const result = calculateXirr([
+    ledgerSnapshot("2025-01-01", 10, 0, 0),
+    ledgerSnapshot("2026-01-01", 10, 100, 0),
+  ], [{
+    transactionId: "idr-deposit",
+    occurredAt: "2025-07-01T14:00:00.000Z",
+    recordedAt: "2025-07-01T14:00:00.000Z",
+    type: "deposit",
+    bucket: "longterm",
+    currency: "IDR",
+    cashDelta: 1_000_000,
+    externalFlow: 1_000_000,
+    source: "manual",
+  }]);
+
+  assert.equal(result.annualizedPct, null);
+  assert.equal(result.status, "unsupported_currency");
 });
 
 test("pocket returns neutralize internal cash and position transfers", () => {

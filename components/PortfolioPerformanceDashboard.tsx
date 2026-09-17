@@ -6,6 +6,7 @@ import { buildPortfolioActivityRows, type PortfolioActivityRow } from "@/lib/por
 import type { LedgerTransaction } from "@/lib/portfolioLedger";
 import {
   buildPerformancePoints,
+  calculateXirr,
   calculateReturnStatistics,
   findLedgerSnapshotImpact,
   snapshotBucketValueIdr,
@@ -143,6 +144,7 @@ export default function PortfolioPerformanceDashboard() {
     invalidatedFromSessionDate: ledgerSnapshotImpact.firstAffectedSessionDate ?? undefined,
   }), [filtered, currency, openingSnapshot, ledgerSnapshotImpact.firstAffectedSessionDate, ledgerTransactions]);
   const stats = useMemo(() => calculateReturnStatistics(points), [points]);
+  const xirr = useMemo(() => calculateXirr(sortedSnapshots, ledgerTransactions ?? []), [ledgerTransactions, sortedSnapshots]);
   const latest = points.at(-1);
   const latestValue = latest ? (currency === "idr" ? snapshotTotalValueIdr(latest) : snapshotTotalValueUsd(latest)) : 0;
   const latestChange = latest ? (currency === "idr" ? latest.dailyValueChangeIdr : latest.dailyValueChangeUsd) : null;
@@ -168,6 +170,7 @@ export default function PortfolioPerformanceDashboard() {
     { label: "Net Contributions", value: netContributions == null ? "—" : formatMoney(netContributions, currency), detail: range === "ALL" ? "Since first snapshot" : `Selected ${range} window`, tone: (netContributions ?? 0) >= 0 ? "text-gray-900" : "text-red-500" },
     { label: "Investment Gain/Loss", value: investmentGain == null ? "—" : `${investmentGain >= 0 ? "+" : ""}${formatMoney(investmentGain, currency)}`, detail: "Equity − opening − external flow", tone: (investmentGain ?? 0) >= 0 ? "text-green-600" : "text-red-500" },
     { label: "Period Return (TWR)", value: formatPct(stats.periodReturnPct), detail: stats.quality === "partial" ? "Suppressed: partial snapshot" : (range === "ALL" ? "Since tracking began" : `Selected ${range} window`), tone: (stats.periodReturnPct ?? 0) >= 0 ? "text-green-600" : "text-red-500" },
+    { label: "Personal Return (XIRR)", value: xirr.annualizedPct == null ? "—" : formatPct(xirr.annualizedPct), detail: xirr.status === "valid" ? "USD annualized cash-timing return" : xirr.status === "unsupported_currency" ? "Unavailable: IDR flow needs historical FX" : xirr.status === "partial" ? "Suppressed: partial snapshot" : "Needs more ledger-backed history", tone: (xirr.annualizedPct ?? 0) >= 0 ? "text-green-600" : "text-red-500" },
     { label: "Avg Daily TWR", value: formatPct(stats.averageDailyPct), detail: "Geometric average of valid days", tone: (stats.averageDailyPct ?? 0) >= 0 ? "text-green-600" : "text-red-500" },
     { label: "Max Drawdown", value: formatPct(stats.maxDrawdownPct), detail: "From normalized TWR peak", tone: "text-red-500" },
   ];

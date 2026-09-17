@@ -81,6 +81,13 @@ export interface LedgerSnapshotImpact {
   transactionIds: string[];
 }
 
+export type XirrStatus = "valid" | "insufficient_data" | "partial" | "unsupported_currency" | "no_solution";
+
+export interface XirrResult {
+  annualizedPct: number | null;
+  status: XirrStatus;
+}
+
 export interface ReturnStatistics {
   averageDailyPct: number | null;
   averageWeeklyPct: number | null;
@@ -155,6 +162,124 @@ export function findLedgerSnapshotImpact(
     affectedSnapshotDates,
     transactionIds: [...transactionIds].sort(),
   };
+}
+
+interface XirrCashFlow {
+  amount: number;
+  timestamp: number;
+}
+
+function xnpv(rate: number, cashFlows: readonly XirrCashFlow[], startTimestamp: number) {
+  if (rate <= -1) return Number.NaN;
+  return cashFlows.reduce((total, cashFlow) => {
+    const years = (cashFlow.timestamp - startTimestamp) / (365 * 24 * 60 * 60 * 1000);
+    return total + cashFlow.amount / (1 + rate) ** years;
+  }, 0);
+}
+
+function solveXirr(cashFlows: readonly XirrCashFlow[]): number | null {
+  const startTimestamp = cashFlows[0]?.timestamp;
+  if (startTimestamp == null) return null;
+  const valueAtLowerBound = xnpv(-0.999999, cashFlows, startTimestamp);
+  if (!Number.isFinite(valueAtLowerBound)) return null;
+
+  let lowerRate = -0.999999;
+  let lowerValue = valueAtLowerBound;
+  let upperRate = 0;
+  let upperValue = xnpv(upperRate, cashFlows, startTimestamp);
+  if (!Number.isFinite(upperValue)) return null;
+
+  if (Math.abs(upperValue) > 1e-10 && Math.sign(lowerValue) === Math.sign(upperValue)) {
+    upperRate = 1;
+    upperValue = xnpv(upperRate, cashFlows, startTimestamp);
+    while (
+      Number.isFinite(upperValue)
+      && Math.sign(lowerValue) === Math.sign(upperValue)
+      && upperRate < 1_000_000
+    ) {
+      upperRate = upperRate * 2 + 1;
+      upperValue = xnpv(upperRate, cashFlows, startTimestamp);
+    }
+  }
+
+  if (!Number.isFinite(upperValue) || Math.sign(lowerValue) === Math.sign(upperValue)) return null;
+  for (let iteration = 0; iteration < 120; iteration += 1) {
+    const midpoint = (lowerRate + upperRate) / 2;
+    const midpointValue = xnpv(midpoint, cashFlows, startTimestamp);
+    if (!Number.isFinite(midpointValue)) return null;
+    if (Math.abs(midpointValue) < 1e-10) return midpoint;
+    if (Math.sign(lowerValue) === Math.sign(midpointValue)) {
+      lowerRate = midpoint;
+      lowerValue = midpointValue;
+    } else {
+      upperRate = midpoint;
+      upperValue = midpointValue;
+    }
+  }
+  return (lowerRate + upperRate) / 2;
+}
+
+/**
+ * Calculates the investor's annualized cash-timing return for the accurate
+ * ledger-backed history. Deposits are investor cash outflows; withdrawals and
+ * the terminal portfolio value are investor cash inflows.
+ */
+export function calculateXirr(
+  snapshots: readonly PortfolioSnapshot[],
+  transactions: readonly LedgerTransaction[],
+): XirrResult {
+  const ledgerSnapshots = snapshots
+    .filter((snapshot) => snapshot.schemaVersion === 2)
+    .sort((left, right) => left.sessionDate.localeCompare(right.sessionDate));
+  if (ledgerSnapshots.length < 2) return { annualizedPct: null, status: "insufficient_data" };
+  if (ledgerSnapshots.some((snapshot) => snapshot.status !== "complete")) {
+    return { annualizedPct: null, status: "partial" };
+  }
+
+  const opening = ledgerSnapshots[0];
+  const terminal = ledgerSnapshots.at(-1) as PortfolioSnapshot;
+  const openingValue = snapshotTotalValueUsd(opening);
+  const terminalValue = snapshotTotalValueUsd(terminal);
+  const openingTimestamp = Date.parse(opening.capturedAt);
+  const terminalTimestamp = Date.parse(terminal.capturedAt);
+  if (
+    !Number.isFinite(openingValue)
+    || !Number.isFinite(terminalValue)
+    || openingValue <= 0
+    || terminalValue < 0
+    || Number.isNaN(openingTimestamp)
+    || Number.isNaN(terminalTimestamp)
+    || terminalTimestamp <= openingTimestamp
+  ) {
+    return { annualizedPct: null, status: "insufficient_data" };
+  }
+
+  const cashFlows: XirrCashFlow[] = [{ amount: -openingValue, timestamp: openingTimestamp }];
+  for (const transaction of transactions) {
+    if (transaction.type !== "deposit" && transaction.type !== "withdrawal") continue;
+    const sessionDate = newYorkSessionDate(transaction.occurredAt);
+    if (sessionDate <= opening.sessionDate || sessionDate > terminal.sessionDate) continue;
+    if (transaction.currency !== "USD") {
+      return { annualizedPct: null, status: "unsupported_currency" };
+    }
+    const timestamp = Date.parse(transaction.occurredAt);
+    const externalFlow = transaction.externalFlow;
+    if (Number.isNaN(timestamp) || typeof externalFlow !== "number" || !Number.isFinite(externalFlow)) {
+      return { annualizedPct: null, status: "no_solution" };
+    }
+    cashFlows.push({ amount: -externalFlow, timestamp });
+  }
+  cashFlows.push({ amount: terminalValue, timestamp: terminalTimestamp });
+  cashFlows.sort((left, right) => left.timestamp - right.timestamp);
+
+  const hasPositive = cashFlows.some((cashFlow) => cashFlow.amount > 0);
+  const hasNegative = cashFlows.some((cashFlow) => cashFlow.amount < 0);
+  if (!hasPositive || !hasNegative) return { annualizedPct: null, status: "no_solution" };
+
+  const annualizedRate = solveXirr(cashFlows);
+  return annualizedRate == null
+    ? { annualizedPct: null, status: "no_solution" }
+    : { annualizedPct: round(annualizedRate * 100, 6), status: "valid" };
 }
 
 function snapshotPosition(snapshot: PortfolioSnapshot, bucket: PortfolioBucket, ticker: string) {
