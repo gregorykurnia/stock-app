@@ -15,7 +15,9 @@ import {
 import {
   buildPortfolioActivityRows,
   buildReconciliationAdjustments,
+  buildReconciliationPreview,
   type PortfolioActivityRow,
+  type ReconciliationPreview,
   type ReconciliationPositionTarget,
 } from "@/lib/portfolioActivity";
 import type { PortfolioBucket } from "@/lib/portfolioPerformance";
@@ -44,6 +46,7 @@ type TransferMode = "cash" | "position";
 type LegacyHolding = { bucket: PortfolioBucket; ticker: string; quantity: number; price: number | null };
 type PositionForm = { bucket: PortfolioBucket; ticker: string; quantity: string; costBasisUsd: string };
 type CashForm = Record<PortfolioBucket, Record<LedgerCurrency, string>>;
+type ReconciliationPreviewState = ReconciliationPreview & { inputKey: string };
 
 function emptyCash(value = "0"): CashForm {
   return Object.fromEntries(BUCKETS.map(({ id }) => [id, { USD: value, IDR: value }])) as CashForm;
@@ -84,6 +87,14 @@ function formatMoney(value: number | undefined, currency: LedgerCurrency | null 
     currency,
     maximumFractionDigits: currency === "IDR" ? 0 : 2,
   }).format(value);
+}
+
+function formatSignedNumber(value: number) {
+  return `${value >= 0 ? "+" : "−"}${formatNumber(Math.abs(value))}`;
+}
+
+function formatSignedMoney(value: number, currency: LedgerCurrency) {
+  return `${value >= 0 ? "+" : "−"}${formatMoney(Math.abs(value), currency)}`;
 }
 
 function humanType(type: LedgerTransaction["type"]) {
@@ -146,6 +157,7 @@ export default function PortfolioAccountingPanel({ onLedgerChanged }: Props) {
   const [openingCash, setOpeningCash] = useState<CashForm>(() => emptyCash());
   const [reconcileCash, setReconcileCash] = useState<CashForm>(() => emptyCash());
   const [reconcilePositions, setReconcilePositions] = useState<PositionForm[]>([]);
+  const [reconcilePreview, setReconcilePreview] = useState<ReconciliationPreviewState | null>(null);
   const [newReconcileBucket, setNewReconcileBucket] = useState<PortfolioBucket>("swing");
   const [newReconcileTicker, setNewReconcileTicker] = useState("");
   const [tab, setTab] = useState<Tab>("opening");
@@ -229,6 +241,48 @@ export default function PortfolioAccountingPanel({ onLedgerChanged }: Props) {
     });
   }, [historyBucket, historyFrom, historySearch, historyTo, historyType, transactions]);
 
+  const reconciliationFormKey = useMemo(() => JSON.stringify({
+    date: reconcileDate,
+    reason: reconcileReason,
+    cash: reconcileCash,
+    positions: reconcilePositions,
+  }), [reconcileCash, reconcileDate, reconcilePositions, reconcileReason]);
+  const currentReconcilePreview = reconcilePreview?.inputKey === reconciliationFormKey ? reconcilePreview : null;
+
+  function readReconciliationTargets() {
+    const cashTargets = BUCKETS.flatMap(({ id: bucket }) => CURRENCIES.map((currency) => ({
+      bucket,
+      currency,
+      cash: parseAmount(reconcileCash[bucket][currency], `${bucket} ${currency} target cash`, true),
+    })));
+    const positionTargets: ReconciliationPositionTarget[] = reconcilePositions.map((row) => ({
+      bucket: row.bucket,
+      ticker: row.ticker,
+      quantity: parseAmount(row.quantity, `${row.ticker} target quantity`, true),
+      costBasisUsd: parseAmount(row.costBasisUsd, `${row.ticker} target cost basis`, true),
+    }));
+    return { cashTargets, positionTargets };
+  }
+
+  function previewReconciliation() {
+    if (!ledgerState) return;
+    setError("");
+    setSuccess("");
+    try {
+      const { cashTargets, positionTargets } = readReconciliationTargets();
+      const preview = buildReconciliationPreview({
+        currentState: ledgerState,
+        cashTargets,
+        positionTargets,
+        notes: reconcileReason,
+      });
+      setReconcilePreview({ ...preview, inputKey: reconciliationFormKey });
+    } catch (reason) {
+      setReconcilePreview(null);
+      setError(reason instanceof Error ? reason.message : "Could not preview reconciliation adjustments");
+    }
+  }
+
   async function saveRecords(records: LedgerTransaction[], message: string): Promise<boolean> {
     if (records.length === 0) throw new Error("There is nothing to record");
     setSaving(true);
@@ -300,19 +354,12 @@ export default function PortfolioAccountingPanel({ onLedgerChanged }: Props) {
     event.preventDefault();
     if (!ledgerState) return;
     try {
+      if (!currentReconcilePreview) {
+        throw new Error("Preview the reconciliation changes again before recording them");
+      }
       const occurredAt = isoFromDateInput(reconcileDate);
       const recordedAt = new Date().toISOString();
-      const cashTargets = BUCKETS.flatMap(({ id: bucket }) => CURRENCIES.map((currency) => ({
-        bucket,
-        currency,
-        cash: parseAmount(reconcileCash[bucket][currency], `${bucket} ${currency} target cash`, true),
-      })));
-      const positionTargets: ReconciliationPositionTarget[] = reconcilePositions.map((row) => ({
-        bucket: row.bucket,
-        ticker: row.ticker,
-        quantity: parseAmount(row.quantity, `${row.ticker} target quantity`, true),
-        costBasisUsd: parseAmount(row.costBasisUsd, `${row.ticker} target cost basis`, true),
-      }));
+      const { cashTargets, positionTargets } = readReconciliationTargets();
       const records = buildReconciliationAdjustments({
         currentState: ledgerState,
         cashTargets,
@@ -322,7 +369,8 @@ export default function PortfolioAccountingPanel({ onLedgerChanged }: Props) {
         notes: reconcileReason,
         idFactory: (kind, index) => transactionId("reconcile", `${kind}-${index}`),
       });
-      await saveRecords(records, `Reconciliation recorded: ${records.length} adjustment${records.length === 1 ? "" : "s"}.`);
+      const saved = await saveRecords(records, `Reconciliation recorded: ${records.length} adjustment${records.length === 1 ? "" : "s"}.`);
+      if (saved) setReconcilePreview(null);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Could not create reconciliation adjustments");
     }
@@ -507,7 +555,30 @@ export default function PortfolioAccountingPanel({ onLedgerChanged }: Props) {
             <div className="grid gap-3 md:grid-cols-3">{BUCKETS.map(({ id: bucket, label }) => <div key={bucket} className="rounded-xl border border-gray-100 p-3"><div className="text-xs font-bold text-gray-700">{label} target cash</div><div className="mt-2 grid grid-cols-2 gap-2">{CURRENCIES.map((currency) => <label key={currency} className="text-[11px] text-gray-500">{currency}<input className="input-field mt-1 w-full" inputMode="decimal" value={reconcileCash[bucket][currency]} onChange={(event) => updateCash(setReconcileCash, bucket, currency, event.target.value)} /></label>)}</div></div>)}</div>
             <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-3"><div className="text-xs font-bold text-indigo-900">Add a broker position</div><p className="mt-1 text-[11px] leading-5 text-indigo-800">Use this when a position exists in the broker statement but is missing from the legacy pocket records. Add it here, then enter its target quantity and USD cost below.</p><div className="mt-2 flex flex-wrap items-end gap-2"><label className="min-w-36 flex-1"><span className="field-label">Pocket</span><select className="input-field w-full" value={newReconcileBucket} onChange={(event) => setNewReconcileBucket(event.target.value as PortfolioBucket)}>{BUCKETS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label><label className="min-w-36 flex-1"><span className="field-label">Ticker</span><input className="input-field w-full uppercase" value={newReconcileTicker} onChange={(event) => setNewReconcileTicker(event.target.value)} placeholder="AAPL" /></label><button className="btn btn-secondary" type="button" onClick={addReconcilePosition}>Add position</button></div></div>
             <div className="overflow-x-auto rounded-xl border border-gray-100"><table className="min-w-full text-left text-xs"><thead className="bg-gray-50 text-[10px] uppercase tracking-wide text-gray-500"><tr><th className="px-3 py-2">Pocket / ticker</th><th className="px-3 py-2">Ledger quantity</th><th className="px-3 py-2">Ledger cost</th><th className="px-3 py-2">Target quantity</th><th className="px-3 py-2">Target cost (USD)</th></tr></thead><tbody className="divide-y divide-gray-100">{reconcilePositions.length === 0 ? <tr><td colSpan={5} className="px-3 py-4 text-gray-400">No positions to reconcile.</td></tr> : reconcilePositions.map((row, index) => { const current = ledgerState?.buckets[row.bucket].positions[row.ticker]; return <tr key={`${row.bucket}-${row.ticker}`}><td className="px-3 py-2"><span className="capitalize text-gray-500">{row.bucket}</span><span className="ml-2 font-mono font-semibold">{row.ticker}</span></td><td className="px-3 py-2">{formatNumber(current?.quantity ?? 0)}</td><td className="px-3 py-2">{formatMoney(current?.costBasisUsd, "USD")}</td><td className="px-3 py-2"><input className="input-field w-28" inputMode="decimal" value={row.quantity} onChange={(event) => updateReconcilePosition(index, "quantity", event.target.value)} /></td><td className="px-3 py-2"><input className="input-field w-32" inputMode="decimal" value={row.costBasisUsd} onChange={(event) => updateReconcilePosition(index, "costBasisUsd", event.target.value)} /></td></tr>; })}</tbody></table></div>
-            <button className="btn btn-primary" type="submit" disabled={saving || !ledgerReady}>{saving ? "Recording…" : "Record reconciliation"}</button>
+            {currentReconcilePreview ? (
+              <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-3 text-xs text-indigo-950">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div><strong>Preview only:</strong> {currentReconcilePreview.hasChanges ? `${currentReconcilePreview.adjustmentCount} adjustment ${currentReconcilePreview.adjustmentCount === 1 ? "entry" : "entries"} would be appended.` : "The targets already match the ledger; there is nothing to append."}</div>
+                  <span className="badge bg-white text-indigo-700">Nothing recorded</span>
+                </div>
+                {currentReconcilePreview.hasChanges && <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                  <div className="overflow-x-auto rounded-lg border border-indigo-100 bg-white">
+                    <table className="min-w-full text-left text-[11px]"><thead className="bg-indigo-50/60 uppercase tracking-wide text-indigo-700"><tr><th className="px-2 py-1.5">Cash</th><th className="px-2 py-1.5">Current → target</th><th className="px-2 py-1.5">Delta</th></tr></thead><tbody className="divide-y divide-indigo-50">{currentReconcilePreview.cash.filter((row) => Math.abs(row.deltaCash) > 1e-8).map((row) => <tr key={`${row.bucket}-${row.currency}`}><td className="px-2 py-1.5 capitalize">{row.bucket} · {row.currency}</td><td className="px-2 py-1.5">{formatMoney(row.currentCash, row.currency)} → {formatMoney(row.targetCash, row.currency)}</td><td className={`px-2 py-1.5 font-semibold ${row.deltaCash >= 0 ? "text-green-600" : "text-red-500"}`}>{formatSignedMoney(row.deltaCash, row.currency)}</td></tr>)}</tbody></table>
+                  </div>
+                  <div className="overflow-x-auto rounded-lg border border-indigo-100 bg-white">
+                    <table className="min-w-full text-left text-[11px]"><thead className="bg-indigo-50/60 uppercase tracking-wide text-indigo-700"><tr><th className="px-2 py-1.5">Position</th><th className="px-2 py-1.5">Quantity Δ</th><th className="px-2 py-1.5">Cost basis Δ</th></tr></thead><tbody className="divide-y divide-indigo-50">{currentReconcilePreview.positions.filter((row) => Math.abs(row.quantityDelta) > 1e-8 || Math.abs(row.costBasisDeltaUsd) > 1e-8).map((row) => <tr key={`${row.bucket}-${row.ticker}`}><td className="px-2 py-1.5"><span className="capitalize">{row.bucket}</span> · <span className="font-mono font-semibold">{row.ticker}</span><div className="text-[10px] text-gray-400">{formatNumber(row.currentQuantity)} → {formatNumber(row.targetQuantity)} · avg {formatMoney(row.targetAverageCostUsd, "USD")}</div></td><td className={`px-2 py-1.5 font-semibold ${row.quantityDelta >= 0 ? "text-green-600" : "text-red-500"}`}>{formatSignedNumber(row.quantityDelta)}</td><td className={`px-2 py-1.5 font-semibold ${row.costBasisDeltaUsd >= 0 ? "text-green-600" : "text-red-500"}`}>{formatSignedMoney(row.costBasisDeltaUsd, "USD")}</td></tr>)}</tbody></table>
+                  </div>
+                </div>}
+              </div>
+            ) : reconcilePreview ? (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800">The targets changed after the last preview. Preview again before recording.</div>
+            ) : (
+              <div className="rounded-xl border border-gray-100 bg-gray-50 px-3 py-2.5 text-xs text-gray-600">Preview the cash and position deltas before anything is appended to the ledger.</div>
+            )}
+            <div className="flex flex-wrap gap-2">
+              <button className="btn btn-secondary" type="button" onClick={previewReconciliation} disabled={saving || !ledgerReady}>Preview changes</button>
+              <button className="btn btn-primary" type="submit" disabled={saving || !ledgerReady || !currentReconcilePreview?.hasChanges}>{saving ? "Recording…" : "Record reconciliation"}</button>
+            </div>
           </form>}
 
           {tab === "history" && <div className="space-y-3 px-4 py-4 sm:px-5"><div className="grid gap-2 md:grid-cols-5"><select className="input-field" value={historyType} onChange={(event) => setHistoryType(event.target.value)}><option value="all">All activity types</option>{[...ACTIVITY_TYPES, { id: "opening_balance" as const, label: "Opening balance" }, { id: "reconciliation_adjustment" as const, label: "Reconciliation" }].map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select><select className="input-field" value={historyBucket} onChange={(event) => setHistoryBucket(event.target.value)}><option value="all">Total portfolio</option>{BUCKETS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select><input className="input-field" type="date" value={historyFrom} onChange={(event) => setHistoryFrom(event.target.value)} aria-label="Activity from date" /><input className="input-field" type="date" value={historyTo} onChange={(event) => setHistoryTo(event.target.value)} aria-label="Activity to date" /><input className="input-field" value={historySearch} onChange={(event) => setHistorySearch(event.target.value)} placeholder="Filter ticker or note" /></div><div className="overflow-x-auto rounded-xl border border-gray-100"><table className="min-w-full text-left text-xs"><thead className="bg-gray-50 text-[10px] uppercase tracking-wide text-gray-500"><tr><th className="px-3 py-2">Occurred / recorded</th><th className="px-3 py-2">Activity</th><th className="px-3 py-2">Pocket / ticker</th><th className="px-3 py-2">Qty</th><th className="px-3 py-2">Price</th><th className="px-3 py-2">Gross / amount</th><th className="px-3 py-2">Fees</th><th className="px-3 py-2">Net cash</th><th className="px-3 py-2">Cost basis</th><th className="px-3 py-2">Realized P/L</th><th className="px-3 py-2">Remaining</th></tr></thead><tbody className="divide-y divide-gray-100">{historyRows.length === 0 ? <tr><td colSpan={11} className="px-3 py-6 text-center text-gray-400">No ledger activity matches these filters.</td></tr> : historyRows.map((row) => <ActivityRowView key={row.transactionIds.join("/")} row={row} />)}</tbody></table></div></div>}

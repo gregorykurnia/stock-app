@@ -22,13 +22,44 @@ export interface ReconciliationPositionTarget {
   costBasisUsd: number;
 }
 
-export interface BuildReconciliationAdjustmentsInput {
+export interface ReconciliationCashDelta {
+  bucket: PortfolioBucket;
+  currency: LedgerCurrency;
+  currentCash: number;
+  targetCash: number;
+  deltaCash: number;
+}
+
+export interface ReconciliationPositionDelta {
+  bucket: PortfolioBucket;
+  ticker: string;
+  currentQuantity: number;
+  targetQuantity: number;
+  quantityDelta: number;
+  currentCostBasisUsd: number;
+  targetCostBasisUsd: number;
+  costBasisDeltaUsd: number;
+  currentAverageCostUsd: number;
+  targetAverageCostUsd: number;
+}
+
+export interface ReconciliationPreview {
+  cash: ReconciliationCashDelta[];
+  positions: ReconciliationPositionDelta[];
+  adjustmentCount: number;
+  hasChanges: boolean;
+}
+
+export interface BuildReconciliationPreviewInput {
   currentState: PortfolioLedgerState;
   cashTargets: readonly ReconciliationCashTarget[];
   positionTargets: readonly ReconciliationPositionTarget[];
+  notes: string;
+}
+
+export interface BuildReconciliationAdjustmentsInput extends BuildReconciliationPreviewInput {
   occurredAt: string;
   recordedAt: string;
-  notes: string;
   idFactory?: (kind: "cash" | "position", index: number) => string;
 }
 
@@ -41,37 +72,26 @@ function finiteNonNegative(value: number, label: string) {
 }
 
 /**
- * Converts a user-entered target balance into append-only reconciliation records.
- * Position records carry an exact cost-basis delta so the resulting weighted-average
- * cost matches the reconciled target, including cost-only corrections.
+ * Compares user-entered broker targets with the current ledger state without
+ * creating or appending any transactions. The same normalized deltas are used
+ * by buildReconciliationAdjustments so the preview cannot drift from the write.
  */
-export function buildReconciliationAdjustments(input: BuildReconciliationAdjustmentsInput): LedgerTransaction[] {
+export function buildReconciliationPreview(input: BuildReconciliationPreviewInput): ReconciliationPreview {
   if (!input.notes.trim()) throw new Error("A reconciliation reason is required");
-  const idFactory = input.idFactory ?? defaultIdFactory;
-  const transactions: LedgerTransaction[] = [];
-  let cashIndex = 0;
-  let positionIndex = 0;
 
-  for (const target of input.cashTargets) {
+  const cash = input.cashTargets.map((target) => {
     finiteNonNegative(target.cash, `${target.bucket} ${target.currency} cash`);
-    const current = input.currentState.buckets[target.bucket].cash[target.currency];
-    const delta = target.cash - current;
-    if (Math.abs(delta) <= EPSILON) continue;
-    transactions.push({
-      transactionId: idFactory("cash", cashIndex),
-      occurredAt: input.occurredAt,
-      recordedAt: input.recordedAt,
-      type: "reconciliation_adjustment",
+    const currentCash = input.currentState.buckets[target.bucket].cash[target.currency];
+    return {
       bucket: target.bucket,
       currency: target.currency,
-      cashDelta: delta,
-      notes: input.notes.trim(),
-      source: "reconciliation",
-    });
-    cashIndex += 1;
-  }
+      currentCash,
+      targetCash: target.cash,
+      deltaCash: target.cash - currentCash,
+    };
+  });
 
-  for (const target of input.positionTargets) {
+  const positions = input.positionTargets.map((target) => {
     const ticker = target.ticker.trim().toUpperCase();
     if (!ticker) throw new Error("Reconciliation ticker is required");
     finiteNonNegative(target.quantity, `${ticker} quantity`);
@@ -79,24 +99,71 @@ export function buildReconciliationAdjustments(input: BuildReconciliationAdjustm
 
     const current = input.currentState.buckets[target.bucket].positions[ticker];
     const currentQuantity = current?.quantity ?? 0;
-    const currentCostBasis = current?.costBasisUsd ?? 0;
-    const quantityDelta = target.quantity - currentQuantity;
-    const costBasisDelta = target.costBasisUsd - currentCostBasis;
-    if (Math.abs(quantityDelta) <= EPSILON && Math.abs(costBasisDelta) <= EPSILON) continue;
+    const currentCostBasisUsd = current?.costBasisUsd ?? 0;
+    const targetAverageCostUsd = target.quantity > EPSILON ? target.costBasisUsd / target.quantity : 0;
+    return {
+      bucket: target.bucket,
+      ticker,
+      currentQuantity,
+      targetQuantity: target.quantity,
+      quantityDelta: target.quantity - currentQuantity,
+      currentCostBasisUsd,
+      targetCostBasisUsd: target.costBasisUsd,
+      costBasisDeltaUsd: target.costBasisUsd - currentCostBasisUsd,
+      currentAverageCostUsd: current?.averageCostUsd ?? 0,
+      targetAverageCostUsd,
+    };
+  });
 
-    const referenceCost = target.quantity > EPSILON
-      ? target.costBasisUsd / target.quantity
-      : current?.averageCostUsd ?? 0;
+  const adjustmentCount = cash.filter((row) => Math.abs(row.deltaCash) > EPSILON).length
+    + positions.filter((row) => Math.abs(row.quantityDelta) > EPSILON || Math.abs(row.costBasisDeltaUsd) > EPSILON).length;
+  return { cash, positions, adjustmentCount, hasChanges: adjustmentCount > 0 };
+}
+
+/**
+ * Converts a user-entered target balance into append-only reconciliation records.
+ * Position records carry an exact cost-basis delta so the resulting weighted-average
+ * cost matches the reconciled target, including cost-only corrections.
+ */
+export function buildReconciliationAdjustments(input: BuildReconciliationAdjustmentsInput): LedgerTransaction[] {
+  const preview = buildReconciliationPreview(input);
+  const idFactory = input.idFactory ?? defaultIdFactory;
+  const transactions: LedgerTransaction[] = [];
+  let cashIndex = 0;
+  let positionIndex = 0;
+
+  for (const delta of preview.cash) {
+    if (Math.abs(delta.deltaCash) <= EPSILON) continue;
+    transactions.push({
+      transactionId: idFactory("cash", cashIndex),
+      occurredAt: input.occurredAt,
+      recordedAt: input.recordedAt,
+      type: "reconciliation_adjustment",
+      bucket: delta.bucket,
+      currency: delta.currency,
+      cashDelta: delta.deltaCash,
+      notes: input.notes.trim(),
+      source: "reconciliation",
+    });
+    cashIndex += 1;
+  }
+
+  for (const delta of preview.positions) {
+    if (Math.abs(delta.quantityDelta) <= EPSILON && Math.abs(delta.costBasisDeltaUsd) <= EPSILON) continue;
+
+    const referenceCost = delta.targetQuantity > EPSILON
+      ? delta.targetAverageCostUsd
+      : delta.currentAverageCostUsd;
     const transaction: LedgerTransaction = {
       transactionId: idFactory("position", positionIndex),
       occurredAt: input.occurredAt,
       recordedAt: input.recordedAt,
       type: "reconciliation_adjustment",
-      bucket: target.bucket,
-      ticker,
-      quantity: Math.abs(quantityDelta) <= EPSILON ? undefined : quantityDelta,
+      bucket: delta.bucket,
+      ticker: delta.ticker,
+      quantity: Math.abs(delta.quantityDelta) <= EPSILON ? undefined : delta.quantityDelta,
       price: referenceCost > EPSILON ? referenceCost : undefined,
-      costBasisDeltaUsd: costBasisDelta,
+      costBasisDeltaUsd: delta.costBasisDeltaUsd,
       currency: "USD",
       notes: input.notes.trim(),
       source: "reconciliation",

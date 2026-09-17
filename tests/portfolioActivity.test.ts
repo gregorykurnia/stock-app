@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   buildPortfolioActivityRows,
   buildReconciliationAdjustments,
+  buildReconciliationPreview,
 } from "../lib/portfolioActivity";
 import { reducePortfolioLedger, type LedgerTransaction } from "../lib/portfolioLedger";
 
@@ -54,6 +55,50 @@ test("reconciliation adjustments exactly match target cash and weighted-average 
   assert.equal(finalState.buckets.swing.positions.ABC.averageCostUsd, 105);
   assert.equal(finalState.buckets.swing.positions.XYZ.quantity, 3);
   assert.equal(finalState.buckets.swing.positions.XYZ.averageCostUsd, 110);
+});
+
+test("reconciliation preview reports deltas without mutating the current ledger state", () => {
+  const initial = [
+    transaction("opening_balance", { bucket: "swing", ticker: "ABC", quantity: 10, price: 100 }),
+    transaction("opening_balance", { bucket: "swing", cashDelta: 500 }),
+  ];
+  const currentState = reducePortfolioLedger(initial);
+  const preview = buildReconciliationPreview({
+    currentState,
+    cashTargets: [
+      { bucket: "swing", currency: "USD", cash: 650 },
+      { bucket: "swing", currency: "IDR", cash: 0 },
+    ],
+    positionTargets: [
+      { bucket: "swing", ticker: "ABC", quantity: 12, costBasisUsd: 1_260 },
+      { bucket: "swing", ticker: "XYZ", quantity: 3, costBasisUsd: 330 },
+    ],
+    notes: "Broker statement reconciliation",
+  });
+
+  assert.equal(preview.adjustmentCount, 3);
+  assert.equal(preview.hasChanges, true);
+  assert.deepEqual(preview.cash.find((row) => row.currency === "USD"), {
+    bucket: "swing",
+    currency: "USD",
+    currentCash: 500,
+    targetCash: 650,
+    deltaCash: 150,
+  });
+  assert.deepEqual(preview.positions.find((row) => row.ticker === "ABC"), {
+    bucket: "swing",
+    ticker: "ABC",
+    currentQuantity: 10,
+    targetQuantity: 12,
+    quantityDelta: 2,
+    currentCostBasisUsd: 1_000,
+    targetCostBasisUsd: 1_260,
+    costBasisDeltaUsd: 260,
+    currentAverageCostUsd: 100,
+    targetAverageCostUsd: 105,
+  });
+  assert.equal(currentState.buckets.swing.cash.USD, 500);
+  assert.equal(currentState.buckets.swing.positions.ABC.quantity, 10);
 });
 
 test("activity rows combine transfer legs and show late sell P/L and remaining quantity", () => {
