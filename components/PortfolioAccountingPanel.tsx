@@ -407,11 +407,12 @@ export default function PortfolioAccountingPanel({ onLedgerChanged }: Props) {
       const occurredAt = isoFromDateInput(activityDate);
       const recordedAt = new Date().toISOString();
       const base = { occurredAt, recordedAt, source: "manual" as const };
+      const notes = activityNotes.trim();
       let records: LedgerTransaction[];
       if (activityType === "deposit" || activityType === "withdrawal") {
         const amount = parseAmount(activityAmount, "Amount");
         const sign = activityType === "deposit" ? 1 : -1;
-        records = [{ ...base, transactionId: transactionId("activity", activityType), type: activityType, bucket: activityBucket, currency: activityCurrency, cashDelta: sign * amount, externalFlow: sign * amount, notes: activityNotes.trim() || undefined }];
+        records = [{ ...base, transactionId: transactionId("activity", activityType), type: activityType, bucket: activityBucket, currency: activityCurrency, cashDelta: sign * amount, externalFlow: sign * amount, ...(notes ? { notes } : {}) }];
       } else if (activityType === "buy" || activityType === "sell") {
         const ticker = activityTicker.trim().toUpperCase();
         if (!ticker) throw new Error("Ticker is required");
@@ -431,32 +432,33 @@ export default function PortfolioAccountingPanel({ onLedgerChanged }: Props) {
           fees,
           currency: "USD",
           cashDelta: activityType === "buy" ? -(grossAmount + fees) : grossAmount - fees,
-          notes: activityNotes.trim() || undefined,
+          ...(notes ? { notes } : {}),
         }];
       } else if (activityType === "dividend") {
         const grossAmount = parseAmount(activityAmount, "Dividend amount");
         const fees = parseAmount(activityFees || "0", "Fees", true);
         if (grossAmount <= fees) throw new Error("Dividend amount must be greater than fees");
-        records = [{ ...base, transactionId: transactionId("activity", "dividend"), type: "dividend", bucket: activityBucket, ticker: activityTicker.trim().toUpperCase() || undefined, grossAmount, fees, currency: activityCurrency, cashDelta: grossAmount - fees, notes: activityNotes.trim() || undefined }];
+        const ticker = activityTicker.trim().toUpperCase();
+        records = [{ ...base, transactionId: transactionId("activity", "dividend"), type: "dividend", bucket: activityBucket, ...(ticker ? { ticker } : {}), grossAmount, fees, currency: activityCurrency, cashDelta: grossAmount - fees, ...(notes ? { notes } : {}) }];
       } else if (activityType === "fee") {
         const fees = parseAmount(activityAmount, "Fee amount");
-        records = [{ ...base, transactionId: transactionId("activity", "fee"), type: "fee", bucket: activityBucket, fees, currency: activityCurrency, cashDelta: -fees, notes: activityNotes.trim() || undefined }];
+        records = [{ ...base, transactionId: transactionId("activity", "fee"), type: "fee", bucket: activityBucket, fees, currency: activityCurrency, cashDelta: -fees, ...(notes ? { notes } : {}) }];
       } else if (activityType === "transfer") {
         if (activityBucket === transferToBucket) throw new Error("Transfer source and destination must be different pockets");
         const transferId = transactionId("transfer", "group");
         if (transferMode === "cash") {
           const amount = parseAmount(activityAmount, "Transfer amount");
           records = [
-            { ...base, transactionId: transactionId("transfer", "out"), type: "transfer", bucket: activityBucket, fromBucket: activityBucket, toBucket: transferToBucket, transferId, currency: activityCurrency, cashDelta: -amount, notes: activityNotes.trim() || undefined },
-            { ...base, transactionId: transactionId("transfer", "in"), type: "transfer", bucket: transferToBucket, fromBucket: activityBucket, toBucket: transferToBucket, transferId, currency: activityCurrency, cashDelta: amount, notes: activityNotes.trim() || undefined },
+            { ...base, transactionId: transactionId("transfer", "out"), type: "transfer", bucket: activityBucket, fromBucket: activityBucket, toBucket: transferToBucket, transferId, currency: activityCurrency, cashDelta: -amount, ...(notes ? { notes } : {}) },
+            { ...base, transactionId: transactionId("transfer", "in"), type: "transfer", bucket: transferToBucket, fromBucket: activityBucket, toBucket: transferToBucket, transferId, currency: activityCurrency, cashDelta: amount, ...(notes ? { notes } : {}) },
           ];
         } else {
           const ticker = activityTicker.trim().toUpperCase();
           if (!ticker) throw new Error("Ticker is required for a position transfer");
           const quantity = parseAmount(activityQuantity, "Quantity");
           records = [
-            { ...base, transactionId: transactionId("transfer", "position-out"), type: "transfer", bucket: activityBucket, fromBucket: activityBucket, toBucket: transferToBucket, transferId, ticker, quantity: -quantity, currency: "USD", notes: activityNotes.trim() || undefined },
-            { ...base, transactionId: transactionId("transfer", "position-in"), type: "transfer", bucket: transferToBucket, fromBucket: activityBucket, toBucket: transferToBucket, transferId, ticker, quantity, currency: "USD", notes: activityNotes.trim() || undefined },
+            { ...base, transactionId: transactionId("transfer", "position-out"), type: "transfer", bucket: activityBucket, fromBucket: activityBucket, toBucket: transferToBucket, transferId, ticker, quantity: -quantity, currency: "USD", ...(notes ? { notes } : {}) },
+            { ...base, transactionId: transactionId("transfer", "position-in"), type: "transfer", bucket: transferToBucket, fromBucket: activityBucket, toBucket: transferToBucket, transferId, ticker, quantity, currency: "USD", ...(notes ? { notes } : {}) },
           ];
         }
       } else {
@@ -465,8 +467,8 @@ export default function PortfolioAccountingPanel({ onLedgerChanged }: Props) {
         const toAmount = parseAmount(activityPrice, "FX amount in");
         const transferId = transactionId("fx", "group");
         records = [
-          { ...base, transactionId: transactionId("fx", "out"), type: "fx_conversion", bucket: activityBucket, transferId, currency: activityCurrency, cashDelta: -fromAmount, notes: activityNotes.trim() || undefined },
-          { ...base, transactionId: transactionId("fx", "in"), type: "fx_conversion", bucket: activityBucket, transferId, currency: fxToCurrency, cashDelta: toAmount, notes: activityNotes.trim() || undefined },
+          { ...base, transactionId: transactionId("fx", "out"), type: "fx_conversion", bucket: activityBucket, transferId, currency: activityCurrency, cashDelta: -fromAmount, ...(notes ? { notes } : {}) },
+          { ...base, transactionId: transactionId("fx", "in"), type: "fx_conversion", bucket: activityBucket, transferId, currency: fxToCurrency, cashDelta: toAmount, ...(notes ? { notes } : {}) },
         ];
       }
       const saved = await saveRecords(records, `${humanType(activityType)} recorded.`);
