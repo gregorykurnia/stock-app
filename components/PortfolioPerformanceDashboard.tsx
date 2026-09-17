@@ -200,7 +200,7 @@ export default function PortfolioPerformanceDashboard() {
         )}
         {ledgerSnapshotImpact.firstAffectedSessionDate && (
           <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs leading-5 text-amber-900">
-            <strong>Historical recapture needed:</strong> ledger activity was entered after a schema-version-2 snapshot was captured. Returns from {ledgerSnapshotImpact.firstAffectedSessionDate} onward are suppressed until those snapshots are recaptured.
+            <strong>Historical recapture needed:</strong> ledger activity was entered after a schema-version-2 snapshot was captured. Returns from {ledgerSnapshotImpact.firstAffectedSessionDate} onward are suppressed until those snapshots are recaptured. The next authenticated snapshot capture will rebuild them from historical daily closes.
             {ledgerSnapshotImpact.transactionIds.length > 0 && <span> Affected entries: {ledgerSnapshotImpact.transactionIds.length}.</span>}
           </div>
         )}

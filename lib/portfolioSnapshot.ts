@@ -25,6 +25,10 @@ export type SnapshotQuoteFetcher = (tickers: string[]) => Promise<Record<string,
 
 export interface BuildLedgerPortfolioSnapshotOptions {
   capturedAt?: string;
+  /** Rebuild state through this timestamp instead of using the latest ledger state. */
+  asOf?: string;
+  /** Preserve a stored historical session date instead of deriving it from live quote dates. */
+  sessionDate?: string;
 }
 
 function round(value: number, decimals = 2) {
@@ -104,14 +108,14 @@ export async function buildLedgerPortfolioSnapshot(
   fetchQuotes: SnapshotQuoteFetcher,
   options: BuildLedgerPortfolioSnapshotOptions = {},
 ): Promise<PortfolioSnapshot> {
-  const ledgerState = reducePortfolioLedger(transactions);
+  const ledgerState = reducePortfolioLedger(transactions, options.asOf ? { asOf: options.asOf } : undefined);
   const tickers = BUCKETS.flatMap((bucket) => Object.keys(ledgerState.buckets[bucket].positions));
   const quotes = await fetchQuotes([...new Set([...tickers, "IDR=X"]) ]);
   const fxQuote = quotes["IDR=X"];
   if (fxQuote?.price == null || fxQuote.price <= 0) throw new Error("USD/IDR quote is unavailable");
 
   const marketDates = tickers.flatMap((ticker) => quotes[ticker]?.marketDate ? [quotes[ticker].marketDate as string] : []);
-  const sessionDate = marketDates.sort().at(-1) ?? newYorkMarketContext().sessionDate;
+  const sessionDate = options.sessionDate ?? marketDates.sort().at(-1) ?? newYorkMarketContext().sessionDate;
   const buckets = emptySnapshotBuckets();
   const positions: SnapshotPosition[] = [];
   const missingTickers = new Set<string>();

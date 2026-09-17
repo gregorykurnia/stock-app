@@ -1,11 +1,17 @@
 import "server-only";
 
-import { getPortfolioDivisionStocks, getPortfolioLedgerTransactions } from "@/lib/firestore";
-import { fetchSnapshotQuotes } from "@/lib/yahooServer";
+import {
+  getPortfolioDivisionStocks,
+  getPortfolioLedgerTransactions,
+  getPortfolioPerformanceSnapshots,
+  savePortfolioPerformanceSnapshot,
+} from "@/lib/firestore";
+import { fetchHistoricalSnapshotQuotes, fetchSnapshotQuotes } from "@/lib/yahooServer";
 import { newYorkMarketContext } from "@/lib/portfolioSchedule";
 import { buildLedgerPortfolioSnapshot } from "@/lib/portfolioSnapshot";
 import {
   emptySnapshotBuckets,
+  findLedgerSnapshotImpact,
   type PortfolioBucket,
   type PortfolioSnapshot,
   type SnapshotPosition,
@@ -111,4 +117,49 @@ export async function buildPortfolioSnapshot(source: PortfolioSnapshot["source"]
   return transactions.length > 0
     ? buildLedgerPortfolioSnapshot(source, transactions, fetchSnapshotQuotes)
     : buildLegacyPortfolioSnapshot(source);
+}
+
+export interface PortfolioSnapshotRecaptureResult {
+  firstAffectedSessionDate: string | null;
+  transactionIds: string[];
+  recaptured: { sessionDate: string; status: PortfolioSnapshot["status"] }[];
+}
+
+/**
+ * Rebuilds only affected schema-version-2 snapshots from historical daily closes.
+ * Legacy snapshots are never selected, and missing historical data remains partial.
+ */
+export async function recaptureAffectedPortfolioSnapshots(): Promise<PortfolioSnapshotRecaptureResult> {
+  const [transactions, snapshots] = await Promise.all([
+    getPortfolioLedgerTransactions(),
+    getPortfolioPerformanceSnapshots(),
+  ]);
+  const impact = findLedgerSnapshotImpact(snapshots, transactions);
+  if (!impact.firstAffectedSessionDate) {
+    return { firstAffectedSessionDate: null, transactionIds: [], recaptured: [] };
+  }
+
+  const affected = snapshots
+    .filter((snapshot) => impact.affectedSnapshotDates.includes(snapshot.sessionDate))
+    .filter((snapshot) => snapshot.schemaVersion === 2)
+    .sort((left, right) => left.sessionDate.localeCompare(right.sessionDate));
+  const capturedAt = new Date().toISOString();
+  const rebuilt = await Promise.all(affected.map(async (snapshot) => buildLedgerPortfolioSnapshot(
+    snapshot.source,
+    transactions,
+    (tickers) => fetchHistoricalSnapshotQuotes(tickers, snapshot.sessionDate),
+    {
+      asOf: `${snapshot.sessionDate}T23:59:59.999Z`,
+      sessionDate: snapshot.sessionDate,
+      capturedAt,
+    },
+  )));
+
+  for (const snapshot of rebuilt) await savePortfolioPerformanceSnapshot(snapshot);
+
+  return {
+    firstAffectedSessionDate: impact.firstAffectedSessionDate,
+    transactionIds: impact.transactionIds,
+    recaptured: rebuilt.map((snapshot) => ({ sessionDate: snapshot.sessionDate, status: snapshot.status })),
+  };
 }

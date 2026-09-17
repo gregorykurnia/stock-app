@@ -346,7 +346,15 @@ Document base currency, dividend/fee treatment, cost-basis method, pocket-transf
 - Cash is derived separately for each pocket and then summed into portfolio totals.
 - The first activity workflow is manual entry. Broker integration and historical CSV import remain later work.
 - Opening balances and reconciliation adjustments establish the accurate-history start point. Existing schema-version-1 snapshots remain legacy estimated history.
-- TWR is the future primary return measure; Modified Dietz and XIRR are deferred to the calculations phase.
+- TWR is the primary normalized return measure; XIRR is the optional personal cash-timing measure; Modified Dietz remains deferred.
+
+#### Current implementation status
+
+- Schema-version-1 snapshots remain unchanged and are labeled as estimated history.
+- Schema-version-2 snapshots are ledger-backed with USD base valuation, per-pocket cash, weighted-average cost, realized/unrealized fields, and explicit partial-data behavior.
+- Manual activity entry, reconciliation previews, append idempotency, late-activity impact detection, and USD XIRR are implemented.
+- An authenticated snapshot run automatically recaptures affected schema-version-2 sessions from historical daily closes. Missing historical closes remain partial; no historical value is invented.
+- XIRR fails closed when the period contains IDR external flows because historical FX conversion is not yet available.
 
 ### Phase 2: ledger and cash
 
@@ -358,7 +366,7 @@ Add cash, total equity, invested value, realized/unrealized fields, ledger versi
 
 ### Phase 4: calculations
 
-Implement TWR as the primary return series, Modified Dietz as a fallback, XIRR as an optional personal metric, realized/unrealized gains, correct range baselines, and currency-aware returns.
+TWR, XIRR, realized/unrealized gains, correct range baselines, and currency-aware returns are implemented. Modified Dietz remains a future fallback for periods where daily TWR inputs are unavailable.
 
 ### Phase 5: UI
 

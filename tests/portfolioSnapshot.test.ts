@@ -84,3 +84,53 @@ test("ledger snapshot fails closed when USD/IDR FX is unavailable", async () => 
     /USD\/IDR quote is unavailable/,
   );
 });
+
+test("historical ledger snapshots use the requested as-of state and session date", async () => {
+  const transactions: LedgerTransaction[] = [
+    opening({
+      transactionId: "opening-cash",
+      bucket: "longterm",
+      cashDelta: 1_000,
+      occurredAt: "2026-09-01T15:00:00.000Z",
+      recordedAt: "2026-09-01T16:00:00.000Z",
+    }),
+    opening({
+      transactionId: "opening-position",
+      bucket: "longterm",
+      ticker: "ABC",
+      quantity: 10,
+      price: 100,
+      occurredAt: "2026-09-01T15:00:00.000Z",
+      recordedAt: "2026-09-01T16:00:00.000Z",
+    }),
+    {
+      transactionId: "later-buy",
+      occurredAt: "2026-09-10T15:00:00.000Z",
+      recordedAt: "2026-09-10T16:00:00.000Z",
+      type: "buy",
+      bucket: "longterm",
+      ticker: "ABC",
+      quantity: 1,
+      price: 100,
+      grossAmount: 100,
+      currency: "USD",
+      cashDelta: -100,
+      source: "manual",
+    },
+  ];
+  const snapshot = await buildLedgerPortfolioSnapshot(
+    "scheduled",
+    transactions,
+    async (tickers) => Object.fromEntries(tickers.map((ticker) => [ticker, quote(ticker === "IDR=X" ? 15_000 : 120, "2026-09-05")])),
+    {
+      asOf: "2026-09-05T23:59:59.999Z",
+      sessionDate: "2026-09-05",
+      capturedAt: "2026-09-18T12:00:00.000Z",
+    },
+  );
+
+  assert.equal(snapshot.sessionDate, "2026-09-05");
+  assert.equal(snapshot.ledgerVersion, 2);
+  assert.equal(snapshot.buckets.longterm.cashValueUsd, 1_000);
+  assert.equal(snapshot.positions[0].quantity, 10);
+});

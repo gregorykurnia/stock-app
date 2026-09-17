@@ -40,6 +40,49 @@ export async function fetchSnapshotQuotes(tickers: string[]): Promise<Record<str
   return result;
 }
 
+/**
+ * Fetches daily closes for a stored US session date. This is used only for
+ * authenticated historical snapshot recapture; a missing close stays missing
+ * so the rebuilt snapshot remains partial instead of inventing a value.
+ */
+export async function fetchHistoricalSnapshotQuotes(
+  tickers: string[],
+  sessionDate: string,
+): Promise<Record<string, SnapshotQuote>> {
+  const result: Record<string, SnapshotQuote> = {};
+  const period1 = new Date(`${sessionDate}T00:00:00.000Z`);
+  period1.setUTCDate(period1.getUTCDate() - 3);
+  const period2 = new Date(`${sessionDate}T00:00:00.000Z`);
+  period2.setUTCDate(period2.getUTCDate() + 4);
+  const unique = [...new Set(tickers)];
+  const chunkSize = 10;
+
+  for (let i = 0; i < unique.length; i += chunkSize) {
+    await Promise.all(unique.slice(i, i + chunkSize).map(async (ticker) => {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const chart: any = await yf.chart(ticker, { period1, period2, interval: "1d" });
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const matching = (chart?.quotes ?? []).filter((quote: any) => (
+          quote?.date && dateInNewYork(new Date(quote.date)) === sessionDate && quote.close != null
+        ));
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const quote: any = matching.sort((left: any, right: any) => new Date(left.date).getTime() - new Date(right.date).getTime()).at(-1);
+        const marketTime = quote?.date ? new Date(quote.date).toISOString() : null;
+        result[ticker] = {
+          price: quote?.close ?? null,
+          marketTime,
+          marketDate: marketTime ? dateInNewYork(new Date(marketTime)) : null,
+        };
+      } catch {
+        result[ticker] = { price: null, marketTime: null, marketDate: null };
+      }
+    }));
+  }
+
+  return result;
+}
+
 export async function fetchQuotes(tickers: string[]): Promise<{
   prices: Record<string, number | null>;
   preMarketPrices: Record<string, number | null>;

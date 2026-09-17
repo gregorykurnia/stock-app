@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { buildPortfolioSnapshot } from "@/lib/portfolioSnapshotServer";
+import { buildPortfolioSnapshot, recaptureAffectedPortfolioSnapshots } from "@/lib/portfolioSnapshotServer";
 import { newYorkMarketContext } from "@/lib/portfolioSchedule";
 import {
   getPortfolioPerformanceSnapshot,
@@ -11,6 +11,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   const preview = req.nextUrl.searchParams.get("preview") === "1";
+  const recapture = req.nextUrl.searchParams.get("recapture") === "1";
   const authHeader = req.headers.get("authorization");
 
   if (!preview && process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -19,13 +20,16 @@ export async function GET(req: NextRequest) {
 
   try {
     const context = newYorkMarketContext();
-    if (!preview && (!context.isWeekday || !context.isAfterCloseBuffer)) {
+    if (!preview && !recapture && (!context.isWeekday || !context.isAfterCloseBuffer)) {
       return NextResponse.json({
         skipped: "outside the post-close capture window",
         sessionDate: context.sessionDate,
         weekday: context.weekday,
       });
     }
+
+    const recaptured = !preview ? await recaptureAffectedPortfolioSnapshots() : null;
+    if (recapture) return NextResponse.json({ recaptured });
 
     const snapshot = await buildPortfolioSnapshot(preview ? "preview" : "scheduled");
 
@@ -47,7 +51,7 @@ export async function GET(req: NextRequest) {
     }
 
     await savePortfolioPerformanceSnapshot(snapshot);
-    return NextResponse.json({ saved: true, snapshot }, { status: snapshot.status === "partial" ? 207 : 200 });
+    return NextResponse.json({ saved: true, snapshot, recaptured }, { status: snapshot.status === "partial" ? 207 : 200 });
   } catch (error) {
     console.error("[portfolio-snapshot] capture failed", error);
     return NextResponse.json({
