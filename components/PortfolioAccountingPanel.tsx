@@ -146,6 +146,8 @@ export default function PortfolioAccountingPanel({ onLedgerChanged }: Props) {
   const [openingCash, setOpeningCash] = useState<CashForm>(() => emptyCash());
   const [reconcileCash, setReconcileCash] = useState<CashForm>(() => emptyCash());
   const [reconcilePositions, setReconcilePositions] = useState<PositionForm[]>([]);
+  const [newReconcileBucket, setNewReconcileBucket] = useState<PortfolioBucket>("swing");
+  const [newReconcileTicker, setNewReconcileTicker] = useState("");
   const [tab, setTab] = useState<Tab>("opening");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -415,6 +417,26 @@ export default function PortfolioAccountingPanel({ onLedgerChanged }: Props) {
     setReconcilePositions((current) => current.map((row, rowIndex) => rowIndex === index ? { ...row, [field]: value } : row));
   }
 
+  function addReconcilePosition() {
+    const ticker = newReconcileTicker.trim().toUpperCase();
+    if (!ticker) {
+      setError("Enter a ticker before adding a reconciliation position");
+      return;
+    }
+    if (reconcilePositions.some((row) => row.bucket === newReconcileBucket && row.ticker === ticker)) {
+      setError(`${newReconcileBucket} / ${ticker} is already in the reconciliation table`);
+      return;
+    }
+    setReconcilePositions((current) => [...current, {
+      bucket: newReconcileBucket,
+      ticker,
+      quantity: "0",
+      costBasisUsd: "0",
+    }]);
+    setNewReconcileTicker("");
+    setError("");
+  }
+
   const ledgerReady = Boolean(ledgerState && transactions.length > 0);
 
   return (
@@ -483,6 +505,7 @@ export default function PortfolioAccountingPanel({ onLedgerChanged }: Props) {
             <div className="rounded-xl border border-amber-100 bg-amber-50/70 px-3 py-2.5 text-xs leading-5 text-amber-900">Reconciliation compares the ledger with the current pocket records. It appends adjustment entries and leaves the legacy pocket documents and v1 snapshots untouched.</div>
             <div className="grid gap-3 md:grid-cols-3"><label><span className="field-label">Effective date and time</span><input className="input-field w-full" type="datetime-local" value={reconcileDate} onChange={(event) => setReconcileDate(event.target.value)} /></label><label className="md:col-span-2"><span className="field-label">Reason (required)</span><input className="input-field w-full" value={reconcileReason} onChange={(event) => setReconcileReason(event.target.value)} /></label></div>
             <div className="grid gap-3 md:grid-cols-3">{BUCKETS.map(({ id: bucket, label }) => <div key={bucket} className="rounded-xl border border-gray-100 p-3"><div className="text-xs font-bold text-gray-700">{label} target cash</div><div className="mt-2 grid grid-cols-2 gap-2">{CURRENCIES.map((currency) => <label key={currency} className="text-[11px] text-gray-500">{currency}<input className="input-field mt-1 w-full" inputMode="decimal" value={reconcileCash[bucket][currency]} onChange={(event) => updateCash(setReconcileCash, bucket, currency, event.target.value)} /></label>)}</div></div>)}</div>
+            <div className="rounded-xl border border-indigo-100 bg-indigo-50/50 p-3"><div className="text-xs font-bold text-indigo-900">Add a broker position</div><p className="mt-1 text-[11px] leading-5 text-indigo-800">Use this when a position exists in the broker statement but is missing from the legacy pocket records. Add it here, then enter its target quantity and USD cost below.</p><div className="mt-2 flex flex-wrap items-end gap-2"><label className="min-w-36 flex-1"><span className="field-label">Pocket</span><select className="input-field w-full" value={newReconcileBucket} onChange={(event) => setNewReconcileBucket(event.target.value as PortfolioBucket)}>{BUCKETS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label><label className="min-w-36 flex-1"><span className="field-label">Ticker</span><input className="input-field w-full uppercase" value={newReconcileTicker} onChange={(event) => setNewReconcileTicker(event.target.value)} placeholder="AAPL" /></label><button className="btn btn-secondary" type="button" onClick={addReconcilePosition}>Add position</button></div></div>
             <div className="overflow-x-auto rounded-xl border border-gray-100"><table className="min-w-full text-left text-xs"><thead className="bg-gray-50 text-[10px] uppercase tracking-wide text-gray-500"><tr><th className="px-3 py-2">Pocket / ticker</th><th className="px-3 py-2">Ledger quantity</th><th className="px-3 py-2">Ledger cost</th><th className="px-3 py-2">Target quantity</th><th className="px-3 py-2">Target cost (USD)</th></tr></thead><tbody className="divide-y divide-gray-100">{reconcilePositions.length === 0 ? <tr><td colSpan={5} className="px-3 py-4 text-gray-400">No positions to reconcile.</td></tr> : reconcilePositions.map((row, index) => { const current = ledgerState?.buckets[row.bucket].positions[row.ticker]; return <tr key={`${row.bucket}-${row.ticker}`}><td className="px-3 py-2"><span className="capitalize text-gray-500">{row.bucket}</span><span className="ml-2 font-mono font-semibold">{row.ticker}</span></td><td className="px-3 py-2">{formatNumber(current?.quantity ?? 0)}</td><td className="px-3 py-2">{formatMoney(current?.costBasisUsd, "USD")}</td><td className="px-3 py-2"><input className="input-field w-28" inputMode="decimal" value={row.quantity} onChange={(event) => updateReconcilePosition(index, "quantity", event.target.value)} /></td><td className="px-3 py-2"><input className="input-field w-32" inputMode="decimal" value={row.costBasisUsd} onChange={(event) => updateReconcilePosition(index, "costBasisUsd", event.target.value)} /></td></tr>; })}</tbody></table></div>
             <button className="btn btn-primary" type="submit" disabled={saving || !ledgerReady}>{saving ? "Recording…" : "Record reconciliation"}</button>
           </form>}

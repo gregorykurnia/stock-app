@@ -33,7 +33,10 @@ test("reconciliation adjustments exactly match target cash and weighted-average 
       { bucket: "swing", currency: "USD", cash: 650 },
       { bucket: "swing", currency: "IDR", cash: 0 },
     ],
-    positionTargets: [{ bucket: "swing", ticker: "ABC", quantity: 12, costBasisUsd: 1_260 }],
+    positionTargets: [
+      { bucket: "swing", ticker: "ABC", quantity: 12, costBasisUsd: 1_260 },
+      { bucket: "swing", ticker: "XYZ", quantity: 3, costBasisUsd: 330 },
+    ],
     occurredAt: "2026-09-18T09:00:00.000Z",
     recordedAt: "2026-09-18T10:00:00.000Z",
     notes: "Broker statement reconciliation",
@@ -41,7 +44,7 @@ test("reconciliation adjustments exactly match target cash and weighted-average 
   });
   const finalState = reducePortfolioLedger([...initial, ...adjustments]);
 
-  assert.equal(adjustments.length, 2);
+  assert.equal(adjustments.length, 3);
   assert.equal(adjustments[0].cashDelta, 150);
   assert.equal(adjustments[1].quantity, 2);
   assert.equal(adjustments[1].costBasisDeltaUsd, 260);
@@ -49,6 +52,8 @@ test("reconciliation adjustments exactly match target cash and weighted-average 
   assert.equal(finalState.buckets.swing.positions.ABC.quantity, 12);
   assert.equal(finalState.buckets.swing.positions.ABC.costBasisUsd, 1_260);
   assert.equal(finalState.buckets.swing.positions.ABC.averageCostUsd, 105);
+  assert.equal(finalState.buckets.swing.positions.XYZ.quantity, 3);
+  assert.equal(finalState.buckets.swing.positions.XYZ.averageCostUsd, 110);
 });
 
 test("activity rows combine transfer legs and show late sell P/L and remaining quantity", () => {
