@@ -242,11 +242,12 @@ export default function PortfolioAccountingPanel({ onLedgerChanged }: Props) {
   }, [historyBucket, historyFrom, historySearch, historyTo, historyType, transactions]);
 
   const reconciliationFormKey = useMemo(() => JSON.stringify({
+    ledgerVersion: ledgerState?.ledgerVersion ?? null,
     date: reconcileDate,
     reason: reconcileReason,
     cash: reconcileCash,
     positions: reconcilePositions,
-  }), [reconcileCash, reconcileDate, reconcilePositions, reconcileReason]);
+  }), [ledgerState?.ledgerVersion, reconcileCash, reconcileDate, reconcilePositions, reconcileReason]);
   const currentReconcilePreview = reconcilePreview?.inputKey === reconciliationFormKey ? reconcilePreview : null;
 
   function readReconciliationTargets() {
@@ -369,6 +370,10 @@ export default function PortfolioAccountingPanel({ onLedgerChanged }: Props) {
         notes: reconcileReason,
         idFactory: (kind, index) => transactionId("reconcile", `${kind}-${index}`),
       });
+      // Run the exact append payload through the full loaded ledger before any
+      // Firestore write. This catches stale previews and backdated adjustments
+      // that would be invalid once later activity is replayed in timestamp order.
+      reducePortfolioLedger([...transactions, ...records]);
       const saved = await saveRecords(records, `Reconciliation recorded: ${records.length} adjustment${records.length === 1 ? "" : "s"}.`);
       if (saved) setReconcilePreview(null);
     } catch (reason) {
