@@ -9,6 +9,7 @@ import type { MarketInstrument, MarketsSnapshotResponse, RegimeState } from "@/l
 import MarketDetailPanel from "./MarketDetailPanel";
 import MarketSparkline from "./MarketSparkline";
 import MarketTable from "./MarketTable";
+import MarketMacroContext from "@/components/MarketMacroContext";
 
 const STATE_STYLE: Record<RegimeState, string> = {
   "strong-positive": "border-green-200 bg-green-50 text-green-800",
@@ -109,6 +110,8 @@ export default function MarketDashboard() {
       {error && <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">Refresh failed. Showing the last successful data. {error}</div>}
 
       <section aria-labelledby="regime-heading"><div className="mb-3 flex items-end justify-between gap-4"><div><h2 id="regime-heading" className="text-lg font-bold text-gray-900">Market Regime</h2><p className="mt-1 text-xs text-gray-500">Transparent, rule-based indicators from current price and trend data.</p></div></div><div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">{regimes.map((card) => <RegimeSummary key={card.key} card={card} />)}</div><p className="mt-2 text-[11px] text-gray-400">Market indicators only; not investment recommendations.</p></section>
+
+      <MarketMacroContext />
 
       <section aria-labelledby="key-markets-heading"><h2 id="key-markets-heading" className="mb-3 text-lg font-bold text-gray-900">Key Markets</h2><div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">{KEY_MARKET_IDS.map((id) => map[id]).filter(Boolean).map((instrument) => <KeyCard key={instrument.id} instrument={instrument} onSelect={() => setSelected(instrument)} />)}</div></section>
 

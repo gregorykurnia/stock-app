@@ -175,7 +175,7 @@ function MacroCharts({ data }: { data: MacroContextResponse }) {
   );
 }
 
-export default function PerformanceMacroContext() {
+export default function MarketMacroContext() {
   const [range, setRange] = useState<MacroRange>("5Y");
   const [data, setData] = useState<MacroContextResponse | null>(null);
   const [error, setError] = useState("");

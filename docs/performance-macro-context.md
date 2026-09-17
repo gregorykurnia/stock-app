@@ -1,12 +1,12 @@
-# Performance Macro Context
+# Markets Macro Context
 
 ## Implementation prompt
 
-I want to enhance the Performance view with a macroeconomic context section that helps explain whether the current environment is more inflationary, expansionary, or exposed to recession risk.
+I want to enhance the Markets view with a macroeconomic context section that helps explain whether the current environment is more inflationary, expansionary, or exposed to recession risk.
 
-Do not make any code changes yet. First inspect the existing Performance page, charting components, data sources, styling conventions, and the relevant Next.js documentation in `node_modules/next/dist/docs/`. Then report:
+Do not make any code changes yet. First inspect the existing Markets page, charting components, data sources, styling conventions, and the relevant Next.js documentation in `node_modules/next/dist/docs/`. Then report:
 
-1. What the current Performance page supports.
+1. What the current Markets page supports.
 2. Which macroeconomic data is already available.
 3. Which new data sources or APIs would be required.
 4. A proposed implementation plan.
@@ -96,7 +96,7 @@ Each label should include a short explanation based on the underlying data. Use 
 
 ### 5. UX and visual requirements
 
-- Match the existing Performance page design system.
+- Match the existing Markets page design system.
 - Keep the section understandable to a user who is familiar with investing but not an economist.
 - Use responsive layouts for desktop and mobile.
 - Provide legends, tooltips, loading states, error states, and unavailable-data states.
