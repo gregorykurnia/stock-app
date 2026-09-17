@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { getPortfolioLedgerTransactions, getPortfolioPerformanceSnapshots } from "@/lib/firestore";
 import { buildPortfolioActivityRows, type PortfolioActivityRow } from "@/lib/portfolioActivity";
+import type { LedgerTransaction } from "@/lib/portfolioLedger";
 import {
   buildPerformancePoints,
   calculateReturnStatistics,
@@ -59,6 +60,7 @@ function bucketSnapshot(snapshot: PortfolioSnapshot, bucket: PortfolioBucket): P
 export default function PortfolioPerformanceDashboard() {
   const [snapshots, setSnapshots] = useState<PortfolioSnapshot[]>([]);
   const [activityRows, setActivityRows] = useState<PortfolioActivityRow[]>([]);
+  const [ledgerTransactions, setLedgerTransactions] = useState<LedgerTransaction[] | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [range, setRange] = useState<Range>("ALL");
@@ -72,9 +74,9 @@ export default function PortfolioPerformanceDashboard() {
   useEffect(() => {
     Promise.all([
       getPortfolioPerformanceSnapshots(),
-      getPortfolioLedgerTransactions().catch(() => []),
+      getPortfolioLedgerTransactions().catch(() => undefined),
     ])
-      .then(([data, transactions]) => { setSnapshots(data); setActivityRows(buildPortfolioActivityRows(transactions)); setError(""); })
+      .then(([data, transactions]) => { setSnapshots(data); setLedgerTransactions(transactions); setActivityRows(buildPortfolioActivityRows(transactions ?? [])); setError(""); })
       .catch((loadError: unknown) => setError(loadError instanceof Error ? loadError.message : "Could not load performance history"))
       .finally(() => setLoading(false));
   }, []);
@@ -82,10 +84,11 @@ export default function PortfolioPerformanceDashboard() {
   async function refreshPerformanceData() {
     const [data, transactions] = await Promise.all([
       getPortfolioPerformanceSnapshots(),
-      getPortfolioLedgerTransactions().catch(() => []),
+      getPortfolioLedgerTransactions().catch(() => undefined),
     ]);
     setSnapshots(data);
-    setActivityRows(buildPortfolioActivityRows(transactions));
+    setLedgerTransactions(transactions);
+    setActivityRows(buildPortfolioActivityRows(transactions ?? []));
   }
 
   async function runPreview() {
@@ -118,7 +121,7 @@ export default function PortfolioPerformanceDashboard() {
   const filtered = useMemo(() => (
     selectedStart ? sortedSnapshots.filter((snapshot) => snapshot.sessionDate >= selectedStart) : sortedSnapshots
   ), [selectedStart, sortedSnapshots]);
-  const points = useMemo(() => buildPerformancePoints(filtered, currency, { openingSnapshot: openingSnapshot ?? undefined }), [filtered, currency, openingSnapshot]);
+  const points = useMemo(() => buildPerformancePoints(filtered, currency, { openingSnapshot: openingSnapshot ?? undefined, ledgerTransactions }), [filtered, currency, openingSnapshot, ledgerTransactions]);
   const stats = useMemo(() => calculateReturnStatistics(points), [points]);
   const latest = points.at(-1);
   const latestValue = latest ? (currency === "idr" ? snapshotTotalValueIdr(latest) : snapshotTotalValueUsd(latest)) : 0;
@@ -217,7 +220,7 @@ export default function PortfolioPerformanceDashboard() {
               <h3 className="mt-3 font-semibold text-gray-900">Your performance chart will appear here</h3>
               <p className="mt-1 max-w-md text-xs leading-relaxed text-gray-500">Use “Test snapshot now” to verify all holdings and the live FX rate today. The scheduled job saves the first point after the next US market close.</p>
             </div>
-          ) : <PortfolioPerformanceChart snapshots={filtered} openingSnapshot={openingSnapshot ?? undefined} activityRows={activityRows} currency={currency} metric={metric} visibleSeries={visibleSeries} />}
+          ) : <PortfolioPerformanceChart snapshots={filtered} openingSnapshot={openingSnapshot ?? undefined} activityRows={activityRows} ledgerTransactions={ledgerTransactions} currency={currency} metric={metric} visibleSeries={visibleSeries} />}
       </section>
 
       {latest && (
@@ -227,7 +230,11 @@ export default function PortfolioPerformanceDashboard() {
             const bucketPoints = buildPerformancePoints(
               filtered.map((snapshot) => bucketSnapshot(snapshot, bucket.id)),
               currency,
-              { openingSnapshot: openingSnapshot ? bucketSnapshot(openingSnapshot, bucket.id) : undefined },
+              {
+                openingSnapshot: openingSnapshot ? bucketSnapshot(openingSnapshot, bucket.id) : undefined,
+                ledgerTransactions,
+                bucket: bucket.id,
+              },
             );
             const bucketStats = calculateReturnStatistics(bucketPoints);
             const allocation = snapshotTotalValueUsd(latest) > 0 ? snapshotBucketValueUsd(summary) / snapshotTotalValueUsd(latest) * 100 : 0;

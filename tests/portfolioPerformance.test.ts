@@ -136,6 +136,29 @@ test("ledger external flow is excluded from a range return with a baseline", () 
   assert.equal(points[0].dailyReturnPct, 0);
 });
 
+test("late ledger deposits recalculate the affected snapshot flow", () => {
+  const points = buildPerformancePoints([
+    ledgerSnapshot("2026-09-08", 10, 0, 0),
+    ledgerSnapshot("2026-09-10", 10, 50, 0),
+  ], "usd", {
+    ledgerTransactions: [{
+      transactionId: "late-deposit",
+      occurredAt: "2026-09-09T14:00:00.000Z",
+      recordedAt: "2026-09-11T14:00:00.000Z",
+      type: "deposit",
+      bucket: "longterm",
+      currency: "USD",
+      cashDelta: 50,
+      externalFlow: 50,
+      source: "manual",
+    }],
+  });
+
+  assert.equal(points[1].inferredFlowUsd, 50);
+  assert.equal(points[1].flowSource, "ledger");
+  assert.equal(points[1].dailyReturnPct, 0);
+});
+
 test("partial snapshots suppress TWR returns and statistics", () => {
   const partial = { ...snapshot("2026-09-09", 110, 10), status: "partial" as const };
   const points = buildPerformancePoints([snapshot("2026-09-08", 100, 10), partial]);

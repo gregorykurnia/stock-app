@@ -1,3 +1,5 @@
+import type { LedgerTransaction } from "./portfolioLedger";
+
 export type PortfolioBucket = "longterm" | "index" | "swing";
 
 export interface SnapshotPosition {
@@ -64,6 +66,10 @@ export interface PerformancePoint extends PortfolioSnapshot {
 export interface PerformanceBuildOptions {
   /** The last snapshot before a selected range, used only as its opening baseline. */
   openingSnapshot?: PortfolioSnapshot;
+  /** Current ledger activity, used to recalculate late/backdated external flows. */
+  ledgerTransactions?: readonly LedgerTransaction[];
+  /** Restrict ledger flow recalculation to one pocket for bucket-level returns. */
+  bucket?: PortfolioBucket;
 }
 
 export interface ReturnStatistics {
@@ -84,6 +90,33 @@ function round(value: number, decimals = 4) {
 
 function positionKey(position: SnapshotPosition) {
   return `${position.bucket}:${position.ticker}`;
+}
+
+const NEW_YORK_DATE_PARTS = new Intl.DateTimeFormat("en-US", {
+  timeZone: "America/New_York",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+function newYorkSessionDate(timestamp: string) {
+  const parts = Object.fromEntries(NEW_YORK_DATE_PARTS.formatToParts(new Date(timestamp)).map((part) => [part.type, part.value]));
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
+
+function ledgerExternalFlowAtDate(
+  transactions: readonly LedgerTransaction[],
+  sessionDate: string,
+  bucket: PortfolioBucket | undefined,
+) {
+  return transactions.reduce((flow, transaction) => {
+    if (transaction.type !== "deposit" && transaction.type !== "withdrawal") return flow;
+    if (bucket && transaction.bucket !== bucket) return flow;
+    if (newYorkSessionDate(transaction.occurredAt) > sessionDate) return flow;
+    if (transaction.currency === "USD") flow.usd += transaction.externalFlow ?? 0;
+    else flow.idr += transaction.externalFlow ?? 0;
+    return flow;
+  }, { usd: 0, idr: 0 });
 }
 
 export function snapshotTotalValueUsd(snapshot: PortfolioSnapshot): number {
@@ -149,17 +182,32 @@ export function buildPerformancePoints(
       };
     }
 
-    const ledgerFlowAvailable = previous.schemaVersion === 2
+    const snapshotLedgerFlowAvailable = previous.schemaVersion === 2
       && snapshot.schemaVersion === 2
       && previous.total.externalFlowUsd != null
       && snapshot.total.externalFlowUsd != null
       && previous.total.externalFlowIdr != null
       && snapshot.total.externalFlowIdr != null;
-    const inferredFlowUsd = ledgerFlowAvailable
-      ? snapshot.total.externalFlowUsd! - previous.total.externalFlowUsd!
+    const ledgerTransactionsAvailable = options.ledgerTransactions !== undefined
+      && previous.schemaVersion === 2
+      && snapshot.schemaVersion === 2;
+    const previousLedgerFlow = ledgerTransactionsAvailable
+      ? ledgerExternalFlowAtDate(options.ledgerTransactions!, previous.sessionDate, options.bucket)
+      : null;
+    const currentLedgerFlow = ledgerTransactionsAvailable
+      ? ledgerExternalFlowAtDate(options.ledgerTransactions!, snapshot.sessionDate, options.bucket)
+      : null;
+    const inferredFlowUsd = ledgerTransactionsAvailable
+      ? (currentLedgerFlow!.usd + currentLedgerFlow!.idr / snapshot.fxRateUsdIdr)
+        - (previousLedgerFlow!.usd + previousLedgerFlow!.idr / previous.fxRateUsdIdr)
+      : snapshotLedgerFlowAvailable
+        ? snapshot.total.externalFlowUsd! - previous.total.externalFlowUsd!
       : inferPositionFlowUsd(previous, snapshot);
-    const inferredFlowIdr = ledgerFlowAvailable
-      ? snapshot.total.externalFlowIdr! - previous.total.externalFlowIdr!
+    const inferredFlowIdr = ledgerTransactionsAvailable
+      ? (currentLedgerFlow!.idr + currentLedgerFlow!.usd * snapshot.fxRateUsdIdr)
+        - (previousLedgerFlow!.idr + previousLedgerFlow!.usd * previous.fxRateUsdIdr)
+      : snapshotLedgerFlowAvailable
+        ? snapshot.total.externalFlowIdr! - previous.total.externalFlowIdr!
       : inferredFlowUsd * snapshot.fxRateUsdIdr;
     const previousValue = currency === "idr" ? snapshotTotalValueIdr(previous) : snapshotTotalValueUsd(previous);
     const currentValue = currency === "idr" ? snapshotTotalValueIdr(snapshot) : snapshotTotalValueUsd(snapshot);
@@ -173,7 +221,7 @@ export function buildPerformancePoints(
       ...snapshot,
       inferredFlowUsd,
       inferredFlowIdr: round(inferredFlowIdr, 2),
-      flowSource: ledgerFlowAvailable ? "ledger" : "estimated",
+      flowSource: ledgerTransactionsAvailable || snapshotLedgerFlowAvailable ? "ledger" : "estimated",
       returnStatus,
       dailyReturnPct: dailyReturnPct == null ? null : round(dailyReturnPct, 6),
       dailyValueChangeUsd: round(snapshotTotalValueUsd(snapshot) - snapshotTotalValueUsd(previous), 2),

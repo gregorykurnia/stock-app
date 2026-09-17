@@ -11,6 +11,7 @@ import {
   type Time,
 } from "lightweight-charts";
 import type { PortfolioActivityRow } from "@/lib/portfolioActivity";
+import type { LedgerTransaction } from "@/lib/portfolioLedger";
 import {
   buildPerformancePoints,
   snapshotBucketValueIdr,
@@ -29,6 +30,7 @@ interface Props {
   snapshots: PortfolioSnapshot[];
   openingSnapshot?: PortfolioSnapshot;
   activityRows?: PortfolioActivityRow[];
+  ledgerTransactions?: readonly LedgerTransaction[];
   currency: PerformanceCurrency;
   metric: PerformanceMetric;
   visibleSeries: Set<PerformanceSeries>;
@@ -106,7 +108,7 @@ function formatMoney(value: number, currency: PerformanceCurrency, compact = fal
   }).format(value);
 }
 
-export default function PortfolioPerformanceChart({ snapshots, openingSnapshot, activityRows = [], currency, metric, visibleSeries }: Props) {
+export default function PortfolioPerformanceChart({ snapshots, openingSnapshot, activityRows = [], ledgerTransactions, currency, metric, visibleSeries }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [hoveredDate, setHoveredDate] = useState<string | null>(null);
   const snapshotMap = useMemo(() => new Map(snapshots.map((snapshot) => [snapshot.sessionDate, snapshot])), [snapshots]);
@@ -154,7 +156,11 @@ export default function PortfolioPerformanceChart({ snapshots, openingSnapshot, 
         const points = buildPerformancePoints(
           snapshots.map((snapshot) => snapshotForSeries(snapshot, definition.id)),
           currency,
-          { openingSnapshot: openingSnapshot ? snapshotForSeries(openingSnapshot, definition.id) : undefined },
+          {
+            openingSnapshot: openingSnapshot ? snapshotForSeries(openingSnapshot, definition.id) : undefined,
+            ledgerTransactions,
+            bucket: definition.id === "total" ? undefined : definition.id,
+          },
         );
         let growth = 1;
         series.setData(points.map((point) => {
@@ -181,12 +187,12 @@ export default function PortfolioPerformanceChart({ snapshots, openingSnapshot, 
       observer.disconnect();
       chart.remove();
     };
-  }, [snapshots, openingSnapshot, activityRows, currency, metric, visibleSeries]);
+  }, [snapshots, openingSnapshot, activityRows, ledgerTransactions, currency, metric, visibleSeries]);
 
   const hovered = hoveredDate ? snapshotMap.get(hoveredDate) : snapshots.at(-1);
   const hoveredIndex = hovered ? snapshots.findIndex((snapshot) => snapshot.sessionDate === hovered.sessionDate) : -1;
   const previous = hoveredIndex > 0 ? snapshots[hoveredIndex - 1] : openingSnapshot ?? null;
-  const performancePoints = useMemo(() => buildPerformancePoints(snapshots, currency, { openingSnapshot }), [snapshots, currency, openingSnapshot]);
+  const performancePoints = useMemo(() => buildPerformancePoints(snapshots, currency, { openingSnapshot, ledgerTransactions }), [snapshots, currency, openingSnapshot, ledgerTransactions]);
   const performancePoint = hovered ? performancePoints.find((point) => point.sessionDate === hovered.sessionDate) : undefined;
   const changePct = hovered && previous && snapshotTotalValueUsd(previous) > 0
     ? ((snapshotTotalValueUsd(hovered) / snapshotTotalValueUsd(previous)) - 1) * 100
