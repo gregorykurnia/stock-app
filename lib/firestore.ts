@@ -2,6 +2,10 @@ import { doc, getDoc, setDoc, collection, addDoc, getDocs, deleteDoc, deleteFiel
 import { db } from "./firebase";
 import type { PortfolioSnapshot } from "./portfolioPerformance";
 import {
+  validatePersonalFinanceMonth,
+  type PersonalFinanceMonthInput,
+} from "./personalFinance";
+import {
   ledgerTransactionsEqual,
   prepareLedgerAppend,
   prepareLedgerRemoval,
@@ -567,6 +571,73 @@ export async function getPortfolioPerformanceSnapshot(sessionDate: string): Prom
 
 export async function savePortfolioPerformanceSnapshot(snapshot: PortfolioSnapshot) {
   await setDoc(doc(db, "portfolio_performance_snapshots", snapshot.sessionDate), snapshot);
+}
+
+export interface PersonalFinanceMonthRecord extends PersonalFinanceMonthInput {
+  createdAt: string;
+  updatedAt: string;
+}
+
+const PERSONAL_FINANCE_COLLECTION = "personal_finance_months";
+
+export async function getPersonalFinanceMonths(): Promise<PersonalFinanceMonthRecord[]> {
+  const snap = await getDocs(collection(db, PERSONAL_FINANCE_COLLECTION));
+  return snap.docs
+    .map((item) => {
+      const data = item.data();
+      const record: PersonalFinanceMonthRecord = {
+        month: data.month as string,
+        income: data.income as number,
+        creditCardPayment: data.credit_card_payment as number,
+        futurePlanningInstallments: data.future_planning_installments as number,
+        actualMonthlySpending: data.actual_monthly_spending == null ? null : data.actual_monthly_spending as number,
+        createdAt: data.created_at as string,
+        updatedAt: data.updated_at as string,
+      };
+      if (record.month !== item.id) {
+        throw new Error(`Personal finance month ${item.id} has a mismatched month field`);
+      }
+      validatePersonalFinanceMonth(record);
+      if (typeof record.createdAt !== "string" || typeof record.updatedAt !== "string") {
+        throw new Error(`Personal finance month ${item.id} has invalid timestamps`);
+      }
+      return record;
+    })
+    .sort((a, b) => a.month.localeCompare(b.month));
+}
+
+export async function savePersonalFinanceMonth(
+  input: PersonalFinanceMonthInput,
+  createdAt?: string,
+): Promise<PersonalFinanceMonthRecord> {
+  validatePersonalFinanceMonth(input);
+  const now = new Date().toISOString();
+  const record: PersonalFinanceMonthRecord = {
+    ...input,
+    createdAt: createdAt ?? now,
+    updatedAt: now,
+  };
+  await setDoc(doc(db, PERSONAL_FINANCE_COLLECTION, input.month), {
+    month: record.month,
+    income: record.income,
+    credit_card_payment: record.creditCardPayment,
+    future_planning_installments: record.futurePlanningInstallments,
+    actual_monthly_spending: record.actualMonthlySpending,
+    created_at: record.createdAt,
+    updated_at: record.updatedAt,
+  });
+  return record;
+}
+
+export async function removePersonalFinanceMonth(month: string): Promise<void> {
+  validatePersonalFinanceMonth({
+    month,
+    income: 0,
+    creditCardPayment: 0,
+    futurePlanningInstallments: 0,
+    actualMonthlySpending: null,
+  });
+  await deleteDoc(doc(db, PERSONAL_FINANCE_COLLECTION, month));
 }
 
 // Watchlist
