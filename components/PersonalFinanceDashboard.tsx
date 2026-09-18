@@ -34,6 +34,8 @@ const EMPTY_FORM: FinanceForm = {
   actualMonthlySpending: "",
 };
 
+const PERSONAL_FINANCE_LOAD_TIMEOUT_MS = 15_000;
+
 function formToInput(form: FinanceForm): PersonalFinanceMonthInput {
   const input: PersonalFinanceMonthInput = {
     month: form.month,
@@ -86,6 +88,11 @@ export default function PersonalFinanceDashboard() {
 
   useEffect(() => {
     let active = true;
+    const timeoutId = window.setTimeout(() => {
+      if (!active) return;
+      setError("Personal finance history could not be loaded before the request timed out. Check Firestore access and try again.");
+      setLoading(false);
+    }, PERSONAL_FINANCE_LOAD_TIMEOUT_MS);
     getPersonalFinanceMonths()
       .then((data) => {
         if (!active) return;
@@ -97,9 +104,10 @@ export default function PersonalFinanceDashboard() {
         if (active) setError(reason instanceof Error ? reason.message : "Could not load personal finance history");
       })
       .finally(() => {
+        window.clearTimeout(timeoutId);
         if (active) setLoading(false);
       });
-    return () => { active = false; };
+    return () => { active = false; window.clearTimeout(timeoutId); };
   }, [reloadToken]);
 
   const computedRows = useMemo(() => calculatePersonalFinanceRows(records), [records]);
