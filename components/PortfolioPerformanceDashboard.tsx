@@ -1,17 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { getPortfolioLedgerTransactions, getPortfolioPerformanceSnapshots } from "@/lib/firestore";
+import { getPortfolioDivisionStocks, getPortfolioLedgerTransactions, getPortfolioPerformanceSnapshots } from "@/lib/firestore";
 import { buildPortfolioActivityRows, type PortfolioActivityRow } from "@/lib/portfolioActivity";
 import type { LedgerTransaction } from "@/lib/portfolioLedger";
 import {
   buildPerformancePoints,
   calculateXirr,
   calculateReturnStatistics,
-  emptySnapshotBucket,
   findLedgerSnapshotImpact,
-  snapshotBucketValueIdr,
-  snapshotBucketValueUsd,
   snapshotTotalValueUsd,
   snapshotTotalValueIdr,
   type PortfolioBucket,
@@ -23,6 +20,7 @@ import PortfolioPerformanceChart, {
   type PerformanceSeries,
 } from "@/components/PortfolioPerformanceChart";
 import PortfolioAccountingPanel from "@/components/PortfolioAccountingPanel";
+import PortfolioAllocationPanel from "@/components/PortfolioAllocationPanel";
 import { PORTFOLIO_BUCKET_DEFINITIONS } from "@/lib/portfolioBuckets";
 
 type Range = "1M" | "3M" | "6M" | "YTD" | "1Y" | "ALL";
@@ -71,18 +69,23 @@ function rangeStart(range: Range, latestDate: string): string | null {
   return latest.toISOString().slice(0, 10);
 }
 
-function bucketSnapshot(snapshot: PortfolioSnapshot, bucket: PortfolioBucket): PortfolioSnapshot {
-  return {
-    ...snapshot,
-    total: snapshot.buckets[bucket] ?? emptySnapshotBucket(),
-    positions: snapshot.positions.filter((position) => position.bucket === bucket),
-  };
+async function loadPortfolioCompanyNames() {
+  const pockets = await Promise.all(BUCKETS.map(({ id }) => getPortfolioDivisionStocks(id).catch(() => ({}))));
+  const names: Record<string, string> = {};
+  for (const pocket of pockets) {
+    for (const [ticker, value] of Object.entries(pocket)) {
+      const name = (value as { name?: unknown }).name;
+      if (typeof name === "string" && name.trim()) names[ticker.toUpperCase()] = name.trim();
+    }
+  }
+  return names;
 }
 
 export default function PortfolioPerformanceDashboard() {
   const [snapshots, setSnapshots] = useState<PortfolioSnapshot[]>([]);
   const [activityRows, setActivityRows] = useState<PortfolioActivityRow[]>([]);
   const [ledgerTransactions, setLedgerTransactions] = useState<LedgerTransaction[] | undefined>(undefined);
+  const [companyNames, setCompanyNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [range, setRange] = useState<Range>("ALL");
@@ -97,8 +100,9 @@ export default function PortfolioPerformanceDashboard() {
     Promise.all([
       getPortfolioPerformanceSnapshots(),
       getPortfolioLedgerTransactions().catch(() => undefined),
+      loadPortfolioCompanyNames(),
     ])
-      .then(([data, transactions]) => { setSnapshots(data); setLedgerTransactions(transactions); setActivityRows(buildPortfolioActivityRows(transactions ?? [])); setError(""); })
+      .then(([data, transactions, names]) => { setSnapshots(data); setLedgerTransactions(transactions); setCompanyNames(names); setActivityRows(buildPortfolioActivityRows(transactions ?? [])); setError(""); })
       .catch((loadError: unknown) => setError(loadError instanceof Error ? loadError.message : "Could not load performance history"))
       .finally(() => setLoading(false));
   }, []);
@@ -110,6 +114,7 @@ export default function PortfolioPerformanceDashboard() {
     ]);
     setSnapshots(data);
     setLedgerTransactions(transactions);
+    setCompanyNames(await loadPortfolioCompanyNames());
     setActivityRows(buildPortfolioActivityRows(transactions ?? []));
   }
 
@@ -163,6 +168,7 @@ export default function PortfolioPerformanceDashboard() {
   const netContributions = points.length === 0 ? null : points.reduce((sum, point) => sum + (currency === "idr" ? point.inferredFlowIdr : point.inferredFlowUsd), 0);
   const investmentGain = latest && openingValue != null && netContributions != null ? latestValue - openingValue - netContributions : null;
   const hasEstimatedFlows = points.some((point) => point.flowSource === "estimated");
+  const currentFxRateUsdIdr = sortedSnapshots.at(-1)?.fxRateUsdIdr ?? null;
 
   function toggleSeries(series: PerformanceSeries) {
     setVisibleSeries((current) => {
@@ -226,6 +232,14 @@ export default function PortfolioPerformanceDashboard() {
         ))}
       </section>
 
+      <PortfolioAllocationPanel
+        transactions={ledgerTransactions}
+        currency={currency}
+        fxRateUsdIdr={currentFxRateUsdIdr}
+        companyNames={companyNames}
+        loading={loading}
+      />
+
       <section className="surface-card overflow-hidden">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
           <div className="flex flex-wrap items-center gap-2">
@@ -260,34 +274,6 @@ export default function PortfolioPerformanceDashboard() {
             </div>
           ) : <PortfolioPerformanceChart snapshots={filtered} openingSnapshot={openingSnapshot ?? undefined} activityRows={activityRows} ledgerTransactions={ledgerTransactions} currency={currency} metric={metric} visibleSeries={visibleSeries} />}
       </section>
-
-      {latest && (
-        <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          {BUCKETS.map((bucket) => {
-            const summary = latest.buckets[bucket.id] ?? emptySnapshotBucket();
-            const bucketPoints = buildPerformancePoints(
-              filtered.map((snapshot) => bucketSnapshot(snapshot, bucket.id)),
-              currency,
-              {
-                openingSnapshot: openingSnapshot ? bucketSnapshot(openingSnapshot, bucket.id) : undefined,
-                ledgerTransactions,
-                bucket: bucket.id,
-              },
-            );
-            const bucketStats = calculateReturnStatistics(bucketPoints);
-            const allocation = snapshotTotalValueUsd(latest) > 0 ? snapshotBucketValueUsd(summary) / snapshotTotalValueUsd(latest) * 100 : 0;
-            return (
-              <div key={bucket.id} className="surface-card p-4">
-                <div className="flex items-center justify-between"><div className="flex items-center gap-2 text-sm font-bold"><span className="h-2.5 w-2.5 rounded-full" style={{ background: bucket.color }} />{bucket.label}</div><span className="text-xs font-semibold text-gray-500">{allocation.toFixed(1)}%</span></div>
-                <div className="mt-3 text-xl font-bold text-gray-900">{formatMoney(currency === "idr" ? snapshotBucketValueIdr(summary) : snapshotBucketValueUsd(summary), currency)}</div>
-                <div className="mt-2 flex justify-between text-xs text-gray-500"><span>{summary.positionCount} positions</span><span className={(bucketStats.periodReturnPct ?? 0) >= 0 ? "font-semibold text-green-600" : "font-semibold text-red-500"}>{formatPct(bucketStats.periodReturnPct)} period</span></div>
-                {snapshotComponentValue(summary, "cash", currency) == null ? <div className="mt-2 text-[10px] text-gray-400">Legacy snapshot · cash unavailable</div> : <div className="mt-2 flex justify-between gap-2 text-[10px] text-gray-400"><span>Cash {snapshotComponentValue(summary, "cash", currency)}</span><span>Invested {snapshotComponentValue(summary, "invested", currency)}</span></div>}
-                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-gray-100"><div className="h-full rounded-full" style={{ width: `${allocation}%`, background: bucket.color }} /></div>
-              </div>
-            );
-          })}
-        </section>
-      )}
 
       <section className="surface-card overflow-hidden">
         <button onClick={() => setHistoryOpen((open) => !open)} className="flex w-full items-center justify-between px-4 py-3 text-left">
