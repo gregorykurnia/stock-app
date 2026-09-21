@@ -98,6 +98,19 @@ function formatSignedMoney(value: number, currency: LedgerCurrency) {
   return `${value >= 0 ? "+" : "−"}${formatMoney(Math.abs(value), currency)}`;
 }
 
+function bucketLabel(bucket: PortfolioBucket) {
+  return BUCKETS.find((item) => item.id === bucket)?.label ?? bucket;
+}
+
+function readableLedgerError(reason: unknown) {
+  const message = reason instanceof Error ? reason.message : "Could not save ledger activity";
+  const cashMatch = message.match(/transaction would make (longterm|index|swing) (USD|IDR) cash negative/i);
+  if (!cashMatch) return message;
+
+  const [, bucket, currency] = cashMatch;
+  return `${bucketLabel(bucket as PortfolioBucket)} does not have enough ${currency} cash for this activity. A buy or fee spends cash from the selected pocket. If you meant to move sale proceeds from another pocket, record Pocket transfer → Cash first; if you meant to move an existing holding, use Pocket transfer → Position instead of recording another buy.`;
+}
+
 function humanType(type: LedgerTransaction["type"]) {
   if (type in LABELS) return LABELS[type as ActivityType];
   return type === "opening_balance" ? "Opening balance" : "Reconciliation";
@@ -297,7 +310,7 @@ export default function PortfolioAccountingPanel({ onLedgerChanged }: Props) {
       onLedgerChanged?.();
       return true;
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Could not save ledger activity");
+      setError(readableLedgerError(reason));
       return false;
     } finally {
       setSaving(false);
@@ -317,7 +330,7 @@ export default function PortfolioAccountingPanel({ onLedgerChanged }: Props) {
       setSuccess(`${label} removed. Re-enter it under Record activity if it was meant to be recorded with different details.`);
       onLedgerChanged?.();
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Could not remove activity");
+      setError(readableLedgerError(reason));
     } finally {
       setSaving(false);
     }
@@ -367,7 +380,7 @@ export default function PortfolioAccountingPanel({ onLedgerChanged }: Props) {
       }
       await saveRecords(records, `Opening balance recorded: ${records.length} ledger entries.`);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Could not create opening balance");
+      setError(readableLedgerError(reason));
     }
   }
 
@@ -397,7 +410,7 @@ export default function PortfolioAccountingPanel({ onLedgerChanged }: Props) {
       const saved = await saveRecords(records, `Reconciliation recorded: ${records.length} adjustment${records.length === 1 ? "" : "s"}.`);
       if (saved) setReconcilePreview(null);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Could not create reconciliation adjustments");
+      setError(readableLedgerError(reason));
     }
   }
 
@@ -480,7 +493,7 @@ export default function PortfolioAccountingPanel({ onLedgerChanged }: Props) {
         setActivityNotes("");
       }
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Could not create activity");
+      setError(readableLedgerError(reason));
     }
   }
 
@@ -555,6 +568,7 @@ export default function PortfolioAccountingPanel({ onLedgerChanged }: Props) {
           )}
 
           {tab === "activity" && <form onSubmit={submitActivity} className="space-y-4 px-4 py-4 sm:px-5">
+            {activityType === "buy" && <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 px-3 py-2.5 text-xs leading-5 text-indigo-900"><strong>This records a new buy, not an edit.</strong> A buy spends USD cash in the selected pocket. To move sale proceeds between pockets, use <strong>Pocket transfer → Cash</strong> first. To move an existing holding, use <strong>Pocket transfer → Position</strong> instead.</div>}
             <div className="grid gap-3 md:grid-cols-4">
               <label><span className="field-label">Activity</span><select className="input-field w-full" value={activityType} onChange={(event) => setActivityType(event.target.value as ActivityType)}>{ACTIVITY_TYPES.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
               <label><span className="field-label">Pocket</span><select className="input-field w-full" value={activityBucket} onChange={(event) => setActivityBucket(event.target.value as PortfolioBucket)}>{BUCKETS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>
@@ -572,7 +586,7 @@ export default function PortfolioAccountingPanel({ onLedgerChanged }: Props) {
               {(activityType === "buy" || activityType === "sell" || activityType === "dividend") && <label><span className="field-label">Fees</span><input className="input-field w-full" inputMode="decimal" value={activityFees} onChange={(event) => setActivityFees(event.target.value)} /></label>}
               <label className="md:col-span-2"><span className="field-label">Note</span><input className="input-field w-full" value={activityNotes} onChange={(event) => setActivityNotes(event.target.value)} placeholder="Optional accounting note" /></label>
             </div>
-            <button className="btn btn-primary" type="submit" disabled={saving || !ledgerReady}>{saving ? "Recording…" : `Record ${humanType(activityType).toLowerCase()}`}</button>
+            <button className="btn btn-primary" type="submit" disabled={saving || !ledgerReady}>{saving ? "Recording…" : `Record new ${humanType(activityType).toLowerCase()}`}</button>
             {!ledgerReady && <p className="text-xs text-amber-700">Create the opening balance first. Activity entry becomes available after the ledger has a starting state.</p>}
           </form>}
 
