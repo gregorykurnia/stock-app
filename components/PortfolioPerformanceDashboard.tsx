@@ -8,7 +8,10 @@ import {
   buildPerformancePoints,
   calculateXirr,
   calculateReturnStatistics,
+  emptySnapshotBucket,
   findLedgerSnapshotImpact,
+  snapshotBucketValueIdr,
+  snapshotBucketValueUsd,
   snapshotTotalValueUsd,
   snapshotTotalValueIdr,
   type PortfolioBucket,
@@ -67,6 +70,14 @@ function rangeStart(range: Range, latestDate: string): string | null {
   const months = range === "1M" ? 1 : range === "3M" ? 3 : range === "6M" ? 6 : 12;
   latest.setUTCMonth(latest.getUTCMonth() - months);
   return latest.toISOString().slice(0, 10);
+}
+
+function bucketSnapshot(snapshot: PortfolioSnapshot, bucket: PortfolioBucket): PortfolioSnapshot {
+  return {
+    ...snapshot,
+    total: snapshot.buckets[bucket] ?? emptySnapshotBucket(),
+    positions: snapshot.positions.filter((position) => position.bucket === bucket),
+  };
 }
 
 async function loadPortfolioCompanyNames() {
@@ -274,6 +285,34 @@ export default function PortfolioPerformanceDashboard() {
             </div>
           ) : <PortfolioPerformanceChart snapshots={filtered} openingSnapshot={openingSnapshot ?? undefined} activityRows={activityRows} ledgerTransactions={ledgerTransactions} currency={currency} metric={metric} visibleSeries={visibleSeries} />}
       </section>
+
+      {latest && (
+        <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {BUCKETS.map((bucket) => {
+            const summary = latest.buckets[bucket.id] ?? emptySnapshotBucket();
+            const bucketPoints = buildPerformancePoints(
+              filtered.map((snapshot) => bucketSnapshot(snapshot, bucket.id)),
+              currency,
+              {
+                openingSnapshot: openingSnapshot ? bucketSnapshot(openingSnapshot, bucket.id) : undefined,
+                ledgerTransactions,
+                bucket: bucket.id,
+              },
+            );
+            const bucketStats = calculateReturnStatistics(bucketPoints);
+            const allocation = snapshotTotalValueUsd(latest) > 0 ? snapshotBucketValueUsd(summary) / snapshotTotalValueUsd(latest) * 100 : 0;
+            return (
+              <div key={bucket.id} className="surface-card p-4">
+                <div className="flex items-center justify-between"><div className="flex items-center gap-2 text-sm font-bold"><span className="h-2.5 w-2.5 rounded-full" style={{ background: bucket.color }} />{bucket.label}</div><span className="text-xs font-semibold text-gray-500">{allocation.toFixed(1)}%</span></div>
+                <div className="mt-3 text-xl font-bold text-gray-900">{formatMoney(currency === "idr" ? snapshotBucketValueIdr(summary) : snapshotBucketValueUsd(summary), currency)}</div>
+                <div className="mt-2 flex justify-between text-xs text-gray-500"><span>{summary.positionCount} positions</span><span className={(bucketStats.periodReturnPct ?? 0) >= 0 ? "font-semibold text-green-600" : "font-semibold text-red-500"}>{formatPct(bucketStats.periodReturnPct)} period</span></div>
+                {snapshotComponentValue(summary, "cash", currency) == null ? <div className="mt-2 text-[10px] text-gray-400">Legacy snapshot · cash unavailable</div> : <div className="mt-2 flex justify-between gap-2 text-[10px] text-gray-400"><span>Cash {snapshotComponentValue(summary, "cash", currency)}</span><span>Invested {snapshotComponentValue(summary, "invested", currency)}</span></div>}
+                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-gray-100"><div className="h-full rounded-full" style={{ width: `${allocation}%`, background: bucket.color }} /></div>
+              </div>
+            );
+          })}
+        </section>
+      )}
 
       <section className="surface-card overflow-hidden">
         <button onClick={() => setHistoryOpen((open) => !open)} className="flex w-full items-center justify-between px-4 py-3 text-left">
