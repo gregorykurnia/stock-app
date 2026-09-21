@@ -257,7 +257,7 @@ interface Props {
   usBreakoutListTrialLiveError?: string;
   onUsBreakoutListTrialLiveAdd?: (record: Omit<UsBreakoutListTrialLiveRecord, "id">) => void;
   onUsBreakoutListTrialLiveRemove?: (id: string) => void;
-  // "Portfolio" tab — three independent, manually-managed divisions (Long Term / Index / Swing)
+  // "Portfolio" tab — four independent, manually-managed divisions (Long Term / Index / Swing / Treasury)
   portfolioStocks?: Record<PortfolioDivision, PortfolioStock[]>;
   portfolioPrices?: Record<string, number | null>;
   portfolioPrevCloses?: Record<string, number | null>;
@@ -317,10 +317,10 @@ export default function MasterTable({
   usBreakoutAddTicker = "", usBreakoutAddLoading = false, usBreakoutAddError = "", onUsBreakoutAddTickerChange, onUsBreakoutAdd, onUsBreakoutRemove, onUsBreakoutToggleStar, onUsBreakoutTypeChange,
   usBreakoutListTrialRecords = [], usBreakoutListTrialLoading = false, usBreakoutListTrialSaving = false, usBreakoutListTrialError = "", onUsBreakoutListTrialAdd, onUsBreakoutListTrialRemove,
   usBreakoutListTrialLiveRecords = [], usBreakoutListTrialLiveLoading = false, usBreakoutListTrialLiveSaving = false, usBreakoutListTrialLiveError = "", onUsBreakoutListTrialLiveAdd, onUsBreakoutListTrialLiveRemove,
-  portfolioStocks = { longterm: [], index: [], swing: [] }, portfolioPrices = {}, portfolioPrevCloses = {},
-  portfolioLoading = { longterm: false, index: false, swing: false }, onPortfolioTabOpen,
-  portfolioAddTicker = { longterm: "", index: "", swing: "" }, portfolioAddLoading = { longterm: false, index: false, swing: false },
-  portfolioAddError = { longterm: "", index: "", swing: "" },
+  portfolioStocks = { longterm: [], index: [], swing: [], treasury: [] }, portfolioPrices = {}, portfolioPrevCloses = {},
+  portfolioLoading = { longterm: false, index: false, swing: false, treasury: false }, onPortfolioTabOpen,
+  portfolioAddTicker = { longterm: "", index: "", swing: "", treasury: "" }, portfolioAddLoading = { longterm: false, index: false, swing: false, treasury: false },
+  portfolioAddError = { longterm: "", index: "", swing: "", treasury: "" },
   onPortfolioAddTickerChange, onPortfolioAdd, onPortfolioRemove, onPortfolioEntryChange, onPortfolioLevelChange,
 }: Props) {
   const isIhsg = market === "ihsg";
@@ -2699,7 +2699,7 @@ export default function MasterTable({
         </div>
       )}
 
-      {/* PORTFOLIO TAB (US only) — three independent, manually-managed divisions */}
+      {/* PORTFOLIO TAB (US only) — four independent, manually-managed divisions */}
       {!isIhsg && mainTab === "portfolio" && (
         <div className="space-y-3">
           <div className="flex gap-1 border-b border-gray-200">

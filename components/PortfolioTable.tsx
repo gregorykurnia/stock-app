@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import type { PortfolioDivision } from "@/lib/firestore";
+import { PORTFOLIO_BUCKET_DEFINITIONS } from "@/lib/portfolioBuckets";
 import { downloadCsv } from "@/lib/exportCsv";
 
 export interface PortfolioStock {
@@ -19,9 +20,7 @@ export interface PortfolioStock {
 export type PortfolioLevelField = "nearest_support" | "r1" | "r2" | "r3";
 
 export const PORTFOLIO_DIVISIONS: { id: PortfolioDivision; label: string }[] = [
-  { id: "longterm", label: "Long Term" },
-  { id: "index", label: "Index" },
-  { id: "swing", label: "Swing" },
+  ...PORTFOLIO_BUCKET_DEFINITIONS,
 ];
 
 type SortKey = "ticker" | "industry" | "price" | "priceChangePct" | "entryPrice" | "entryQuantity" | "entryValue" | "totalPct" | "unrealized";

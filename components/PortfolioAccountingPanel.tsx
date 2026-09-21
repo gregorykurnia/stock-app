@@ -22,11 +22,10 @@ import {
   type ReconciliationPositionTarget,
 } from "@/lib/portfolioActivity";
 import type { PortfolioBucket } from "@/lib/portfolioPerformance";
+import { PORTFOLIO_BUCKET_DEFINITIONS } from "@/lib/portfolioBuckets";
 
 const BUCKETS: { id: PortfolioBucket; label: string }[] = [
-  { id: "longterm", label: "Long Term" },
-  { id: "index", label: "Index" },
-  { id: "swing", label: "Swing" },
+  ...PORTFOLIO_BUCKET_DEFINITIONS,
 ];
 const CURRENCIES: LedgerCurrency[] = ["USD", "IDR"];
 const ACTIVITY_TYPES: { id: ActivityType; label: string }[] = [
@@ -104,7 +103,7 @@ function bucketLabel(bucket: PortfolioBucket) {
 
 function readableLedgerError(reason: unknown) {
   const message = reason instanceof Error ? reason.message : "Could not save ledger activity";
-  const cashMatch = message.match(/transaction would make (longterm|index|swing) (USD|IDR) cash negative/i);
+  const cashMatch = message.match(/transaction would make (longterm|index|swing|treasury) (USD|IDR) cash negative/i);
   if (!cashMatch) return message;
 
   const [, bucket, currency] = cashMatch;
@@ -213,6 +212,7 @@ export default function PortfolioAccountingPanel({ onLedgerChanged }: Props) {
         longterm: pockets[0] as Record<string, object>,
         index: pockets[1] as Record<string, object>,
         swing: pockets[2] as Record<string, object>,
+        treasury: pockets[3] as Record<string, object>,
       });
       setTransactions(nextTransactions);
       setLedgerState(nextState);

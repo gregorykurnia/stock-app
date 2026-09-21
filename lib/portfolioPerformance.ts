@@ -1,6 +1,8 @@
 import type { LedgerTransaction } from "./portfolioLedger";
+import { PORTFOLIO_BUCKETS, type PortfolioBucket } from "./portfolioBuckets";
 
-export type PortfolioBucket = "longterm" | "index" | "swing";
+export { PORTFOLIO_BUCKETS, type PortfolioBucket } from "./portfolioBuckets";
+
 
 export interface SnapshotPosition {
   ticker: string;
@@ -96,8 +98,6 @@ export interface ReturnStatistics {
   maxDrawdownPct: number | null;
   quality: "complete" | "partial";
 }
-
-const BUCKETS: PortfolioBucket[] = ["longterm", "index", "swing"];
 
 function round(value: number, decimals = 4) {
   const factor = 10 ** decimals;
@@ -351,6 +351,31 @@ export function snapshotBucketValueIdr(bucket: SnapshotBucket): number {
   return bucket.totalValueIdr ?? bucket.valueIdr;
 }
 
+export function emptySnapshotBucket(): SnapshotBucket {
+  return {
+    valueUsd: 0,
+    valueIdr: 0,
+    costBasisUsd: 0,
+    unrealizedUsd: 0,
+    positionCount: 0,
+  };
+}
+
+/**
+ * Adds newly introduced empty buckets to snapshots written before that bucket
+ * existed. Stored snapshots are immutable, so this keeps historical data
+ * readable without rewriting every old document.
+ */
+export function normalizePortfolioSnapshot(snapshot: PortfolioSnapshot): PortfolioSnapshot {
+  const storedBuckets = snapshot.buckets ?? {};
+  const buckets = Object.fromEntries(PORTFOLIO_BUCKETS.map((bucket) => [
+    bucket,
+    { ...emptySnapshotBucket(), ...(storedBuckets[bucket] ?? {}) },
+  ])) as Record<PortfolioBucket, SnapshotBucket>;
+
+  return { ...snapshot, buckets };
+}
+
 /**
  * Estimate capital moved into/out of the tracked invested portfolio between snapshots.
  * Quantity changes are valued at the ending snapshot price so buys/sells do not masquerade
@@ -378,9 +403,10 @@ export function buildPerformancePoints(
   currency: "usd" | "idr" = "usd",
   options: PerformanceBuildOptions = {},
 ): PerformancePoint[] {
-  const sorted = [...snapshots].sort((a, b) => a.sessionDate.localeCompare(b.sessionDate));
-  const openingSnapshot = options.openingSnapshot && (sorted.length === 0 || options.openingSnapshot.sessionDate < sorted[0].sessionDate)
-    ? options.openingSnapshot
+  const sorted = snapshots.map(normalizePortfolioSnapshot).sort((a, b) => a.sessionDate.localeCompare(b.sessionDate));
+  const normalizedOpeningSnapshot = options.openingSnapshot ? normalizePortfolioSnapshot(options.openingSnapshot) : undefined;
+  const openingSnapshot = normalizedOpeningSnapshot && (sorted.length === 0 || normalizedOpeningSnapshot.sessionDate < sorted[0].sessionDate)
+    ? normalizedOpeningSnapshot
     : undefined;
   const input = openingSnapshot ? [openingSnapshot, ...sorted] : sorted;
   const points: PerformancePoint[] = input.map((snapshot, index) => {
@@ -517,11 +543,5 @@ export function calculateReturnStatistics(points: PerformancePoint[]): ReturnSta
 }
 
 export function emptySnapshotBuckets(): Record<PortfolioBucket, SnapshotBucket> {
-  return Object.fromEntries(BUCKETS.map((bucket) => [bucket, {
-    valueUsd: 0,
-    valueIdr: 0,
-    costBasisUsd: 0,
-    unrealizedUsd: 0,
-    positionCount: 0,
-  }])) as Record<PortfolioBucket, SnapshotBucket>;
+  return Object.fromEntries(PORTFOLIO_BUCKETS.map((bucket) => [bucket, emptySnapshotBucket()])) as Record<PortfolioBucket, SnapshotBucket>;
 }

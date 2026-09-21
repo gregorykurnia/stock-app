@@ -151,15 +151,15 @@ export default function Home() {
   const [usBreakoutListTrialLiveSaving, setUsBreakoutListTrialLiveSaving] = useState(false);
   const [usBreakoutListTrialLiveError, setUsBreakoutListTrialLiveError] = useState("");
 
-  // "Portfolio" tab — three independent, manually-managed divisions (Long Term / Index / Swing)
-  const [portfolioStocks, setPortfolioStocks] = useState<Record<PortfolioDivision, PortfolioStock[]>>({ longterm: [], index: [], swing: [] });
+  // "Portfolio" tab — four independent, manually-managed divisions (Long Term / Index / Swing / Treasury)
+  const [portfolioStocks, setPortfolioStocks] = useState<Record<PortfolioDivision, PortfolioStock[]>>({ longterm: [], index: [], swing: [], treasury: [] });
   const [portfolioPrices, setPortfolioPrices] = useState<Record<string, number | null>>({});
   const [portfolioPrevCloses, setPortfolioPrevCloses] = useState<Record<string, number | null>>({});
-  const [portfolioLoaded, setPortfolioLoaded] = useState<Record<PortfolioDivision, boolean>>({ longterm: false, index: false, swing: false });
-  const [portfolioLoading, setPortfolioLoading] = useState<Record<PortfolioDivision, boolean>>({ longterm: false, index: false, swing: false });
-  const [portfolioAddTicker, setPortfolioAddTicker] = useState<Record<PortfolioDivision, string>>({ longterm: "", index: "", swing: "" });
-  const [portfolioAddLoading, setPortfolioAddLoading] = useState<Record<PortfolioDivision, boolean>>({ longterm: false, index: false, swing: false });
-  const [portfolioAddError, setPortfolioAddError] = useState<Record<PortfolioDivision, string>>({ longterm: "", index: "", swing: "" });
+  const [portfolioLoaded, setPortfolioLoaded] = useState<Record<PortfolioDivision, boolean>>({ longterm: false, index: false, swing: false, treasury: false });
+  const [portfolioLoading, setPortfolioLoading] = useState<Record<PortfolioDivision, boolean>>({ longterm: false, index: false, swing: false, treasury: false });
+  const [portfolioAddTicker, setPortfolioAddTicker] = useState<Record<PortfolioDivision, string>>({ longterm: "", index: "", swing: "", treasury: "" });
+  const [portfolioAddLoading, setPortfolioAddLoading] = useState<Record<PortfolioDivision, boolean>>({ longterm: false, index: false, swing: false, treasury: false });
+  const [portfolioAddError, setPortfolioAddError] = useState<Record<PortfolioDivision, string>>({ longterm: "", index: "", swing: "", treasury: "" });
 
   // IHSG state (mirrors US state, tickers stored without .JK)
   const [ihsgCustomStocks, setIhsgCustomStocks] = useState<CustomStock[]>([]);

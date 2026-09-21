@@ -14,6 +14,7 @@ import type { PortfolioActivityRow } from "@/lib/portfolioActivity";
 import type { LedgerTransaction } from "@/lib/portfolioLedger";
 import {
   buildPerformancePoints,
+  emptySnapshotBucket,
   snapshotBucketValueIdr,
   snapshotBucketValueUsd,
   snapshotTotalValueIdr,
@@ -21,6 +22,7 @@ import {
   type PortfolioBucket,
   type PortfolioSnapshot,
 } from "@/lib/portfolioPerformance";
+import { PORTFOLIO_BUCKET_LABELS } from "@/lib/portfolioBuckets";
 
 export type PerformanceSeries = "total" | PortfolioBucket;
 export type PerformanceCurrency = "idr" | "usd";
@@ -41,10 +43,11 @@ const SERIES: { id: PerformanceSeries; label: string; color: string; width: 1 | 
   { id: "longterm", label: "Long Term", color: "#0ea5e9", width: 2 },
   { id: "index", label: "Index", color: "#8b5cf6", width: 2 },
   { id: "swing", label: "Swing", color: "#f59e0b", width: 2 },
+  { id: "treasury", label: "Treasury", color: "#10b981", width: 2 },
 ];
 
 const LABELS: Record<PerformanceSeries, string> = {
-  total: "Total", longterm: "Long Term", index: "Index", swing: "Swing",
+  total: "Total", ...PORTFOLIO_BUCKET_LABELS,
 };
 
 const ACTIVITY_MARKER_STYLES: Record<PortfolioActivityRow["type"], { color: string; shape: "circle" | "square" | "arrowUp" | "arrowDown"; label: string }> = {
@@ -90,7 +93,7 @@ function snapshotForSeries(snapshot: PortfolioSnapshot, series: PerformanceSerie
   if (series === "total") return snapshot;
   return {
     ...snapshot,
-    total: snapshot.buckets[series],
+    total: snapshot.buckets[series] ?? emptySnapshotBucket(),
     positions: snapshot.positions.filter((position) => position.bucket === series),
   };
 }
@@ -146,7 +149,7 @@ export default function PortfolioPerformanceChart({ snapshots, openingSnapshot, 
 
       if (metric === "value") {
         series.setData(snapshots.map((snapshot) => {
-          const summary = definition.id === "total" ? snapshot.total : snapshot.buckets[definition.id];
+          const summary = definition.id === "total" ? snapshot.total : snapshot.buckets[definition.id] ?? emptySnapshotBucket();
           return {
             time: snapshot.sessionDate as Time,
             value: currency === "idr" ? snapshotBucketValueIdr(summary) : snapshotBucketValueUsd(summary),
@@ -210,9 +213,9 @@ export default function PortfolioPerformanceChart({ snapshots, openingSnapshot, 
           </div>
           {changePct != null && <div className={`mt-1 text-xs font-semibold ${changePct >= 0 ? "text-green-600" : "text-red-500"}`}>{changePct >= 0 ? "+" : ""}{changePct.toFixed(2)}% equity change</div>}
           {performancePoint && <div className="mt-1 text-[11px] text-gray-500">Investment return: {performancePoint.returnStatus === "suppressed" ? "suppressed" : performancePoint.dailyReturnPct == null ? "baseline" : `${performancePoint.dailyReturnPct >= 0 ? "+" : ""}${performancePoint.dailyReturnPct.toFixed(2)}%`} · external flow {formatMoney(currency === "idr" ? performancePoint.inferredFlowIdr : performancePoint.inferredFlowUsd, currency)}</div>}
-          <div className="mt-2 grid grid-cols-3 gap-3 border-t border-gray-100 pt-1.5 text-[10px] text-gray-500">
-            {(["longterm", "index", "swing"] as PortfolioBucket[]).map((bucket) => (
-              <div key={bucket}><span className="block">{LABELS[bucket]}</span><strong className="font-semibold text-gray-700">{formatMoney(currency === "idr" ? snapshotBucketValueIdr(hovered.buckets[bucket]) : snapshotBucketValueUsd(hovered.buckets[bucket]), currency, true)}</strong></div>
+          <div className="mt-2 grid grid-cols-2 gap-3 border-t border-gray-100 pt-1.5 text-[10px] text-gray-500 sm:grid-cols-4">
+            {(["longterm", "index", "swing", "treasury"] as PortfolioBucket[]).map((bucket) => (
+              <div key={bucket}><span className="block">{LABELS[bucket]}</span><strong className="font-semibold text-gray-700">{formatMoney(currency === "idr" ? snapshotBucketValueIdr(hovered.buckets[bucket] ?? emptySnapshotBucket()) : snapshotBucketValueUsd(hovered.buckets[bucket] ?? emptySnapshotBucket()), currency, true)}</strong></div>
             ))}
           </div>
         </div>

@@ -8,6 +8,7 @@ import {
   buildPerformancePoints,
   calculateXirr,
   calculateReturnStatistics,
+  emptySnapshotBucket,
   findLedgerSnapshotImpact,
   snapshotBucketValueIdr,
   snapshotBucketValueUsd,
@@ -22,13 +23,21 @@ import PortfolioPerformanceChart, {
   type PerformanceSeries,
 } from "@/components/PortfolioPerformanceChart";
 import PortfolioAccountingPanel from "@/components/PortfolioAccountingPanel";
+import { PORTFOLIO_BUCKET_DEFINITIONS } from "@/lib/portfolioBuckets";
 
 type Range = "1M" | "3M" | "6M" | "YTD" | "1Y" | "ALL";
 
 const BUCKETS: { id: PortfolioBucket; label: string; color: string }[] = [
-  { id: "longterm", label: "Long Term", color: "#0ea5e9" },
-  { id: "index", label: "Index", color: "#8b5cf6" },
-  { id: "swing", label: "Swing", color: "#f59e0b" },
+  ...PORTFOLIO_BUCKET_DEFINITIONS.map((bucket) => ({
+    ...bucket,
+    color: bucket.id === "longterm"
+      ? "#0ea5e9"
+      : bucket.id === "index"
+        ? "#8b5cf6"
+        : bucket.id === "swing"
+          ? "#f59e0b"
+          : "#10b981",
+  })),
 ];
 
 function formatMoney(value: number, currency: PerformanceCurrency) {
@@ -65,7 +74,7 @@ function rangeStart(range: Range, latestDate: string): string | null {
 function bucketSnapshot(snapshot: PortfolioSnapshot, bucket: PortfolioBucket): PortfolioSnapshot {
   return {
     ...snapshot,
-    total: snapshot.buckets[bucket],
+    total: snapshot.buckets[bucket] ?? emptySnapshotBucket(),
     positions: snapshot.positions.filter((position) => position.bucket === bucket),
   };
 }
@@ -79,7 +88,7 @@ export default function PortfolioPerformanceDashboard() {
   const [range, setRange] = useState<Range>("ALL");
   const [currency, setCurrency] = useState<PerformanceCurrency>("idr");
   const [metric, setMetric] = useState<PerformanceMetric>("value");
-  const [visibleSeries, setVisibleSeries] = useState<Set<PerformanceSeries>>(new Set(["total", "longterm", "index", "swing"]));
+  const [visibleSeries, setVisibleSeries] = useState<Set<PerformanceSeries>>(new Set(["total", "longterm", "index", "swing", "treasury"]));
   const [preview, setPreview] = useState<PortfolioSnapshot | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -253,9 +262,9 @@ export default function PortfolioPerformanceDashboard() {
       </section>
 
       {latest && (
-        <section className="grid gap-3 md:grid-cols-3">
+        <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           {BUCKETS.map((bucket) => {
-            const summary = latest.buckets[bucket.id];
+            const summary = latest.buckets[bucket.id] ?? emptySnapshotBucket();
             const bucketPoints = buildPerformancePoints(
               filtered.map((snapshot) => bucketSnapshot(snapshot, bucket.id)),
               currency,

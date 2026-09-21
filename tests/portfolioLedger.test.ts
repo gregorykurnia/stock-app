@@ -165,6 +165,66 @@ test("position transfers preserve weighted-average cost basis", () => {
   assert.equal(state.total.realizedGainUsd, 0);
 });
 
+test("Treasury supports receiving a position transfer from Swing", () => {
+  const state = reducePortfolioLedger([
+    transaction("opening_balance", { bucket: "swing", ticker: "T-BILL", quantity: 4, price: 100 }),
+    transaction("transfer", {
+      transactionId: "treasury-position-out",
+      bucket: "swing",
+      fromBucket: "swing",
+      toBucket: "treasury",
+      transferId: "treasury-transfer-1",
+      ticker: "T-BILL",
+      quantity: -2,
+      occurredAt: "2026-09-17T10:00:00.000Z",
+    }),
+    transaction("transfer", {
+      transactionId: "treasury-position-in",
+      bucket: "treasury",
+      fromBucket: "swing",
+      toBucket: "treasury",
+      transferId: "treasury-transfer-1",
+      ticker: "T-BILL",
+      quantity: 2,
+      occurredAt: "2026-09-17T10:00:00.000Z",
+    }),
+  ]);
+
+  assert.equal(state.buckets.swing.positions["T-BILL"].quantity, 2);
+  assert.equal(state.buckets.treasury.positions["T-BILL"].quantity, 2);
+  assert.equal(state.buckets.treasury.positions["T-BILL"].costBasisUsd, 200);
+  assert.equal(state.total.realizedGainUsd, 0);
+});
+
+test("Treasury cash transfers preserve total cash", () => {
+  const state = reducePortfolioLedger([
+    transaction("opening_balance", { bucket: "swing", cashDelta: 2_000 }),
+    transaction("transfer", {
+      transactionId: "treasury-cash-out",
+      bucket: "swing",
+      fromBucket: "swing",
+      toBucket: "treasury",
+      transferId: "treasury-transfer-2",
+      cashDelta: -1_118,
+      occurredAt: "2026-09-17T10:00:00.000Z",
+    }),
+    transaction("transfer", {
+      transactionId: "treasury-cash-in",
+      bucket: "treasury",
+      fromBucket: "swing",
+      toBucket: "treasury",
+      transferId: "treasury-transfer-2",
+      cashDelta: 1_118,
+      occurredAt: "2026-09-17T10:00:00.000Z",
+    }),
+  ]);
+
+  assert.equal(state.buckets.swing.cash.USD, 882);
+  assert.equal(state.buckets.treasury.cash.USD, 1_118);
+  assert.equal(state.total.cash.USD, 2_000);
+  assert.equal(state.total.externalFlow.USD, 0);
+});
+
 test("FX conversion keeps currencies separate without creating external flow", () => {
   const state = reducePortfolioLedger([
     transaction("opening_balance", { bucket: "index", cashDelta: 1_000 }),

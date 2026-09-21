@@ -6,6 +6,7 @@ import {
   calculateReturnStatistics,
   emptySnapshotBuckets,
   findLedgerSnapshotImpact,
+  normalizePortfolioSnapshot,
   type PortfolioSnapshot,
   type SnapshotPosition,
 } from "../lib/portfolioPerformance";
@@ -83,6 +84,19 @@ test("calculates daily market return when quantity is unchanged", () => {
   ]);
   assert.equal(points[1].dailyReturnPct, 10);
   assert.equal(points[1].inferredFlowUsd, 0);
+});
+
+test("normalizes legacy snapshots that predate Treasury", () => {
+  const original = snapshot("2026-09-08", 100, 10);
+  const legacyBuckets = Object.fromEntries(
+    Object.entries(original.buckets).filter(([bucket]) => bucket !== "treasury"),
+  ) as PortfolioSnapshot["buckets"];
+  const legacySnapshot = { ...original, buckets: legacyBuckets } as PortfolioSnapshot;
+  const normalized = normalizePortfolioSnapshot(legacySnapshot);
+
+  assert.equal(normalized.buckets.treasury.valueUsd, 0);
+  assert.equal(normalized.buckets.treasury.positionCount, 0);
+  assert.equal(normalized.buckets.longterm.valueUsd, original.buckets.longterm.valueUsd);
 });
 
 test("removes an inferred position addition from investment return", () => {

@@ -12,8 +12,9 @@ import {
   type LedgerCurrency,
   type LedgerTransaction,
 } from "./portfolioLedger";
+import { PORTFOLIO_BUCKETS } from "./portfolioBuckets";
 
-const BUCKETS: PortfolioBucket[] = ["longterm", "index", "swing"];
+const BUCKETS: PortfolioBucket[] = [...PORTFOLIO_BUCKETS];
 
 export interface PortfolioSnapshotQuote {
   price: number | null;

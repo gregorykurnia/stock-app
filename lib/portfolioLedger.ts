@@ -1,6 +1,6 @@
-import type { PortfolioBucket } from "./portfolioPerformance";
+import { PORTFOLIO_BUCKETS, type PortfolioBucket } from "./portfolioBuckets";
 
-export const LEDGER_BUCKETS: PortfolioBucket[] = ["longterm", "index", "swing"];
+export const LEDGER_BUCKETS: PortfolioBucket[] = [...PORTFOLIO_BUCKETS];
 export const LEDGER_CURRENCIES = ["USD", "IDR"] as const;
 
 export type LedgerCurrency = (typeof LEDGER_CURRENCIES)[number];
@@ -534,6 +534,7 @@ export function emptyPortfolioLedgerState(): PortfolioLedgerState {
       longterm: emptyBucketState(),
       index: emptyBucketState(),
       swing: emptyBucketState(),
+      treasury: emptyBucketState(),
     },
     total: emptyTotals(),
   };

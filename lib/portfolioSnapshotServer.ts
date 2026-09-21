@@ -16,8 +16,9 @@ import {
   type PortfolioSnapshot,
   type SnapshotPosition,
 } from "@/lib/portfolioPerformance";
+import { PORTFOLIO_BUCKETS } from "@/lib/portfolioBuckets";
 
-const BUCKETS: PortfolioBucket[] = ["longterm", "index", "swing"];
+const BUCKETS: PortfolioBucket[] = [...PORTFOLIO_BUCKETS];
 
 function round(value: number, decimals = 2) {
   const factor = 10 ** decimals;

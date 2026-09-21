@@ -74,6 +74,24 @@ test("ledger snapshots include per-pocket cash, conserve pocket totals, and mark
   assert.equal(snapshot.total.totalValueUsd, snapshot.buckets.longterm.totalValueUsd + snapshot.buckets.index.totalValueUsd + snapshot.buckets.swing.totalValueUsd);
 });
 
+test("ledger snapshots value Treasury positions and include the new bucket in totals", async () => {
+  const transactions = [
+    opening({ bucket: "treasury", cashDelta: 250 }),
+    opening({ bucket: "treasury", ticker: "T-BILL", quantity: 2, price: 100 }),
+  ];
+  const snapshot = await buildLedgerPortfolioSnapshot(
+    "preview",
+    transactions,
+    async (tickers) => Object.fromEntries(tickers.map((ticker) => [ticker, quote(ticker === "IDR=X" ? 15_000 : 105, "2026-09-17")])),
+  );
+
+  assert.equal(snapshot.buckets.treasury.cashValueUsd, 250);
+  assert.equal(snapshot.buckets.treasury.investedValueUsd, 210);
+  assert.equal(snapshot.buckets.treasury.totalValueUsd, 460);
+  assert.equal(snapshot.total.totalValueUsd, 460);
+  assert.equal(snapshot.positions[0].bucket, "treasury");
+});
+
 test("ledger snapshot fails closed when USD/IDR FX is unavailable", async () => {
   await assert.rejects(
     buildLedgerPortfolioSnapshot(

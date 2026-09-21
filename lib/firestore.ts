@@ -1,6 +1,8 @@
 import { doc, getDoc, setDoc, collection, addDoc, getDocs, deleteDoc, deleteField, writeBatch, runTransaction } from "firebase/firestore";
 import { db } from "./firebase";
+import type { PortfolioBucket } from "./portfolioBuckets";
 import type { PortfolioSnapshot } from "./portfolioPerformance";
+import { normalizePortfolioSnapshot } from "./portfolioPerformance";
 import {
   validatePersonalFinanceMonth,
   type PersonalFinanceMonthInput,
@@ -443,9 +445,9 @@ export async function removePortfolioEntry(ticker: string) {
   await deleteDoc(doc(db, "portfolio", ticker));
 }
 
-// Portfolio divisions — three independent, manually-managed ticker lists ("Long Term",
-// "Index", "Swing"), each holding entry_price/entry_value alongside name/industry.
-export type PortfolioDivision = "longterm" | "index" | "swing";
+// Portfolio divisions — independent, manually-managed ticker lists ("Long Term",
+// "Index", "Swing", "Treasury"), each holding entry_price/entry_value alongside name/industry.
+export type PortfolioDivision = PortfolioBucket;
 
 function portfolioDivisionCollection(division: PortfolioDivision) {
   return `portfolio_${division}`;
@@ -560,13 +562,13 @@ export async function removePortfolioLedgerTransactions(transactionIds: readonly
 export async function getPortfolioPerformanceSnapshots(): Promise<PortfolioSnapshot[]> {
   const snap = await getDocs(collection(db, "portfolio_performance_snapshots"));
   return snap.docs
-    .map((item) => item.data() as PortfolioSnapshot)
+    .map((item) => normalizePortfolioSnapshot(item.data() as PortfolioSnapshot))
     .sort((a, b) => a.sessionDate.localeCompare(b.sessionDate));
 }
 
 export async function getPortfolioPerformanceSnapshot(sessionDate: string): Promise<PortfolioSnapshot | null> {
   const snap = await getDoc(doc(db, "portfolio_performance_snapshots", sessionDate));
-  return snap.exists() ? snap.data() as PortfolioSnapshot : null;
+  return snap.exists() ? normalizePortfolioSnapshot(snap.data() as PortfolioSnapshot) : null;
 }
 
 export async function savePortfolioPerformanceSnapshot(snapshot: PortfolioSnapshot) {
