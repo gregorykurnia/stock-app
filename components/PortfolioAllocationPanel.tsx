@@ -46,6 +46,110 @@ function allocationLabel(bucket: PortfolioAllocationBucket, currency: Performanc
   return `${bucket.label}: ${value ?? formatMoney(bucket.costBasisUsd, "usd")} · ${bucket.percentage.toFixed(2)}% of entry value`;
 }
 
+function selectedCurrencyValue(valueUsd: number, currency: PerformanceCurrency, fxRateUsdIdr?: number | null) {
+  if (currency === "usd") return valueUsd;
+  if (fxRateUsdIdr == null || !Number.isFinite(fxRateUsdIdr) || fxRateUsdIdr <= 0) return null;
+  return valueUsd * fxRateUsdIdr;
+}
+
+function csvCell(value: string | number | null | undefined) {
+  if (value == null) return "";
+  if (typeof value === "number") return String(value);
+
+  const safeValue = /^[\s\uFEFF]*[=+\-@]/.test(value) ? `'${value}` : value;
+  return `"${safeValue.replaceAll('"', '""')}"`;
+}
+
+function buildAllocationCsv(
+  allocation: PortfolioAllocation,
+  currency: PerformanceCurrency,
+  fxRateUsdIdr: number | null | undefined,
+  companyNames: Record<string, string | null>,
+) {
+  const headers = [
+    "section",
+    "metric",
+    "metric_value",
+    "metric_unit",
+    "rank",
+    "ticker",
+    "company_name",
+    "bucket",
+    "bucket_label",
+    "quantity",
+    "entry_value_usd",
+    "selected_currency",
+    "entry_value_selected_currency",
+    "share_of_total_percent",
+    "cost_basis_status",
+  ];
+  const rows: (string | number | null | undefined)[][] = [
+    headers,
+    ["portfolio_summary", "allocation_status", allocation.status, "status"],
+    [
+      "portfolio_summary",
+      "total_entry_value",
+      allocation.totalEntryValueUsd,
+      "USD",
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      allocation.totalEntryValueUsd,
+      currency.toUpperCase(),
+      selectedCurrencyValue(allocation.totalEntryValueUsd, currency, fxRateUsdIdr),
+      allocation.totalEntryValueUsd > 0 ? 100 : 0,
+      "recorded_cost_basis",
+    ],
+    ["portfolio_summary", "position_count", allocation.positionCount, "positions"],
+    ["portfolio_summary", "missing_cost_basis_tickers", allocation.missingCostBasisTickers.join("; "), "tickers"],
+  ];
+
+  for (const bucket of Object.values(allocation.buckets)) {
+    rows.push([
+      "bucket_allocation",
+      "entry_value",
+      null,
+      null,
+      null,
+      null,
+      null,
+      bucket.bucket,
+      bucket.label,
+      null,
+      bucket.costBasisUsd,
+      currency.toUpperCase(),
+      selectedCurrencyValue(bucket.costBasisUsd, currency, fxRateUsdIdr),
+      bucket.percentage,
+      "recorded_cost_basis",
+    ]);
+  }
+
+  allocation.holdings.forEach((holding, index) => {
+    rows.push([
+      "holdings",
+      "position_entry_value",
+      null,
+      null,
+      index + 1,
+      holding.ticker,
+      companyNames[holding.ticker]?.trim() || "",
+      holding.bucket,
+      holding.bucketLabel,
+      holding.quantity,
+      holding.costBasisUsd,
+      currency.toUpperCase(),
+      holding.hasCostBasis ? selectedCurrencyValue(holding.costBasisUsd, currency, fxRateUsdIdr) : null,
+      holding.percentage,
+      holding.hasCostBasis ? "available" : "missing",
+    ]);
+  });
+
+  return `\uFEFF${rows.map((row) => row.map(csvCell).join(",")).join("\r\n")}`;
+}
+
 function DonutChart({ allocation, currency, fxRateUsdIdr }: { allocation: PortfolioAllocation; currency: PerformanceCurrency; fxRateUsdIdr?: number | null }) {
   const radius = 64;
   const circumference = 2 * Math.PI * radius;
@@ -131,6 +235,20 @@ export default function PortfolioAllocationPanel({ transactions, currency, fxRat
     [transactions],
   );
 
+  function exportAllocationCsv() {
+    if (!allocation) return;
+
+    const blob = new Blob([buildAllocationCsv(allocation, currency, fxRateUsdIdr, companyNames)], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `portfolio-allocation-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 0);
+  }
+
   return (
     <section className="surface-card overflow-hidden" aria-labelledby="portfolio-allocation-heading">
       <div className="flex flex-wrap items-start justify-between gap-3 border-b border-[var(--border)] px-4 py-4 sm:px-5">
@@ -142,9 +260,22 @@ export default function PortfolioAllocationPanel({ transactions, currency, fxRat
           <p className="mt-1 text-xs text-gray-500">Original allocation by open-position entry value</p>
         </div>
         {allocation && (
-          <div className="text-right">
-            <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Positions</div>
-            <div className="text-lg font-bold text-gray-900">{allocation.positionCount}</div>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={exportAllocationCsv}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--border)] px-3 py-2 text-xs font-semibold text-gray-700 transition-colors hover:bg-gray-50 hover:text-gray-900"
+              aria-label="Export portfolio allocation as CSV"
+            >
+              <svg viewBox="0 0 20 20" fill="none" className="h-4 w-4" aria-hidden="true">
+                <path d="M10 3.5v8m0 0 3-3m-3 3-3-3M4.5 13v2.5h11V13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+              Export CSV
+            </button>
+            <div className="text-right">
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Positions</div>
+              <div className="text-lg font-bold text-gray-900">{allocation.positionCount}</div>
+            </div>
           </div>
         )}
       </div>
