@@ -11,13 +11,7 @@ export interface PortfolioStock {
   industry: string | null;
   entry_price: number | null;
   entry_quantity: number | null;
-  nearest_support?: number | null;
-  r1?: number | null;
-  r2?: number | null;
-  r3?: number | null;
 }
-
-export type PortfolioLevelField = "nearest_support" | "r1" | "r2" | "r3";
 
 export const PORTFOLIO_DIVISIONS: { id: PortfolioDivision; label: string }[] = [
   ...PORTFOLIO_BUCKET_DEFINITIONS,
@@ -39,7 +33,6 @@ interface Props {
   onAdd?: (e: FormEvent) => void;
   onRemove?: (ticker: string) => void;
   onEntryChange?: (ticker: string, field: "entry_price" | "entry_quantity", value: number | null) => void;
-  onLevelChange?: (ticker: string, field: PortfolioLevelField, value: number | null) => void;
 }
 
 const dash = <span className="text-gray-400">—</span>;
@@ -78,29 +71,12 @@ function EditableNumberCell({ value, onCommit }: { value: number | null; onCommi
   );
 }
 
-// Fillable price-level cell (support/resistance) — shows the % distance from the buy (entry) price
-// to this level directly under the input once both values are present.
-function LevelCell({ value, entryPrice, onCommit }: { value: number | null | undefined; entryPrice: number | null; onCommit: (v: number | null) => void }) {
-  const pct = value != null && entryPrice != null && entryPrice > 0 ? ((value - entryPrice) / entryPrice) * 100 : null;
-  return (
-    <td className="px-3 py-2">
-      <EditableNumberCell value={value ?? null} onCommit={onCommit} />
-      {pct != null && (
-        <div className={`text-xs mt-0.5 font-medium ${pct >= 0 ? "text-green-600" : "text-red-500"}`}>
-          {pct >= 0 ? "+" : ""}{pct.toFixed(1)}%
-        </div>
-      )}
-    </td>
-  );
-}
-
 export default function PortfolioTable({
   division, stocks, prices, prevCloses, loading = false,
-  addTicker = "", addLoading = false, addError = "", onAddTickerChange, onAdd, onRemove, onEntryChange, onLevelChange,
+  addTicker = "", addLoading = false, addError = "", onAddTickerChange, onAdd, onRemove, onEntryChange,
 }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>("ticker");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
-  const isSwing = division === "swing";
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
@@ -115,11 +91,7 @@ export default function PortfolioTable({
       const totalPct = price != null && s.entry_price != null && s.entry_price > 0 ? ((price - s.entry_price) / s.entry_price) * 100 : null;
       const entryValue = s.entry_price != null && s.entry_quantity != null ? s.entry_price * s.entry_quantity : null;
       const unrealized = price != null && s.entry_price != null && s.entry_quantity != null ? (price - s.entry_price) * s.entry_quantity : null;
-      // R:R = potential reward (R1 − entry) ÷ potential risk (entry − nearest support)
-      const risk = s.entry_price != null && s.nearest_support != null ? s.entry_price - s.nearest_support : null;
-      const reward = s.entry_price != null && s.r1 != null ? s.r1 - s.entry_price : null;
-      const rrRatio = risk != null && risk > 0 && reward != null ? reward / risk : null;
-      return { ...s, price, priceChangePct, totalPct, entryValue, unrealized, rrRatio };
+      return { ...s, price, priceChangePct, totalPct, entryValue, unrealized };
     });
   }, [stocks, prices, prevCloses]);
 
@@ -161,8 +133,7 @@ export default function PortfolioTable({
 
   function exportCsv() {
     const date = new Date().toISOString().slice(0, 10);
-    const headers = ["Ticker", "Industry", "Price", "Chg %", "Entry Price", "Entry Qty", "Entry Value", "Total %", "Unrealized",
-      ...(isSwing ? ["R:R Ratio", "Nearest Support", "R1", "R2", "R3"] : [])];
+    const headers = ["Ticker", "Industry", "Price", "Chg %", "Entry Price", "Entry Qty", "Entry Value", "Total %", "Unrealized"];
     const data = sortedRows.map((r) => [
       r.ticker,
       r.industry ?? "",
@@ -173,13 +144,6 @@ export default function PortfolioTable({
       r.entryValue?.toFixed(2) ?? "",
       r.totalPct?.toFixed(1) ?? "",
       r.unrealized?.toFixed(2) ?? "",
-      ...(isSwing ? [
-        r.rrRatio?.toFixed(2) ?? "",
-        r.nearest_support?.toFixed(2) ?? "",
-        r.r1?.toFixed(2) ?? "",
-        r.r2?.toFixed(2) ?? "",
-        r.r3?.toFixed(2) ?? "",
-      ] : []),
     ]);
     downloadCsv(`portfolio-${division}-${date}.csv`, headers, data);
   }
@@ -240,21 +204,12 @@ export default function PortfolioTable({
               <Th label="Entry Value" k="entryValue" title="Entry price × entry quantity" />
               <Th label="Total %" k="totalPct" title="% change from entry price to current price" />
               <Th label="Unrealized" k="unrealized" title="Unrealized gain/loss in $ = (current price − entry price) × entry quantity" />
-              {isSwing && (
-                <>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="Reward ÷ Risk = (R1 − entry price) ÷ (entry price − nearest support)">R:R Ratio</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="% shown is the distance from your entry price to this level">Nearest Support</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="% shown is the distance from your entry price to this level">R1</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="% shown is the distance from your entry price to this level">R2</th>
-                  <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap" title="% shown is the distance from your entry price to this level">R3</th>
-                </>
-              )}
               <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Remove</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {sortedRows.length === 0 && (
-              <tr><td colSpan={isSwing ? 15 : 10} className="px-3 py-6 text-center text-gray-400 text-sm">No positions in {PORTFOLIO_DIVISIONS.find((d) => d.id === division)?.label} yet — add one above.</td></tr>
+              <tr><td colSpan={10} className="px-3 py-6 text-center text-gray-400 text-sm">No positions in {PORTFOLIO_DIVISIONS.find((d) => d.id === division)?.label} yet — add one above.</td></tr>
             )}
             {sortedRows.map((r) => (
               <tr key={r.ticker} className="hover:bg-gray-50">
@@ -280,17 +235,6 @@ export default function PortfolioTable({
                 <td className={`px-3 py-2 font-medium ${r.unrealized == null ? "text-gray-400" : r.unrealized >= 0 ? "text-green-600" : "text-red-500"}`}>
                   {r.unrealized != null ? `${r.unrealized >= 0 ? "+" : "-"}$${Math.abs(r.unrealized).toFixed(2)}` : dash}
                 </td>
-                {isSwing && (
-                  <>
-                    <td className="px-3 py-2 font-medium text-gray-700">
-                      {r.rrRatio != null ? `1 : ${r.rrRatio.toFixed(2)}` : dash}
-                    </td>
-                    <LevelCell value={r.nearest_support} entryPrice={r.entry_price} onCommit={(v) => onLevelChange?.(r.ticker, "nearest_support", v)} />
-                    <LevelCell value={r.r1} entryPrice={r.entry_price} onCommit={(v) => onLevelChange?.(r.ticker, "r1", v)} />
-                    <LevelCell value={r.r2} entryPrice={r.entry_price} onCommit={(v) => onLevelChange?.(r.ticker, "r2", v)} />
-                    <LevelCell value={r.r3} entryPrice={r.entry_price} onCommit={(v) => onLevelChange?.(r.ticker, "r3", v)} />
-                  </>
-                )}
                 <td className="px-3 py-2">
                   <button
                     onClick={() => onRemove?.(r.ticker)}
@@ -311,7 +255,6 @@ export default function PortfolioTable({
                 <td className={`px-3 py-2 font-semibold ${totals.unrealized >= 0 ? "text-green-600" : "text-red-500"}`}>
                   {totals.unrealized >= 0 ? "+" : "-"}${Math.abs(totals.unrealized).toFixed(2)}
                 </td>
-                {isSwing && <><td></td><td></td><td></td><td></td><td></td></>}
                 <td></td>
               </tr>
             </tfoot>

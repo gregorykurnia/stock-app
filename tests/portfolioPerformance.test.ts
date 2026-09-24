@@ -99,6 +99,64 @@ test("normalizes legacy snapshots that predate Treasury", () => {
   assert.equal(normalized.buckets.longterm.valueUsd, original.buckets.longterm.valueUsd);
 });
 
+test("removes retired divisions from historical totals and positions", () => {
+  const original = snapshot("2026-09-08", 100, 10);
+  const retiredBucket = {
+    valueUsd: 500,
+    valueIdr: 7_500_000,
+    costBasisUsd: 300,
+    unrealizedUsd: 200,
+    positionCount: 1,
+    cashValueUsd: 100,
+    cashValueIdr: 1_500_000,
+    investedValueUsd: 400,
+    investedValueIdr: 6_000_000,
+    totalValueUsd: 500,
+    totalValueIdr: 7_500_000,
+  };
+  const retiredPosition = {
+    ...original.positions[0],
+    ticker: "OLD",
+    bucket: "retired" as unknown as SnapshotPosition["bucket"],
+  };
+  const retainedBucket = {
+    ...original.buckets.longterm,
+    cashValueUsd: 0,
+    cashValueIdr: 0,
+    investedValueUsd: original.total.valueUsd,
+    investedValueIdr: original.total.valueIdr,
+    totalValueUsd: original.total.valueUsd,
+    totalValueIdr: original.total.valueIdr,
+  };
+  const storedSnapshot = {
+    ...original,
+    total: {
+      ...original.total,
+      valueUsd: original.total.valueUsd + retiredBucket.valueUsd,
+      valueIdr: original.total.valueIdr + retiredBucket.valueIdr,
+      costBasisUsd: original.total.costBasisUsd + retiredBucket.costBasisUsd,
+      unrealizedUsd: original.total.unrealizedUsd + retiredBucket.unrealizedUsd,
+      positionCount: original.total.positionCount + retiredBucket.positionCount,
+      cashValueUsd: retiredBucket.cashValueUsd,
+      cashValueIdr: retiredBucket.cashValueIdr,
+      investedValueUsd: original.total.valueUsd + retiredBucket.investedValueUsd,
+      investedValueIdr: original.total.valueIdr + retiredBucket.investedValueIdr,
+      totalValueUsd: original.total.valueUsd + retiredBucket.totalValueUsd,
+      totalValueIdr: original.total.valueIdr + retiredBucket.totalValueIdr,
+    },
+    buckets: { ...original.buckets, longterm: retainedBucket, retired: retiredBucket },
+    positions: [...original.positions, retiredPosition],
+  } as unknown as PortfolioSnapshot;
+
+  const normalized = normalizePortfolioSnapshot(storedSnapshot);
+
+  assert.deepEqual(Object.keys(normalized.buckets), ["longterm", "index", "treasury"]);
+  assert.equal(normalized.total.valueUsd, original.total.valueUsd);
+  assert.equal(normalized.total.cashValueUsd, 0);
+  assert.equal(normalized.total.totalValueUsd, original.total.valueUsd);
+  assert.deepEqual(normalized.positions.map((position) => position.ticker), ["TEST"]);
+});
+
 test("removes an inferred position addition from investment return", () => {
   const points = buildPerformancePoints([
     snapshot("2026-09-08", 100, 10),

@@ -22,7 +22,7 @@ import {
   getPortfolioDivisionStocks, savePortfolioDivisionStock, removePortfolioDivisionStock, updatePortfolioDivisionEntry,
   type PortfolioDivision,
 } from "@/lib/firestore";
-import type { PortfolioStock, PortfolioLevelField } from "@/components/PortfolioTable";
+import type { PortfolioStock } from "@/components/PortfolioTable";
 import type { CustomStock, PeStats } from "@/lib/types";
 import type { BandarScoreResult } from "@/lib/indicators";
 import type { FundData } from "@/app/api/funddata/route";
@@ -151,15 +151,15 @@ export default function Home() {
   const [usBreakoutListTrialLiveSaving, setUsBreakoutListTrialLiveSaving] = useState(false);
   const [usBreakoutListTrialLiveError, setUsBreakoutListTrialLiveError] = useState("");
 
-  // "Portfolio" tab — four independent, manually-managed divisions (Long Term / Index / Swing / Treasury)
-  const [portfolioStocks, setPortfolioStocks] = useState<Record<PortfolioDivision, PortfolioStock[]>>({ longterm: [], index: [], swing: [], treasury: [] });
+  // "Portfolio" tab — three independent, manually-managed divisions (Long Term / Index / Treasury)
+  const [portfolioStocks, setPortfolioStocks] = useState<Record<PortfolioDivision, PortfolioStock[]>>({ longterm: [], index: [], treasury: [] });
   const [portfolioPrices, setPortfolioPrices] = useState<Record<string, number | null>>({});
   const [portfolioPrevCloses, setPortfolioPrevCloses] = useState<Record<string, number | null>>({});
-  const [portfolioLoaded, setPortfolioLoaded] = useState<Record<PortfolioDivision, boolean>>({ longterm: false, index: false, swing: false, treasury: false });
-  const [portfolioLoading, setPortfolioLoading] = useState<Record<PortfolioDivision, boolean>>({ longterm: false, index: false, swing: false, treasury: false });
-  const [portfolioAddTicker, setPortfolioAddTicker] = useState<Record<PortfolioDivision, string>>({ longterm: "", index: "", swing: "", treasury: "" });
-  const [portfolioAddLoading, setPortfolioAddLoading] = useState<Record<PortfolioDivision, boolean>>({ longterm: false, index: false, swing: false, treasury: false });
-  const [portfolioAddError, setPortfolioAddError] = useState<Record<PortfolioDivision, string>>({ longterm: "", index: "", swing: "", treasury: "" });
+  const [portfolioLoaded, setPortfolioLoaded] = useState<Record<PortfolioDivision, boolean>>({ longterm: false, index: false, treasury: false });
+  const [portfolioLoading, setPortfolioLoading] = useState<Record<PortfolioDivision, boolean>>({ longterm: false, index: false, treasury: false });
+  const [portfolioAddTicker, setPortfolioAddTicker] = useState<Record<PortfolioDivision, string>>({ longterm: "", index: "", treasury: "" });
+  const [portfolioAddLoading, setPortfolioAddLoading] = useState<Record<PortfolioDivision, boolean>>({ longterm: false, index: false, treasury: false });
+  const [portfolioAddError, setPortfolioAddError] = useState<Record<PortfolioDivision, string>>({ longterm: "", index: "", treasury: "" });
 
   // IHSG state (mirrors US state, tickers stored without .JK)
   const [ihsgCustomStocks, setIhsgCustomStocks] = useState<CustomStock[]>([]);
@@ -595,7 +595,6 @@ export default function Home() {
     const list = Object.entries(data).map(([ticker, d]) => {
       const raw = d as {
         name?: string | null; industry?: string | null; entry_price?: number | null; entry_quantity?: number | null;
-        nearest_support?: number | null; r1?: number | null; r2?: number | null; r3?: number | null;
       };
       return {
         ticker,
@@ -603,10 +602,6 @@ export default function Home() {
         industry: raw.industry ?? null,
         entry_price: raw.entry_price ?? null,
         entry_quantity: raw.entry_quantity ?? null,
-        nearest_support: raw.nearest_support ?? null,
-        r1: raw.r1 ?? null,
-        r2: raw.r2 ?? null,
-        r3: raw.r3 ?? null,
       } as PortfolioStock;
     });
     list.sort((a, b) => a.ticker.localeCompare(b.ticker));
@@ -681,19 +676,6 @@ export default function Home() {
     division: PortfolioDivision,
     ticker: string,
     field: "entry_price" | "entry_quantity",
-    value: number | null
-  ) {
-    setPortfolioStocks((p) => ({
-      ...p,
-      [division]: p[division].map((s) => (s.ticker === ticker ? { ...s, [field]: value } : s)),
-    }));
-    await updatePortfolioDivisionEntry(division, ticker, { [field]: value }).catch(() => {});
-  }
-
-  async function handlePortfolioLevelChange(
-    division: PortfolioDivision,
-    ticker: string,
-    field: PortfolioLevelField,
     value: number | null
   ) {
     setPortfolioStocks((p) => ({
@@ -1530,7 +1512,6 @@ export default function Home() {
             onPortfolioAdd={handleAddPortfolioTicker}
             onPortfolioRemove={handleRemovePortfolioTicker}
             onPortfolioEntryChange={handlePortfolioEntryChange}
-            onPortfolioLevelChange={handlePortfolioLevelChange}
           />
         )}
       </div>

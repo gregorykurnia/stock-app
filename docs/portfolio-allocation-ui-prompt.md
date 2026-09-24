@@ -24,7 +24,7 @@ Visual design:
 - Use the existing clean white surface-card style, spacing, typography, and CSS variables.
 - Build a modern responsive allocation panel.
 - Desktop layout:
-  - Left side: a simple SVG or CSS donut chart for the four portfolio buckets.
+  - Left side: a simple SVG or CSS donut chart for the three portfolio buckets.
   - Center of donut: total entry value and “Entry value”.
   - Right side: a ranked list of all holdings with horizontal proportional bars.
 - Each holding row should show:
@@ -34,7 +34,7 @@ Visual design:
   - entry value
   - percentage of total entry value
 - Color each holding bar according to its bucket.
-- Add a compact legend for Long Term, Index, Swing, and Treasury.
+- Add a compact legend for Long Term, Index, and Treasury.
 - Include subtle hover states/tooltips with exact values.
 - On mobile, stack the donut above the ranked holdings list.
 - Keep the visual readable with all 21 holdings; use a two-column holding list on large screens if needed.

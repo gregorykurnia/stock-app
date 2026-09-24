@@ -31,8 +31,8 @@ test("ledger snapshots include per-pocket cash, conserve pocket totals, and mark
     opening({ bucket: "longterm", cashDelta: 1_000 }),
     opening({ bucket: "longterm", ticker: "ABC", quantity: 10, price: 100 }),
     opening({ bucket: "index", currency: "IDR", cashDelta: 15_000_000 }),
-    opening({ bucket: "swing", cashDelta: 500 }),
-    opening({ bucket: "swing", ticker: "XYZ", quantity: 5, price: 50 }),
+    opening({ bucket: "treasury", cashDelta: 500 }),
+    opening({ bucket: "treasury", ticker: "XYZ", quantity: 5, price: 50 }),
   ];
   const requested: string[][] = [];
   const quotes: Record<string, PortfolioSnapshotQuote> = {
@@ -65,13 +65,13 @@ test("ledger snapshots include per-pocket cash, conserve pocket totals, and mark
   assert.equal(snapshot.buckets.longterm.totalValueUsd, 2_200);
   assert.equal(snapshot.buckets.index.cashValueUsd, 1_000);
   assert.equal(snapshot.buckets.index.totalValueUsd, 1_000);
-  assert.equal(snapshot.buckets.swing.cashValueUsd, 500);
-  assert.equal(snapshot.buckets.swing.investedValueUsd, 0);
-  assert.equal(snapshot.buckets.swing.totalValueUsd, 500);
+  assert.equal(snapshot.buckets.treasury.cashValueUsd, 500);
+  assert.equal(snapshot.buckets.treasury.investedValueUsd, 0);
+  assert.equal(snapshot.buckets.treasury.totalValueUsd, 500);
   assert.equal(snapshot.total.cashValueUsd, 2_500);
   assert.equal(snapshot.total.investedValueUsd, 1_200);
   assert.equal(snapshot.total.totalValueUsd, 3_700);
-  assert.equal(snapshot.total.totalValueUsd, snapshot.buckets.longterm.totalValueUsd + snapshot.buckets.index.totalValueUsd + snapshot.buckets.swing.totalValueUsd);
+  assert.equal(snapshot.total.totalValueUsd, snapshot.buckets.longterm.totalValueUsd + snapshot.buckets.index.totalValueUsd + snapshot.buckets.treasury.totalValueUsd);
 });
 
 test("ledger snapshots value Treasury positions and include the new bucket in totals", async () => {

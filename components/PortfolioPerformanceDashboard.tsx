@@ -24,20 +24,18 @@ import PortfolioPerformanceChart, {
 } from "@/components/PortfolioPerformanceChart";
 import PortfolioAccountingPanel from "@/components/PortfolioAccountingPanel";
 import PortfolioAllocationPanel from "@/components/PortfolioAllocationPanel";
-import { PORTFOLIO_BUCKET_DEFINITIONS } from "@/lib/portfolioBuckets";
+import {
+  PORTFOLIO_BUCKET_COLORS,
+  PORTFOLIO_BUCKET_DEFINITIONS,
+  PORTFOLIO_BUCKETS,
+} from "@/lib/portfolioBuckets";
 
 type Range = "1M" | "3M" | "6M" | "YTD" | "1Y" | "ALL";
 
 const BUCKETS: { id: PortfolioBucket; label: string; color: string }[] = [
   ...PORTFOLIO_BUCKET_DEFINITIONS.map((bucket) => ({
     ...bucket,
-    color: bucket.id === "longterm"
-      ? "#0ea5e9"
-      : bucket.id === "index"
-        ? "#8b5cf6"
-        : bucket.id === "swing"
-          ? "#f59e0b"
-          : "#10b981",
+    color: PORTFOLIO_BUCKET_COLORS[bucket.id],
   })),
 ];
 
@@ -102,7 +100,7 @@ export default function PortfolioPerformanceDashboard() {
   const [range, setRange] = useState<Range>("ALL");
   const [currency, setCurrency] = useState<PerformanceCurrency>("idr");
   const [metric, setMetric] = useState<PerformanceMetric>("value");
-  const [visibleSeries, setVisibleSeries] = useState<Set<PerformanceSeries>>(new Set(["total", "longterm", "index", "swing", "treasury"]));
+  const [visibleSeries, setVisibleSeries] = useState<Set<PerformanceSeries>>(() => new Set(["total", ...PORTFOLIO_BUCKETS]));
   const [preview, setPreview] = useState<PortfolioSnapshot | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -287,7 +285,7 @@ export default function PortfolioPerformanceDashboard() {
       </section>
 
       {latest && (
-        <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {BUCKETS.map((bucket) => {
             const summary = latest.buckets[bucket.id] ?? emptySnapshotBucket();
             const bucketPoints = buildPerformancePoints(

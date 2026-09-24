@@ -367,13 +367,40 @@ export function emptySnapshotBucket(): SnapshotBucket {
  * readable without rewriting every old document.
  */
 export function normalizePortfolioSnapshot(snapshot: PortfolioSnapshot): PortfolioSnapshot {
-  const storedBuckets = snapshot.buckets ?? {};
+  const storedBuckets = (snapshot.buckets ?? {}) as Partial<Record<PortfolioBucket, SnapshotBucket>> & Record<string, SnapshotBucket | undefined>;
+  const hasRemovedBucketData = Object.keys(storedBuckets).some((bucket) => !PORTFOLIO_BUCKETS.includes(bucket as PortfolioBucket))
+    || (snapshot.positions ?? []).some((position) => !PORTFOLIO_BUCKETS.includes(position.bucket));
   const buckets = Object.fromEntries(PORTFOLIO_BUCKETS.map((bucket) => [
     bucket,
     { ...emptySnapshotBucket(), ...(storedBuckets[bucket] ?? {}) },
   ])) as Record<PortfolioBucket, SnapshotBucket>;
+  const positions = (snapshot.positions ?? []).filter((position) => PORTFOLIO_BUCKETS.includes(position.bucket));
 
-  return { ...snapshot, buckets };
+  if (hasRemovedBucketData) {
+    const sum = (field: keyof SnapshotBucket) => {
+      const values = Object.values(buckets)
+        .map((bucket) => bucket[field])
+        .filter((value): value is number => typeof value === "number" && Number.isFinite(value));
+      return values.length > 0 ? values.reduce((total, value) => total + value, 0) : undefined;
+    };
+    const total: SnapshotBucket = {
+      valueUsd: sum("valueUsd") ?? 0,
+      valueIdr: sum("valueIdr") ?? 0,
+      costBasisUsd: sum("costBasisUsd") ?? 0,
+      unrealizedUsd: sum("unrealizedUsd") ?? 0,
+      positionCount: sum("positionCount") ?? 0,
+    };
+    for (const field of [
+      "cashValueUsd", "cashValueIdr", "investedValueUsd", "investedValueIdr", "totalValueUsd", "totalValueIdr",
+      "realizedGainUsd", "incomeUsd", "feesUsd", "externalFlowUsd", "externalFlowIdr",
+    ] as const) {
+      const value = sum(field);
+      if (value != null) total[field] = value;
+    }
+    return { ...snapshot, total, buckets, positions };
+  }
+
+  return { ...snapshot, buckets, positions };
 }
 
 /**

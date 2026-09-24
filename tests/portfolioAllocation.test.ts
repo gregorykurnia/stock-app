@@ -26,23 +26,21 @@ test("bucket percentages use cost basis and exclude cash", () => {
   const allocation = buildPortfolioAllocation([
     opening("longterm", "LONG", 10, 100),
     opening("index", "INDEX", 10, 200),
-    opening("swing", "SWING", 10, 300),
-    opening("treasury", "BOND", 10, 400),
+    opening("treasury", "BOND", 10, 700),
     transaction("opening_balance", { bucket: "longterm", cashDelta: 100_000 }),
   ]);
 
   assert.equal(allocation.totalEntryValueUsd, 10_000);
   assert.equal(allocation.buckets.longterm.percentage, 10);
   assert.equal(allocation.buckets.index.percentage, 20);
-  assert.equal(allocation.buckets.swing.percentage, 30);
-  assert.equal(allocation.buckets.treasury.percentage, 40);
-  assert.equal(allocation.positionCount, 4);
+  assert.equal(allocation.buckets.treasury.percentage, 70);
+  assert.equal(allocation.positionCount, 3);
 });
 
 test("holdings are sorted largest first and receive individual percentages", () => {
   const allocation = buildPortfolioAllocation([
     opening("longterm", "SMALL", 1, 100),
-    opening("swing", "LARGE", 3, 200),
+    opening("treasury", "LARGE", 3, 200),
     opening("index", "MID", 3, 100),
   ]);
 
@@ -56,7 +54,7 @@ test("positions without cost basis are marked incomplete instead of using anothe
   const allocation = buildPortfolioAllocation([
     opening("longterm", "KNOWN", 10, 100),
     transaction("reconciliation_adjustment", {
-      bucket: "swing",
+      bucket: "index",
       ticker: "MISSING",
       quantity: 10,
       costBasisDeltaUsd: 0,

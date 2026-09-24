@@ -8,14 +8,7 @@ import {
 } from "@/lib/portfolioAllocation";
 import type { LedgerTransaction } from "@/lib/portfolioLedger";
 import type { PerformanceCurrency } from "@/components/PortfolioPerformanceChart";
-import type { PortfolioBucket } from "@/lib/portfolioBuckets";
-
-const BUCKET_COLORS: Record<PortfolioBucket, string> = {
-  longterm: "#0ea5e9",
-  index: "#8b5cf6",
-  swing: "#f59e0b",
-  treasury: "#10b981",
-};
+import { PORTFOLIO_BUCKET_COLORS } from "@/lib/portfolioBuckets";
 
 interface Props {
   transactions: readonly LedgerTransaction[] | undefined;
@@ -160,7 +153,7 @@ function DonutChart({ allocation, currency, fxRateUsdIdr }: { allocation: Portfo
     <div className="relative h-56 w-56 shrink-0" aria-label={`Portfolio entry value allocation: ${totalLabel ?? formatMoney(allocation.totalEntryValueUsd, "usd")}`}>
       <svg viewBox="0 0 180 180" className="h-full w-full" role="img" aria-labelledby="allocation-donut-title allocation-donut-description">
         <title id="allocation-donut-title">Portfolio allocation by entry value</title>
-        <desc id="allocation-donut-description">The four portfolio buckets are sized by their share of open-position cost basis. Cash is excluded.</desc>
+        <desc id="allocation-donut-description">Portfolio divisions are sized by their share of open-position cost basis. Cash is excluded.</desc>
         <circle cx="90" cy="90" r={radius} fill="none" stroke="#eef0f5" strokeWidth="18" />
         {Object.values(allocation.buckets).map((bucket) => {
           const segmentLength = circumference * bucket.percentage / 100;
@@ -171,7 +164,7 @@ function DonutChart({ allocation, currency, fxRateUsdIdr }: { allocation: Portfo
               cy="90"
               r={radius}
               fill="none"
-              stroke={BUCKET_COLORS[bucket.bucket]}
+              stroke={PORTFOLIO_BUCKET_COLORS[bucket.bucket]}
               strokeWidth="18"
               strokeDasharray={`${segmentLength} ${circumference - segmentLength}`}
               strokeDashoffset={-offset}
@@ -199,7 +192,7 @@ function Legend({ allocation, currency, fxRateUsdIdr }: { allocation: PortfolioA
       {Object.values(allocation.buckets).map((bucket) => (
         <div key={bucket.bucket} className="min-w-0" title={allocationLabel(bucket, currency, fxRateUsdIdr)}>
           <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-700">
-            <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: BUCKET_COLORS[bucket.bucket] }} aria-hidden="true" />
+            <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: PORTFOLIO_BUCKET_COLORS[bucket.bucket] }} aria-hidden="true" />
             <span className="truncate">{bucket.label}</span>
           </div>
           <div className="ml-4 mt-0.5 text-[10px] text-gray-400">{bucket.percentage.toFixed(1)}%</div>
@@ -338,7 +331,7 @@ export default function PortfolioAllocationPanel({ transactions, currency, fxRat
                               <span className="truncate text-[10px] text-gray-400">{companyName ?? ""}</span>
                             </div>
                             <div className="mt-1 flex items-center gap-1.5 pl-7 text-[10px] font-semibold text-gray-500">
-                              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: BUCKET_COLORS[holding.bucket] }} aria-hidden="true" />
+                              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: PORTFOLIO_BUCKET_COLORS[holding.bucket] }} aria-hidden="true" />
                               <span>{holding.bucketLabel}</span>
                             </div>
                           </div>
@@ -348,7 +341,7 @@ export default function PortfolioAllocationPanel({ transactions, currency, fxRat
                           </div>
                         </div>
                         <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-100" role="progressbar" aria-label={`${holding.ticker} share of total entry value`} aria-valuemin={0} aria-valuemax={100} aria-valuenow={holding.percentage}>
-                          <div className="h-full rounded-full transition-[width] duration-300" style={{ width: `${Math.min(100, Math.max(0, holding.percentage))}%`, backgroundColor: BUCKET_COLORS[holding.bucket] }} />
+                          <div className="h-full rounded-full transition-[width] duration-300" style={{ width: `${Math.min(100, Math.max(0, holding.percentage))}%`, backgroundColor: PORTFOLIO_BUCKET_COLORS[holding.bucket] }} />
                         </div>
                       </li>
                     );

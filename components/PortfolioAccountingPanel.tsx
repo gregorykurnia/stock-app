@@ -103,7 +103,7 @@ function bucketLabel(bucket: PortfolioBucket) {
 
 function readableLedgerError(reason: unknown) {
   const message = reason instanceof Error ? reason.message : "Could not save ledger activity";
-  const cashMatch = message.match(/transaction would make (longterm|index|swing|treasury) (USD|IDR) cash negative/i);
+  const cashMatch = message.match(/transaction would make (longterm|index|treasury) (USD|IDR) cash negative/i);
   if (!cashMatch) return message;
 
   const [, bucket, currency] = cashMatch;
@@ -171,7 +171,7 @@ export default function PortfolioAccountingPanel({ onLedgerChanged }: Props) {
   const [reconcileCash, setReconcileCash] = useState<CashForm>(() => emptyCash());
   const [reconcilePositions, setReconcilePositions] = useState<PositionForm[]>([]);
   const [reconcilePreview, setReconcilePreview] = useState<ReconciliationPreviewState | null>(null);
-  const [newReconcileBucket, setNewReconcileBucket] = useState<PortfolioBucket>("swing");
+  const [newReconcileBucket, setNewReconcileBucket] = useState<PortfolioBucket>("longterm");
   const [newReconcileTicker, setNewReconcileTicker] = useState("");
   const [tab, setTab] = useState<Tab>("opening");
   const [loading, setLoading] = useState(true);
@@ -182,7 +182,7 @@ export default function PortfolioAccountingPanel({ onLedgerChanged }: Props) {
   const [reconcileDate, setReconcileDate] = useState(localDateTimeValue());
   const [reconcileReason, setReconcileReason] = useState("Reconciled against current pocket records");
   const [activityType, setActivityType] = useState<ActivityType>("deposit");
-  const [activityBucket, setActivityBucket] = useState<PortfolioBucket>("swing");
+  const [activityBucket, setActivityBucket] = useState<PortfolioBucket>("longterm");
   const [activityCurrency, setActivityCurrency] = useState<LedgerCurrency>("USD");
   const [activityAmount, setActivityAmount] = useState("");
   const [activityTicker, setActivityTicker] = useState("");
@@ -208,12 +208,11 @@ export default function PortfolioAccountingPanel({ onLedgerChanged }: Props) {
         ...BUCKETS.map(({ id }) => getPortfolioDivisionStocks(id)),
       ]);
       const nextState = reducePortfolioLedger(nextTransactions);
-      const legacy = readLegacyHoldings({
-        longterm: pockets[0] as Record<string, object>,
-        index: pockets[1] as Record<string, object>,
-        swing: pockets[2] as Record<string, object>,
-        treasury: pockets[3] as Record<string, object>,
-      });
+      const pocketData = Object.fromEntries(BUCKETS.map(({ id }, index) => [
+        id,
+        pockets[index] as Record<string, object>,
+      ])) as Record<PortfolioBucket, Record<string, object>>;
+      const legacy = readLegacyHoldings(pocketData);
       setTransactions(nextTransactions);
       setLedgerState(nextState);
       setLegacyHoldings(legacy);

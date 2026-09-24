@@ -34,7 +34,7 @@ The current test suite passed all 55 tests on 2026-09-17. Those tests validate t
 
 ### Snapshot limitations
 
-lib/portfolioSnapshotServer.ts reads the three current collections (portfolio_longterm, portfolio_index, and portfolio_swing) and includes only positions with a positive entry_quantity. It values those positions using closing quotes and USD/IDR FX.
+lib/portfolioSnapshotServer.ts reads the three current collections (portfolio_longterm, portfolio_index, and portfolio_treasury) and includes only positions with a positive entry_quantity. It values those positions using closing quotes and USD/IDR FX.
 
 Snapshots do not currently contain:
 
@@ -83,7 +83,7 @@ Use USD for illustration. Assume the portfolio starts with 100 shares of ABC at 
 
 | Scenario | Correct accounting result | Current behavior |
 |---|---|---|
-| Deposit $2,000 into Swing, no purchase, price stays flat | Equity rises from $10,000 to $12,000. Net contribution is $2,000. Investment return is 0%. | Cash is invisible; the portfolio still appears worth $10,000. |
+| Deposit $2,000 into Treasury, no purchase, price stays flat | Equity rises from $10,000 to $12,000. Net contribution is $2,000. Investment return is 0%. | Cash is invisible; the portfolio still appears worth $10,000. |
 | Deposit $2,000 and buy 20 shares at $100 | Equity becomes $12,000 and return is 0%. | Value jumps by $2,000, while inferred return is 0%. The dollar and percentage parts of Latest Change describe different concepts. |
 | Use existing $2,000 cash to buy 20 shares at $90; close at $100 | Starting equity is $12,000; ending equity is $12,200. Gain is $200, or 1.67%. | The app sees invested value move from $10,000 to $12,000, infers a $2,000 flow, and reports 0%. |
 | Sell 20 shares at $100; remaining 80 shares close at $110 | Equity is 80 × $110 + $2,000 cash = $10,800, an 8% gain. | Invested value is $8,800; inferred flow is -20 × $110 = -$2,200; adjusted return is reported as +10%, and the raw value chart falls 12%. |
@@ -99,7 +99,7 @@ Two daily endpoints cannot establish the exact event timing, execution price, or
 
 ### Time-weighted return (TWR)
 
-Use TWR as the primary performance measure for the total portfolio and for comparing Long Term, Swing, and Index. It removes the effect of external deposits and withdrawals, so it measures the performance of the invested strategy rather than the timing of contributions.
+Use TWR as the primary performance measure for the total portfolio and for comparing Long Term, Index, and Treasury. It removes the effect of external deposits and withdrawals, so it measures the performance of the invested strategy rather than the timing of contributions.
 
 Conceptually, split the timeline around external cash flows:
 
@@ -124,7 +124,7 @@ Offer XIRR as an optional personal-return metric. It answers: “What annualized
 Recommended primary metrics:
 
 - Overall portfolio strategy: TWR.
-- Comparing Long Term, Swing, and Index: pocket-level TWR.
+- Comparing Long Term, Index, and Treasury: pocket-level TWR.
 - Personal experience after deposits and withdrawals: XIRR/MWR.
 - Temporary daily-only fallback: Modified Dietz.
 
@@ -177,8 +177,8 @@ Use signed, documented amounts and immutable occurredAt values. Buy and sell rec
 Track cash for each pocket and total:
 
     cash.longterm
-    cash.swing
     cash.index
+    cash.treasury
     cash.total
 
 Prefer deriving the balance from the ledger, with a denormalized balance only as a performance optimization. A reconciliation tool can create an explicit adjustment record rather than silently changing the balance.
@@ -205,8 +205,8 @@ Future snapshots should include cash plus invested value:
 
     buckets:
       longterm: same value fields
-      swing: same value fields
       index: same value fields
+      treasury: same value fields
 
     positions:
       ticker
@@ -297,7 +297,7 @@ Example activity records:
 |---|---|---|---|---:|---:|---:|
 | Sep 16 | Buy | Long Term | VOO | 10 | $4,500 | — |
 | Sep 17 | Deposit | Long Term | — | — | $2,000 | — |
-| Sep 20 | Sell | Swing | ABC | 20 | $2,200 | +$300 |
+| Sep 20 | Sell | Treasury | ABC | 20 | $2,200 | +$300 |
 | Sep 22 | Transfer | Long Term → Index | — | — | $1,000 | — |
 
 A deposit into Long Term and a later VOO purchase should be two separate records. The deposit belongs to the pocket and is an external flow; the buy identifies the ticker and is an internal cash-to-security movement. If the user wants to associate the deposit with a planned ticker, that can be an optional note or purpose field, but it should not replace the accounting events.

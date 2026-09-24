@@ -533,7 +533,6 @@ export function emptyPortfolioLedgerState(): PortfolioLedgerState {
     buckets: {
       longterm: emptyBucketState(),
       index: emptyBucketState(),
-      swing: emptyBucketState(),
       treasury: emptyBucketState(),
     },
     total: emptyTotals(),
