@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { getPortfolioDivisionStocks, getPortfolioLedgerTransactions, getPortfolioPerformanceSnapshots } from "@/lib/firestore";
-import { buildPortfolioActivityRows, type PortfolioActivityRow } from "@/lib/portfolioActivity";
+import { buildPortfolioActivityRows, isCurrentPortfolioActivityRow, type PortfolioActivityRow } from "@/lib/portfolioActivity";
 import type { LedgerTransaction } from "@/lib/portfolioLedger";
 import {
   buildPerformancePoints,
@@ -111,7 +111,7 @@ export default function PortfolioPerformanceDashboard() {
       getPortfolioLedgerTransactions().catch(() => undefined),
       loadPortfolioCompanyNames(),
     ])
-      .then(([data, transactions, names]) => { setSnapshots(data); setLedgerTransactions(transactions); setCompanyNames(names); setActivityRows(buildPortfolioActivityRows(transactions ?? [])); setError(""); })
+      .then(([data, transactions, names]) => { setSnapshots(data); setLedgerTransactions(transactions); setCompanyNames(names); setActivityRows(buildPortfolioActivityRows(transactions ?? []).filter(isCurrentPortfolioActivityRow)); setError(""); })
       .catch((loadError: unknown) => setError(loadError instanceof Error ? loadError.message : "Could not load performance history"))
       .finally(() => setLoading(false));
   }, []);

@@ -134,6 +134,59 @@ test("cash transfers preserve total cash while changing pocket allocation", () =
   assert.equal(state.total.externalFlow.USD, 0);
 });
 
+test("retired Swing history continues funding current-pocket purchases", () => {
+  const historicalTransactions = [
+    transaction("deposit", {
+      bucket: "swing",
+      cashDelta: 1_000,
+      externalFlow: 1_000,
+      occurredAt: "2026-09-17T09:00:00.000Z",
+    }),
+    transaction("transfer", {
+      transactionId: "retired-cash-out",
+      bucket: "swing",
+      fromBucket: "swing",
+      toBucket: "index",
+      transferId: "retired-cash-transfer",
+      cashDelta: -600,
+      occurredAt: "2026-09-17T10:00:00.000Z",
+    }),
+    transaction("transfer", {
+      transactionId: "retired-cash-in",
+      bucket: "index",
+      fromBucket: "swing",
+      toBucket: "index",
+      transferId: "retired-cash-transfer",
+      cashDelta: 600,
+      occurredAt: "2026-09-17T10:00:00.000Z",
+    }),
+  ];
+  const buy = transaction("buy", {
+    bucket: "index",
+    ticker: "VXUS",
+    quantity: 6,
+    price: 100,
+    grossAmount: 600,
+    cashDelta: -600,
+    occurredAt: "2026-09-17T11:00:00.000Z",
+  });
+
+  const plan = prepareLedgerAppend(historicalTransactions, [buy]);
+  const state = reducePortfolioLedger(plan.transactions);
+
+  assert.equal(state.buckets.index.cash.USD, 0);
+  assert.equal(state.buckets.index.positions.VXUS.quantity, 6);
+  assert.equal(state.buckets.swing.cash.USD, 400);
+  assert.equal(state.total.cash.USD, 0);
+  assert.equal(state.total.externalFlow.USD, 0);
+});
+
+test("new ledger activity cannot be added to a retired Swing pocket", () => {
+  assert.throws(() => prepareLedgerAppend([], [
+    transaction("deposit", { bucket: "swing", cashDelta: 100, externalFlow: 100 }),
+  ]), /Swing sleeve has been retired/);
+});
+
 test("position transfers preserve weighted-average cost basis", () => {
   const state = reducePortfolioLedger([
     transaction("opening_balance", { bucket: "longterm", ticker: "ABC", quantity: 10, price: 100 }),

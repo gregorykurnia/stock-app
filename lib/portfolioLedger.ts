@@ -1,6 +1,18 @@
-import { PORTFOLIO_BUCKETS, type PortfolioBucket } from "./portfolioBuckets";
+import {
+  PORTFOLIO_BUCKETS,
+  RETIRED_PORTFOLIO_BUCKETS,
+  isLedgerBucket,
+  isRetiredPortfolioBucket,
+  type LedgerBucket,
+  type PortfolioBucket,
+} from "./portfolioBuckets";
 
+export type { LedgerBucket } from "./portfolioBuckets";
+
+// Current totals include only active sleeves. Retired buckets remain in the
+// replay state so their historical transfers continue to fund later activity.
 export const LEDGER_BUCKETS: PortfolioBucket[] = [...PORTFOLIO_BUCKETS];
+const LEDGER_REPLAY_BUCKETS: LedgerBucket[] = [...PORTFOLIO_BUCKETS, ...RETIRED_PORTFOLIO_BUCKETS];
 export const LEDGER_CURRENCIES = ["USD", "IDR"] as const;
 
 export type LedgerCurrency = (typeof LEDGER_CURRENCIES)[number];
@@ -22,9 +34,9 @@ export interface LedgerTransaction {
   occurredAt: string;
   recordedAt: string;
   type: LedgerTransactionType;
-  bucket?: PortfolioBucket;
-  fromBucket?: PortfolioBucket;
-  toBucket?: PortfolioBucket;
+  bucket?: LedgerBucket;
+  fromBucket?: LedgerBucket;
+  toBucket?: LedgerBucket;
   ticker?: string;
   quantity?: number;
   price?: number;
@@ -69,7 +81,7 @@ export interface PortfolioLedgerTotals {
 export interface PortfolioLedgerState {
   ledgerVersion: number;
   asOf: string | null;
-  buckets: Record<PortfolioBucket, LedgerBucketState>;
+  buckets: Record<LedgerBucket, LedgerBucketState>;
   total: PortfolioLedgerTotals;
 }
 
@@ -85,10 +97,6 @@ export class LedgerValidationError extends Error {
     super(message);
     this.name = "LedgerValidationError";
   }
-}
-
-function isPortfolioBucket(value: unknown): value is PortfolioBucket {
-  return typeof value === "string" && LEDGER_BUCKETS.includes(value as PortfolioBucket);
 }
 
 function isLedgerCurrency(value: unknown): value is LedgerCurrency {
@@ -107,8 +115,8 @@ function nearlyEqual(left: number, right: number): boolean {
   return Math.abs(left - right) <= EPSILON * Math.max(1, Math.abs(left), Math.abs(right));
 }
 
-function requireBucket(transaction: LedgerTransaction): PortfolioBucket {
-  if (!isPortfolioBucket(transaction.bucket)) {
+function requireBucket(transaction: LedgerTransaction): LedgerBucket {
+  if (!isLedgerBucket(transaction.bucket)) {
     throw new LedgerValidationError(`${transaction.transactionId}: bucket is required`);
   }
   return transaction.bucket;
@@ -248,7 +256,7 @@ export function validateLedgerTransaction(transaction: LedgerTransaction): void 
       requireBucket(transaction);
       requireCurrency(transaction);
       if (!transaction.transferId?.trim()) throw new LedgerValidationError(`${transaction.transactionId}: transferId is required`);
-      if (!isPortfolioBucket(transaction.fromBucket) || !isPortfolioBucket(transaction.toBucket) || transaction.fromBucket === transaction.toBucket) {
+      if (!isLedgerBucket(transaction.fromBucket) || !isLedgerBucket(transaction.toBucket) || transaction.fromBucket === transaction.toBucket) {
         throw new LedgerValidationError(`${transaction.transactionId}: transfer must have distinct fromBucket and toBucket`);
       }
       if (transaction.bucket !== transaction.fromBucket && transaction.bucket !== transaction.toBucket) {
@@ -435,6 +443,12 @@ export function prepareLedgerAppend(
   requestedTransactions: readonly LedgerTransaction[],
 ): LedgerAppendPlan {
   if (requestedTransactions.length === 0) return { transactions: [...existingTransactions], pending: [] };
+  const retiredActivity = requestedTransactions.find((transaction) => (
+    [transaction.bucket, transaction.fromBucket, transaction.toBucket].some(isRetiredPortfolioBucket)
+  ));
+  if (retiredActivity) {
+    throw new LedgerValidationError(`${retiredActivity.transactionId}: the Swing sleeve has been retired and cannot accept new activity`);
+  }
   validateLedgerTransactionSet(requestedTransactions);
 
   const existingById = new Map(existingTransactions.map((transaction) => [transaction.transactionId, transaction]));
@@ -530,11 +544,7 @@ export function emptyPortfolioLedgerState(): PortfolioLedgerState {
   return {
     ledgerVersion: 0,
     asOf: null,
-    buckets: {
-      longterm: emptyBucketState(),
-      index: emptyBucketState(),
-      treasury: emptyBucketState(),
-    },
+    buckets: Object.fromEntries(LEDGER_REPLAY_BUCKETS.map((bucket) => [bucket, emptyBucketState()])) as Record<LedgerBucket, LedgerBucketState>,
     total: emptyTotals(),
   };
 }
@@ -543,7 +553,7 @@ function addCurrency(target: Record<LedgerCurrency, number>, currency: LedgerCur
   target[currency] += delta;
 }
 
-function applyCash(state: PortfolioLedgerState, bucket: PortfolioBucket, currency: LedgerCurrency, delta: number, transactionId: string) {
+function applyCash(state: PortfolioLedgerState, bucket: LedgerBucket, currency: LedgerCurrency, delta: number, transactionId: string) {
   const cash = state.buckets[bucket].cash;
   const next = cash[currency] + delta;
   if (next < -EPSILON) {
@@ -584,7 +594,7 @@ function addPosition(bucket: LedgerBucketState, ticker: string, quantity: number
 }
 
 function applyPositionAdjustment(state: PortfolioLedgerState, transaction: LedgerTransaction) {
-  const bucket = state.buckets[transaction.bucket as PortfolioBucket];
+  const bucket = state.buckets[transaction.bucket as LedgerBucket];
   const quantity = amount(transaction.quantity);
   const ticker = transaction.ticker as string;
   const position = getPosition(bucket, ticker);
@@ -616,7 +626,7 @@ function applyTransferGroup(state: PortfolioLedgerState, group: LedgerTransactio
   const first = group[0];
   if (first.type === "fx_conversion") {
     for (const leg of group) {
-      applyCash(state, leg.bucket as PortfolioBucket, leg.currency, amount(leg.cashDelta), leg.transactionId);
+      applyCash(state, leg.bucket as LedgerBucket, leg.currency, amount(leg.cashDelta), leg.transactionId);
     }
     return;
   }
@@ -624,7 +634,7 @@ function applyTransferGroup(state: PortfolioLedgerState, group: LedgerTransactio
   const positionTransfer = Math.abs(amount(first.quantity)) > EPSILON || Math.abs(amount(group[1].quantity)) > EPSILON;
   if (!positionTransfer) {
     for (const leg of group) {
-      applyCash(state, leg.bucket as PortfolioBucket, leg.currency, amount(leg.cashDelta), leg.transactionId);
+      applyCash(state, leg.bucket as LedgerBucket, leg.currency, amount(leg.cashDelta), leg.transactionId);
     }
     return;
   }
@@ -632,13 +642,13 @@ function applyTransferGroup(state: PortfolioLedgerState, group: LedgerTransactio
   const source = group.find((leg) => amount(leg.quantity) < -EPSILON) as LedgerTransaction;
   const destination = group.find((leg) => amount(leg.quantity) > EPSILON) as LedgerTransaction;
   const quantity = Math.abs(source.quantity as number);
-  const sourceBucket = state.buckets[source.bucket as PortfolioBucket];
+  const sourceBucket = state.buckets[source.bucket as LedgerBucket];
   const costBasis = removePosition(sourceBucket, source.ticker as string, quantity, source.transactionId);
-  addPosition(state.buckets[destination.bucket as PortfolioBucket], destination.ticker as string, quantity, costBasis);
+  addPosition(state.buckets[destination.bucket as LedgerBucket], destination.ticker as string, quantity, costBasis);
 }
 
 function applyTransaction(state: PortfolioLedgerState, transaction: LedgerTransaction) {
-  const bucketId = transaction.bucket as PortfolioBucket;
+  const bucketId = transaction.bucket as LedgerBucket;
   const bucket = state.buckets[bucketId];
   const currency = transaction.currency;
   const cashDelta = amount(transaction.cashDelta);

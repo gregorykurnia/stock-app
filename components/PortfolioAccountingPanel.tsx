@@ -17,12 +17,13 @@ import {
   buildPortfolioActivityRows,
   buildReconciliationAdjustments,
   buildReconciliationPreview,
+  isCurrentPortfolioActivityRow,
   type PortfolioActivityRow,
   type ReconciliationPreview,
   type ReconciliationPositionTarget,
 } from "@/lib/portfolioActivity";
 import type { PortfolioBucket } from "@/lib/portfolioPerformance";
-import { PORTFOLIO_BUCKET_DEFINITIONS } from "@/lib/portfolioBuckets";
+import { isCurrentPortfolioBucket, PORTFOLIO_BUCKET_DEFINITIONS } from "@/lib/portfolioBuckets";
 
 const BUCKETS: { id: PortfolioBucket; label: string }[] = [
   ...PORTFOLIO_BUCKET_DEFINITIONS,
@@ -159,6 +160,12 @@ function reconcilePositionForms(state: PortfolioLedgerState, legacy: LegacyHoldi
   return [...rows.values()].sort((left, right) => left.bucket.localeCompare(right.bucket) || left.ticker.localeCompare(right.ticker));
 }
 
+function hasCurrentLedgerActivity(transactions: readonly LedgerTransaction[]) {
+  return transactions.some((transaction) => (
+    [transaction.bucket, transaction.fromBucket, transaction.toBucket].some(isCurrentPortfolioBucket)
+  ));
+}
+
 interface Props {
   onLedgerChanged?: () => void;
 }
@@ -221,7 +228,7 @@ export default function PortfolioAccountingPanel({ onLedgerChanged }: Props) {
         IDR: String(nextState.buckets[id].cash.IDR),
       }])) as CashForm);
       setReconcilePositions(reconcilePositionForms(nextState, legacy));
-      if (nextTransactions.length > 0) setTab((current) => current === "opening" ? "activity" : current);
+      if (hasCurrentLedgerActivity(nextTransactions)) setTab((current) => current === "opening" ? "activity" : current);
       setError("");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Could not load accounting data");
@@ -240,7 +247,7 @@ export default function PortfolioAccountingPanel({ onLedgerChanged }: Props) {
 
   const historyRows = useMemo(() => {
     const search = historySearch.trim().toUpperCase();
-    return buildPortfolioActivityRows(transactions).filter((row) => {
+    return buildPortfolioActivityRows(transactions).filter(isCurrentPortfolioActivityRow).filter((row) => {
       const occurredDate = row.occurredAt.slice(0, 10);
       const typeMatches = historyType === "all" || row.type === historyType;
       const bucketMatches = historyBucket === "all"
@@ -337,7 +344,7 @@ export default function PortfolioAccountingPanel({ onLedgerChanged }: Props) {
 
   async function submitOpening(event: FormEvent) {
     event.preventDefault();
-    if (!ledgerState || transactions.length > 0) {
+    if (!ledgerState || hasCurrentLedgerActivity(transactions)) {
       setError("Opening balance is only available before the first ledger activity.");
       return;
     }
@@ -524,7 +531,8 @@ export default function PortfolioAccountingPanel({ onLedgerChanged }: Props) {
     setError("");
   }
 
-  const ledgerReady = Boolean(ledgerState && transactions.length > 0);
+  const ledgerHasCurrentActivity = hasCurrentLedgerActivity(transactions);
+  const ledgerReady = Boolean(ledgerState && ledgerHasCurrentActivity);
 
   return (
     <section className="surface-card overflow-hidden">
@@ -538,10 +546,10 @@ export default function PortfolioAccountingPanel({ onLedgerChanged }: Props) {
             </div>
             <p className="mt-1 max-w-3xl text-xs leading-5 text-gray-500">Initialize the ledger from current holdings, record activity as it happens, and use explicit adjustments when the ledger needs to be reconciled. Legacy snapshot history remains unchanged and estimated.</p>
           </div>
-          {ledgerReady && <div className="text-right text-[11px] text-gray-500"><div>Cash: {formatMoney(ledgerState?.total.cash.USD, "USD")} USD · {formatMoney(ledgerState?.total.cash.IDR, "IDR")}</div><div>Positions: {Object.values(ledgerState?.buckets ?? {}).reduce((sum, bucket) => sum + Object.keys(bucket.positions).length, 0)}</div></div>}
+          {ledgerReady && <div className="text-right text-[11px] text-gray-500"><div>Cash: {formatMoney(ledgerState?.total.cash.USD, "USD")} USD · {formatMoney(ledgerState?.total.cash.IDR, "IDR")}</div><div>Positions: {BUCKETS.reduce((sum, { id }) => sum + Object.keys(ledgerState?.buckets[id]?.positions ?? {}).length, 0)}</div></div>}
         </div>
         <div className="mt-4 flex flex-wrap gap-1">
-          {([...(transactions.length === 0 ? ["opening" as const] : []), "activity" as const, "reconcile" as const, "history" as const]).map((item) => (
+          {([...(ledgerHasCurrentActivity ? [] : ["opening" as const]), "activity" as const, "reconcile" as const, "history" as const]).map((item) => (
             <button key={item} onClick={() => setTab(item)} className={`rounded-md px-2.5 py-1.5 text-xs font-semibold ${tab === item ? "bg-[var(--accent-soft)] text-[var(--accent-soft-text)]" : "text-gray-500 hover:bg-gray-50"}`}>
               {item === "opening" ? "Opening balance" : item === "reconcile" ? "Reconcile" : item === "activity" ? "Record activity" : "Activity history"}
             </button>
@@ -553,7 +561,7 @@ export default function PortfolioAccountingPanel({ onLedgerChanged }: Props) {
       {success && <div className="mx-4 mt-4 rounded-xl border border-green-200 bg-green-50 px-3 py-2.5 text-xs text-green-800 sm:mx-5">{success}</div>}
       {loading ? <div className="px-5 py-8 text-sm text-gray-400">Loading ledger and pocket records…</div> : (
         <>
-          {tab === "opening" && transactions.length === 0 && (
+          {tab === "opening" && !ledgerHasCurrentActivity && (
             <form onSubmit={submitOpening} className="space-y-4 px-4 py-4 sm:px-5">
               <div className="rounded-xl border border-indigo-100 bg-indigo-50/60 px-3 py-2.5 text-xs leading-5 text-indigo-900">This creates the accurate-history starting point. It uses positive quantities and the existing entry price from each pocket; it does not turn the opening balance into a contribution.</div>
               {missingOpeningData.length > 0 && <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-800">Add a positive entry price for: {missingOpeningData.map((holding) => `${holding.bucket}/${holding.ticker}`).join(", ")}.</div>}

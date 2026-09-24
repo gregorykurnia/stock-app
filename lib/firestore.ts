@@ -1,6 +1,6 @@
 import { doc, getDoc, setDoc, collection, addDoc, getDocs, deleteDoc, deleteField, writeBatch, runTransaction } from "firebase/firestore";
 import { db } from "./firebase";
-import { PORTFOLIO_BUCKETS, type PortfolioBucket } from "./portfolioBuckets";
+import type { PortfolioBucket } from "./portfolioBuckets";
 import type { PortfolioSnapshot } from "./portfolioPerformance";
 import { normalizePortfolioSnapshot } from "./portfolioPerformance";
 import {
@@ -480,28 +480,16 @@ export async function updatePortfolioDivisionEntry(
 
 const PORTFOLIO_LEDGER_COLLECTION = "portfolio_ledger";
 
-function belongsToCurrentPortfolio(transaction: LedgerTransaction) {
-  const isCurrentBucket = (bucket: unknown): bucket is PortfolioBucket => (
-    typeof bucket === "string" && (PORTFOLIO_BUCKETS as readonly string[]).includes(bucket)
-  );
-  return [transaction.bucket, transaction.fromBucket, transaction.toBucket]
-    .filter((bucket) => bucket != null)
-    .every(isCurrentBucket);
-}
-
 // Append-only accounting activity. Document ids are transaction ids so a retry can be
 // safely treated as an idempotent no-op, while a conflicting payload is rejected.
 export async function getPortfolioLedgerTransactions(): Promise<LedgerTransaction[]> {
   const snap = await getDocs(collection(db, PORTFOLIO_LEDGER_COLLECTION));
-  const transactions = snap.docs.map((item) => item.data() as LedgerTransaction);
-  return sortLedgerTransactions(transactions.filter(belongsToCurrentPortfolio));
+  return sortLedgerTransactions(snap.docs.map((item) => item.data() as LedgerTransaction));
 }
 
 export async function getPortfolioLedgerTransaction(transactionId: string): Promise<LedgerTransaction | null> {
   const snap = await getDoc(doc(db, PORTFOLIO_LEDGER_COLLECTION, transactionId));
-  if (!snap.exists()) return null;
-  const transaction = snap.data() as LedgerTransaction;
-  return belongsToCurrentPortfolio(transaction) ? transaction : null;
+  return snap.exists() ? snap.data() as LedgerTransaction : null;
 }
 
 export async function getPortfolioLedgerState(options?: ReduceLedgerOptions): Promise<PortfolioLedgerState> {

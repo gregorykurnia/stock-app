@@ -1,11 +1,13 @@
 import {
   reducePortfolioLedger,
   sortLedgerTransactions,
+  type LedgerBucket,
   type LedgerCurrency,
   type LedgerTransaction,
   type PortfolioLedgerState,
 } from "./portfolioLedger";
 import type { PortfolioBucket } from "./portfolioPerformance";
+import { isCurrentPortfolioBucket } from "./portfolioBuckets";
 
 const EPSILON = 1e-8;
 
@@ -188,9 +190,9 @@ export interface PortfolioActivityRow {
   type: LedgerTransaction["type"];
   occurredAt: string;
   recordedAt: string;
-  bucket?: PortfolioBucket;
-  fromBucket?: PortfolioBucket;
-  toBucket?: PortfolioBucket;
+  bucket?: LedgerBucket;
+  fromBucket?: LedgerBucket;
+  toBucket?: LedgerBucket;
   ticker?: string;
   quantity?: number;
   price?: number;
@@ -296,4 +298,11 @@ export function buildPortfolioActivityRows(transactions: readonly LedgerTransact
     || Date.parse(right.recordedAt) - Date.parse(left.recordedAt)
     || right.transactionIds[0].localeCompare(left.transactionIds[0])
   ));
+}
+
+/** Keep retired-sleeve records available to ledger replay without showing them in current UI. */
+export function isCurrentPortfolioActivityRow(row: PortfolioActivityRow): boolean {
+  return [row.bucket, row.fromBucket, row.toBucket]
+    .filter((bucket) => bucket != null)
+    .every(isCurrentPortfolioBucket);
 }
