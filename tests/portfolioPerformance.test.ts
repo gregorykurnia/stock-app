@@ -99,7 +99,7 @@ test("normalizes legacy snapshots that predate Treasury", () => {
   assert.equal(normalized.buckets.longterm.valueUsd, original.buckets.longterm.valueUsd);
 });
 
-test("removes retired divisions from historical totals and positions", () => {
+test("preserves retired sleeve totals and positions in historical snapshots", () => {
   const original = snapshot("2026-09-08", 100, 10);
   const retiredBucket = {
     valueUsd: 500,
@@ -117,7 +117,7 @@ test("removes retired divisions from historical totals and positions", () => {
   const retiredPosition = {
     ...original.positions[0],
     ticker: "OLD",
-    bucket: "retired" as unknown as SnapshotPosition["bucket"],
+    bucket: "swing" as const,
   };
   const retainedBucket = {
     ...original.buckets.longterm,
@@ -144,17 +144,17 @@ test("removes retired divisions from historical totals and positions", () => {
       totalValueUsd: original.total.valueUsd + retiredBucket.totalValueUsd,
       totalValueIdr: original.total.valueIdr + retiredBucket.totalValueIdr,
     },
-    buckets: { ...original.buckets, longterm: retainedBucket, retired: retiredBucket },
+    buckets: { ...original.buckets, longterm: retainedBucket, swing: retiredBucket },
     positions: [...original.positions, retiredPosition],
   } as unknown as PortfolioSnapshot;
 
   const normalized = normalizePortfolioSnapshot(storedSnapshot);
 
   assert.deepEqual(Object.keys(normalized.buckets), ["longterm", "index", "treasury"]);
-  assert.equal(normalized.total.valueUsd, original.total.valueUsd);
-  assert.equal(normalized.total.cashValueUsd, 0);
-  assert.equal(normalized.total.totalValueUsd, original.total.valueUsd);
-  assert.deepEqual(normalized.positions.map((position) => position.ticker), ["TEST"]);
+  assert.equal(normalized.total.valueUsd, original.total.valueUsd + retiredBucket.valueUsd);
+  assert.equal(normalized.total.cashValueUsd, retiredBucket.cashValueUsd);
+  assert.equal(normalized.total.totalValueUsd, original.total.valueUsd + retiredBucket.totalValueUsd);
+  assert.deepEqual(normalized.positions.map((position) => position.ticker), ["TEST", "OLD"]);
 });
 
 test("removes an inferred position addition from investment return", () => {
@@ -383,9 +383,19 @@ test("pocket returns neutralize internal cash and position transfers", () => {
   assert.equal(totalPoints[1].inferredFlowUsd, 0);
 });
 
-test("total returns treat retired-sleeve cash transfers as flows into the active portfolio", () => {
-  const before = ledgerSnapshot("2026-09-08", 0, 1_000, 0);
-  const after = ledgerSnapshot("2026-09-09", 4, 1_000, 0);
+test("total returns ignore retired-sleeve transfers while pocket returns retain the assigned flow", () => {
+  const opening = ledgerSnapshot("2026-09-08", 0, 600, 0);
+  const before = {
+    ...opening,
+    total: {
+      ...opening.total,
+      valueUsd: 1_000,
+      valueIdr: 15_000_000,
+      totalValueUsd: 1_000,
+      totalValueIdr: 15_000_000,
+    },
+  };
+  const after = ledgerSnapshot("2026-09-09", 4, 600, 0);
   const transactions = [
     {
       transactionId: "swing-cash-out",
@@ -416,9 +426,83 @@ test("total returns treat retired-sleeve cash transfers as flows into the active
   ];
 
   const points = buildPerformancePoints([before, after], "usd", { ledgerTransactions: transactions });
+  const indexPoints = buildPerformancePoints([before, after], "usd", {
+    bucket: "index",
+    ledgerTransactions: transactions,
+  });
 
-  assert.equal(points[1].inferredFlowUsd, 400);
+  assert.equal(points[1].inferredFlowUsd, 0);
   assert.equal(points[1].dailyReturnPct, 0);
+  assert.equal(indexPoints[1].inferredFlowUsd, 400);
+});
+
+test("XIRR ignores internal transfers from a retired sleeve", () => {
+  const opening = ledgerSnapshot("2026-09-08", 0, 600, 0);
+  const before = {
+    ...opening,
+    total: {
+      ...opening.total,
+      valueUsd: 1_000,
+      valueIdr: 15_000_000,
+      totalValueUsd: 1_000,
+      totalValueIdr: 15_000_000,
+    },
+  };
+  const after = ledgerSnapshot("2026-09-09", 4, 600, 0);
+  const result = calculateXirr([before, after], [
+    {
+      transactionId: "swing-cash-out",
+      occurredAt: "2026-09-09T14:00:00.000Z",
+      recordedAt: "2026-09-09T14:00:00.000Z",
+      type: "transfer",
+      bucket: "swing",
+      fromBucket: "swing",
+      toBucket: "index",
+      transferId: "swing-to-index-cash",
+      currency: "USD",
+      cashDelta: -400,
+      source: "manual",
+    },
+    {
+      transactionId: "index-cash-in",
+      occurredAt: "2026-09-09T14:00:00.000Z",
+      recordedAt: "2026-09-09T14:00:00.000Z",
+      type: "transfer",
+      bucket: "index",
+      fromBucket: "swing",
+      toBucket: "index",
+      transferId: "swing-to-index-cash",
+      currency: "USD",
+      cashDelta: 400,
+      source: "manual",
+    },
+  ]);
+
+  assert.equal(result.status, "valid");
+  assert.ok(Math.abs(result.annualizedPct ?? 1) < 1e-6);
+});
+
+test("total return and XIRR include genuine external flows from retired sleeves", () => {
+  const before = ledgerSnapshot("2026-09-08", 1, 0, 0);
+  const after = ledgerSnapshot("2026-09-09", 2, 0, 100);
+  const deposit = {
+    transactionId: "retired-sleeve-deposit",
+    occurredAt: "2026-09-09T14:00:00.000Z",
+    recordedAt: "2026-09-09T14:00:00.000Z",
+    type: "deposit" as const,
+    bucket: "swing" as const,
+    currency: "USD" as const,
+    cashDelta: 100,
+    externalFlow: 100,
+    source: "manual" as const,
+  };
+  const points = buildPerformancePoints([before, after], "usd", { ledgerTransactions: [deposit] });
+  const result = calculateXirr([before, after], [deposit]);
+
+  assert.equal(points[1].inferredFlowUsd, 100);
+  assert.equal(points[1].dailyReturnPct, 0);
+  assert.equal(result.status, "valid");
+  assert.ok(Math.abs(result.annualizedPct ?? 1) < 1e-6);
 });
 
 test("partial snapshots suppress TWR returns and statistics", () => {

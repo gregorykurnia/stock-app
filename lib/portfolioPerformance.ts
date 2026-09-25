@@ -1,5 +1,5 @@
 import type { LedgerTransaction } from "./portfolioLedger";
-import { PORTFOLIO_BUCKETS, isCurrentPortfolioBucket, isLedgerBucket, type LedgerBucket, type PortfolioBucket } from "./portfolioBuckets";
+import { PORTFOLIO_BUCKETS, isLedgerBucket, type LedgerBucket, type PortfolioBucket } from "./portfolioBuckets";
 
 export { PORTFOLIO_BUCKETS, type PortfolioBucket } from "./portfolioBuckets";
 
@@ -272,15 +272,8 @@ export function calculateXirr(
   for (const transaction of transactions) {
     let externalFlow: number | undefined;
     if (transaction.type === "deposit" || transaction.type === "withdrawal") {
-      if (!isCurrentPortfolioBucket(transaction.bucket)) continue;
+      if (!isLedgerBucket(transaction.bucket)) continue;
       externalFlow = transaction.externalFlow;
-    } else if (
-      transaction.type === "transfer"
-      && isCurrentPortfolioBucket(transaction.bucket)
-      && (transaction.fromBucket === "swing" || transaction.toBucket === "swing")
-      && Math.abs(transaction.cashDelta ?? 0) > FLOW_EPSILON
-    ) {
-      externalFlow = transaction.cashDelta;
     } else continue;
     const sessionDate = newYorkSessionDate(transaction.occurredAt);
     if (sessionDate <= opening.sessionDate || sessionDate > terminal.sessionDate) continue;
@@ -321,7 +314,7 @@ function ledgerFlowBetweenSnapshots(
     if (sessionDate <= previous.sessionDate || sessionDate > current.sessionDate) return flow;
 
     if (transaction.type === "deposit" || transaction.type === "withdrawal") {
-      if (!isCurrentPortfolioBucket(transaction.bucket)) return flow;
+      if (!isLedgerBucket(transaction.bucket)) return flow;
       if (bucket && transaction.bucket !== bucket) return flow;
       if (transaction.currency === "USD") flow.usd += transaction.externalFlow ?? 0;
       else flow.idr += transaction.externalFlow ?? 0;
@@ -331,12 +324,8 @@ function ledgerFlowBetweenSnapshots(
     // Transfers are internal at the total-portfolio level, but they are real
     // cash/security flows for the source and destination pocket return series.
     if (transaction.type !== "transfer") return flow;
-    const retiredBoundaryTransfer = transaction.fromBucket === "swing" || transaction.toBucket === "swing";
-    if (bucket) {
-      if (transaction.bucket !== bucket) return flow;
-    } else if (!retiredBoundaryTransfer || !isCurrentPortfolioBucket(transaction.bucket)) return flow;
-    const flowBucket = bucket ?? (isCurrentPortfolioBucket(transaction.bucket) ? transaction.bucket : undefined);
-    if (!flowBucket) return flow;
+    if (!bucket || transaction.bucket !== bucket) return flow;
+    const flowBucket = bucket;
     if (Math.abs(transaction.cashDelta ?? 0) > FLOW_EPSILON) {
       if (transaction.currency === "USD") flow.usd += transaction.cashDelta ?? 0;
       else flow.idr += transaction.cashDelta ?? 0;
