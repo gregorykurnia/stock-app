@@ -192,7 +192,7 @@ export default function PersonalFinanceDashboard() {
           <div>
             <h1 className="text-xl font-bold tracking-tight">Personal Finance</h1>
             <p className="mt-1 max-w-2xl text-xs leading-5 text-[var(--muted)]">
-              Record monthly income and planned deductions to estimate guidance for VOO, VXUS, and SGOV DCA. Recommendations are guidance only; no investments are executed.
+              Record monthly income and planned deductions to estimate guidance for VXUS and VOO DCA. Recommendations are guidance only; no investments are executed.
             </p>
           </div>
           <span className="badge bg-[var(--accent-soft)] text-[var(--accent-soft-text)]">IDR</span>
@@ -252,7 +252,7 @@ export default function PersonalFinanceDashboard() {
         <section className="surface-card flex min-h-48 flex-col items-center justify-center p-6 text-center">
           <div className="rounded-full bg-[var(--accent-soft)] px-4 py-3 text-xl text-[var(--accent)]">Rp</div>
           <h2 className="mt-3 font-semibold text-gray-900">No monthly records yet</h2>
-          <p className="mt-1 max-w-md text-xs leading-5 text-gray-500">Add your first month above. The fixed petty cash deduction and 60% VOO / 25% VXUS / 15% SGOV DCA recommendations will be calculated automatically.</p>
+          <p className="mt-1 max-w-md text-xs leading-5 text-gray-500">Add your first month above. The fixed petty cash deduction and 60% VXUS / 40% VOO DCA recommendations will be calculated automatically.</p>
         </section>
       ) : (
         <>
@@ -305,9 +305,9 @@ function SummaryCard({ row }: { row: PersonalFinanceComputedRow }) {
         <div className="rounded-xl border border-indigo-100 bg-indigo-50 px-3 py-2.5">
           <div className="text-[11px] font-semibold uppercase tracking-wide text-indigo-700">Recommended DCA</div>
           {row.remainder > 0 ? (
-            <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm font-bold text-indigo-900"><span>VOO {formatIdr(row.vooRecommendation)}</span><span>VXUS {formatIdr(row.vxusRecommendation)}</span><span>SGOV {formatIdr(row.sgovRecommendation)}</span></div>
+            <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm font-bold text-indigo-900"><span>VXUS {formatIdr(row.vxusRecommendation)}</span><span>VOO {formatIdr(row.vooRecommendation)}</span></div>
           ) : <div className="mt-1 text-sm font-bold text-indigo-900">{formatIdr(0)}</div>}
-          <div className="mt-0.5 text-[10px] text-indigo-700">Guidance only · 60% VOO / 25% VXUS / 15% SGOV</div>
+          <div className="mt-0.5 text-[10px] text-indigo-700">Guidance only · 60% VXUS / 40% VOO</div>
         </div>
       </div>
       {row.remainder < 0 && <div className="border-t border-red-200 bg-red-50 px-4 py-3 text-xs leading-5 text-red-800 sm:px-5">This month is short by {formatIdr(Math.abs(row.remainder))}. The deficit will be deducted from the next recorded month before its planned deductions.</div>}
@@ -353,7 +353,7 @@ function HistoryCard({
                   <td className="px-3 py-3 whitespace-nowrap text-gray-700">{formatIdr(row.plannedDeductions)}</td>
                   <td className="px-3 py-3 whitespace-nowrap text-gray-700">{row.actualMonthlySpending === null ? "—" : formatIdr(row.actualMonthlySpending)}</td>
                   <td className={`px-3 py-3 whitespace-nowrap font-semibold ${row.remainder < 0 ? "text-red-600" : "text-gray-900"}`}>{formatIdr(row.remainder)}</td>
-                  <td className="px-3 py-3 whitespace-nowrap text-gray-700">{row.remainder > 0 ? `VOO ${formatIdr(row.vooRecommendation)} · VXUS ${formatIdr(row.vxusRecommendation)} · SGOV ${formatIdr(row.sgovRecommendation)}` : "Rp0"}</td>
+                  <td className="px-3 py-3 whitespace-nowrap text-gray-700">{row.remainder > 0 ? `VXUS ${formatIdr(row.vxusRecommendation)} · VOO ${formatIdr(row.vooRecommendation)}` : "Rp0"}</td>
                   <td className="px-3 py-3"><span className={`badge ${status.classes}`}>{status.label}</span></td>
                   <td className="px-4 py-3 sm:px-5"><div className="flex gap-1.5"><button type="button" className="btn btn-secondary !px-2.5 !py-1.5" onClick={() => onEdit(row.month)}>Edit</button><button type="button" className="btn btn-ghost !px-2.5 !py-1.5 !text-red-600" onClick={() => onDelete(row.month)} disabled={deletingMonth === row.month}>{deletingMonth === row.month ? "Deleting…" : "Delete"}</button></div></td>
                 </tr>

@@ -6,7 +6,7 @@ Created: 2026-09-18
 
 ## Goal
 
-Add a small Personal Finance area to the stock app for recording monthly income and planned deductions, then showing the amount available for recommended VOO, VXUS, and SGOV DCA.
+Add a small Personal Finance area to the stock app for recording monthly income and planned deductions, then showing the amount available for recommended VXUS and VOO DCA.
 
 The first release should be easy to maintain and cheap to run. It should use the app's existing App Router, Firestore helpers, and styling patterns. It should not add external financial data, bank integrations, brokerage actions, or a new charting dependency.
 
@@ -29,7 +29,7 @@ The first release should be easy to maintain and cheap to run. It should use the
 - Inputs for income, Credit Card Payment, Future Planning Installments, and Actual Monthly Spending.
 - An automatic fixed Monthly Petty Cash Spendings deduction of Rp2,500,000.
 - Automatic deficit carryover into the next recorded month.
-- Automatic 60% VOO, 25% VXUS, and 15% SGOV recommendations when the remainder is positive.
+- Automatic 60% VXUS and 40% VOO recommendations when the remainder is positive.
 - Add, edit, and delete monthly records.
 - A selected-month summary and a chronological history table.
 - IDR formatting and responsive layout using existing styles.
@@ -66,12 +66,11 @@ Use these formulas:
 - plannedDeductions = creditCardPayment + futurePlanningInstallments + 2,500,000
 - remainder = income - carryoverApplied - plannedDeductions
 - dcaBase = max(remainder, 0)
-- vooRecommendation = round(dcaBase × 0.60)
-- vxusRecommendation = round(dcaBase × 0.25)
-- sgovRecommendation = dcaBase - vooRecommendation - vxusRecommendation
+- vooRecommendation = round(dcaBase × 0.40)
+- vxusRecommendation = dcaBase - vooRecommendation
 - deficitCarryover = max(-remainder, 0)
 
-Derive SGOV as the remainder after the rounded VOO and VXUS amounts so the three recommendations always sum exactly to the positive DCA base in whole rupiah.
+Derive VXUS as the remainder after the rounded VOO amount so the two recommendations always sum exactly to the positive DCA base in whole rupiah.
 
 Actual Monthly Spending must be retained and displayed, but it must never be used in any formula.
 
@@ -84,9 +83,8 @@ Positive month:
 - Future Planning Installments: Rp4,000,000
 - Fixed petty cash: Rp2,500,000
 - Remainder: Rp8,500,000
-- VOO: Rp5,100,000
-- VXUS: Rp2,125,000
-- SGOV: Rp1,275,000
+- VOO: Rp3,400,000
+- VXUS: Rp5,100,000
 - Deficit carryover: Rp0
 
 Deficit followed by recovery:
@@ -116,9 +114,8 @@ Do not persist carryover, remainder, or DCA values in v1. They are derived from 
 Use constants in lib/personalFinance.ts for:
 
 - fixed petty cash: 2,500,000
-- VOO allocation: 60%
-- VXUS allocation: 25%
-- SGOV allocation: 15%
+- VOO allocation: 40%
+- VXUS allocation: 60%
 
 Do not create a settings document or a settings read in v1.
 
@@ -136,7 +133,7 @@ Create lib/personalFinance.ts with:
 
 Create tests/personalFinance.test.ts and cover:
 
-- positive remainder and 60/25/15 allocation;
+- positive remainder and 60/40 allocation;
 - exact zero remainder;
 - negative remainder and zero DCA;
 - carryover applied before current deductions;
@@ -203,9 +200,8 @@ Use plain labels:
 - Carryover Applied
 - Remaining Balance
 - Recommended DCA
-- VOO
 - VXUS
-- SGOV
+- VOO
 - Actual Monthly Spending
 
 The summary should make the order of operations visible: income, prior deficit, three planned deductions, remaining balance, then DCA recommendation. Negative remainder should use clear warning styling and state that the deficit will be deducted from the next recorded month.
@@ -236,8 +232,8 @@ The rollout is complete when all of the following are true:
 - A month cannot be duplicated because its YYYY-MM document ID is deterministic.
 - Rp2,500,000 is deducted automatically for every recorded month.
 - A previous deficit is applied before the current month's three planned deductions.
-- A deficit month shows zero VOO, VXUS, and SGOV recommendations and carries the deficit forward.
-- A positive remainder produces exactly 60% VOO, 25% VXUS, and 15% SGOV after whole-rupiah rounding, with the rounded recommendations summing to the DCA base.
+- A deficit month shows zero VOO and VXUS recommendations and carries the deficit forward.
+- A positive remainder produces 60% VXUS and 40% VOO after whole-rupiah rounding, with the rounded recommendations summing to the DCA base.
 - Actual Monthly Spending is visible and changing it does not change remainder, carryover, or DCA.
 - Editing or deleting an earlier month recalculates all later rows.
 - Empty, loading, save-error, and delete-error states are understandable.

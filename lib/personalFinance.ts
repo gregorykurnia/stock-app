@@ -1,7 +1,5 @@
 export const MONTHLY_PETTY_CASH = 2_500_000;
-export const VOO_ALLOCATION = 0.6;
-export const VXUS_ALLOCATION = 0.25;
-export const SGOV_ALLOCATION = 0.15;
+export const VOO_ALLOCATION = 0.4;
 
 export interface PersonalFinanceMonthInput {
   month: string;
@@ -18,7 +16,6 @@ export interface PersonalFinanceComputedRow extends PersonalFinanceMonthInput {
   dcaBase: number;
   vooRecommendation: number;
   vxusRecommendation: number;
-  sgovRecommendation: number;
   deficitCarryover: number;
 }
 
@@ -63,8 +60,7 @@ export function calculatePersonalFinanceRows(
     const remainder = input.income - carryoverApplied - plannedDeductions;
     const dcaBase = Math.max(remainder, 0);
     const vooRecommendation = Math.round(dcaBase * VOO_ALLOCATION);
-    const vxusRecommendation = Math.round(dcaBase * VXUS_ALLOCATION);
-    const sgovRecommendation = dcaBase - vooRecommendation - vxusRecommendation;
+    const vxusRecommendation = dcaBase - vooRecommendation;
     deficitCarryover = Math.max(-remainder, 0);
 
     return {
@@ -75,7 +71,6 @@ export function calculatePersonalFinanceRows(
       dcaBase,
       vooRecommendation,
       vxusRecommendation,
-      sgovRecommendation,
       deficitCarryover,
     };
   });
