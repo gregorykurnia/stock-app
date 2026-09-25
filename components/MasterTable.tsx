@@ -14,8 +14,6 @@ import ListTrialTable from "@/components/ListTrialTable";
 import type { UsBreakoutListTrialLiveRecord, UsBreakoutListTrialRecord } from "@/lib/firestore";
 import LowDetectionView from "@/components/LowDetectionView";
 import SwingChat from "@/components/SwingChat";
-import PortfolioTable, { PORTFOLIO_DIVISIONS, type PortfolioStock } from "@/components/PortfolioTable";
-import type { PortfolioDivision } from "@/lib/firestore";
 import {
   getCoilingReversalStocks, saveCoilingReversalStock, removeCoilingReversalStock,
   excludeScreenerTickerBeatenDown,
@@ -257,19 +255,6 @@ interface Props {
   usBreakoutListTrialLiveError?: string;
   onUsBreakoutListTrialLiveAdd?: (record: Omit<UsBreakoutListTrialLiveRecord, "id">) => void;
   onUsBreakoutListTrialLiveRemove?: (id: string) => void;
-  // "Portfolio" tab — three independent, manually-managed divisions (Long Term / Index / Treasury)
-  portfolioStocks?: Record<PortfolioDivision, PortfolioStock[]>;
-  portfolioPrices?: Record<string, number | null>;
-  portfolioPrevCloses?: Record<string, number | null>;
-  portfolioLoading?: Record<PortfolioDivision, boolean>;
-  onPortfolioTabOpen?: (division: PortfolioDivision) => void;
-  portfolioAddTicker?: Record<PortfolioDivision, string>;
-  portfolioAddLoading?: Record<PortfolioDivision, boolean>;
-  portfolioAddError?: Record<PortfolioDivision, string>;
-  onPortfolioAddTickerChange?: (division: PortfolioDivision, v: string) => void;
-  onPortfolioAdd?: (division: PortfolioDivision, e: FormEvent) => void;
-  onPortfolioRemove?: (division: PortfolioDivision, ticker: string) => void;
-  onPortfolioEntryChange?: (division: PortfolioDivision, ticker: string, field: "entry_price" | "entry_quantity", value: number | null) => void;
 }
 
 function EarningsBadge({ dateStr }: { dateStr: string | null | undefined }) {
@@ -316,18 +301,12 @@ export default function MasterTable({
   usBreakoutAddTicker = "", usBreakoutAddLoading = false, usBreakoutAddError = "", onUsBreakoutAddTickerChange, onUsBreakoutAdd, onUsBreakoutRemove, onUsBreakoutToggleStar, onUsBreakoutTypeChange,
   usBreakoutListTrialRecords = [], usBreakoutListTrialLoading = false, usBreakoutListTrialSaving = false, usBreakoutListTrialError = "", onUsBreakoutListTrialAdd, onUsBreakoutListTrialRemove,
   usBreakoutListTrialLiveRecords = [], usBreakoutListTrialLiveLoading = false, usBreakoutListTrialLiveSaving = false, usBreakoutListTrialLiveError = "", onUsBreakoutListTrialLiveAdd, onUsBreakoutListTrialLiveRemove,
-  portfolioStocks = { longterm: [], index: [], treasury: [] }, portfolioPrices = {}, portfolioPrevCloses = {},
-  portfolioLoading = { longterm: false, index: false, treasury: false }, onPortfolioTabOpen,
-  portfolioAddTicker = { longterm: "", index: "", treasury: "" }, portfolioAddLoading = { longterm: false, index: false, treasury: false },
-  portfolioAddError = { longterm: "", index: "", treasury: "" },
-  onPortfolioAddTickerChange, onPortfolioAdd, onPortfolioRemove, onPortfolioEntryChange,
 }: Props) {
   const isIhsg = market === "ihsg";
   // Currency prefix and price formatter
   const fmtPrice = (v: number) => isIhsg ? `Rp${Math.round(v).toLocaleString("id-ID")}` : `$${v.toFixed(2)}`;
-  type MainTab = "list" | "longterm" | "midterm" | "swing" | "portfolio" | "beatendown" | "breakout";
+  type MainTab = "list" | "longterm" | "midterm" | "swing" | "beatendown" | "breakout";
   const [mainTab, setMainTab] = useState<MainTab>("list");
-  const [portfolioDivision, setPortfolioDivision] = useState<PortfolioDivision>("longterm");
   type BeatenDownSubTab = "coiling" | "bagger";
   const [beatenDownSubTab, setBeatenDownSubTab] = useState<BeatenDownSubTab>("coiling");
   type BreakoutSubTab = "list" | "listTrial" | "lowDetection";
@@ -342,11 +321,6 @@ export default function MasterTable({
     if (!isIhsg && mainTab === "breakout") onUsBreakoutTabOpen?.();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mainTab, isIhsg]);
-
-  useEffect(() => {
-    if (!isIhsg && mainTab === "portfolio") onPortfolioTabOpen?.(portfolioDivision);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mainTab, isIhsg, portfolioDivision]);
 
   // --- Beaten Down: Coiling Reversal + Potential Bagger Reversal (self-contained, manual ticker lists) ---
   const [coilingStocks, setCoilingStocks] = useState<CoilingStock[]>([]);
@@ -1847,14 +1821,6 @@ export default function MasterTable({
         </button>
         {!isIhsg && (
           <button
-            onClick={() => setMainTab("portfolio")}
-            className={`segmented-btn ${mainTab === "portfolio" ? "is-active" : ""}`}
-          >
-            Portfolio
-          </button>
-        )}
-        {!isIhsg && (
-          <button
             onClick={() => setMainTab("beatendown")}
             className={`segmented-btn ${mainTab === "beatendown" ? "is-active" : ""}`}
           >
@@ -2695,41 +2661,6 @@ export default function MasterTable({
           )}
 
           {breakoutSubTab === "lowDetection" && <LowDetectionView />}
-        </div>
-      )}
-
-      {/* PORTFOLIO TAB (US only) — three independent, manually-managed divisions */}
-      {!isIhsg && mainTab === "portfolio" && (
-        <div className="space-y-3">
-          <div className="flex gap-1 border-b border-gray-200">
-            {PORTFOLIO_DIVISIONS.map((d) => (
-              <button
-                key={d.id}
-                onClick={() => setPortfolioDivision(d.id)}
-                className={`px-3 py-1.5 text-sm font-medium transition-colors border-b-2 -mb-px ${
-                  portfolioDivision === d.id
-                    ? "border-blue-600 text-blue-600"
-                    : "border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300"
-                }`}
-              >
-                {d.label}
-              </button>
-            ))}
-          </div>
-          <PortfolioTable
-            division={portfolioDivision}
-            stocks={portfolioStocks[portfolioDivision]}
-            prices={portfolioPrices}
-            prevCloses={portfolioPrevCloses}
-            loading={portfolioLoading[portfolioDivision]}
-            addTicker={portfolioAddTicker[portfolioDivision]}
-            addLoading={portfolioAddLoading[portfolioDivision]}
-            addError={portfolioAddError[portfolioDivision]}
-            onAddTickerChange={(v) => onPortfolioAddTickerChange?.(portfolioDivision, v)}
-            onAdd={(e) => onPortfolioAdd?.(portfolioDivision, e)}
-            onRemove={(ticker) => onPortfolioRemove?.(portfolioDivision, ticker)}
-            onEntryChange={(ticker, field, value) => onPortfolioEntryChange?.(portfolioDivision, ticker, field, value)}
-          />
         </div>
       )}
 
