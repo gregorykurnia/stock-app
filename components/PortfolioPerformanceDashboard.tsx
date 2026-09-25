@@ -288,6 +288,13 @@ export default function PortfolioPerformanceDashboard() {
         <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {BUCKETS.map((bucket) => {
             const summary = latest.buckets[bucket.id] ?? emptySnapshotBucket();
+            const missingCostBasis = latest.positions.some((position) => position.bucket === bucket.id && position.costBasisUsd == null);
+            const unrealizedIdr = summary.unrealizedUsd * latest.fxRateUsdIdr;
+            const hasUnrealizedIdr = latest.status === "complete"
+              && !missingCostBasis
+              && Number.isFinite(unrealizedIdr)
+              && Number.isFinite(latest.fxRateUsdIdr)
+              && latest.fxRateUsdIdr > 0;
             const bucketPoints = buildPerformancePoints(
               filtered.map((snapshot) => bucketSnapshot(snapshot, bucket.id)),
               currency,
@@ -303,6 +310,7 @@ export default function PortfolioPerformanceDashboard() {
               <div key={bucket.id} className="surface-card p-4">
                 <div className="flex items-center justify-between"><div className="flex items-center gap-2 text-sm font-bold"><span className="h-2.5 w-2.5 rounded-full" style={{ background: bucket.color }} />{bucket.label}</div><span className="text-xs font-semibold text-gray-500">{allocation.toFixed(1)}%</span></div>
                 <div className="mt-3 text-xl font-bold text-gray-900">{formatMoney(currency === "idr" ? snapshotBucketValueIdr(summary) : snapshotBucketValueUsd(summary), currency)}</div>
+                <div className="mt-2 flex justify-between gap-2 text-xs" title="Open-position market value minus cost basis, converted to IDR at the latest snapshot exchange rate."><span className="text-gray-500">Unrealized P/L (IDR)</span><span className={`font-semibold ${hasUnrealizedIdr ? (unrealizedIdr >= 0 ? "text-green-600" : "text-red-500") : "text-gray-400"}`}>{hasUnrealizedIdr ? `${unrealizedIdr >= 0 ? "+" : ""}${formatMoney(unrealizedIdr, "idr")}` : "—"}</span></div>
                 <div className="mt-2 flex justify-between text-xs text-gray-500"><span>{summary.positionCount} positions</span><span className={(bucketStats.periodReturnPct ?? 0) >= 0 ? "font-semibold text-green-600" : "font-semibold text-red-500"}>{formatPct(bucketStats.periodReturnPct)} period</span></div>
                 {snapshotComponentValue(summary, "cash", currency) == null ? <div className="mt-2 text-[10px] text-gray-400">Legacy snapshot · cash unavailable</div> : <div className="mt-2 flex justify-between gap-2 text-[10px] text-gray-400"><span>Cash {snapshotComponentValue(summary, "cash", currency)}</span><span>Invested {snapshotComponentValue(summary, "invested", currency)}</span></div>}
                 <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-gray-100"><div className="h-full rounded-full" style={{ width: `${allocation}%`, background: bucket.color }} /></div>
