@@ -17,6 +17,59 @@ export interface SnapshotQuote {
   marketDate: string | null;
 }
 
+export interface LatestCloseQuote {
+  price: number | null;
+  marketDate: string | null;
+}
+
+function latestCompletedNewYorkDate(now = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", hourCycle: "h23",
+  }).formatToParts(now);
+  const get = (type: string) => parts.find((part) => part.type === type)?.value ?? "00";
+  const date = `${get("year")}-${get("month")}-${get("day")}`;
+  const cutoff = new Date(`${date}T00:00:00Z`);
+  if (Number(get("hour")) < 16) cutoff.setUTCDate(cutoff.getUTCDate() - 1);
+  return cutoff.toISOString().slice(0, 10);
+}
+
+/** Fetches the most recent completed daily close, avoiding an in-progress market candle. */
+export async function fetchLatestCloseQuotes(tickers: string[]): Promise<Record<string, LatestCloseQuote>> {
+  const result: Record<string, LatestCloseQuote> = {};
+  const unique = [...new Set(tickers.map((ticker) => ticker.toUpperCase()))];
+  const cutoffDate = latestCompletedNewYorkDate();
+  let next = 0;
+  const worker = async () => {
+    while (next < unique.length) {
+      const ticker = unique[next];
+      next += 1;
+      try {
+        const period1 = new Date(`${cutoffDate}T00:00:00Z`);
+        period1.setUTCDate(period1.getUTCDate() - 20);
+        const period2 = new Date(`${cutoffDate}T00:00:00Z`);
+        period2.setUTCDate(period2.getUTCDate() + 2);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const chart: any = await yf.chart(ticker, { period1, period2, interval: "1d", return: "array" });
+        const quotes = (Array.isArray(chart?.quotes) ? chart.quotes : []) as { date?: unknown; close?: unknown }[];
+        const bars = quotes.flatMap((quote) => {
+          if (quote.date == null || typeof quote.close !== "number" || !Number.isFinite(quote.close) || quote.close <= 0) return [];
+          const timestamp = quote.date instanceof Date ? quote.date : new Date(quote.date as string | number);
+          if (Number.isNaN(timestamp.getTime())) return [];
+          const date = timestamp.toISOString().slice(0, 10);
+          return date <= cutoffDate ? [{ date, close: quote.close }] : [];
+        }).sort((left, right) => left.date.localeCompare(right.date));
+        const latest = bars.at(-1);
+        result[ticker] = { price: latest?.close ?? null, marketDate: latest?.date ?? null };
+      } catch {
+        result[ticker] = { price: null, marketDate: null };
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(4, unique.length) }, worker));
+  return result;
+}
+
 export async function fetchSnapshotQuotes(tickers: string[]): Promise<Record<string, SnapshotQuote>> {
   const result: Record<string, SnapshotQuote> = {};
   const unique = [...new Set(tickers)];

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import PerformanceReturnsSimulation from "@/components/PerformanceReturnsSimulation";
 import { getPortfolioDivisionStocks, getPortfolioLedgerTransactions, getPortfolioPerformanceSnapshots } from "@/lib/firestore";
 import {
   buildEqualWeightBasketAnnualReturns,
@@ -23,6 +24,7 @@ import {
 } from "@/lib/portfolioPerformance";
 import { PORTFOLIO_BUCKETS, PORTFOLIO_BUCKET_LABELS, type PortfolioBucket } from "@/lib/portfolioBuckets";
 import type { LedgerTransaction } from "@/lib/portfolioLedger";
+import type { SimulationUniverseTicker } from "@/lib/performanceSimulation";
 
 type Scope = "all" | PortfolioBucket;
 type ActualYear = { year: number; returnPct: number | null; observations: number; status: string };
@@ -282,6 +284,7 @@ function TickerMatrix({
 
 export default function PerformanceReturnsDashboard() {
   const currentYear = new Date().getFullYear();
+  const [activeView, setActiveView] = useState<"historical" | "simulation">("historical");
   const [selectedTickers, setSelectedTickers] = useState<string[]>([]);
   const [portfolioLoaded, setPortfolioLoaded] = useState(false);
   const [portfolioError, setPortfolioError] = useState("");
@@ -302,6 +305,10 @@ export default function PerformanceReturnsDashboard() {
   const [performanceLoading, setPerformanceLoading] = useState(true);
   const [performanceError, setPerformanceError] = useState("");
   const [tickerSort, setTickerSort] = useState<TickerSort>(null);
+
+  const simulationUniverse = useMemo<SimulationUniverseTicker[]>(() => Object.values(stockByTicker)
+    .filter((stock) => stock.bucket !== "other")
+    .sort((left, right) => left.ticker.localeCompare(right.ticker)), [stockByTicker]);
 
   useEffect(() => {
     let cancelled = false;
@@ -467,6 +474,11 @@ export default function PerformanceReturnsDashboard() {
 
   return (
     <div className="space-y-4">
+      <div role="tablist" aria-label="Performance Returns views" className="inline-flex rounded-xl border border-gray-200 bg-gray-100 p-1">
+        <button type="button" role="tab" aria-selected={activeView === "historical"} onClick={() => setActiveView("historical")} className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${activeView === "historical" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-900"}`}>Historical Returns</button>
+        <button type="button" role="tab" aria-selected={activeView === "simulation"} onClick={() => setActiveView("simulation")} className={`rounded-lg px-4 py-2 text-sm font-semibold transition ${activeView === "simulation" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-900"}`}>10-Year Simulation</button>
+      </div>
+      {activeView === "simulation" ? <PerformanceReturnsSimulation universe={simulationUniverse} transactions={ledgerTransactions} portfolioDataReady={!performanceLoading} portfolioError={portfolioError || performanceError} /> : <div className="space-y-4">
       <section className="surface-card p-4 sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -530,6 +542,7 @@ export default function PerformanceReturnsDashboard() {
       </section>
 
       <p className="px-1 text-[10px] leading-5 text-gray-400">Source: Yahoo Finance via yahoo-finance2. Volatility is annualized from daily cash total returns when at least 30 observations are available; drawdown uses that daily total-return path. Stock and ETF returns exclude fees and taxes.</p>
+      </div>}
     </div>
   );
 }
