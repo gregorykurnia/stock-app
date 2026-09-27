@@ -429,3 +429,194 @@ Implementation and validation
 4. **Ticker universe — confirmed for this version:** use the current stock names now, plus VOO, VXUS, and SGOV. Make the implementation easy to convert to a dynamic list later.
 
 The provisional 3% FX assumption is a modeling input, not a claim about the future exchange rate. Keep it visible so the user can change it and see how much of the IDR result comes from FX rather than the securities’ USD performance.
+
+## Fresh-chat implementation prompt
+
+### Recommended model
+
+Use **Astra with Extra high reasoning** for the first end-to-end implementation if it is available. This feature combines repo archaeology, financial calculation design, historical-data edge cases, monthly simulation, FX conversion, and a multi-part UI. OpenAI’s current [model selection guidance](https://developers.openai.com/api/docs/guides/model-selection) positions Astra Extra high for demanding analysis and complex deliverables. Use **Sol with Extra high reasoning** when you want a strong coding workflow with a better speed or cost balance. Reserve **Luna** for focused follow-up fixes after the architecture and calculations are stable. Availability and limits depend on the product and account.
+
+### Paste this after clearing the chat
+
+~~~text
+Implement the 10-Year Simulation described in docs/performance-returns-prompt.md in this existing stock-app repository. Work directly in the repo and complete the implementation end to end. Do not only give me a plan or a code sketch.
+
+The existing Performance Returns page and historical-return view are already implemented. Extend them with a Simulation subtab. Do not create a duplicate top-level route or navigation item.
+
+Locked product decisions
+------------------------
+
+- Keep the existing top-level Performance Returns tab.
+- Add a segmented subtab: Historical Returns | 10-Year Simulation.
+- For this first version, use the current stock names in the portfolio at implementation time, plus VOO, VXUS, and SGOV. Snapshot and display the resolved list. Keep the code easy to make dynamic later, but do not add a second dynamic ticker-management workflow now.
+- Use the actual portfolio ledger quantities and current market values as the simulation starting point. Include current uninvested cash as Unallocated cash or explicitly map it into SGOV.
+- Show an as-of row, an estimated 2026 year-end row, and 2027 through 2036 year-end rows.
+- Start 100% of the Rp 13,000,000 monthly contribution in VOO at the November 2026 month-end, then contribute every month-end through 2036.
+- Fetch the latest USD/IDR spot rate at runtime. Use a provisional base case where USD/IDR rises 3% per year, with selectable 0%, 3%, and 5% annual USD/IDR growth cases.
+- Because the dividend withholding-tax rate is unresolved, show 0%, 15%, and 30% withholding cases. Label the primary 0% case as a gross-dividend scenario.
+- Dividends from all non-SGOV holdings go to SGOV. SGOV distributions remain in SGOV and compound there. Do not reinvest dividends into the paying stock.
+- Ignore fees, spread, and automatic inflation increases unless the existing app already has a relevant assumption control.
+
+Operating rules
+--------------
+
+1. Read AGENTS.md and CLAUDE.md completely before editing.
+2. Treat package.json and the installed Next.js version as the source of truth. Before writing code, read the relevant guide under node_modules/next/dist/docs/ as required by AGENTS.md.
+3. Read docs/performance-returns-prompt.md completely, then inspect the current Performance Returns page, dashboard, portfolio ledger, portfolio snapshots, bucket definitions, Firestore helpers, Yahoo Finance helpers, existing API routes, styles, and related tests.
+4. Check git status before editing. Preserve unrelated user changes and do not reset or overwrite them.
+5. Work in stages. After each stage, inspect the diff and keep the code in a buildable state.
+6. Use the repository’s existing architecture and naming patterns. Use apply_patch for local edits.
+7. Do not ask me to approve ordinary implementation choices already decided above. Ask only if a real external blocker or contradictory repository state prevents safe progress.
+
+Stage 0: inspect and plan
+-------------------------
+
+- Identify where the current Performance Returns page stores tab state, loads history, loads ledger positions, and renders tables or charts.
+- Identify how current market values, quantities, cost basis, cash, portfolio buckets, and snapshots are represented.
+- Identify the existing server-side Yahoo Finance pattern and the best available source for USD/IDR.
+- Identify the project’s current chart and formatting conventions.
+- Write a short implementation plan in your progress update, then execute it without waiting for another confirmation.
+
+Stage 1: create the pure simulation model
+-----------------------------------------
+
+Add or extend pure TypeScript helpers for the simulation. Keep the calculation independent of React, Firestore, and browser state.
+
+The model must accept:
+
+- Starting positions, quantities, cash, cost basis, and current quotes.
+- Historical annual price returns and dividend yields for each ticker.
+- VOO benchmark history.
+- As-of date and end year 2036.
+- Monthly DCA amount in IDR and fixed start month 2026-11.
+- Starting USD/IDR spot rate and annual FX growth scenario.
+- Dividend withholding-tax scenario.
+
+Calculate forecast inputs from complete historical years only:
+
+1. Long-window price CAGR using up to the most recent ten complete years.
+2. Recent price CAGR using up to the most recent five complete years.
+3. Trimmed arithmetic mean of annual price returns, removing the single highest and lowest return when enough observations exist.
+4. Robust price estimate:
+
+   50% × long-window price CAGR
+   + 30% × recent price CAGR
+   + 20% × trimmed arithmetic mean
+
+5. Dividend yield estimate as the median of the latest five complete annual yields when available.
+6. For individual stocks, shrink total return toward VOO:
+
+   raw total return = robust price estimate + net dividend yield
+   stock total return = VOO total return + 60% × (raw total return − VOO total return)
+   forecast price return = stock total return − net dividend yield
+
+7. Apply the visible individual-stock total-return guardrail of -20% to +25% and flag estimates that were shrunk or capped.
+8. Use each fund’s own estimate for VOO and VXUS. Model SGOV as the interest-bearing sleeve.
+9. Never convert missing history into zero. Use an explicit status and confidence field.
+
+Stage 2: implement the monthly simulation
+-------------------------------------------
+
+Use a monthly state transition from the as-of date through December 2036.
+
+- Anchor the current portfolio to actual current market value. Do not apply 2026 YTD performance again.
+- For the remaining portion of 2026, apply forecast price growth and dividends only for the time remaining after the as-of date.
+- Begin monthly DCA at the November 2026 month-end. Every contribution is 100% VOO.
+- Convert each Rp 13,000,000 contribution using the projected monthly USD/IDR rate. A weaker rupiah must buy fewer USD of VOO.
+- Buy fractional VOO shares at the forecast month-end VOO price.
+- Existing stocks and ETFs grow by forecast price return only.
+- Estimate monthly dividends from beginning-of-month value × annual dividend yield ÷ 12, apply the selected withholding case, and sweep the net cash into SGOV.
+- Grow SGOV by its forecast annual yield. Add swept dividends after the month’s SGOV growth so the timing is explicit.
+- Track existing VOO shares and DCA VOO shares separately.
+- Track starting value, price growth, gross dividends, tax withheld, net dividends, SGOV sweep, DCA principal, ending value, and allocation for every ticker.
+
+Use these core relationships:
+
+   monthly price factor = (1 + annual price return) ^ (1 / 12)
+   monthly SGOV factor = (1 + annual SGOV yield) ^ (1 / 12)
+   monthly USD/IDR = starting USD/IDR × (1 + annual FX growth) ^ (months / 12)
+   monthly DCA USD = 13,000,000 / monthly USD/IDR
+   VOO shares added = monthly DCA USD / month-end VOO price
+   IDR portfolio value = USD portfolio value × year-end USD/IDR
+
+Return annual snapshots with a reconciliation check:
+
+   ending value = beginning value
+   + external DCA contributions
+   + price growth
+   + SGOV growth
+   + net dividend cash
+   + FX translation when viewed in IDR
+
+Make the reconciliation mathematically consistent and document the treatment of rounding and contribution timing.
+
+Stage 3: wire the data
+----------------------
+
+- Reuse the existing server-side historical-price and dividend provider pattern.
+- Add or extend a server route for simulation inputs if needed. Do not fetch Yahoo data directly from the browser.
+- Fetch the latest USD/IDR rate through a server-side source following the project’s existing pattern. Show the source and as-of time.
+- Reuse the existing ledger and snapshot helpers. Do not fabricate holdings from the historical selection list.
+- Preserve existing Firestore schemas unless a schema change is necessary and documented.
+- Handle stale or missing quotes, missing dividend history, limited ticker history, ticker changes, splits, delistings, and missing FX data with visible statuses.
+
+Stage 4: build the UI
+---------------------
+
+Add the Simulation subtab to the existing Performance Returns dashboard.
+
+Include:
+
+- As-of date and data-source note.
+- Starting portfolio value, cost basis, unrealized gain or loss, cash, and starting allocation.
+- Base-case forecast assumptions by ticker.
+- Controls for FX case: 0%, 3%, 5% annual USD/IDR growth.
+- Controls for dividend withholding case: 0%, 15%, 30%.
+- A visible note that 3% FX is a provisional planning assumption.
+- Summary cards for current value, 2036 value in USD and IDR, cumulative DCA principal, investment growth excluding DCA, SGOV balance, swept dividends, VOO DCA value, and FX translation effect.
+- Annual table from 2026E through 2036 showing beginning value, DCA, dividends, SGOV sweep, price/investment growth, FX effect, ending USD value, ending IDR value, and total allocation.
+- Per-ticker table showing starting value, shares, forecast price return, gross and net dividend yield, annual swept dividends, annual ending values, DCA attribution, and data status.
+- A Total Portfolio row.
+- Charts for total value versus contributions, stacked value by ticker or bucket, SGOV balance and swept dividends, and the USD-versus-IDR projection.
+- Exact accessible table values behind every chart.
+
+Keep actual 2026 YTD context visually separate from the forecasted remainder of 2026. Label all future values as Model estimate or Forecast.
+
+Stage 5: validate
+-----------------
+
+Add focused tests for:
+
+- Forecast-window selection and trimming.
+- VOO benchmark shrinkage and return guardrails.
+- Dividend yield handling and unavailable data.
+- Partial 2026 anchoring without double-counting YTD performance.
+- November 2026 DCA start and monthly contributions through 2036.
+- Fractional VOO shares and fixed-rupiah contributions.
+- 0%, 3%, and 5% FX scenarios.
+- 0%, 15%, and 30% dividend-tax scenarios.
+- Dividends flowing to SGOV and SGOV compounding.
+- USD-to-IDR conversion and FX translation attribution.
+- Contribution-versus-investment-growth reconciliation.
+- Missing quotes and visible data-quality states.
+
+Run the relevant validation after implementation, including:
+
+- npm run typecheck
+- npm run lint
+- the focused simulation tests
+- the existing relevant portfolio and performance tests
+- npm run build if the code path or route warrants it
+
+Fix failures instead of weakening the tests. Inspect the final diff and verify that the historical Performance Returns view and existing Performance page still work.
+
+Stage 6: finish the repository task
+-----------------------------------
+
+- Update docs/performance-returns-prompt.md only if the implementation reveals a necessary assumption or interface correction.
+- Run git diff --check.
+- Stage only files related to this feature.
+- Commit the validated change with a clear message.
+- Push the current branch to origin as required by AGENTS.md.
+- In the final response, summarize the implementation, assumptions, files changed, validation run, commit, and any remaining limitation.
+~~~
