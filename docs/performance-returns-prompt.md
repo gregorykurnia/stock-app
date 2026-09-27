@@ -227,9 +227,9 @@ Placement and scope
 
 - Add a segmented subtab inside Performance Returns: Historical Returns | 10-Year Simulation.
 - Keep the current historical-return table, equal-weight basket, actual portfolio TWR, XIRR, accounting, and allocation views working.
-- Start with the thirteen stock positions currently intended for the portfolio, plus VOO, VXUS, and SGOV. Derive the stock list from the current portfolio source at implementation time and show the exact resolved list in the UI. If the current data contains a different number, use the actual list and label the count.
+- For this implementation, use the thirteen stock names currently in the portfolio at implementation time, plus VOO, VXUS, and SGOV. Snapshot and show the exact resolved list in the UI. If the current data contains a different number, use the actual list and label the count.
 - The selected comparison basket may contain tickers that are not currently owned. The simulation starting positions must come only from the actual portfolio ledger.
-- Add or remove tickers one at a time. Keep this selection separate from the transaction ledger.
+- Keep the simulation universe fixed to the current names for this first version. Structure the code so a future version can make the universe dynamic, but do not add a second dynamic ticker-management workflow now.
 
 Simulation dates and starting point
 -----------------------------------
@@ -241,6 +241,18 @@ Simulation dates and starting point
 - Treat 2026 as a partial-year estimate: actual value through the as-of date plus forecasted performance for the remaining days or months.
 - Show each ticker’s actual 2026 YTD price return as context where history is available. Do not apply that YTD return again to the current market-value starting point.
 - Keep the historical equal-weight basket separate from the simulation’s actual starting weights.
+
+FX treatment
+-----------
+
+Model USD/IDR explicitly because the monthly contribution is fixed in rupiah while the securities are priced in USD:
+
+- Fetch the latest USD/IDR spot rate at runtime and show the as-of rate.
+- Use a provisional base case in which USD/IDR rises by 3% per year, meaning the rupiah weakens by approximately 3% per year. Treat this as a planning assumption, not a prediction.
+- Show 0%, 3%, and 5% annual USD/IDR growth as selectable sensitivity cases, with 3% as the default until a different assumption is supplied.
+- Interpolate the FX path monthly. Convert each Rp 13,000,000 contribution into USD at that month’s projected rate, so a weaker rupiah buys fewer USD of VOO over time.
+- Convert projected USD holdings to IDR at each year-end FX rate. Show both USD and IDR values, because FX can raise the IDR value of USD assets while reducing the USD amount purchased by future IDR contributions.
+- Include an FX translation line in the annual portfolio bridge and show the difference between the USD return, the FX translation effect, and the total IDR result.
 
 Forecast inputs
 ---------------
@@ -285,7 +297,7 @@ Treat dividends from every non-SGOV holding, including VOO and VXUS, as cash rec
 
 - Existing stocks and ETFs grow by forecast price return only.
 - Each month, estimate gross dividends as beginning-of-month position value × gross annual dividend yield ÷ 12.
-- Apply the visible dividend withholding-tax assumption to obtain net dividends.
+- Apply the visible dividend withholding-tax assumption to obtain net dividends. Because the user has not selected a tax rate, run the primary view as a clearly labelled 0% gross-dividend scenario and offer 15% and 30% withholding sensitivity cases until a tax rate is confirmed.
 - Add net dividends to SGOV after the month’s SGOV return is applied.
 - Grow the SGOV sleeve at its forecast annual yield. Treat SGOV’s own distributions as retained in SGOV so they compound there, and do not count them twice.
 - Show gross dividends, tax withheld, net dividends swept, and cumulative dividends by ticker when data supports it.
@@ -297,8 +309,8 @@ Monthly Rp 13 million VOO DCA
 Add a monthly contribution stream of Rp 13,000,000 to VOO:
 
 - Make the monthly IDR amount editable, defaulting to Rp 13,000,000.
-- Convert it to USD using a visible USD/IDR assumption. Default to the current exchange rate held constant unless the user supplies an FX-growth assumption.
-- Default the first contribution to the next full month-end after the as-of date. Add a control to include the current month if the user has not yet contributed.
+- Start 100% of the contribution in VOO at the November 2026 month-end, then continue every month-end through 2036. Do not allocate this DCA stream to VXUS, SGOV, or the individual stocks.
+- Convert each contribution to USD using the projected monthly USD/IDR rate. Do not use one constant exchange rate for the entire horizon.
 - At each month-end, buy fractional VOO shares using that month’s forecast VOO price. Do not replace monthly DCA with one annual contribution.
 - Track existing VOO shares and DCA-purchased VOO shares separately, while also showing the combined VOO total.
 - Dividends from both existing VOO shares and DCA-purchased VOO shares flow into SGOV.
@@ -317,11 +329,14 @@ For a full forecast month, use:
 ~~~text
 monthlyPriceFactor = (1 + forecastPriceReturn) ^ (1 / 12)
 monthlySgovFactor = (1 + forecastSgovYield) ^ (1 / 12)
+monthlyFxRate = startingUsdIdr × (1 + annualUsdIdrGrowth) ^ (monthsFromStart / 12)
+monthlyDcaUsd = monthlyDcaIdr / monthlyFxRate
 
 assetValueEnd = assetValueStart × monthlyPriceFactor
 dividendCash = assetValueStart × netDividendYield / 12
 sgovEnd = sgovStart × monthlySgovFactor + dividendCashFromOtherHoldings
 vooDcaSharesAdded = monthlyDcaUsd / vooMonthEndPrice
+portfolioValueIdr = portfolioValueUsd × monthlyFxRate
 ~~~
 
 For the partial remainder of 2026, use the fraction of the year remaining from the as-of date to December 31 for price growth and dividend accrual. Start the regular monthly schedule in the next full month and apply DCA at the selected month-end dates.
@@ -333,6 +348,7 @@ For every annual snapshot, return:
 - New DCA contribution during the year and cumulative DCA principal.
 - Gross dividends, tax withheld, net dividends, amount swept into SGOV, and SGOV ending balance.
 - Price-growth contribution, dividend contribution, and external-contribution contribution.
+- USD/IDR rate at the snapshot date, FX translation effect, and the IDR value of the same USD portfolio.
 - Portfolio allocation by ticker and by portfolio bucket.
 - A reconciliation check showing that ending value equals beginning value plus contributions, price growth, SGOV growth, and net dividend cash, subject to rounding.
 
@@ -357,6 +373,7 @@ Show summary cards for:
 - Cumulative net dividends swept into SGOV.
 - Estimated SGOV balance in 2036.
 - Estimated VOO value attributable to monthly DCA.
+- Estimated 2036 USD/IDR rate and the IDR value added or lost through FX translation.
 
 Show an annual table for 2026E through 2036 with beginning value, DCA contribution, net dividends, SGOV sweep, investment growth, ending value, and total allocation.
 
@@ -380,6 +397,7 @@ Data quality and guardrails
 - If a starting holding has no current quote, keep its last known value with a stale-data warning or stop the simulation with a clear error. Do not silently treat it as zero.
 - Use nominal values by default. If inflation-adjusted values are added, label the inflation assumption and keep real and nominal values separate.
 - Keep taxes, fees, and FX assumptions visible. Do not present gross cash as net personal wealth without showing the assumptions.
+- Show the FX data source, starting spot rate, annual growth assumption, and sensitivity case. A missing FX quote must be visible and must not become zero.
 - Preserve the existing ledger and Firestore schemas unless a schema change is necessary and documented.
 
 Implementation and validation
@@ -397,17 +415,17 @@ Implementation and validation
 - **Placement:** a Simulation subtab inside the existing Performance Returns page.
 - **Horizon:** 2026 estimated year-end through 2036 year-end, which is the current partial year plus ten future calendar years.
 - **Starting value:** current ledger quantities priced at the latest available close, including current unrealized gains and losses.
-- **DCA timing:** Rp 13 million at the next full month-end after the as-of date.
-- **FX:** current USD/IDR rate held constant.
-- **Dividend treatment:** gross dividends reduced by an editable withholding-tax rate, then swept into SGOV; SGOV distributions remain in SGOV.
+- **DCA timing:** 100% of Rp 13 million to VOO at the November 2026 month-end, then every month-end through 2036.
+- **FX:** latest runtime USD/IDR spot rate with a provisional 3% annual USD/IDR growth base case and 0% and 5% sensitivity cases.
+- **Dividend treatment:** primary view shows gross dividends with 0% withholding because the tax rate is unresolved; also show 15% and 30% sensitivity cases, then sweep net dividends into SGOV. SGOV distributions remain in SGOV.
 - **Costs:** no fees, spread, or inflation increase by default.
 - **Output:** nominal values in both USD and IDR, plus per-ticker and whole-portfolio annual values.
 
-## Choices worth confirming before implementation
+## Updated choices and remaining confirmations
 
-The prompt can be implemented with the defaults above. The only inputs that materially change the result are:
+1. **DCA timing — confirmed:** start 100% in VOO at the November 2026 month-end and continue monthly.
+2. **Dividend withholding tax — unresolved:** keep the rate editable and show 0%, 15%, and 30% cases until the user confirms the applicable rate.
+3. **FX — model explicitly:** fetch the latest USD/IDR spot rate, use 3% annual USD/IDR growth as the provisional base case, and show 0% and 5% sensitivity cases. This affects both IDR portfolio gains and the USD amount purchased by each fixed-rupiah DCA contribution.
+4. **Ticker universe — confirmed for this version:** use the current stock names now, plus VOO, VXUS, and SGOV. Make the implementation easy to convert to a dynamic list later.
 
-1. Whether the Rp 13 million DCA starts next month or should include the current month.
-2. The dividend withholding-tax rate to show net cash rather than gross cash.
-3. Whether a constant current USD/IDR rate is acceptable or an FX forecast should be supplied.
-4. Whether the thirteen stock names should be read dynamically from the current portfolio or fixed to a specific symbol list.
+The provisional 3% FX assumption is a modeling input, not a claim about the future exchange rate. Keep it visible so the user can change it and see how much of the IDR result comes from FX rather than the securities’ USD performance.
