@@ -1,33 +1,41 @@
 # Performance Returns feature prompt
 
-Status: product and implementation draft  
+Status: requirements clarified; product and implementation draft
 Requested: 2026-09-27
 
 ## Recommended location
 
-The app already has a top navigation link called **Performance** that opens `/performance`. Add **Performance Returns** as an inner view or subtab on that page, alongside the existing portfolio value and accounting views.
+The app already has top navigation links for **Master Table**, **Portfolio**, and **Performance**. Add **Performance Returns** as a new top-level tab immediately to the right of **Performance**.
 
-The phrase “top2 tab” needs confirmation. The current code has no tab with that exact name. If “top2” means the Master Table segmented tabs, place the feature there only after confirming that location. The existing `/performance` page is the better fit because it already loads portfolio snapshots, the transaction ledger, dividends, and return calculations.
+Suggested order: **Master Table → Portfolio → Performance → Performance Returns → Personal Finance**. Use a dedicated route such as `/performance-returns`. Reuse the existing Performance data helpers and design system, while keeping the current `/performance` dashboard for portfolio value, TWR, XIRR, accounting, and allocation.
 
 ## Copy/paste implementation prompt
 
 ```text
-Build a new “Performance Returns” view inside the existing /performance page of this Next.js stock portfolio app.
+Build a new top-level “Performance Returns” page at `/performance-returns` and add its navigation link immediately to the right of the existing “Performance” link in this Next.js stock portfolio app.
 
-Before changing code, inspect the existing Performance page, portfolio ledger, portfolio snapshots, portfolio bucket model, Yahoo Finance data helpers, and tests. Reuse the current architecture and styles. Keep the existing portfolio value, TWR, XIRR, accounting, and allocation views working.
+Before changing code, inspect the existing Performance page, portfolio ledger, portfolio snapshots, portfolio bucket model, Yahoo Finance data helpers, top navigation, and tests. Reuse the current architecture and styles. Keep the existing portfolio value, TWR, XIRR, accounting, and allocation views working.
+
+Initial ticker universe and selection
+-------------------------------------
+
+- Start with the thirteen stocks currently intended for the user’s portfolio, plus SGOV, VXUS, and VOO.
+- Treat the initial universe as an editable selection list. The user must be able to add or remove tickers one by one later.
+- Read the thirteen initial stock symbols from the current portfolio source at implementation time unless an explicit symbol list is supplied. Seed SGOV, VXUS, and VOO explicitly even when they are not currently held in the ledger.
+- Keep the selected return basket separate from the actual transaction ledger. A ticker can be included for historical comparison without pretending that the user owned it during every prior year.
 
 Purpose
 -------
-Show the historical annual performance of each active portfolio stock and a clearly labelled portfolio summary for 2016 through the current year. The current year must be shown as YTD through the latest available market close.
+Show a numeric annual percentage table for every selected ticker and an equal-weight historical basket summary for 2016 through the current year. The current year must be shown as YTD through the latest available market close.
 
 The view must separate these measures:
 
 1. Price return: change in the stock’s market price.
-2. Dividend yield: cash dividends per share received during the period divided by the period’s beginning share price.
-3. Total return: price change plus cash dividends, using the same beginning-price denominator.
+2. Cash dividend yield: cash dividends per share received during the period divided by the period’s beginning share price.
+3. Cash total return: price change plus cash dividends, using the same beginning-price denominator.
 4. Annualized return: compounded annual growth rate (CAGR) across the selected period.
 
-Avoid double-counting dividends. Use raw close data for the price-return calculation when dividends are shown separately. If adjusted close is used for a reinvested-dividend total-return series, show that as a separate reinvested total-return measure and do not add the dividend yield to it again.
+The main result is the cash-received version. Use raw close data for the price-return calculation when dividends are shown separately. If adjusted close is used for an optional reinvested-dividend series, show it separately and do not add the cash dividend yield to it again.
 
 Period rules
 ------------
@@ -60,8 +68,10 @@ For each ticker across the selected period, calculate:
 - Annualized cash total return (CAGR).
 - Best year and worst year.
 - Number of positive years and number of years with usable data.
+- Annualized volatility from the annual or higher-frequency return series when enough history exists.
 - Maximum drawdown from the annual or higher-frequency total-return series when enough history exists.
 - Dividend growth by year when the dividend history supports it.
+- Annual comparison against VOO as the primary S&P 500 benchmark, including excess return and cumulative/CAGR comparison when enough history exists.
 
 Use null or an explicit “Insufficient history” state for missing observations. Never turn missing data into 0%. A confirmed non-dividend payer may show 0%; an unavailable dividend history must show an unavailable state.
 
@@ -71,15 +81,15 @@ Portfolio calculations
 Show two clearly labelled portfolio concepts when the data supports them:
 
 1. Actual portfolio performance: use the existing ledger and snapshot methodology. Show calendar-year TWR when complete snapshots and flow data exist. Show personal XIRR where the current Performance page already supports it.
-2. Historical basket estimate: calculate a historical return for the stocks currently selected in the portfolio. Display the weighting method and the data coverage because current holdings applied to earlier years are a model of the basket, not a reconstruction of past ownership.
+2. Historical basket estimate: calculate a historical return for the selected ticker list. Label it as an equal-weight historical basket because the current selection is applied to earlier years as a percentage comparison, rather than as a reconstruction of past ownership.
 
-Use a pure calculation helper for the basket estimate. Support these weighting methods through a visible selector or a clearly documented default:
+Use a pure calculation helper for the basket estimate. The initial method is equal weight:
 
 - Equal weight: every selected ticker has the same weight.
-- Entry-value weight: weight by current ledger cost basis.
-- Current-value weight: weight by current market value.
 
-Use equal weight as the default when the user has not supplied a weighting choice. Show the selected method in the UI. Keep actual ledger-backed TWR separate from the model basket estimate.
+For the first implementation, do not require cost-basis or market-value weights for the basket percentage. Show “Equal-weight historical basket” in the UI and keep actual ledger-backed TWR separate from the model basket estimate.
+
+For each annual basket value, calculate the arithmetic mean of the usable selected-ticker percentages for that year. Normalize across usable tickers when a constituent lacks data, show the number of contributing tickers and coverage percentage, and mark the result partial.
 
 For each year in the basket estimate, show:
 
@@ -106,15 +116,15 @@ Keep “average annual return” and “CAGR” as separate labels. The arithmet
 Suggested UI
 ------------
 
-Add an inner tab or segmented control named “Performance Returns” on `/performance`.
+Add a top-level navigation link named “Performance Returns” immediately after “Performance”. Use `/performance-returns` for the page route.
 
 At the top of the view, add:
 
-- Portfolio scope: All active holdings, Long Term, Index, or Treasury.
+- Ticker selection: the initial thirteen portfolio stocks plus SGOV, VXUS, and VOO, with one-by-one add/remove controls for future changes.
+- Portfolio scope: All active holdings, Long Term, Index, or Treasury, with bucket filters.
 - Start year, defaulting to 2016.
 - End period, defaulting to the current YTD.
-- Weighting method for the historical basket estimate.
-- Return basis: Price, Dividends, Cash Total Return, and optionally Reinvested Total Return.
+- Return basis: show Price Return, Cash Dividend Yield, and Cash Total Return together in the annual table. An optional Reinvested Total Return series may be added later.
 - A small data-source and coverage note.
 
 Add KPI cards for the selected portfolio or basket:
@@ -128,23 +138,23 @@ Add KPI cards for the selected portfolio or basket:
 - Worst Year.
 - Positive Years.
 
-Add an annual table with one row per year and columns for year, price return, dividend yield, cash total return, holdings with usable data, weight coverage, and status. Highlight the current YTD row and mark partial years clearly.
+Add an annual table with one row per year and columns for year, price return percentage, cash dividend yield percentage, cash total return percentage, dividends per share, holdings with usable data, coverage, and status. Highlight the current YTD row and mark partial years clearly.
 
-Add a per-stock table with ticker, company name, portfolio bucket, weight, average annual price return, average annual dividend yield, average annual cash total return, cumulative total return, CAGR, best year, worst year, positive-year count, usable-year count, and data status. Allow the user to expand a stock row or switch to a year-by-year ticker matrix when practical.
+Add a per-stock table with ticker, company name, portfolio bucket, equal weight, every year’s price return percentage, every year’s cash dividend yield percentage, every year’s cash total return percentage, average annual price return, average annual dividend yield, average annual cash total return, cumulative total return, CAGR, volatility, maximum drawdown, best year, worst year, positive-year count, usable-year count, dividend growth, VOO excess return, and data status. Allow the user to expand a stock row or switch to a year-by-year ticker matrix when practical.
 
-Add a compact chart showing annual price return, dividend yield, and cash total return. Keep negative years visually distinct and make the exact values available to keyboard and screen-reader users through the table and accessible labels.
+Add a compact chart showing annual price return, cash dividend yield, and cash total return for the equal-weight basket, with VOO/S&P 500 comparison. Keep negative years visually distinct and make the exact values available to keyboard and screen-reader users through the table and accessible labels.
 
 Data quality and edge cases
 ---------------------------
 
 - Show “—” or a specific status for missing data; never silently use zero.
-- Mark 2026 as YTD and include the as-of date.
+- Mark the current year as YTD and include the as-of date. In the current 2016–2026 request, the row is 2026 YTD.
 - Require a prior-year close for every annual price-return calculation.
-- Handle a stock added after 2016 by showing only the years with sufficient history and a coverage count.
+- Show market history for a stock added after 2016 in the per-stock table when available, while clearly labelling the equal-weight basket as a current selection applied historically. Show only usable years for that stock and a coverage count.
 - Handle ticker changes, splits, delistings, and missing dividend events through a visible status.
 - Treat fees and taxes separately from stock total return. If actual ledger-backed portfolio TWR includes them, show that methodology in the existing Performance accounting area.
 - Keep monetary dividend amounts in the source currency unless the user selects an existing app currency display option. Percent returns remain currency-neutral.
-- Do not call a model basket result “personal return”. Reserve that label for ledger-backed measures such as TWR or XIRR.
+- Do not call an equal-weight basket result “personal return”. Reserve that label for ledger-backed measures such as TWR or XIRR.
 
 Implementation and validation
 ----------------------------
@@ -157,37 +167,46 @@ Implementation and validation
 - Validate the implementation with the project’s relevant type checks, lint checks, and focused tests. Commit and push only the validated feature.
 ```
 
-## Questions to settle before implementation
+## Resolved requirements
 
-1. When you say “top2 tab,” do you mean the existing top navigation’s **Performance** page, or a tab inside the Master Table? My recommendation is an inner **Performance Returns** view on `/performance`.
+1. **Location:** new top-level **Performance Returns** tab immediately to the right of **Performance**.
+2. **Return values:** show both annual price return and annual cash total return, with the annual cash dividend percentage shown separately.
+3. **Dividends:** treat dividends as cash received; reinvestment is optional future work.
+4. **Dividend denominator:** use the first trading close of each year.
+5. **Historical basket:** use equal weight. The first version is percentage-focused and does not need cost-basis or market-value weighting.
+6. **Scope:** include all active holdings with Long Term, Index, and Treasury bucket filters.
+7. **Period:** show 2016 through the current YTD year.
+8. **Later additions:** allow one-by-one ticker selection. Show a recently added ticker’s available market history, while labelling the basket as a historical estimate based on the current selection.
+9. **Non-dividend payers:** show 0% when the provider confirms no dividend; show “Unavailable” for a data gap.
+10. **Secondary metrics:** include dividend growth, volatility, maximum drawdown, and S&P 500 comparison. Use VOO as the primary benchmark because it is part of the initial universe.
 
-2. For each stock’s return, should the primary number be price appreciation, total return including dividends, or both? My recommendation is to show both price return and cash total return, with dividends as a separate column.
+## Remaining clarification
 
-3. Should dividends be treated as cash received or reinvested? My recommendation is cash dividends for the main calculation, with reinvested total return as an optional second series if the data is reliable.
-
-4. What denominator should define annual dividend yield: the first trading close of each year, the average price during the year, or the last close of the year? My recommendation is the first trading close, because it makes price return plus dividend yield reconcile cleanly to the cash total-return formula.
-
-5. How should the portfolio summary be weighted: equal weight, current market value, entry cost basis, or actual historical transaction weights? My recommendation is equal weight for the historical basket estimate until you choose a weighting rule, plus actual ledger-backed TWR where historical snapshots exist.
-
-6. Should the summary include all active buckets—Long Term, Index, and Treasury—or only the stock portfolio? My recommendation is an **All active holdings** default with bucket filters.
-
-7. Do you want the 2016–current view to show eleven rows—2016 through 2025 plus current-year YTD—or only ten rows by excluding 2016 or the current YTD year? My recommendation is to show all eleven labelled periods and describe the span as 2016 through current YTD.
-
-8. If a ticker was added to the portfolio recently, should its earlier market history still appear as a stock-history row? My recommendation is yes for the per-stock history, while the basket table shows a clear “historical basket estimate” label and coverage percentage.
-
-9. Should a confirmed non-dividend payer display 0% dividend yield while a provider data gap displays “Unavailable”? My recommendation is yes.
-
-10. Do you also want dividend growth, volatility, Sharpe/Sortino, maximum drawdown, and benchmark comparison against VOO or the S&P 500? My recommendation is to include dividend growth, volatility, maximum drawdown, and a VOO comparison as secondary metrics after the core annual table is working.
+The only concrete input still missing is the exact thirteen stock symbols if they differ from the stocks currently stored in the portfolio. The implementation can derive them from the current portfolio at build time, then seed SGOV, VXUS, and VOO explicitly. If you want a fixed list, provide the symbols before implementation.
 
 ## Recommended product defaults
 
 Until the questions above are answered, use these defaults:
 
-- Location: inner **Performance Returns** view on `/performance`.
+- Location: top-level **Performance Returns** tab immediately to the right of **Performance**, using `/performance-returns`.
+- Initial selection: the thirteen current portfolio stocks plus SGOV, VXUS, and VOO.
 - Period: 2016 through the current YTD year.
 - Primary stock series: raw-close price return, cash dividend yield, and cash total return.
 - Dividend denominator: first trading close of each year.
-- Portfolio basket weighting: equal weight, with the weighting method shown in the UI.
+- Portfolio basket weighting: equal weight; show that label in the UI.
 - Actual portfolio result: existing ledger-backed TWR/XIRR when sufficient history exists.
 - Long-term summary: arithmetic average annual return, cumulative compounded return, and CAGR shown as separate metrics.
+- Secondary metrics: dividend growth, volatility, maximum drawdown, and VOO/S&P 500 comparison.
 - Missing data: explicit status and coverage percentage; missing observations never become 0%.
+
+## Model recommendation for implementation
+
+For one careful end-to-end implementation, use **GPT-6 Sol** with high or xhigh reasoning. OpenAI describes Sol as built for complex coding and agentic workflows, while GPT-6 Luna is positioned for efficient, focused, high-volume work. GPT-6 Astra is the strongest option for the hardest architecture or audit pass when cost is less important. See the [official OpenAI model guidance](https://developers.openai.com/api/docs/models).
+
+Recommended workflow:
+
+1. Use GPT-6 Sol to inspect the repo, settle the data model, implement the pure calculations, and build the page.
+2. Use GPT-6 Astra for an independent review of the return formulas, dividend handling, missing-data behavior, and regression risk if it is available.
+3. Use GPT-6 Luna for focused follow-up work such as test expansion, UI cleanup, formatting, and repetitive fixes.
+
+If GPT-6 Luna is the only available option, use it with high or xhigh reasoning and require the same staged workflow: calculation helpers first, synthetic tests second, UI third, and a final audit against the acceptance criteria. Luna can handle this feature, but the data-methodology review and explicit tests carry more weight than the model name.
