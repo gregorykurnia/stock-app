@@ -1,20 +1,30 @@
-# Performance Returns feature prompt
+# Performance Returns and 10-Year Simulation feature prompt
 
-Status: requirements clarified; product and implementation draft
+Status: historical returns implemented; simulation requirements added
 Requested: 2026-09-27
+
+## Simulation placement recommendation
+
+Keep **Performance Returns** as the top-level tab. Add the simulation as a segmented subtab inside that page:
+
+**Historical Returns | 10-Year Simulation**
+
+The current app already has the top-level route and historical-return dashboard. The simulation should reuse that page’s data and selection controls instead of creating another top-level navigation item.
 
 ## Recommended location
 
-The app already has top navigation links for **Master Table**, **Portfolio**, and **Performance**. Add **Performance Returns** as a new top-level tab immediately to the right of **Performance**.
+Keep **Performance Returns** as the top-level tab immediately to the right of **Performance**. It already exists at /performance-returns. Add the simulation as a segmented subtab inside that page:
 
-Suggested order: **Master Table → Portfolio → Performance → Performance Returns → Personal Finance**. Use a dedicated route such as `/performance-returns`. Reuse the existing Performance data helpers and design system, while keeping the current `/performance` dashboard for portfolio value, TWR, XIRR, accounting, and allocation.
+**Historical Returns | 10-Year Simulation**
+
+Suggested order: **Master Table → Portfolio → Performance → Performance Returns → Personal Finance**. Reuse the existing Performance Returns data helpers and design system, while keeping the current /performance dashboard for portfolio value, TWR, XIRR, accounting, and allocation.
 
 ## Copy/paste implementation prompt
 
 ```text
-Build a new top-level “Performance Returns” page at `/performance-returns` and add its navigation link immediately to the right of the existing “Performance” link in this Next.js stock portfolio app.
+Extend the existing “Performance Returns” page at /performance-returns with a “10-Year Simulation” subtab. The top-level navigation link already exists; do not create a duplicate route or navigation item.
 
-Before changing code, inspect the existing Performance page, portfolio ledger, portfolio snapshots, portfolio bucket model, Yahoo Finance data helpers, top navigation, and tests. Reuse the current architecture and styles. Keep the existing portfolio value, TWR, XIRR, accounting, and allocation views working.
+Before changing code, inspect the existing Performance Returns page, Performance page, portfolio ledger, portfolio snapshots, portfolio bucket model, Yahoo Finance data helpers, top navigation, and tests. Reuse the current architecture and styles. Keep the existing historical returns, portfolio value, TWR, XIRR, accounting, and allocation views working.
 
 Initial ticker universe and selection
 -------------------------------------
@@ -116,7 +126,7 @@ Keep “average annual return” and “CAGR” as separate labels. The arithmet
 Suggested UI
 ------------
 
-Add a top-level navigation link named “Performance Returns” immediately after “Performance”. Use `/performance-returns` for the page route.
+Keep the existing top-level “Performance Returns” link immediately after “Performance” and use the existing /performance-returns route. Add the historical and simulation views as subtabs inside that page.
 
 At the top of the view, add:
 
@@ -169,7 +179,7 @@ Implementation and validation
 
 ## Resolved requirements
 
-1. **Location:** new top-level **Performance Returns** tab immediately to the right of **Performance**.
+1. **Location:** existing top-level **Performance Returns** tab immediately to the right of **Performance**, with the simulation as a subtab.
 2. **Return values:** show both annual price return and annual cash total return, with the annual cash dividend percentage shown separately.
 3. **Dividends:** treat dividends as cash received; reinvestment is optional future work.
 4. **Dividend denominator:** use the first trading close of each year.
@@ -180,9 +190,9 @@ Implementation and validation
 9. **Non-dividend payers:** show 0% when the provider confirms no dividend; show “Unavailable” for a data gap.
 10. **Secondary metrics:** include dividend growth, volatility, maximum drawdown, and S&P 500 comparison. Use VOO as the primary benchmark because it is part of the initial universe.
 
-## Remaining clarification
+## Remaining historical-return clarification
 
-The only concrete input still missing is the exact thirteen stock symbols if they differ from the stocks currently stored in the portfolio. The implementation can derive them from the current portfolio at build time, then seed SGOV, VXUS, and VOO explicitly. If you want a fixed list, provide the symbols before implementation.
+For the historical view, the implementation can derive the thirteen stock symbols from the current portfolio at build time, then seed SGOV, VXUS, and VOO explicitly. If you want a fixed list, provide the symbols before implementation. Simulation-specific choices are listed at the end of this document.
 
 ## Recommended product defaults
 
@@ -199,14 +209,205 @@ Until the questions above are answered, use these defaults:
 - Secondary metrics: dividend growth, volatility, maximum drawdown, and VOO/S&P 500 comparison.
 - Missing data: explicit status and coverage percentage; missing observations never become 0%.
 
-## Model recommendation for implementation
+## Implementation workflow
 
-For one careful end-to-end implementation, use **GPT-6 Sol** with high or xhigh reasoning. OpenAI describes Sol as built for complex coding and agentic workflows, while GPT-6 Luna is positioned for efficient, focused, high-volume work. GPT-6 Astra is the strongest option for the hardest architecture or audit pass when cost is less important. See the [official OpenAI model guidance](https://developers.openai.com/api/docs/models).
+Implement the calculation helpers first, then synthetic validation, then the UI. Finish with an audit against the formulas, assumptions, data-quality states, and reconciliation requirements in the simulation prompt. Keep the methodology review focused on preventing dividend double-counting, contribution-versus-return confusion, and accidental extrapolation of a single boom year.
 
-Recommended workflow:
+## Copy/paste simulation add-on prompt
 
-1. Use GPT-6 Sol to inspect the repo, settle the data model, implement the pure calculations, and build the page.
-2. Use GPT-6 Astra for an independent review of the return formulas, dividend handling, missing-data behavior, and regression risk if it is available.
-3. Use GPT-6 Luna for focused follow-up work such as test expansion, UI cleanup, formatting, and repetitive fixes.
+Use this prompt to extend the existing Performance Returns page:
 
-If GPT-6 Luna is the only available option, use it with high or xhigh reasoning and require the same staged workflow: calculation helpers first, synthetic tests second, UI third, and a final audit against the acceptance criteria. Luna can handle this feature, but the data-methodology review and explicit tests carry more weight than the model name.
+~~~text
+Extend the existing Performance Returns page with a 10-Year Simulation subtab. The top-level Performance Returns route and historical-return view already exist. Do not create a duplicate route or navigation item.
+
+The simulation is a rough planning model for the current portfolio. It must be transparent about assumptions, distinguish actual values from forecasts, and keep external contributions separate from investment growth.
+
+Placement and scope
+-------------------
+
+- Add a segmented subtab inside Performance Returns: Historical Returns | 10-Year Simulation.
+- Keep the current historical-return table, equal-weight basket, actual portfolio TWR, XIRR, accounting, and allocation views working.
+- Start with the thirteen stock positions currently intended for the portfolio, plus VOO, VXUS, and SGOV. Derive the stock list from the current portfolio source at implementation time and show the exact resolved list in the UI. If the current data contains a different number, use the actual list and label the count.
+- The selected comparison basket may contain tickers that are not currently owned. The simulation starting positions must come only from the actual portfolio ledger.
+- Add or remove tickers one at a time. Keep this selection separate from the transaction ledger.
+
+Simulation dates and starting point
+-----------------------------------
+
+- Use the latest available market close as the simulation as-of date.
+- Use the actual current market value and share quantity for every ledger position, priced with the latest available quote. The current unrealized gain or loss is already included in this value.
+- Include current uninvested cash as a separate Unallocated cash row or explicitly map it into the SGOV sleeve. Do not silently drop cash.
+- Show an as-of row for the current portfolio and then one estimated 2026 year-end row followed by 2027 through 2036 year-end rows.
+- Treat 2026 as a partial-year estimate: actual value through the as-of date plus forecasted performance for the remaining days or months.
+- Show each ticker’s actual 2026 YTD price return as context where history is available. Do not apply that YTD return again to the current market-value starting point.
+- Keep the historical equal-weight basket separate from the simulation’s actual starting weights.
+
+Forecast inputs
+---------------
+
+Use one visible base-case expected annual price return and one visible base-case dividend yield for every ticker. These are planning assumptions, not predictions. Show the historical observations, window lengths, benchmark anchor, shrinkage, and any cap used to produce each input.
+
+Use complete historical years only and exclude the current partial year:
+
+1. Calculate annual price returns and cash dividend yields using the existing historical-return rules.
+2. Calculate a long-window price CAGR using up to the most recent ten complete years.
+3. Calculate a recent price CAGR using up to the most recent five complete years.
+4. Calculate a trimmed arithmetic mean of annual price returns. When enough observations exist, remove the single highest and single lowest annual return before averaging.
+5. Blend those three values:
+
+~~~text
+robustPriceEstimate =
+  50% × longWindowPriceCagr
+  + 30% × recentPriceCagr
+  + 20% × trimmedMeanAnnualPriceReturn
+~~~
+
+Use the median dividend yield from the most recent five complete years when available. If a provider confirms that a ticker has never paid a dividend, use 0%. If dividend history is unavailable, show an unavailable state and require an explicit fallback before the simulation runs.
+
+To reduce the effect of company-specific boom years such as an isolated 120% or 200% year, anchor individual-stock total returns toward VOO:
+
+~~~text
+rawTotalReturnEstimate = robustPriceEstimate + netDividendYieldEstimate
+stockTotalReturnEstimate =
+  VOO total-return estimate
+  + 60% × (rawTotalReturnEstimate - VOO total-return estimate)
+forecastPriceReturn = stockTotalReturnEstimate - netDividendYieldEstimate
+~~~
+
+Use each fund’s own robust estimate for VOO and VXUS. Treat SGOV as the interest-bearing cash sleeve described below. Apply a visible base-case guardrail of -20% to +25% to an individual stock’s forecast total return and flag any ticker that was shrunk or capped. Keep the 60% shrinkage and guardrail as named constants.
+
+This method uses price growth and cash dividends as separate inputs. It must not extrapolate the largest historical year or silently assume that dividends are reinvested into the paying stock.
+
+Dividends and SGOV
+------------------
+
+Treat dividends from every non-SGOV holding, including VOO and VXUS, as cash received and swept into SGOV:
+
+- Existing stocks and ETFs grow by forecast price return only.
+- Each month, estimate gross dividends as beginning-of-month position value × gross annual dividend yield ÷ 12.
+- Apply the visible dividend withholding-tax assumption to obtain net dividends.
+- Add net dividends to SGOV after the month’s SGOV return is applied.
+- Grow the SGOV sleeve at its forecast annual yield. Treat SGOV’s own distributions as retained in SGOV so they compound there, and do not count them twice.
+- Show gross dividends, tax withheld, net dividends swept, and cumulative dividends by ticker when data supports it.
+- If no tax assumption is supplied, default to 0% only in a clearly labelled gross-cash scenario and expose the rate as an input.
+
+Monthly Rp 13 million VOO DCA
+-----------------------------
+
+Add a monthly contribution stream of Rp 13,000,000 to VOO:
+
+- Make the monthly IDR amount editable, defaulting to Rp 13,000,000.
+- Convert it to USD using a visible USD/IDR assumption. Default to the current exchange rate held constant unless the user supplies an FX-growth assumption.
+- Default the first contribution to the next full month-end after the as-of date. Add a control to include the current month if the user has not yet contributed.
+- At each month-end, buy fractional VOO shares using that month’s forecast VOO price. Do not replace monthly DCA with one annual contribution.
+- Track existing VOO shares and DCA-purchased VOO shares separately, while also showing the combined VOO total.
+- Dividends from both existing VOO shares and DCA-purchased VOO shares flow into SGOV.
+- Keep the Rp 13 million contribution fixed in nominal terms. Do not automatically increase it for inflation.
+- Keep DCA principal separate from investment growth. Ignore purchase fees and spread unless the user supplies those assumptions.
+
+Monthly simulation
+------------------
+
+Implement the calculation as a pure helper that receives starting positions, current quotes, annual forecast inputs, as-of date, DCA amount, FX assumption, withholding-tax rate, and end year. It should return annual snapshots and per-ticker audit fields.
+
+For each non-SGOV holding, track shares, price-only value, gross dividends, net dividends swept, and ending value. For VOO, track existing shares and DCA shares separately. For SGOV, track opening balance, swept dividends, SGOV growth, and ending balance.
+
+For a full forecast month, use:
+
+~~~text
+monthlyPriceFactor = (1 + forecastPriceReturn) ^ (1 / 12)
+monthlySgovFactor = (1 + forecastSgovYield) ^ (1 / 12)
+
+assetValueEnd = assetValueStart × monthlyPriceFactor
+dividendCash = assetValueStart × netDividendYield / 12
+sgovEnd = sgovStart × monthlySgovFactor + dividendCashFromOtherHoldings
+vooDcaSharesAdded = monthlyDcaUsd / vooMonthEndPrice
+~~~
+
+For the partial remainder of 2026, use the fraction of the year remaining from the as-of date to December 31 for price growth and dividend accrual. Start the regular monthly schedule in the next full month and apply DCA at the selected month-end dates.
+
+For every annual snapshot, return:
+
+- Beginning portfolio value.
+- Ending value by ticker and ending total portfolio value.
+- New DCA contribution during the year and cumulative DCA principal.
+- Gross dividends, tax withheld, net dividends, amount swept into SGOV, and SGOV ending balance.
+- Price-growth contribution, dividend contribution, and external-contribution contribution.
+- Portfolio allocation by ticker and by portfolio bucket.
+- A reconciliation check showing that ending value equals beginning value plus contributions, price growth, SGOV growth, and net dividend cash, subject to rounding.
+
+Do not describe the ending-value increase as investment return when it was caused by the Rp 13 million contributions.
+
+Required output
+---------------
+
+Show a short methodology panel with:
+
+- As-of date and quote source.
+- Starting portfolio market value, cost basis, current unrealized gain or loss, and current allocation.
+- Forecast price return and dividend yield for every ticker.
+- Historical window used, data coverage, benchmark anchor, shrinkage, caps, FX rate, tax rate, DCA timing, and dividend destination.
+
+Show summary cards for:
+
+- Current starting value.
+- Estimated 2036 ending value in USD and IDR.
+- Total DCA principal through 2036.
+- Estimated investment growth excluding DCA principal.
+- Cumulative net dividends swept into SGOV.
+- Estimated SGOV balance in 2036.
+- Estimated VOO value attributable to monthly DCA.
+
+Show an annual table for 2026E through 2036 with beginning value, DCA contribution, net dividends, SGOV sweep, investment growth, ending value, and total allocation.
+
+Show a per-ticker table with ticker, name, role, starting value, current shares, forecast price return, gross dividend yield, net dividend yield, annual dividends swept, 2026E ending value, every later year-end value, 2036 ending value, DCA contribution if applicable, and data-quality status. Include a Total Portfolio row.
+
+Add charts where they improve readability:
+
+- Total portfolio value versus cumulative contributions.
+- Stacked value by ticker or portfolio bucket through 2036.
+- SGOV balance and cumulative swept dividends.
+- Optional base-case sensitivity for a conservative and optimistic return assumption.
+
+Label every projected number as Model estimate or Forecast. Keep actual 2026 YTD data visually separate from forecasted remainder-of-year data. Use accessible tables as the source of exact values.
+
+Data quality and guardrails
+---------------------------
+
+- Missing prices, missing dividend history, limited history, stale quotes, ticker changes, splits, and delistings need visible statuses.
+- Never turn missing data into 0%. A confirmed non-dividend payer may show 0%; unavailable dividend history must remain unavailable until a fallback is selected.
+- If a stock has fewer than five complete years, use the available history, lower its confidence, and show the fallback or benchmark anchor used.
+- If a starting holding has no current quote, keep its last known value with a stale-data warning or stop the simulation with a clear error. Do not silently treat it as zero.
+- Use nominal values by default. If inflation-adjusted values are added, label the inflation assumption and keep real and nominal values separate.
+- Keep taxes, fees, and FX assumptions visible. Do not present gross cash as net personal wealth without showing the assumptions.
+- Preserve the existing ledger and Firestore schemas unless a schema change is necessary and documented.
+
+Implementation and validation
+----------------------------
+
+- Reuse the existing Performance Returns dashboard, portfolio ledger, snapshot data, bucket definitions, server-side Yahoo Finance integration, and styles.
+- Keep the simulation formulas in pure calculation helpers so they can be checked independently from the UI.
+- Add focused coverage for partial 2026, current-value anchoring, 2036 horizon, monthly VOO DCA, fractional shares, dividends flowing to SGOV, SGOV compounding, missing data, tax and FX assumptions, contribution-versus-return reconciliation, and the distinction between price return and cash total return.
+- Preserve the existing historical returns and actual TWR/XIRR behavior.
+- Validate the implementation with the project’s relevant type checks, lint checks, and focused tests before committing.
+~~~
+
+## Defaults to use unless I clarify them
+
+- **Placement:** a Simulation subtab inside the existing Performance Returns page.
+- **Horizon:** 2026 estimated year-end through 2036 year-end, which is the current partial year plus ten future calendar years.
+- **Starting value:** current ledger quantities priced at the latest available close, including current unrealized gains and losses.
+- **DCA timing:** Rp 13 million at the next full month-end after the as-of date.
+- **FX:** current USD/IDR rate held constant.
+- **Dividend treatment:** gross dividends reduced by an editable withholding-tax rate, then swept into SGOV; SGOV distributions remain in SGOV.
+- **Costs:** no fees, spread, or inflation increase by default.
+- **Output:** nominal values in both USD and IDR, plus per-ticker and whole-portfolio annual values.
+
+## Choices worth confirming before implementation
+
+The prompt can be implemented with the defaults above. The only inputs that materially change the result are:
+
+1. Whether the Rp 13 million DCA starts next month or should include the current month.
+2. The dividend withholding-tax rate to show net cash rather than gross cash.
+3. Whether a constant current USD/IDR rate is acceptable or an FX forecast should be supplied.
+4. Whether the thirteen stock names should be read dynamically from the current portfolio or fixed to a specific symbol list.
