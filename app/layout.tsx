@@ -56,6 +56,7 @@ export default function RootLayout({
             <Link href="/" className="shrink-0 px-3 py-1.5 rounded-md font-medium text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-black/[0.03] transition-colors">Master Table</Link>
             <Link href="/portfolio" className="shrink-0 px-3 py-1.5 rounded-md font-medium text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-black/[0.03] transition-colors">Portfolio</Link>
             <Link href="/performance" className="shrink-0 px-3 py-1.5 rounded-md font-medium text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-black/[0.03] transition-colors">Performance</Link>
+            <Link href="/performance-returns" className="shrink-0 px-3 py-1.5 rounded-md font-medium text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-black/[0.03] transition-colors">Performance Returns</Link>
             <Link href="/personal-finance" className="shrink-0 px-3 py-1.5 rounded-md font-medium text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-black/[0.03] transition-colors">Personal Finance</Link>
             <Link href="/markets" className="shrink-0 px-3 py-1.5 rounded-md font-medium text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-black/[0.03] transition-colors">Markets</Link>
             <Link href="/heatmap" className="shrink-0 px-3 py-1.5 rounded-md font-medium text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-black/[0.03] transition-colors">Heatmap</Link>
