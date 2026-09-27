@@ -27,6 +27,8 @@ import type { LedgerTransaction } from "@/lib/portfolioLedger";
 type Scope = "all" | PortfolioBucket;
 type ActualYear = { year: number; returnPct: number | null; observations: number; status: string };
 type StockRecord = { ticker: string; name: string | null; bucket: PortfolioBucket | "other" };
+type TickerSortKey = "averageAnnualPriceReturnPct" | "averageAnnualDividendYieldPct" | "averageAnnualCashTotalReturnPct" | "cumulativeCashTotalReturnPct" | "cashTotalReturnCagrPct" | "annualizedVolatilityPct";
+type TickerSort = { key: TickerSortKey; direction: "asc" | "desc" } | null;
 
 const SELECTION_STORAGE_KEY = "performance-returns.selected-tickers.v1";
 const MAX_RETURN_TICKERS = 39;
@@ -188,6 +190,8 @@ function TickerMatrix({
   histories,
   years,
   equalWeight,
+  sort,
+  onSort,
 }: {
   tickers: readonly string[];
   stockByTicker: Readonly<Record<string, StockRecord>>;
@@ -197,8 +201,27 @@ function TickerMatrix({
   histories: Readonly<Record<string, TickerHistory>>;
   years: readonly number[];
   equalWeight: number;
+  sort: TickerSort;
+  onSort: (key: TickerSortKey) => void;
 }) {
   if (tickers.length === 0) return <p className="p-5 text-sm text-gray-500">No tickers match this scope. Select another scope or add a ticker above.</p>;
+
+  const sortableHeader = (label: string, key: TickerSortKey, className = "", rowSpan = 1) => (
+    <th rowSpan={rowSpan} aria-sort={sort?.key === key ? (sort.direction === "asc" ? "ascending" : "descending") : "none"} className={className}>
+      <button type="button" onClick={() => onSort(key)} className="inline-flex items-center gap-1 whitespace-nowrap text-inherit hover:text-gray-900 focus-visible:rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
+        {label}<span aria-hidden="true" className="text-gray-400">{sort?.key === key ? (sort.direction === "asc" ? "↑" : "↓") : "↕"}</span>
+      </button>
+    </th>
+  );
+
+  const sortedTickers = sort ? [...tickers].sort((left, right) => {
+    const leftValue = summaryByTicker[left]?.[sort.key] ?? null;
+    const rightValue = summaryByTicker[right]?.[sort.key] ?? null;
+    if (leftValue == null && rightValue == null) return 0;
+    if (leftValue == null) return 1;
+    if (rightValue == null) return -1;
+    return (leftValue - rightValue) * (sort.direction === "asc" ? 1 : -1);
+  }) : tickers;
 
   return (
     <div className="overflow-x-auto">
@@ -209,16 +232,16 @@ function TickerMatrix({
             <th rowSpan={2} className="whitespace-nowrap px-2 py-2">Bucket</th><th rowSpan={2} className="whitespace-nowrap px-2 py-2">Equal weight</th>
             {years.map((year) => <th key={year} className="border-l border-gray-200 px-2 py-2 text-center">{year}{year === new Date().getFullYear() ? " YTD" : ""}</th>)}
             <th colSpan={5} className="border-l border-gray-200 px-2 py-2 text-center">Period summary</th>
-            <th rowSpan={2} className="whitespace-nowrap px-2 py-2">Volatility</th><th rowSpan={2} className="whitespace-nowrap px-2 py-2">Max drawdown</th>
+            {sortableHeader("Volatility", "annualizedVolatilityPct", "whitespace-nowrap px-2 py-2", 2)}<th rowSpan={2} className="whitespace-nowrap px-2 py-2">Max drawdown</th>
             <th rowSpan={2} className="whitespace-nowrap px-2 py-2">Best / worst</th><th rowSpan={2} className="whitespace-nowrap px-2 py-2">Positive / usable</th>
             <th rowSpan={2} className="min-w-32 px-2 py-2">Dividend growth</th><th rowSpan={2} className="whitespace-nowrap px-2 py-2">VOO excess</th><th rowSpan={2} className="min-w-40 px-2 py-2">Data status</th>
           </tr>
           <tr>
             {years.map((year) => <th key={`${year}-metrics`} className="border-l border-gray-200 px-2 py-1.5 text-right">Price / yield / total / DPS / VOO excess</th>)}
-            <th className="border-l border-gray-200 px-2 py-1.5 text-right">Average price</th><th className="px-2 py-1.5 text-right">Average dividend yield</th><th className="px-2 py-1.5 text-right">Average cash total</th><th className="px-2 py-1.5 text-right">Cumulative cash total</th><th className="px-2 py-1.5 text-right">Cash total CAGR</th>
+            {sortableHeader("Average price", "averageAnnualPriceReturnPct", "border-l border-gray-200 px-2 py-1.5 text-right")}{sortableHeader("Average dividend yield", "averageAnnualDividendYieldPct", "px-2 py-1.5 text-right")}{sortableHeader("Average cash total", "averageAnnualCashTotalReturnPct", "px-2 py-1.5 text-right")}{sortableHeader("Cumulative cash total", "cumulativeCashTotalReturnPct", "px-2 py-1.5 text-right")}{sortableHeader("Cash total CAGR", "cashTotalReturnCagrPct", "px-2 py-1.5 text-right")}
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-100">{tickers.map((ticker) => {
+        <tbody className="divide-y divide-gray-100">{sortedTickers.map((ticker) => {
           const stock = stockByTicker[ticker];
           const history = histories[ticker];
           const returns = annualByTicker[ticker] ?? [];
@@ -278,6 +301,7 @@ export default function PerformanceReturnsDashboard() {
   const [ledgerTransactions, setLedgerTransactions] = useState<LedgerTransaction[] | undefined>(undefined);
   const [performanceLoading, setPerformanceLoading] = useState(true);
   const [performanceError, setPerformanceError] = useState("");
+  const [tickerSort, setTickerSort] = useState<TickerSort>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -435,6 +459,12 @@ export default function PerformanceReturnsDashboard() {
     setSelectionError("");
   }
 
+  function sortTickersBy(key: TickerSortKey) {
+    setTickerSort((current) => current?.key === key
+      ? { key, direction: current.direction === "asc" ? "desc" : "asc" }
+      : { key, direction: "asc" });
+  }
+
   return (
     <div className="space-y-4">
       <section className="surface-card p-4 sm:p-5">
@@ -487,7 +517,7 @@ export default function PerformanceReturnsDashboard() {
 
       <section className="surface-card overflow-hidden">
         <div className="border-b border-[var(--border)] px-4 py-3"><h2 className="text-sm font-bold text-gray-900">Per-stock annual returns</h2><p className="mt-1 text-xs text-gray-500">Each year shows price return, cash dividend yield, cash total return, and dividend dollars per share. Period averages are arithmetic; cumulative return compounds annual cash total returns.</p></div>
-        <TickerMatrix tickers={visibleTickers} stockByTicker={stockByTicker} annualByTicker={annualByTicker} vooRows={vooRows} summaryByTicker={summaryByTicker} histories={histories} years={years} equalWeight={visibleTickers.length === 0 ? 0 : 100 / visibleTickers.length} />
+        <TickerMatrix tickers={visibleTickers} stockByTicker={stockByTicker} annualByTicker={annualByTicker} vooRows={vooRows} summaryByTicker={summaryByTicker} histories={histories} years={years} equalWeight={visibleTickers.length === 0 ? 0 : 100 / visibleTickers.length} sort={tickerSort} onSort={sortTickersBy} />
       </section>
 
       <section className="surface-card overflow-hidden">
