@@ -1,7 +1,8 @@
 # Performance Returns and 10-Year Simulation feature prompt
 
-Status: historical returns implemented; simulation requirements added
+Status: historical returns implemented; simulation requirements added; historical USD/IDR context specified
 Requested: 2026-09-27
+Updated: 2026-09-28
 
 ## Simulation placement recommendation
 
@@ -57,6 +58,26 @@ Period rules
 - Calculate current YTD from the last available close of the prior calendar year to the latest available close in the current year.
 - Fetch the prior-year closing observation required to calculate 2016. Handle weekends, holidays, missing observations, and delisted tickers with an explicit data-quality status.
 - Use the provider’s split-adjusted price history and historical dividend events. Keep the source and as-of date visible in a tooltip or metadata area.
+
+Historical USD/IDR strength context
+------------------------------------
+
+Add a compact currency-context panel to the **Historical Returns** subtab, directly after the annual basket table and before the annual return chart. Do not create another top-level page, and do not mix observed FX history with the 10-Year Simulation’s forecast assumptions.
+
+- Use Yahoo Finance `IDR=X` as the USD/IDR pair, quoted as Indonesian rupiah per US dollar.
+- Label the panel **USD/IDR strength (IDR per USD)**. A rising quote means USD strengthened against IDR and IDR weakened; a falling quote means the reverse.
+- Show one row for every year in the selected range: 2016, 2017, …, the last completed year, and the current year labelled YTD. With the current defaults, this is 2016–2026 YTD.
+- For each full year, use the last valid FX close before January 1 as the beginning rate and the last valid close inside that calendar year as the ending rate. For 2016, the beginning observation is the last valid close in 2015.
+- For the current year, use the prior calendar-year close through the latest available current-year close and label the row YTD with its as-of date.
+- Calculate the observed quote change as:
+
+      usdStrengthPct = (endUsdIdr / startUsdIdr - 1) * 100
+
+- Display the beginning rate, ending rate, annual USD strengthening percentage, and data status. Positive values should be visually distinct from negative values, while the exact values remain available in an accessible table.
+- Include a small summary for cumulative USD/IDR change across the selected period. If an annualized figure is shown, calculate it from the actual elapsed time and label it as an observed historical annualized change, not a forecast.
+- If the UI also shows IDR’s change measured in USD purchasing-power terms, use `startUsdIdr / endUsdIdr - 1` and label it separately. Do not present that inverse percentage as the same number as the USD/IDR quote change.
+- Keep the FX series separate from USD stock price return, dividend yield, and cash total return. Do not add FX to those returns unless an explicitly labelled IDR-translated return mode is implemented.
+- Show the source, quote direction, latest FX close, fetched-at time, and coverage status. Missing FX history must remain unavailable rather than becoming 0%.
 
 Per-stock calculations
 ----------------------
@@ -136,6 +157,8 @@ At the top of the view, add:
 - End period, defaulting to the current YTD.
 - Return basis: show Price Return, Cash Dividend Yield, and Cash Total Return together in the annual table. An optional Reinvested Total Return series may be added later.
 - A small data-source and coverage note.
+- A historical FX context panel below the annual basket table showing annual USD/IDR quote changes from 2016 through current YTD, with start/end rates, percentage change, source, and as-of date.
+- A compact annual USD/IDR strengthening chart may accompany the table, but the table must remain the accessible source of exact values and statuses.
 
 Add KPI cards for the selected portfolio or basket:
 
@@ -160,6 +183,7 @@ Data quality and edge cases
 - Show “—” or a specific status for missing data; never silently use zero.
 - Mark the current year as YTD and include the as-of date. In the current 2016–2026 request, the row is 2026 YTD.
 - Require a prior-year close for every annual price-return calculation.
+- Treat `IDR=X` as a separate historical FX series. Require a prior-year FX close for each annual FX calculation, including the 2015 close needed for 2016, and show an explicit unavailable status when it is missing.
 - Show market history for a stock added after 2016 in the per-stock table when available, while clearly labelling the equal-weight basket as a current selection applied historically. Show only usable years for that stock and a coverage count.
 - Handle ticker changes, splits, delistings, and missing dividend events through a visible status.
 - Treat fees and taxes separately from stock total return. If actual ledger-backed portfolio TWR includes them, show that methodology in the existing Performance accounting area.
@@ -171,8 +195,9 @@ Implementation and validation
 
 - Reuse the existing `PortfolioPerformanceDashboard`, portfolio ledger, snapshot data, bucket definitions, and current design tokens where appropriate.
 - Fetch historical prices and dividend events through the existing server-side Yahoo Finance integration or a new server route that follows the project’s established provider pattern. Avoid direct browser calls to the data provider.
+- Fetch the historical `IDR=X` series through the same server-side pattern, normalize it as a quote in IDR per USD, and keep its source/as-of metadata with the response.
 - Keep calculations in pure helpers so they can be tested independently from the UI.
-- Add focused tests for full-year returns, current YTD, dividends, no-dividend stocks, missing years, split-adjusted history, negative returns, cumulative return, CAGR, weighting, partial portfolio coverage, and the distinction between arithmetic average and CAGR.
+- Add focused tests for full-year returns, current YTD, dividends, no-dividend stocks, missing years, split-adjusted history, negative returns, cumulative return, CAGR, weighting, partial portfolio coverage, the distinction between arithmetic average and CAGR, and the USD/IDR annual-change formula including positive, negative, flat, YTD, and missing-prior-close cases.
 - Preserve existing routes and Firestore schemas unless a schema change becomes necessary and is explicitly documented.
 - Validate the implementation with the project’s relevant type checks, lint checks, and focused tests. Commit and push only the validated feature.
 ```
@@ -189,6 +214,7 @@ Implementation and validation
 8. **Later additions:** allow one-by-one ticker selection. Show a recently added ticker’s available market history, while labelling the basket as a historical estimate based on the current selection.
 9. **Non-dividend payers:** show 0% when the provider confirms no dividend; show “Unavailable” for a data gap.
 10. **Secondary metrics:** include dividend growth, volatility, maximum drawdown, and S&P 500 comparison. Use VOO as the primary benchmark because it is part of the initial universe.
+11. **Historical FX context:** use `IDR=X` quoted as IDR per USD. Show the annual USD/IDR quote change from 2016 through the current YTD, where a positive percentage means USD strengthened against IDR. Keep this observed series separate from simulation FX assumptions and USD-denominated stock returns.
 
 ## Remaining historical-return clarification
 
@@ -207,6 +233,7 @@ Until the questions above are answered, use these defaults:
 - Actual portfolio result: existing ledger-backed TWR/XIRR when sufficient history exists.
 - Long-term summary: arithmetic average annual return, cumulative compounded return, and CAGR shown as separate metrics.
 - Secondary metrics: dividend growth, volatility, maximum drawdown, and VOO/S&P 500 comparison.
+- Historical FX context: `IDR=X`, quoted as IDR per USD, with annual 2016–current-YTD quote changes and explicit source/as-of metadata.
 - Missing data: explicit status and coverage percentage; missing observations never become 0%.
 
 ## Implementation workflow
@@ -448,6 +475,7 @@ Locked product decisions
 
 - Keep the existing top-level Performance Returns tab.
 - Add a segmented subtab: Historical Returns | 10-Year Simulation.
+- In Historical Returns, add the observed USD/IDR context described in this document: annual 2016–current-YTD USD/IDR quote changes from `IDR=X`, quoted as IDR per USD. Keep this separate from the simulation’s forecast FX assumptions.
 - For this first version, use the current stock names in the portfolio at implementation time, plus VOO, VXUS, and SGOV. Snapshot and display the resolved list. Keep the code easy to make dynamic later, but do not add a second dynamic ticker-management workflow now.
 - Use the actual portfolio ledger quantities and current market values as the simulation starting point. Include current uninvested cash as Unallocated cash or explicitly map it into SGOV.
 - Show an as-of row, an estimated 2026 year-end row, and 2027 through 2036 year-end rows.
@@ -475,6 +503,7 @@ Stage 0: inspect and plan
 - Identify how current market values, quantities, cost basis, cash, portfolio buckets, and snapshots are represented.
 - Identify the existing server-side Yahoo Finance pattern and the best available source for USD/IDR.
 - Identify the project’s current chart and formatting conventions.
+- Identify how to load and normalize the historical `IDR=X` series alongside selected ticker history without treating it as a portfolio constituent.
 - Write a short implementation plan in your progress update, then execute it without waiting for another confirmation.
 
 Stage 1: create the pure simulation model
@@ -555,6 +584,7 @@ Stage 3: wire the data
 
 - Reuse the existing server-side historical-price and dividend provider pattern.
 - Add or extend a server route for simulation inputs if needed. Do not fetch Yahoo data directly from the browser.
+- Include the historical `IDR=X` series for the Historical Returns view. Use IDR per USD quote direction, prior-year closes for annual baselines, and the latest current-year close for YTD.
 - Fetch the latest USD/IDR rate through a server-side source following the project’s existing pattern. Show the source and as-of time.
 - Reuse the existing ledger and snapshot helpers. Do not fabricate holdings from the historical selection list.
 - Preserve existing Firestore schemas unless a schema change is necessary and documented.
@@ -564,6 +594,8 @@ Stage 4: build the UI
 ---------------------
 
 Add the Simulation subtab to the existing Performance Returns dashboard.
+
+Also add the historical FX context to the Historical Returns view: a compact panel below the annual basket table with annual 2016–current-YTD start rate, end rate, observed USD strengthening percentage, status, source, and as-of date. A rising IDR-per-USD quote is positive USD strengthening; do not merge this observed series into USD stock returns or the simulation forecast.
 
 Include:
 
@@ -597,6 +629,7 @@ Add focused tests for:
 - 0%, 15%, and 30% dividend-tax scenarios.
 - Dividends flowing to SGOV and SGOV compounding.
 - USD-to-IDR conversion and FX translation attribution.
+- Historical USD/IDR quote-change formula, including positive, negative, flat, current-YTD, and missing-prior-close cases.
 - Contribution-versus-investment-growth reconciliation.
 - Missing quotes and visible data-quality states.
 
