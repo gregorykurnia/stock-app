@@ -1,12 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  buildAnnualUsdIdrChanges,
   buildEqualWeightBasketAnnualReturns,
   buildTickerAnnualReturns,
   buildVooExcessReturns,
   calculateDailyCashReturns,
   calculateDailyReturnStats,
   summarizeBasketReturns,
+  summarizeUsdIdrChanges,
   summarizeTickerReturns,
   type AnnualTickerReturn,
   type TickerHistory,
@@ -66,6 +68,78 @@ test("current year return is capped at the latest close and labels dividend even
   assertApprox(rows[0].priceReturnPct, 10);
   assert.equal(rows[0].dividendsPerShare, 1);
   assert.equal(rows[0].cashTotalReturnPct, 11);
+});
+
+test("annual USD/IDR changes use prior-year closes and preserve quote direction", () => {
+  const rows = buildAnnualUsdIdrChanges(history({
+    ticker: "IDR=X",
+    currency: "IDR",
+    bars: [
+      { date: "2015-12-30", close: 100 },
+      { date: "2016-12-30", close: 110 },
+      { date: "2017-12-29", close: 99 },
+      { date: "2018-12-31", close: 99 },
+    ],
+  }), 2016, 2018, "2018-12-31");
+
+  assert.deepEqual(rows.map((row) => row.status), ["complete", "complete", "complete"]);
+  assert.equal(rows[0].startDate, "2015-12-30");
+  assert.equal(rows[0].endDate, "2016-12-30");
+  assertApprox(rows[0].usdStrengthPct, 10);
+  assertApprox(rows[1].usdStrengthPct, -10);
+  assertApprox(rows[2].usdStrengthPct, 0);
+});
+
+test("current USD/IDR year-to-date ends at the latest available FX close", () => {
+  const row = buildAnnualUsdIdrChanges(history({
+    ticker: "IDR=X",
+    currency: "IDR",
+    bars: [
+      { date: "2025-12-31", close: 15_000 },
+      { date: "2026-06-30", close: 16_500 },
+      { date: "2026-07-01", close: 18_000 },
+    ],
+  }), 2026, 2026, "2026-06-30")[0];
+
+  assert.equal(row.startDate, "2025-12-31");
+  assert.equal(row.endDate, "2026-06-30");
+  assertApprox(row.usdStrengthPct, 10);
+});
+
+test("USD/IDR history requires a prior-calendar-year close and reports unavailable data", () => {
+  const missingPrior = buildAnnualUsdIdrChanges(history({
+    ticker: "IDR=X",
+    bars: [{ date: "2014-12-31", close: 12_000 }, { date: "2016-12-30", close: 13_000 }],
+  }), 2016, 2016, "2016-12-31")[0];
+  const providerUnavailable = buildAnnualUsdIdrChanges(history({
+    ticker: "IDR=X", bars: [], providerAvailable: false, priceDataAvailable: false,
+  }), 2016, 2016, "2016-12-31")[0];
+  const noHistory = buildAnnualUsdIdrChanges(history({ ticker: "IDR=X", bars: [], priceDataAvailable: false }), 2016, 2016, "2016-12-31")[0];
+
+  assert.equal(missingPrior.status, "missing prior-year close");
+  assert.equal(missingPrior.usdStrengthPct, null);
+  assert.equal(providerUnavailable.status, "provider unavailable");
+  assert.equal(noHistory.status, "no FX history");
+});
+
+test("USD/IDR period summary uses exact endpoints and elapsed calendar time", () => {
+  const rows = buildAnnualUsdIdrChanges(history({
+    ticker: "IDR=X",
+    currency: "IDR",
+    bars: [
+      { date: "2015-12-31", close: 100 },
+      { date: "2016-12-30", close: 110 },
+      { date: "2017-12-29", close: 121 },
+    ],
+  }), 2016, 2017, "2017-12-31");
+  const summary = summarizeUsdIdrChanges(rows);
+
+  assert.equal(summary.startDate, "2015-12-31");
+  assert.equal(summary.endDate, "2017-12-29");
+  assertApprox(summary.cumulativeUsdStrengthPct, 21);
+  assert.ok(summary.annualizedUsdStrengthPct != null && summary.annualizedUsdStrengthPct > 9.9 && summary.annualizedUsdStrengthPct < 10.1);
+  assert.equal(summary.completeYears, 2);
+  assert.equal(summary.totalYears, 2);
 });
 
 test("confirmed no-dividend history is zero while unavailable dividend history remains null", () => {

@@ -46,26 +46,28 @@ async function fetchTickerHistory(ticker: string): Promise<TickerHistory> {
       return date && isPositiveNumber(quote?.close) ? [{ date, close: quote.close }] : [];
     }).sort((left, right) => left.date.localeCompare(right.date));
     let dividends: DividendObservation[] = [];
-    let dividendDataAvailable = false;
-    try {
-      // Fetch dividend events separately so an unavailable events response cannot
-      // be mistaken for a confirmed non-dividend payer.
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const dividendEvents: any = await yahooFinance.historical(ticker, {
-        period1: new Date("2015-12-01T00:00:00.000Z"),
-        period2: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
-        events: "dividends",
-      });
-      if (Array.isArray(dividendEvents)) {
-        dividends = dividendEvents.flatMap((event: { date?: unknown; dividends?: unknown }) => {
-          const date = toDateString(event?.date);
-          const amount = event?.dividends;
-          return date && typeof amount === "number" && Number.isFinite(amount) && amount >= 0 ? [{ date, amount }] : [];
-        }).sort((left, right) => left.date.localeCompare(right.date));
-        dividendDataAvailable = true;
+    let dividendDataAvailable = ticker === "IDR=X";
+    if (ticker !== "IDR=X") {
+      try {
+        // Fetch dividend events separately so an unavailable events response cannot
+        // be mistaken for a confirmed non-dividend payer.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const dividendEvents: any = await yahooFinance.historical(ticker, {
+          period1: new Date("2015-12-01T00:00:00.000Z"),
+          period2: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
+          events: "dividends",
+        });
+        if (Array.isArray(dividendEvents)) {
+          dividends = dividendEvents.flatMap((event: { date?: unknown; dividends?: unknown }) => {
+            const date = toDateString(event?.date);
+            const amount = event?.dividends;
+            return date && typeof amount === "number" && Number.isFinite(amount) && amount >= 0 ? [{ date, amount }] : [];
+          }).sort((left, right) => left.date.localeCompare(right.date));
+          dividendDataAvailable = true;
+        }
+      } catch {
+        dividendDataAvailable = false;
       }
-    } catch {
-      dividendDataAvailable = false;
     }
     return {
       ticker,
@@ -112,6 +114,7 @@ export async function GET(request: NextRequest) {
   }
 
   const refresh = request.nextUrl.searchParams.get("refresh") === "1";
+  const fxHistoryRequest = tickers.includes("IDR=X") ? null : getTickerHistory("IDR=X", refresh);
   const histories: TickerHistory[] = new Array(tickers.length);
   let next = 0;
   const worker = async () => {
@@ -123,12 +126,21 @@ export async function GET(request: NextRequest) {
   };
   await Promise.all(Array.from({ length: Math.min(4, tickers.length) }, worker));
 
-  const asOfDate = histories.flatMap((history) => history.bars.map((bar) => bar.date)).sort().at(-1) ?? null;
+  const fxHistory = histories.find((history) => history.ticker === "IDR=X")
+    ?? (fxHistoryRequest ? await fxHistoryRequest : errorHistory("IDR=X", "USD/IDR history is unavailable."));
+  const asOfDate = histories
+    .filter((history) => history.ticker !== "IDR=X")
+    .flatMap((history) => history.bars.map((bar) => bar.date))
+    .sort()
+    .at(-1) ?? null;
+  const fxAsOfDate = fxHistory.bars.map((bar) => bar.date).sort().at(-1) ?? null;
   return NextResponse.json({
     histories,
+    fxHistory,
     source: "Yahoo Finance via yahoo-finance2",
     fetchedAt: new Date().toISOString(),
     asOfDate,
+    fxAsOfDate,
     cacheTtlMinutes: CACHE_TTL_MS / 60_000,
   });
 }

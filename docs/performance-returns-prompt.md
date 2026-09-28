@@ -1,6 +1,6 @@
 # Performance Returns and 10-Year Simulation feature prompt
 
-Status: historical returns implemented; simulation requirements added; historical USD/IDR context specified
+Status: historical returns implemented; simulation requirements added; historical USD/IDR context implemented
 Requested: 2026-09-27
 Updated: 2026-09-28
 

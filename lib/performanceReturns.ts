@@ -20,6 +20,34 @@ export interface TickerHistory {
   error: string | null;
 }
 
+export type AnnualUsdIdrChangeStatus =
+  | "complete"
+  | "provider unavailable"
+  | "no FX history"
+  | "missing prior-year close"
+  | "missing in-year close";
+
+export interface AnnualUsdIdrChange {
+  year: number;
+  startDate: string | null;
+  endDate: string | null;
+  startUsdIdr: number | null;
+  endUsdIdr: number | null;
+  usdStrengthPct: number | null;
+  status: AnnualUsdIdrChangeStatus;
+}
+
+export interface UsdIdrPeriodSummary {
+  startDate: string | null;
+  endDate: string | null;
+  startUsdIdr: number | null;
+  endUsdIdr: number | null;
+  cumulativeUsdStrengthPct: number | null;
+  annualizedUsdStrengthPct: number | null;
+  completeYears: number;
+  totalYears: number;
+}
+
 export type AnnualReturnStatus =
   | "complete"
   | "dividend history unavailable"
@@ -107,6 +135,83 @@ function normalizedBars(history: TickerHistory): PriceObservation[] {
     if (/^\d{4}-\d{2}-\d{2}$/.test(bar.date) && isFinitePositive(bar.close)) byDate.set(bar.date, bar.close);
   }
   return [...byDate.entries()].map(([date, close]) => ({ date, close })).sort((a, b) => a.date.localeCompare(b.date));
+}
+
+function emptyAnnualUsdIdrChange(year: number, status: AnnualUsdIdrChangeStatus): AnnualUsdIdrChange {
+  return {
+    year,
+    startDate: null,
+    endDate: null,
+    startUsdIdr: null,
+    endUsdIdr: null,
+    usdStrengthPct: null,
+    status,
+  };
+}
+
+/**
+ * Calculates observed annual USD strengthening from Yahoo's IDR-per-USD quote.
+ * Each year begins at the last available close in the prior calendar year and
+ * ends at the last close in the requested year through the supplied as-of date.
+ */
+export function buildAnnualUsdIdrChanges(
+  history: TickerHistory | null | undefined,
+  startYear: number,
+  endYear: number,
+  asOfDate: string,
+): AnnualUsdIdrChange[] {
+  return Array.from({ length: Math.max(0, endYear - startYear + 1) }, (_, offset) => {
+    const year = startYear + offset;
+    if (!history?.providerAvailable) return emptyAnnualUsdIdrChange(year, "provider unavailable");
+    const bars = normalizedBars(history).filter((bar) => bar.date <= asOfDate);
+    if (bars.length === 0) return emptyAnnualUsdIdrChange(year, "no FX history");
+
+    const yearStart = `${year}-01-01`;
+    const periodEnd = `${year}-12-31` < asOfDate ? `${year}-12-31` : asOfDate;
+    const priorYearStart = `${year - 1}-01-01`;
+    const prior = bars.filter((bar) => bar.date >= priorYearStart && bar.date < yearStart).at(-1);
+    const last = bars.filter((bar) => bar.date >= yearStart && bar.date <= periodEnd).at(-1);
+
+    if (!prior) return emptyAnnualUsdIdrChange(year, "missing prior-year close");
+    if (!last) return emptyAnnualUsdIdrChange(year, "missing in-year close");
+
+    return {
+      year,
+      startDate: prior.date,
+      endDate: last.date,
+      startUsdIdr: prior.close,
+      endUsdIdr: last.close,
+      usdStrengthPct: (last.close / prior.close - 1) * 100,
+      status: "complete",
+    };
+  });
+}
+
+export function summarizeUsdIdrChanges(rows: readonly AnnualUsdIdrChange[]): UsdIdrPeriodSummary {
+  const first = rows[0];
+  const last = rows.at(-1);
+  const startDate = first?.startDate ?? null;
+  const endDate = last?.endDate ?? null;
+  const startUsdIdr = first?.startUsdIdr ?? null;
+  const endUsdIdr = last?.endUsdIdr ?? null;
+  const hasEndpoints = startDate != null && endDate != null && startUsdIdr != null && endUsdIdr != null;
+  const elapsedDays = hasEndpoints
+    ? (Date.parse(`${endDate}T00:00:00Z`) - Date.parse(`${startDate}T00:00:00Z`)) / 86400000
+    : 0;
+  const cumulativeUsdStrengthPct = hasEndpoints ? (endUsdIdr / startUsdIdr - 1) * 100 : null;
+
+  return {
+    startDate: hasEndpoints ? startDate : null,
+    endDate: hasEndpoints ? endDate : null,
+    startUsdIdr: hasEndpoints ? startUsdIdr : null,
+    endUsdIdr: hasEndpoints ? endUsdIdr : null,
+    cumulativeUsdStrengthPct,
+    annualizedUsdStrengthPct: hasEndpoints && elapsedDays > 0
+      ? ((endUsdIdr / startUsdIdr) ** (365.2425 / elapsedDays) - 1) * 100
+      : null,
+    completeYears: rows.filter((row) => row.status === "complete").length,
+    totalYears: rows.length,
+  };
 }
 
 function emptyAnnualReturn(ticker: string, year: number, status: AnnualReturnStatus): AnnualTickerReturn {

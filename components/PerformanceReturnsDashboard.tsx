@@ -2,14 +2,18 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
+import PerformanceReturnsFxPanel from "@/components/PerformanceReturnsFxPanel";
 import PerformanceReturnsSimulation from "@/components/PerformanceReturnsSimulation";
 import { getPortfolioDivisionStocks, getPortfolioLedgerTransactions, getPortfolioPerformanceSnapshots } from "@/lib/firestore";
 import {
   buildEqualWeightBasketAnnualReturns,
+  buildAnnualUsdIdrChanges,
   buildTickerAnnualReturns,
   buildVooExcessReturns,
   summarizeBasketReturns,
+  summarizeUsdIdrChanges,
   summarizeTickerReturns,
+  type AnnualUsdIdrChange,
   type AnnualTickerReturn,
   type BasketAnnualReturn,
   type TickerHistory,
@@ -295,6 +299,8 @@ export default function PerformanceReturnsDashboard() {
   const [newTicker, setNewTicker] = useState("");
   const [selectionError, setSelectionError] = useState("");
   const [histories, setHistories] = useState<Record<string, TickerHistory>>({});
+  const [fxHistory, setFxHistory] = useState<TickerHistory | null>(null);
+  const [fxAsOfDate, setFxAsOfDate] = useState<string | null>(null);
   const [fetchedAt, setFetchedAt] = useState<string | null>(null);
   const [asOfDate, setAsOfDate] = useState<string | null>(null);
   const [settledHistoryKey, setSettledHistoryKey] = useState("");
@@ -378,12 +384,20 @@ export default function PerformanceReturnsDashboard() {
       .then(async (response) => {
         const data = await response.json();
         if (!response.ok) throw new Error(data.error ?? "Historical returns could not be loaded.");
-        return data as { histories?: TickerHistory[]; fetchedAt?: string; asOfDate?: string | null };
+        return data as {
+          histories?: TickerHistory[];
+          fxHistory?: TickerHistory;
+          fxAsOfDate?: string | null;
+          fetchedAt?: string;
+          asOfDate?: string | null;
+        };
       })
       .then((data) => {
         if (cancelled) return;
         const byTicker = Object.fromEntries((data.histories ?? []).map((history) => [history.ticker, history]));
         setHistories(byTicker);
+        setFxHistory(data.fxHistory ?? null);
+        setFxAsOfDate(data.fxAsOfDate ?? null);
         setFetchedAt(data.fetchedAt ?? null);
         setAsOfDate(data.asOfDate ?? null);
         setHistoryError("");
@@ -410,6 +424,13 @@ export default function PerformanceReturnsDashboard() {
     Object.fromEntries(requestTickers.map((ticker) => [ticker, histories[ticker]?.currency ?? null])),
   ), [annualByTicker, endYear, histories, requestTickers, startYear, visibleTickers]);
   const basketSummary = useMemo(() => summarizeBasketReturns(basketAnnualRows, histories, visibleTickers), [basketAnnualRows, histories, visibleTickers]);
+  const fxAnnualRows = useMemo<AnnualUsdIdrChange[]>(() => buildAnnualUsdIdrChanges(
+    fxHistory,
+    startYear,
+    endYear,
+    fxAsOfDate ?? `${currentYear}-12-31`,
+  ), [currentYear, endYear, fxAsOfDate, fxHistory, startYear]);
+  const fxSummary = useMemo(() => summarizeUsdIdrChanges(fxAnnualRows), [fxAnnualRows]);
   const summaryByTicker = useMemo(() => Object.fromEntries(visibleTickers.map((ticker) => {
     const rows = (annualByTicker[ticker] ?? []) as AnnualTickerReturn[];
     const vooExcess = buildVooExcessReturns(rows, vooRows);
@@ -521,6 +542,16 @@ export default function PerformanceReturnsDashboard() {
         <div className="border-b border-[var(--border)] px-4 py-3"><h2 className="text-sm font-bold text-gray-900">Annual equal-weight historical basket</h2><p className="mt-1 text-xs text-gray-500">Usable constituents are reweighted equally each year. Coverage shows the share of selected tickers with usable cash total-return data.</p></div>
         <AnnualTable rows={basketAnnualRows} benchmark={benchmarkByYear} actual={actualByYear} currentYear={currentYear} />
       </section>
+
+      <PerformanceReturnsFxPanel
+        rows={fxAnnualRows}
+        summary={fxSummary}
+        currentYear={currentYear}
+        fxAsOfDate={fxAsOfDate}
+        latestUsdIdr={fxHistory?.bars.at(-1)?.close ?? null}
+        fetchedAt={fetchedAt}
+        loading={historyLoading}
+      />
 
       <section className="surface-card overflow-hidden">
         <div className="border-b border-[var(--border)] px-4 py-3"><h2 className="text-sm font-bold text-gray-900">Annual return comparison</h2><p className="mt-1 text-xs text-gray-500">Red bars are negative. VOO is shown as the S&amp;P 500 benchmark, whether or not it is in the selected basket.</p></div>
