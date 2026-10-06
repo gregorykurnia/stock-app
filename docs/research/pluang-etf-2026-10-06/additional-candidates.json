@@ -1,0 +1,156 @@
+[
+  {
+    "id": "globalStock-10055",
+    "assetId": 10055,
+    "name": "NetFlix Inc",
+    "displaySymbol": "NFLX",
+    "icon": "https://image-cdn.pluang.com/icons/light/global-stocks/nflx.svg",
+    "subscriptionId": "five_seconds:us_stock:trade_price:10055",
+    "sparkLine": "https://asset-price-charts.s3.ap-southeast-1.amazonaws.com/globalStock-10055-1d.png?ts=1791251600000",
+    "category": "PALN",
+    "usCataloguePage": 5
+  },
+  {
+    "id": "globalStock-10429",
+    "assetId": 10429,
+    "name": "Digital Realty Trust, Inc.",
+    "displaySymbol": "DLR",
+    "icon": "https://image-cdn.pluang.com/icons/light/global-stocks/dlr.svg",
+    "subscriptionId": "five_seconds:us_stock:trade_price:10429",
+    "sparkLine": "https://asset-price-charts.s3.ap-southeast-1.amazonaws.com/globalStock-10429-1d.png?ts=1791251600000",
+    "category": "PALN",
+    "usCataloguePage": 22
+  },
+  {
+    "id": "globalStock-10137",
+    "assetId": 10137,
+    "name": "Huntington Bancshares Incorporated",
+    "displaySymbol": "HBAN",
+    "icon": "https://image-cdn.pluang.com/icons/light/global-stocks/hban.svg",
+    "subscriptionId": "five_seconds:us_stock:trade_price:10137",
+    "sparkLine": "https://asset-price-charts.s3.ap-southeast-1.amazonaws.com/globalStock-10137-1d.png?ts=1791251600000",
+    "category": "PALN",
+    "usCataloguePage": 34
+  },
+  {
+    "id": "globalStock-10620",
+    "assetId": 10620,
+    "name": "Essex Property Trust, Inc.",
+    "displaySymbol": "ESS",
+    "icon": "https://image-cdn.pluang.com/icons/light/global-stocks/ess.svg",
+    "subscriptionId": "five_seconds:us_stock:trade_price:10620",
+    "sparkLine": "https://asset-price-charts.s3.ap-southeast-1.amazonaws.com/globalStock-10620-1d.png?ts=1791251600000",
+    "category": "PALN",
+    "usCataloguePage": 43
+  },
+  {
+    "id": "globalStock-10761",
+    "assetId": 10761,
+    "name": "Vanguard Total Stock Market Index Fund ETF",
+    "displaySymbol": "VTI",
+    "icon": "https://image-cdn.pluang.com/icons/light/global-stocks/vti.svg",
+    "subscriptionId": "five_seconds:us_stock:trade_price:10761",
+    "sparkLine": "https://asset-price-charts.s3.ap-southeast-1.amazonaws.com/globalStock-10761-1d.png?ts=1791251600000",
+    "category": "PALN",
+    "usCataloguePage": 81
+  },
+  {
+    "id": "globalStock-10751",
+    "assetId": 10751,
+    "name": "S&P500 ETF",
+    "displaySymbol": "SPY",
+    "icon": "https://image-cdn.pluang.com/icons/light/global-stocks/spy.svg",
+    "subscriptionId": "five_seconds:us_stock:trade_price:10751",
+    "sparkLine": "https://asset-price-charts.s3.ap-southeast-1.amazonaws.com/globalStock-10751-1d.png?ts=1791251600000",
+    "category": "PALN",
+    "usCataloguePage": 81
+  },
+  {
+    "id": "globalStock-10766",
+    "assetId": 10766,
+    "name": "Vanguard Emerging Markets Stock Index Fund ETF",
+    "displaySymbol": "VWO",
+    "icon": "https://image-cdn.pluang.com/icons/light/global-stocks/vwo.svg",
+    "subscriptionId": "five_seconds:us_stock:trade_price:10766",
+    "sparkLine": "https://asset-price-charts.s3.ap-southeast-1.amazonaws.com/globalStock-10766-1d.png?ts=1791251600000",
+    "category": "PALN",
+    "usCataloguePage": 82
+  },
+  {
+    "id": "globalStock-10760",
+    "assetId": 10760,
+    "name": "iShares Russell 2000 ETF",
+    "displaySymbol": "IWM",
+    "icon": "https://image-cdn.pluang.com/icons/light/global-stocks/iwm.svg",
+    "subscriptionId": "five_seconds:us_stock:trade_price:10760",
+    "sparkLine": "https://asset-price-charts.s3.ap-southeast-1.amazonaws.com/globalStock-10760-1d.png?ts=1791251600000",
+    "category": "PALN",
+    "usCataloguePage": 83
+  },
+  {
+    "id": "globalStock-10755",
+    "assetId": 10755,
+    "name": "Financial Select Sector SPDR Fund",
+    "displaySymbol": "XLF",
+    "icon": "https://image-cdn.pluang.com/icons/light/global-stocks/xlf.svg",
+    "subscriptionId": "five_seconds:us_stock:trade_price:10755",
+    "sparkLine": "https://asset-price-charts.s3.ap-southeast-1.amazonaws.com/globalStock-10755-1d.png?ts=1791251600000",
+    "category": "PALN",
+    "usCataloguePage": 84
+  },
+  {
+    "id": "globalStock-10754",
+    "assetId": 10754,
+    "name": "Health Care Select Sector SPDR Fund",
+    "displaySymbol": "XLV",
+    "icon": "https://image-cdn.pluang.com/icons/light/global-stocks/xlv.svg",
+    "subscriptionId": "five_seconds:us_stock:trade_price:10754",
+    "sparkLine": "https://asset-price-charts.s3.ap-southeast-1.amazonaws.com/globalStock-10754-1d.png?ts=1791251600000",
+    "category": "PALN",
+    "usCataloguePage": 85
+  },
+  {
+    "id": "globalStock-10753",
+    "assetId": 10753,
+    "name": "Energy Select Sector SPDR Fund",
+    "displaySymbol": "XLE",
+    "icon": "https://image-cdn.pluang.com/icons/light/global-stocks/xle.svg",
+    "subscriptionId": "five_seconds:us_stock:trade_price:10753",
+    "sparkLine": "https://asset-price-charts.s3.ap-southeast-1.amazonaws.com/globalStock-10753-1d.png?ts=1791251600000",
+    "category": "PALN",
+    "usCataloguePage": 85
+  },
+  {
+    "id": "globalStock-10762",
+    "assetId": 10762,
+    "name": "iShares iBoxx $ Inv Grade Corporate Bond ETF",
+    "displaySymbol": "LQD",
+    "icon": "https://image-cdn.pluang.com/icons/light/global-stocks/lqd.svg",
+    "subscriptionId": "five_seconds:us_stock:trade_price:10762",
+    "sparkLine": "https://asset-price-charts.s3.ap-southeast-1.amazonaws.com/globalStock-10762-1d.png?ts=1791251600000",
+    "category": "PALN",
+    "usCataloguePage": 86
+  },
+  {
+    "id": "globalStock-10758",
+    "assetId": 10758,
+    "name": "Consumer Discretionary Select Sector SPDR Fund",
+    "displaySymbol": "XLY",
+    "icon": "https://image-cdn.pluang.com/icons/light/global-stocks/xly.svg",
+    "subscriptionId": "five_seconds:us_stock:trade_price:10758",
+    "sparkLine": "https://asset-price-charts.s3.ap-southeast-1.amazonaws.com/globalStock-10758-1d.png?ts=1791251600000",
+    "category": "PALN",
+    "usCataloguePage": 87
+  },
+  {
+    "id": "globalStock-10784",
+    "assetId": 10784,
+    "name": "abrdn Income Credit Strategies Fund",
+    "displaySymbol": "ACP",
+    "icon": "https://image-cdn.pluang.com/icons/light/global-stocks/acp.svg",
+    "subscriptionId": "five_seconds:us_stock:trade_price:10784",
+    "sparkLine": "https://asset-price-charts.s3.ap-southeast-1.amazonaws.com/globalStock-10784-1d.png?ts=1791251600000",
+    "category": "PALN",
+    "usCataloguePage": 98
+  }
+]

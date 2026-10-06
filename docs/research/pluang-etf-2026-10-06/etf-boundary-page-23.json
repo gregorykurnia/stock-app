@@ -1,0 +1,95 @@
+{
+  "source": "https://pluang.com/explore/us-market/etf?page=23",
+  "retrievedAt": "2026-10-06T01:53:27.824919+00:00",
+  "data": {
+    "bucketDetails": {
+      "bucketTitle": "ETFs",
+      "bucketDescription": "An exchange-traded fund (ETF) is a type of pooled investment security that can be bought and sold much like an individual stock. The main difference between an ETF and a mutual fund is that though a mutual fund is also a pooled investment, it trades only once a day after market close.",
+      "bucketIcon": {
+        "blackIcon": "https://image-cdn.pluang.com/icons/light/bucket/etf_black.svg",
+        "coloredIcon": "https://image-cdn.pluang.com/icons/light/bucket/etf_blue.svg"
+      },
+      "averagePercentageChange": "+0,72%",
+      "averagePercentageChangeColor": "#1FC62A",
+      "bucketCode": "stocks_etf",
+      "category": "global_equity",
+      "bucketTitleWithCount": "Menampilkan 212 di ETFs"
+    },
+    "showFilter": true,
+    "showOnboarding": false,
+    "info": {},
+    "valueTitle": "Price",
+    "assetCategories": [
+      {
+        "title": "Menampilkan 212 di ETFs",
+        "assetCategoryData": [
+          {
+            "assetSubcategory": "ETF",
+            "assets": [
+              {
+                "tileInfo": {
+                  "id": "globalStock-11229",
+                  "assetId": 11229,
+                  "name": "YieldMax Nasdaq 100 0DTE Covered Call Strategy ETF",
+                  "displaySymbol": "QDTY",
+                  "icon": "https://image-cdn.pluang.com/icons/light/global-stocks/qdty.svg",
+                  "subscriptionId": "five_seconds:us_stock:trade_price:11229",
+                  "sparkLine": "https://asset-price-charts.s3.ap-southeast-1.amazonaws.com/globalStock-11229-1d.png?ts=1791251600000",
+                  "category": "PALN"
+                },
+                "display": {
+                  "marketCap": {
+                    "value": "$28,6jt"
+                  },
+                  "lastPriceAndPercentageChange": {
+                    "currentPrice": 39.81,
+                    "currentPriceDisplay": "$39,81",
+                    "percentageChange": 0.9261066759285909,
+                    "percentageDisplay": "+0,93%",
+                    "lastDayClosingPrice": 39.4447,
+                    "lastClosingPrice": 39.4447,
+                    "dividendAmount": 0
+                  }
+                },
+                "favourite": false
+              },
+              {
+                "tileInfo": {
+                  "id": "globalStock-11232",
+                  "assetId": 11232,
+                  "name": "Global X CleanTech",
+                  "displaySymbol": "CTEC",
+                  "icon": "https://image-cdn.pluang.com/icons/light/global-stocks/ctec.svg",
+                  "subscriptionId": "five_seconds:us_stock:trade_price:11232",
+                  "sparkLine": "https://asset-price-charts.s3.ap-southeast-1.amazonaws.com/globalStock-11232-1d.png?ts=1791251600000",
+                  "category": "PALN"
+                },
+                "display": {
+                  "marketCap": {
+                    "value": "$25,1jt"
+                  },
+                  "lastPriceAndPercentageChange": {
+                    "currentPrice": 57.1037,
+                    "currentPriceDisplay": "$57,10",
+                    "percentageChange": 0,
+                    "percentageDisplay": "0,00%",
+                    "lastDayClosingPrice": 57.1037,
+                    "lastClosingPrice": 57.1037,
+                    "dividendAmount": 0
+                  }
+                },
+                "favourite": false
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "totalCount": 212,
+    "totalCountLabel": "212 Saham",
+    "totalPageCount": 22,
+    "page": 22,
+    "pageSize": 10,
+    "showTimeFrame": true
+  }
+}

@@ -1,0 +1,112 @@
+{
+  "observedAt": "2026-10-06",
+  "etfCategory": {
+    "reportedCount": 212,
+    "reportedPages": 22,
+    "observedRows": 212,
+    "uniqueIds": 212,
+    "uniqueTickers": 212,
+    "pageCounts": [
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      10,
+      2
+    ],
+    "outOfRangePage23": "clamped to page 22; repeats QDTY and CTEC"
+  },
+  "usCatalogue": {
+    "reportedCount": 1024,
+    "reportedPages": 103,
+    "observedRows": 1024,
+    "uniqueIds": 1024,
+    "uniqueTickers": 1024,
+    "securityTypes": {
+      "STOCK": 802,
+      "ETF": 222
+    }
+  },
+  "additionalETFs": [
+    "VTI",
+    "SPY",
+    "VWO",
+    "IWM",
+    "XLF",
+    "XLV",
+    "XLE",
+    "LQD",
+    "XLY"
+  ],
+  "additionalNonETF": "ACP",
+  "nonETFStocksInETFCategory": [
+    "FCNCA",
+    "TEM"
+  ],
+  "separateETNs": [
+    "FNGU",
+    "SLVO",
+    "USOI"
+  ],
+  "retainedETFAndETPLikeCandidates": 216,
+  "candidateIdentityConflicts": [
+    "FLOT"
+  ],
+  "separateETNIdentityConflicts": [
+    "FNGU"
+  ],
+  "accountTradabilityConfirmed": 0,
+  "groups": {
+    "US broad market and styles": 19,
+    "International and global equities": 34,
+    "Fixed income and preferred securities": 28,
+    "Sector and thematic equities": 59,
+    "Physical precious metals": 7,
+    "Dividend equities": 7,
+    "Real estate and infrastructure equities": 5,
+    "Spot digital asset trusts": 2,
+    "Options income and distribution strategies": 20,
+    "Leveraged and inverse ETFs": 21,
+    "Exclusions": 3,
+    "Commodity futures": 12,
+    "Multi-asset allocation": 1,
+    "ETNs \u2014 separate from ETFs": 3,
+    "Digital asset futures": 1
+  },
+  "numericEnrichmentStatus": "Incomplete; source observations are not validated production statistics",
+  "sha256": {
+    "inventory.json": "eaca6d53f4adec068ccb34fce285333c200220944b2374b81c492897314ae2fa",
+    "us-inventory.json": "73fab997e44579ad4f4fbe582a59774cc521aa0811d8aaad6c5c3cd46e2914af",
+    "security-type-audit.json": "2757b706480ab59e51b3ce72c5765c0649fe66f48e66d69834c370796f18d765",
+    "research-universe.json": "2f940756c1c4cf6e3113a833a1aa63836bf937f48b0792224e423bcfd4634a9e",
+    "issuer-source-index.json": "9be44b17e311c1355d8aeac2e5c2410eb2923c03c3d402c748a4be73e7a21750",
+    "etf-catalogue-pages.json": "c4a12b110d79db2de9b44ccbd4d408f5243d70807e1914efd3979b020191478d",
+    "us-catalogue-pages.json": "3e3bfa491a43278ce9c1d52ea41d405f9b52fd7c58dbbada9be47561d8b5bea1",
+    "fund-profiles.json": "8e6ab1fd413de17cc857a72ce2dcd81f333fea6bcf63982a34fe7310056e4c52",
+    "leveraged-initial.json": "6cf32d02e5c7d5f461c7be0206361adb7dd8c740d6a653e78983e6c9287604c4",
+    "etf-boundary-page-23.json": "6efd2b936f4c5759f6f99e574223c7b02332d33e76745e467918b6b436a77a98"
+  },
+  "evidenceFiles": {
+    "etfCataloguePages": "etf-catalogue-pages.json",
+    "usCataloguePages": "us-catalogue-pages.json",
+    "candidateProfiles": "fund-profiles.json",
+    "leveragedCategoryCrossCheck": "leveraged-initial.json",
+    "etfBoundaryPage": "etf-boundary-page-23.json"
+  }
+}

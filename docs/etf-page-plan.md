@@ -1,7 +1,19 @@
 # ETF page plan
 
-Status: proposed; planning only. ETF catalogue research and implementation follow later.
+Status: proposed; public-catalogue census and qualitative research recorded. Financial enrichment, identity resolution, and implementation remain pending.
 Requested: 2026-10-06
+
+Research: [Pluang ETF research and complete public-catalogue audit](pluang-etf-research.md), observed 2026-10-06. Evidence and the reconciled universe are saved under [research/pluang-etf-2026-10-06](research/pluang-etf-2026-10-06/audit-manifest.json).
+
+## Research findings that govern this plan
+
+- Enumerated all **212 ETF-category records on 22 pages**, then all **1,024 US-catalogue records on 103 pages** and their public profile security types. The ETF category alone is incomplete.
+- Include **216 ETF/ETF-like candidates**, including **VTI, SPY, VWO, IWM, XLF, XLV, XLE, LQD, XLY** discovered outside the ETF category. This count includes physical-metal/bitcoin trusts and commodity funds, and one unresolved candidate, **FLOT**. Preserve its row with an identity-verification warning.
+- Keep **FNGU, SLVO, USOI** in a separate ETN section/filter with accurate note structure and issuer-credit risks. Explicitly exclude **FCNCA, TEM** (company stocks) and **ACP** (closed-end fund), despite Pluang's ETF labels. All 222 discoveries are accounted for in the research report.
+- Correct ROBO's issuer mapping; resolve FLOT's Australian VanEck versus US iShares identity before adding statistics. FNGU's platform index name conflicts with current issuer material; confirm its note series/CUSIP and corporate actions before joining histories.
+- Availability is **catalogue-listed**, not authenticated tradability-confirmed. Public account/KYC-dependent disabled flags are insufficient evidence of suspension. Show the snapshot date and this distinction.
+- Underlying structures include conventional equity/bond ETFs, options/0DTE income funds, single-stock strategies, daily leveraged/inverse funds, a weekly leveraged distribution strategy (**NVDW**), physical trusts, commodity pools, and spot/futures digital exposure. Store leverage multiple and reset interval independently.
+- Issuer source locators and candidate fundamentals are recorded for the full research census. **They are not a validated numerical dataset.** Matched-date return/distribution histories, daily drawdown/recovery, current normalized fees/AUM, and holdings coverage still need enrichment and validation. Do not mark Phase 1 complete or publish candidate observations as verified statistics.
 
 ## Purpose and scope
 
@@ -15,7 +27,7 @@ The page should answer:
 4. How does it compare with similar funds?
 5. What exposure would it add to my portfolio?
 
-This document defines the product and recommends analysis sections. It does not contain a researched ETF list, verified availability, or current fund statistics. No ETF should be assumed available until the later research phase verifies it.
+This document defines the product and analysis sections. The companion research now contains the complete observed public-catalogue census and per-product exposure/source records. Account-specific availability and current normalized fund statistics remain unverified. Use the reconciled research universe as the initial catalogue, with explicit unresolved and missing-data states.
 
 ## Recommended page structure
 
@@ -23,7 +35,7 @@ Use three views within the ETF page: **Explore | Compare | Shortlist**. Selectin
 
 ### 1. Catalogue overview and filters
 
-- Summary: ETF count, category counts, last catalogue verification, and number with incomplete data.
+- Summary: ETF/ETF-like candidate count (216 in the initial public snapshot), separately tracked ETNs (3), category counts, last catalogue verification, identity conflicts, and number with incomplete data. Explain that the count includes trusts/commodity funds and catalogue listing does not confirm account tradability.
 - Search by ticker, name, issuer, exposure, or keyword.
 - Category cards with a short explanation and fund count.
 - Filters: asset class, geography, strategy, issuer, expense ratio, distribution yield, fund age, and availability status.
@@ -55,7 +67,9 @@ Show the issuer, objective, index or active mandate, inception date, fund struct
 
 Include a short plain-language explanation covering exposure, intended role, and key tradeoff. For example, distinguish broad equity growth, dividend income, short-duration bond exposure, and concentrated sector exposure. These are descriptive roles, not automatic buy recommendations.
 
-Keep fund-level leverage separate from any margin/leverage offered by Pluang. Explain the platform's actual instrument and access model once verified during research; do not assume buying through the platform is equivalent to direct ownership of fund shares.
+Keep fund-level leverage separate from any margin/leverage offered by Pluang. Pluang's current fee/access page describes **PALN orders routed overseas through PT PG Berjangka**, with JFX/KBI recording, and distinguishes this from CFD. Present that sourced access model separately from the underlying fund's legal form; review customer terms before making custody/ownership claims. See the companion research for the dated source and fee discrepancies.
+
+Show the leverage target and reset interval: daily for conventional leveraged/inverse products, weekly for NVDW. Add mandate/name-change history where a fund's current strategy differs from its earlier history. FNGU requires note-series continuity checks rather than an automatic ticker-based history join.
 
 ### 4. Historical growth and consistency
 
@@ -80,6 +94,7 @@ Display the window and end date beside returns. A new fund without five years of
 - Payment frequency and recent payment history.
 - Distribution growth over five years when meaningful, and evidence of cuts or irregular payments.
 - Distribution composition when disclosed: income, capital gains, and return of capital.
+- Options funds: separately label annualized latest-payment distribution rate, issuer rolling dividend yield, SEC yield, and the app-calculated trailing cash yield. For example, JEPQ's issuer rolling yield uses individual ex-date NAVs and is not the planned sum-of-payments/current-price metric. Preliminary return-of-capital notices must retain their estimated status.
 - Bond funds: issuer-reported 30-day SEC yield, separately labeled from trailing distribution yield.
 - Optional cash-income illustration per $1,000 invested using the stated trailing yield; label it as a historical illustration rather than a payment forecast.
 
@@ -105,6 +120,8 @@ Offer a return-versus-drawdown scatterplot with category filters once data is re
 - AUM, fund age, average dollar trading volume, and bid/ask spread where supported.
 - Premium/discount to NAV where available and applicable.
 - Verified Pluang fees, FX conversion costs, minimum purchase, and trading access in a separate platform section.
+
+The 2026-10-06 published fee-page observations are recorded in the research report. Keep transaction fees, JFX/KBI, VAT, sell-side regulatory fees, platform leverage financing, and configurable dividend deductions separate. FX conversion cost is still unquantified. Do not rely on older profile FAQs where they conflict with the current fee page. Obtain ETF-share-class assets from issuers; Pluang's “Market Cap” is not validated AUM.
 
 Historical fund returns generally already reflect fund operating expenses; confirm the chosen source's treatment and do not deduct the expense ratio again. Platform fees and personal tax are separate from gross fund performance.
 
@@ -140,7 +157,7 @@ Keep personal notes separate from sourced facts. The first version should suppor
 
 ## Category model
 
-Give each fund one primary asset class, a descriptive subcategory, and multiple strategy/exposure tags. Create only categories populated by the later verified catalogue.
+Give each fund one primary asset class, a descriptive subcategory, and multiple strategy/exposure tags. The research report supplies mutually exclusive browsing groups and counts for the initial catalogue; these are not a substitute for underlying-asset-class classification. For example, an options overlay or leveraged badge must preserve equity, bond, commodity, or digital exposure.
 
 | Primary group | Possible subcategories/tags |
 |---|---|
@@ -153,6 +170,8 @@ Give each fund one primary asset class, a descriptive subcategory, and multiple 
 | Digital asset exposure | Spot exposure or futures exposure, distinguished explicitly |
 
 Apply cross-cutting badges for active/passive, income-focused, covered call, leveraged, inverse, single-stock, and other material structures. Preserve the underlying asset class so a leveraged equity fund remains discoverable under equities as well as by strategy.
+
+Also distinguish 0DTE, weekly reset, physical-metal trust, spot-bitcoin trust, commodity pool, and ETN. ETNs belong in a separately labeled view/filter rather than inflating the ETF count. Company stocks/CEFs discovered during reconciliation belong in the exclusions report, not the ETF comparison table.
 
 ## Metric definitions and comparison rules
 
@@ -175,7 +194,9 @@ Primary results are in USD and gross of investor-specific taxes and platform fee
 
 Every metric needs its unit, calculation/source, observation period, and as-of date. Use explicit states: Data unavailable, Insufficient history, Not applicable, Stale, and Calculation error. Zero yield is valid only when absence of distributions is verified.
 
-## Later research phase: establish the complete universe
+## Research audit completed and remaining enrichment
+
+The public-universe enumeration below has been performed for the 2026-10-06 snapshot. The companion report and [audit manifest](research/pluang-etf-2026-10-06/audit-manifest.json) document source totals, unique counts, additions, exclusions, conflicts, and per-record source locators. The remaining work is authenticated availability where accessible, final identity/legal-form review, and validated numerical enrichment. Keep these separate from the completed public-catalogue census.
 
 1. Identify Pluang's authoritative catalogue or supported listing source and enumerate all pages/categories, rather than searching only for popular ETFs.
 2. Save a dated raw catalogue snapshot and reconcile unique identifiers, tickers, exchange, and names. Handle aliases, renamed funds, and duplicates.
@@ -186,6 +207,14 @@ Every metric needs its unit, calculation/source, observation period, and as-of d
 7. Retain verified catalogue entries even if return or income enrichment fails.
 
 Research deliverables: versioned catalogue, categorized inventory, per-field source records, exclusions/unresolved report, and the metric data dictionary. Catalogue completeness and statistic completeness are separate checks.
+
+Additional data-contract requirements from this audit:
+
+- Platform asset ID and original name; corrected issuer identity and aliases; exchange, CUSIP/ISIN, legal structure, mandate effective dates, leverage multiple/reset interval, and availability evidence scope.
+- Per-field value, unit, source URL/document, financial as-of date, observation timestamp, validation status, and missing/error reason. An issuer-source locator or extracted candidate is a research state, not a verified value.
+- Separate net/gross expenses, waivers/expiry, acquired-fund fees, ETN investor fees, share-class versus whole-fund AUM, and issuer yield definitions.
+- Coverage invariant: every profile labeled ETF in the complete US census must be retained, separately classified, or explicitly excluded. Check the full catalogue on refresh; do not rely exclusively on the ETF category or fund-name keywords.
+- Boundary handling: the public ETF endpoint clamps page 23 to the final page. Terminate using verified page counts/identifiers and protect against duplicate boundary pages.
 
 ## Implementation direction for this app
 
@@ -204,6 +233,8 @@ Research deliverables: versioned catalogue, categorized inventory, per-field sou
 ### Phase 1 — research and data contract
 
 Complete the universe audit, classifications, source map, and feasibility check for the recommended metrics. Exit when every discovered item is accounted for and coverage limitations are documented.
+
+Current progress: public-catalogue census and exposure/source research are recorded, with all 222 discoveries accounted for. **Phase 1 is not fully accepted:** FLOT mapping, FNGU note-series continuity, current US legal forms/mandates, authenticated eligibility, normalized fundamentals, and historical data validation remain open. The research report lists the exact gates. Candidate financial observations must not be treated as completed return/yield/risk enrichment.
 
 ### Phase 2 — useful first release
 

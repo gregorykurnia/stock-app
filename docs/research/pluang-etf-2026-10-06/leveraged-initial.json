@@ -1,0 +1,1450 @@
+{
+  "data": {
+    "bucketDetails": {
+      "bucketTitle": "Leverage & Invers",
+      "bucketDescription": "Dana leverage dan invers taktis menggandakan return pasar harian, meskipun efek compounding dapat memengaruhi kinerja jangka panjang.",
+      "bucketIcon": {
+        "blackIcon": "https://image-cdn.pluang.com/icons/light/bucket/stocks_funds_leveraged_inverse_black.svg",
+        "coloredIcon": "https://image-cdn.pluang.com/icons/light/bucket/stocks_funds_leveraged_inverse_blue.svg"
+      },
+      "averagePercentageChange": "+1,61%",
+      "averagePercentageChangeColor": "#1FC62A",
+      "bucketCode": "stocks_funds_leveraged_inverse",
+      "category": "global_equity",
+      "bucketTitleWithCount": "Menampilkan 24 di Leverage & Invers"
+    },
+    "showFilter": true,
+    "showOnboarding": false,
+    "info": {},
+    "valueTitle": "Price",
+    "assetCategories": [
+      {
+        "title": "Menampilkan 24 di Leverage & Invers",
+        "assetCategoryData": [
+          {
+            "assetSubcategory": "ETF",
+            "assets": [
+              {
+                "tileInfo": {
+                  "id": "globalStock-11151",
+                  "assetId": 11151,
+                  "name": "JPMorgan Ultra Short Income ETF",
+                  "displaySymbol": "JPST",
+                  "icon": "https://image-cdn.pluang.com/icons/light/global-stocks/jpst.svg",
+                  "subscriptionId": "five_seconds:us_stock:trade_price:11151",
+                  "sparkLine": "https://asset-price-charts.s3.ap-southeast-1.amazonaws.com/globalStock-11151-1d.png?ts=1791251600000",
+                  "category": "PALN"
+                },
+                "display": {
+                  "marketCap": {
+                    "value": "$42,3M"
+                  },
+                  "lastPriceAndPercentageChange": {
+                    "currentPrice": 50.25,
+                    "currentPriceDisplay": "$50,25",
+                    "percentageChange": 0.03981684252439404,
+                    "percentageDisplay": "+0,04%",
+                    "lastDayClosingPrice": 50.23,
+                    "lastClosingPrice": 50.23,
+                    "dividendAmount": 0
+                  }
+                },
+                "favourite": false
+              },
+              {
+                "tileInfo": {
+                  "id": "globalStock-10892",
+                  "assetId": 10892,
+                  "name": "ProShares UltraPro QQQ ETF",
+                  "displaySymbol": "TQQQ",
+                  "icon": "https://image-cdn.pluang.com/icons/light/global-stocks/tqqq.svg",
+                  "subscriptionId": "five_seconds:us_stock:trade_price:10892",
+                  "sparkLine": "https://asset-price-charts.s3.ap-southeast-1.amazonaws.com/globalStock-10892-1d.png?ts=1791251600000",
+                  "category": "PALN"
+                },
+                "display": {
+                  "marketCap": {
+                    "value": "$39,3M"
+                  },
+                  "lastPriceAndPercentageChange": {
+                    "currentPrice": 83.16,
+                    "currentPriceDisplay": "$83,16",
+                    "percentageChange": 2.6539933341562665,
+                    "percentageDisplay": "+2,65%",
+                    "lastDayClosingPrice": 81.01,
+                    "lastClosingPrice": 81.01,
+                    "dividendAmount": 0
+                  }
+                },
+                "favourite": false
+              },
+              {
+                "tileInfo": {
+                  "id": "globalStock-10932",
+                  "assetId": 10932,
+                  "name": "Direxion Daily Semiconductor Bull 3X Shares",
+                  "displaySymbol": "SOXL",
+                  "icon": "https://image-cdn.pluang.com/icons/light/global-stocks/soxl.svg",
+                  "subscriptionId": "five_seconds:us_stock:trade_price:10932",
+                  "sparkLine": "https://asset-price-charts.s3.ap-southeast-1.amazonaws.com/globalStock-10932-1d.png?ts=1791251600000",
+                  "category": "PALN"
+                },
+                "display": {
+                  "marketCap": {
+                    "value": "$24,1M"
+                  },
+                  "lastPriceAndPercentageChange": {
+                    "currentPrice": 164.42,
+                    "currentPriceDisplay": "$164,42",
+                    "percentageChange": 0.433693726711856,
+                    "percentageDisplay": "+0,43%",
+                    "lastDayClosingPrice": 163.71,
+                    "lastClosingPrice": 163.71,
+                    "dividendAmount": 0
+                  }
+                },
+                "favourite": false
+              },
+              {
+                "tileInfo": {
+                  "id": "globalStock-11077",
+                  "assetId": 11077,
+                  "name": "ProShares Ultra QQQ ETF",
+                  "displaySymbol": "QLD",
+                  "icon": "https://image-cdn.pluang.com/icons/light/global-stocks/qld.svg",
+                  "subscriptionId": "five_seconds:us_stock:trade_price:11077",
+                  "sparkLine": "https://asset-price-charts.s3.ap-southeast-1.amazonaws.com/globalStock-11077-1d.png?ts=1791251600000",
+                  "category": "PALN"
+                },
+                "display": {
+                  "marketCap": {
+                    "value": "$15,5M"
+                  },
+                  "lastPriceAndPercentageChange": {
+                    "currentPrice": 99.95,
+                    "currentPriceDisplay": "$99,95",
+                    "percentageChange": 1.8546825639457938,
+                    "percentageDisplay": "+1,85%",
+                    "lastDayClosingPrice": 98.13,
+                    "lastClosingPrice": 98.13,
+                    "dividendAmount": 0
+                  }
+                },
+                "favourite": false
+              },
+              {
+                "tileInfo": {
+                  "id": "globalStock-11203",
+                  "assetId": 11203,
+                  "name": "Vanguard Ultra Short Bond ETF",
+                  "displaySymbol": "VUSB",
+                  "icon": "https://image-cdn.pluang.com/icons/light/global-stocks/vusb.svg",
+                  "subscriptionId": "five_seconds:us_stock:trade_price:11203",
+                  "sparkLine": "https://asset-price-charts.s3.ap-southeast-1.amazonaws.com/globalStock-11203-1d.png?ts=1791251600000",
+                  "category": "PALN"
+                },
+                "display": {
+                  "marketCap": {
+                    "value": "$10,2M"
+                  },
+                  "lastPriceAndPercentageChange": {
+                    "currentPrice": 49.41,
+                    "currentPriceDisplay": "$49,41",
+                    "percentageChange": 0,
+                    "percentageDisplay": "0,00%",
+                    "lastDayClosingPrice": 49.41,
+                    "lastClosingPrice": 49.41,
+                    "dividendAmount": 0
+                  }
+                },
+                "favourite": false
+              },
+              {
+                "tileInfo": {
+                  "id": "globalStock-11121",
+                  "assetId": 11121,
+                  "name": "Direxion Daily S&P 500 Bull 3X Shares",
+                  "displaySymbol": "SPXL",
+                  "icon": "https://image-cdn.pluang.com/icons/light/global-stocks/spxl.svg",
+                  "subscriptionId": "five_seconds:us_stock:trade_price:11121",
+                  "sparkLine": "https://asset-price-charts.s3.ap-southeast-1.amazonaws.com/globalStock-11121-1d.png?ts=1791251600000",
+                  "category": "PALN"
+                },
+                "display": {
+                  "marketCap": {
+                    "value": "$7M"
+                  },
+                  "lastPriceAndPercentageChange": {
+                    "currentPrice": 294.83,
+                    "currentPriceDisplay": "$294,83",
+                    "percentageChange": 2.123311395912711,
+                    "percentageDisplay": "+2,12%",
+                    "lastDayClosingPrice": 288.7,
+                    "lastClosingPrice": 288.7,
+                    "dividendAmount": 0
+                  }
+                },
+                "favourite": false
+              },
+              {
+                "tileInfo": {
+                  "id": "globalStock-11114",
+                  "assetId": 11114,
+                  "name": "ProShares UltraPro S&P500",
+                  "displaySymbol": "UPRO",
+                  "icon": "https://image-cdn.pluang.com/icons/light/global-stocks/upro.svg",
+                  "subscriptionId": "five_seconds:us_stock:trade_price:11114",
+                  "sparkLine": "https://asset-price-charts.s3.ap-southeast-1.amazonaws.com/globalStock-11114-1d.png?ts=1791251600000",
+                  "category": "PALN"
+                },
+                "display": {
+                  "marketCap": {
+                    "value": "$5,4M"
+                  },
+                  "lastPriceAndPercentageChange": {
+                    "currentPrice": 154.06,
+                    "currentPriceDisplay": "$154,06",
+                    "percentageChange": 2.107635206786855,
+                    "percentageDisplay": "+2,11%",
+                    "lastDayClosingPrice": 150.88,
+                    "lastClosingPrice": 150.88,
+                    "dividendAmount": 0
+                  }
+                },
+                "favourite": false
+              },
+              {
+                "tileInfo": {
+                  "id": "globalStock-10923",
+                  "assetId": 10923,
+                  "name": "GraniteShares 2x Long NVDA Daily ETF",
+                  "displaySymbol": "NVDL",
+                  "icon": "https://image-cdn.pluang.com/icons/light/global-stocks/nvdl.svg",
+                  "subscriptionId": "five_seconds:us_stock:trade_price:10923",
+                  "sparkLine": "https://asset-price-charts.s3.ap-southeast-1.amazonaws.com/globalStock-10923-1d.png?ts=1791251600000",
+                  "category": "PALN"
+                },
+                "display": {
+                  "marketCap": {
+                    "value": "$3,8M"
+                  },
+                  "lastPriceAndPercentageChange": {
+                    "currentPrice": 40.32,
+                    "currentPriceDisplay": "$40,32",
+                    "percentageChange": 4.700077901843683,
+                    "percentageDisplay": "+4,70%",
+                    "lastDayClosingPrice": 38.51,
+                    "lastClosingPrice": 38.51,
+                    "dividendAmount": 0
+                  }
+                },
+                "favourite": false
+              },
+              {
+                "tileInfo": {
+                  "id": "globalStock-10895",
+                  "assetId": 10895,
+                  "name": "Direxion Daily TSLA Bull 2X Shares",
+                  "displaySymbol": "TSLL",
+                  "icon": "https://image-cdn.pluang.com/icons/light/global-stocks/tsll.svg",
+                  "subscriptionId": "five_seconds:us_stock:trade_price:10895",
+                  "sparkLine": "https://asset-price-charts.s3.ap-southeast-1.amazonaws.com/globalStock-10895-1d.png?ts=1791251600000",
+                  "category": "PALN"
+                },
+                "display": {
+                  "marketCap": {
+                    "value": "$3,7M"
+                  },
+                  "lastPriceAndPercentageChange": {
+                    "currentPrice": 10.28,
+                    "currentPriceDisplay": "$10,28",
+                    "percentageChange": 4.897959183673455,
+                    "percentageDisplay": "+4,90%",
+                    "lastDayClosingPrice": 9.8,
+                    "lastClosingPrice": 9.8,
+                    "dividendAmount": 0
+                  }
+                },
+                "favourite": false
+              },
+              {
+                "tileInfo": {
+                  "id": "globalStock-11155",
+                  "assetId": 11155,
+                  "name": "ProShares Ultra Semiconductors",
+                  "displaySymbol": "USD",
+                  "icon": "https://image-cdn.pluang.com/icons/light/global-stocks/usd.svg",
+                  "subscriptionId": "five_seconds:us_stock:trade_price:11155",
+                  "sparkLine": "https://asset-price-charts.s3.ap-southeast-1.amazonaws.com/globalStock-11155-1d.png?ts=1791251600000",
+                  "category": "PALN"
+                },
+                "display": {
+                  "marketCap": {
+                    "value": "$3,1M"
+                  },
+                  "lastPriceAndPercentageChange": {
+                    "currentPrice": 103.13,
+                    "currentPriceDisplay": "$103,13",
+                    "percentageChange": 2.12913448207565,
+                    "percentageDisplay": "+2,13%",
+                    "lastDayClosingPrice": 100.98,
+                    "lastClosingPrice": 100.98,
+                    "dividendAmount": 0
+                  }
+                },
+                "favourite": false
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "totalCount": 24,
+    "totalCountLabel": "24 Saham",
+    "totalPageCount": 3,
+    "page": 1,
+    "pageSize": 10,
+    "showTimeFrame": true
+  },
+  "assetSectorData": {
+    "sectors": [
+      {
+        "name": "ETFs",
+        "category": "global_equity",
+        "icon": {
+          "blackIcon": "https://image-cdn.pluang.com/icons/light/bucket/etf_black.svg",
+          "coloredIcon": "https://image-cdn.pluang.com/icons/light/bucket/etf_blue.svg"
+        },
+        "bucketCode": "stocks_etf",
+        "percentageChange": "+0,72%",
+        "color": "#1FC62A"
+      },
+      {
+        "name": "Leverage",
+        "category": "global_equity",
+        "icon": {
+          "blackIcon": "https://image-cdn.pluang.com/icons/light/bucket/stock_leverage_black.svg",
+          "coloredIcon": "https://image-cdn.pluang.com/icons/light/bucket/stock_leverage_blue.svg"
+        },
+        "bucketCode": "stocks_leverage",
+        "percentageChange": "+0,12%",
+        "color": "#1FC62A"
+      },
+      {
+        "name": "Keuangan",
+        "category": "global_equity",
+        "icon": {
+          "blackIcon": "https://image-cdn.pluang.com/icons/light/bucket/stock_financial_black.svg",
+          "coloredIcon": "https://image-cdn.pluang.com/icons/light/bucket/stock_financial_blue.svg"
+        },
+        "bucketCode": "stocks_financial_services",
+        "percentageChange": "+0,64%",
+        "color": "#1FC62A"
+      },
+      {
+        "name": "Energi",
+        "category": "global_equity",
+        "icon": {
+          "blackIcon": "https://image-cdn.pluang.com/icons/light/bucket/stock_energy_black.svg",
+          "coloredIcon": "https://image-cdn.pluang.com/icons/light/bucket/stock_energy_blue.svg"
+        },
+        "bucketCode": "stocks_energy",
+        "percentageChange": "+0,26%",
+        "color": "#1FC62A"
+      },
+      {
+        "name": "Bahan Baku",
+        "category": "global_equity",
+        "icon": {
+          "blackIcon": "https://image-cdn.pluang.com/icons/light/bucket/stock_material_black.svg",
+          "coloredIcon": "https://image-cdn.pluang.com/icons/light/bucket/stock_material_blue.svg"
+        },
+        "bucketCode": "stocks_materials",
+        "percentageChange": "+0,44%",
+        "color": "#1FC62A"
+      },
+      {
+        "name": "Teknologi",
+        "category": "global_equity",
+        "icon": {
+          "blackIcon": "https://image-cdn.pluang.com/icons/light/bucket/stock_technology_black.svg",
+          "coloredIcon": "https://image-cdn.pluang.com/icons/light/bucket/stock_technology_blue.svg"
+        },
+        "bucketCode": "stocks_technology",
+        "percentageChange": "+0,63%",
+        "color": "#1FC62A"
+      },
+      {
+        "name": "Consumer Staples",
+        "category": "global_equity",
+        "icon": {
+          "blackIcon": "https://image-cdn.pluang.com/icons/light/bucket/stock_consumer_staples_black.svg",
+          "coloredIcon": "https://image-cdn.pluang.com/icons/light/bucket/stock_consumer_staples_blue.svg"
+        },
+        "bucketCode": "stocks_consumer_staples",
+        "percentageChange": "+0,29%",
+        "color": "#1FC62A"
+      },
+      {
+        "name": "Media",
+        "category": "global_equity",
+        "icon": {
+          "blackIcon": "https://image-cdn.pluang.com/icons/light/bucket/stock_media_black.svg",
+          "coloredIcon": "https://image-cdn.pluang.com/icons/light/bucket/stock_media_blue.svg"
+        },
+        "bucketCode": "stocks_media",
+        "percentageChange": "+1,07%",
+        "color": "#1FC62A"
+      },
+      {
+        "name": "Industri",
+        "category": "global_equity",
+        "icon": {
+          "blackIcon": "https://image-cdn.pluang.com/icons/light/bucket/stock_industrial_black.svg",
+          "coloredIcon": "https://image-cdn.pluang.com/icons/light/bucket/stock_industrial_blue.svg"
+        },
+        "bucketCode": "stocks_industrials",
+        "percentageChange": "+0,02%",
+        "color": "#1FC62A"
+      },
+      {
+        "name": "Kesehatan",
+        "category": "global_equity",
+        "icon": {
+          "blackIcon": "https://image-cdn.pluang.com/icons/light/bucket/stock_health_black.svg",
+          "coloredIcon": "https://image-cdn.pluang.com/icons/light/bucket/stock_health_blue.svg"
+        },
+        "bucketCode": "stocks_healthcare",
+        "percentageChange": "+1,90%",
+        "color": "#1FC62A"
+      },
+      {
+        "name": "Consumer Cyclical",
+        "category": "global_equity",
+        "icon": {
+          "blackIcon": "https://image-cdn.pluang.com/icons/light/bucket/stock_consumer_cyclical_black.svg",
+          "coloredIcon": "https://image-cdn.pluang.com/icons/light/bucket/stock_consumer_cyclical_blue.svg"
+        },
+        "bucketCode": "stocks_consumer_cyclical",
+        "percentageChange": "+0,77%",
+        "color": "#1FC62A"
+      },
+      {
+        "name": "Real Estate",
+        "category": "global_equity",
+        "icon": {
+          "blackIcon": "https://image-cdn.pluang.com/icons/light/bucket/stock_real_estate_black.svg",
+          "coloredIcon": "https://image-cdn.pluang.com/icons/light/bucket/stock_real_estate_blue.svg"
+        },
+        "bucketCode": "stocks_real_estate",
+        "percentageChange": "-0,66%",
+        "color": "#FF504B"
+      },
+      {
+        "name": "Utilitas",
+        "category": "global_equity",
+        "icon": {
+          "blackIcon": "https://image-cdn.pluang.com/icons/light/bucket/stock_utilities_black.svg",
+          "coloredIcon": "https://image-cdn.pluang.com/icons/light/bucket/stock_utilities_blue.svg"
+        },
+        "bucketCode": "stocks_utilities",
+        "percentageChange": "-0,08%",
+        "color": "#FF504B"
+      },
+      {
+        "name": "ETF Indeks",
+        "category": "global_equity",
+        "icon": {
+          "blackIcon": "https://image-cdn.pluang.com/icons/light/bucket/stocks_funds_broad_market_black.svg",
+          "coloredIcon": "https://image-cdn.pluang.com/icons/light/bucket/stocks_funds_broad_market_blue.svg"
+        },
+        "bucketCode": "stocks_funds_broad_market",
+        "percentageChange": "+1,17%",
+        "color": "#1FC62A"
+      },
+      {
+        "name": "Pendapatan Tetap",
+        "category": "global_equity",
+        "icon": {
+          "blackIcon": "https://image-cdn.pluang.com/icons/light/bucket/stocks_funds_fixed_income_black.svg",
+          "coloredIcon": "https://image-cdn.pluang.com/icons/light/bucket/stocks_funds_fixed_income_blue.svg"
+        },
+        "bucketCode": "stocks_funds_fixed_income",
+        "percentageChange": "+0,01%",
+        "color": "#1FC62A"
+      },
+      {
+        "name": "Komoditas",
+        "category": "global_equity",
+        "icon": {
+          "blackIcon": "https://image-cdn.pluang.com/icons/light/bucket/stocks_funds_commodities_black.svg",
+          "coloredIcon": "https://image-cdn.pluang.com/icons/light/bucket/stocks_funds_commodities_blue.svg"
+        },
+        "bucketCode": "stocks_funds_commodities",
+        "percentageChange": "+0,33%",
+        "color": "#1FC62A"
+      },
+      {
+        "name": "Komoditas Energi",
+        "category": "global_equity",
+        "icon": {
+          "blackIcon": "https://image-cdn.pluang.com/icons/light/bucket/stocks_funds_commodities_energy_black.svg",
+          "coloredIcon": "https://image-cdn.pluang.com/icons/light/bucket/stocks_funds_commodities_energy_blue.svg"
+        },
+        "bucketCode": "stocks_funds_commodities_energy",
+        "percentageChange": "-1,37%",
+        "color": "#FF504B"
+      },
+      {
+        "name": "Ekosistem Crypto",
+        "category": "global_equity",
+        "icon": {
+          "blackIcon": "https://image-cdn.pluang.com/icons/light/bucket/stocks_funds_crypto_black.svg",
+          "coloredIcon": "https://image-cdn.pluang.com/icons/light/bucket/stocks_funds_crypto_blue.svg"
+        },
+        "bucketCode": "stocks_funds_crypto",
+        "percentageChange": "+1,49%",
+        "color": "#1FC62A"
+      },
+      {
+        "name": "Pendapatan Options",
+        "category": "global_equity",
+        "icon": {
+          "blackIcon": "https://image-cdn.pluang.com/icons/light/bucket/stocks_funds_income_overlay_black.svg",
+          "coloredIcon": "https://image-cdn.pluang.com/icons/light/bucket/stocks_funds_income_overlay_blue.svg"
+        },
+        "bucketCode": "stocks_funds_income_overlay",
+        "percentageChange": "+0,78%",
+        "color": "#1FC62A"
+      },
+      {
+        "name": "Leverage & Invers",
+        "category": "global_equity",
+        "icon": {
+          "blackIcon": "https://image-cdn.pluang.com/icons/light/bucket/stocks_funds_leveraged_inverse_black.svg",
+          "coloredIcon": "https://image-cdn.pluang.com/icons/light/bucket/stocks_funds_leveraged_inverse_blue.svg"
+        },
+        "bucketCode": "stocks_funds_leveraged_inverse",
+        "percentageChange": "+1,61%",
+        "color": "#1FC62A"
+      },
+      {
+        "name": "Tematik & Tren",
+        "category": "global_equity",
+        "icon": {
+          "blackIcon": "https://image-cdn.pluang.com/icons/light/bucket/stocks_funds_sector_thematic_black.svg",
+          "coloredIcon": "https://image-cdn.pluang.com/icons/light/bucket/stocks_funds_sector_thematic_blue.svg"
+        },
+        "bucketCode": "stocks_funds_sector_thematic",
+        "percentageChange": "+0,78%",
+        "color": "#1FC62A"
+      }
+    ]
+  },
+  "assetHotlistData": {
+    "watchlists": [
+      {
+        "id": "65e9ecb5a74a945b5a87f2e0",
+        "name": "Gainers",
+        "icon": null,
+        "updated": "2026-10-06T01:51:11.640Z"
+      },
+      {
+        "id": "65e9ecb5a74a945b5a87f2e2",
+        "name": "Losers",
+        "icon": null,
+        "updated": "2026-10-06T01:51:11.639Z"
+      },
+      {
+        "id": "65c69282450c1a0013448fc1",
+        "name": "Fundamental Picks",
+        "icon": null,
+        "updated": "2026-10-05T21:01:25.783Z"
+      },
+      {
+        "id": "6a573b43881d9651b50ee9fd",
+        "name": "AI Stocks",
+        "icon": null,
+        "updated": "2026-10-05T17:24:46.994Z"
+      },
+      {
+        "id": "6a573b43b12eaeea8801216e",
+        "name": "Shariah-Compliant Stocks",
+        "icon": null,
+        "updated": "2026-10-05T17:24:46.944Z"
+      },
+      {
+        "id": "69aa6a92fd5773bc0e4c9df4",
+        "name": "Geo Tensions",
+        "icon": null,
+        "updated": "2026-03-06T05:48:02.154Z"
+      },
+      {
+        "id": "68873dd11723cac9acf967bb",
+        "name": "Magnificent 7",
+        "icon": null,
+        "updated": "2025-07-28T09:07:29.859Z"
+      },
+      {
+        "id": "679b6c7d9bac8ab37892cfda",
+        "name": "Earnings Season!",
+        "icon": null,
+        "updated": "2025-01-30T12:11:41.918Z"
+      },
+      {
+        "id": "66f6afaec6c0c09449d249b2",
+        "name": "China Bulls",
+        "icon": null,
+        "updated": "2024-09-28T06:34:30.231Z"
+      }
+    ],
+    "category": "global_equity",
+    "subcategory": "stocks",
+    "selectedList": {
+      "id": "65e9ecb5a74a945b5a87f2e0",
+      "assets": [
+        {
+          "tileInfo": {
+            "id": "globalStock-10973",
+            "assetId": 10973,
+            "name": "PAGSEG Inc",
+            "symbol": "PAGS",
+            "displaySymbol": "PAGS",
+            "watchlistCode": "us_10973",
+            "watchlistAssetCode": "USSTOCK:10973",
+            "icon": "https://image-cdn.pluang.com/icons/light/global-stocks/pags.svg",
+            "isTradable": true,
+            "subscriptionId": "five_seconds:us_stock:trade_price:10973",
+            "stockType": "PALN",
+            "sparkLine": "https://asset-price-charts.s3.ap-southeast-1.amazonaws.com/globalStock-10973-1d.png?ts=1791251600000",
+            "category": "PALN",
+            "group": "global_equity",
+            "leverageText": "",
+            "recurringAssetType": "GLOBAL_SINGLE_STOCK",
+            "securityType": "STOCK",
+            "structuralGroup": "global_equity",
+            "structuralSubGroup": "stocks",
+            "searchLabel": "Saham AS",
+            "isMetal": false,
+            "chartTicker": "PAGS"
+          },
+          "clickAction": {
+            "type": "SCREEN",
+            "target": "GLOBAL_STOCK_HOME_SCREEN"
+          },
+          "display": {
+            "lastPriceAndPercentageChange": {
+              "currentPrice": 11.03,
+              "currentPriceDisplay": "$11,03",
+              "percentageChange": 22.28381374722838,
+              "percentageDisplay": "+22,28%",
+              "valueColor": "#06251C",
+              "percentageColor": "#1FC62A",
+              "lastDayClosingPrice": 9.02,
+              "lastClosingPrice": 9.02,
+              "dividendAmount": 0,
+              "arrowIcon": "GREEN"
+            }
+          }
+        },
+        {
+          "tileInfo": {
+            "id": "globalStock-11059",
+            "assetId": 11059,
+            "name": "Ginkgo Bioworks Holdings Inc",
+            "symbol": "DNA",
+            "displaySymbol": "DNA",
+            "watchlistCode": "us_11059",
+            "watchlistAssetCode": "USSTOCK:11059",
+            "icon": "https://image-cdn.pluang.com/icons/light/global-stocks/dna.svg",
+            "isTradable": true,
+            "subscriptionId": "five_seconds:us_stock:trade_price:11059",
+            "stockType": "PALN",
+            "sparkLine": "https://asset-price-charts.s3.ap-southeast-1.amazonaws.com/globalStock-11059-1d.png?ts=1791251600000",
+            "category": "PALN",
+            "group": "global_equity",
+            "leverageText": "",
+            "recurringAssetType": "GLOBAL_SINGLE_STOCK",
+            "securityType": "STOCK",
+            "structuralGroup": "global_equity",
+            "structuralSubGroup": "stocks",
+            "searchLabel": "Saham AS",
+            "isMetal": false,
+            "chartTicker": "DNA"
+          },
+          "clickAction": {
+            "type": "SCREEN",
+            "target": "GLOBAL_STOCK_HOME_SCREEN"
+          },
+          "display": {
+            "lastPriceAndPercentageChange": {
+              "currentPrice": 15,
+              "currentPriceDisplay": "$15,00",
+              "percentageChange": 21.457489878542514,
+              "percentageDisplay": "+21,46%",
+              "valueColor": "#06251C",
+              "percentageColor": "#1FC62A",
+              "lastDayClosingPrice": 12.35,
+              "lastClosingPrice": 12.35,
+              "dividendAmount": 0,
+              "arrowIcon": "GREEN"
+            }
+          }
+        },
+        {
+          "tileInfo": {
+            "id": "globalStock-10057",
+            "assetId": 10057,
+            "name": "Novavax Inc",
+            "symbol": "NVAX",
+            "displaySymbol": "NVAX",
+            "watchlistCode": "us_10057",
+            "watchlistAssetCode": "USSTOCK:10057",
+            "icon": "https://image-cdn.pluang.com/icons/light/global-stocks/nvax.svg",
+            "isTradable": true,
+            "subscriptionId": "five_seconds:us_stock:trade_price:10057",
+            "stockType": "PALN",
+            "sparkLine": "https://asset-price-charts.s3.ap-southeast-1.amazonaws.com/globalStock-10057-1d.png?ts=1791251600000",
+            "category": "PALN",
+            "group": "global_equity",
+            "leverageText": "",
+            "recurringAssetType": "GLOBAL_SINGLE_STOCK",
+            "securityType": "STOCK",
+            "structuralGroup": "global_equity",
+            "structuralSubGroup": "stocks",
+            "searchLabel": "Saham AS",
+            "isMetal": false,
+            "chartTicker": "NVAX"
+          },
+          "clickAction": {
+            "type": "SCREEN",
+            "target": "GLOBAL_STOCK_HOME_SCREEN"
+          },
+          "display": {
+            "lastPriceAndPercentageChange": {
+              "currentPrice": 12.52,
+              "currentPriceDisplay": "$12,52",
+              "percentageChange": 19.694072657743774,
+              "percentageDisplay": "+19,69%",
+              "valueColor": "#06251C",
+              "percentageColor": "#1FC62A",
+              "lastDayClosingPrice": 10.46,
+              "lastClosingPrice": 10.46,
+              "dividendAmount": 0,
+              "arrowIcon": "GREEN"
+            }
+          }
+        },
+        {
+          "tileInfo": {
+            "id": "globalStock-10894",
+            "assetId": 10894,
+            "name": "Recursion Pharmaceuticals Inc",
+            "symbol": "RXRX",
+            "displaySymbol": "RXRX",
+            "watchlistCode": "us_10894",
+            "watchlistAssetCode": "USSTOCK:10894",
+            "icon": "https://image-cdn.pluang.com/icons/light/global-stocks/rxrx.svg",
+            "isTradable": true,
+            "subscriptionId": "five_seconds:us_stock:trade_price:10894",
+            "stockType": "PALN",
+            "sparkLine": "https://asset-price-charts.s3.ap-southeast-1.amazonaws.com/globalStock-10894-1d.png?ts=1791251600000",
+            "category": "PALN",
+            "group": "global_equity",
+            "leverageText": "",
+            "recurringAssetType": "GLOBAL_SINGLE_STOCK",
+            "securityType": "STOCK",
+            "structuralGroup": "global_equity",
+            "structuralSubGroup": "stocks",
+            "searchLabel": "Saham AS",
+            "isMetal": false,
+            "chartTicker": "RXRX"
+          },
+          "clickAction": {
+            "type": "SCREEN",
+            "target": "GLOBAL_STOCK_HOME_SCREEN"
+          },
+          "display": {
+            "lastPriceAndPercentageChange": {
+              "currentPrice": 4.7,
+              "currentPriceDisplay": "$4,70",
+              "percentageChange": 14.077669902912623,
+              "percentageDisplay": "+14,08%",
+              "valueColor": "#06251C",
+              "percentageColor": "#1FC62A",
+              "lastDayClosingPrice": 4.12,
+              "lastClosingPrice": 4.12,
+              "dividendAmount": 0,
+              "arrowIcon": "GREEN"
+            }
+          }
+        },
+        {
+          "tileInfo": {
+            "id": "globalStock-10783",
+            "assetId": 10783,
+            "name": "Aurora Cannabis Inc",
+            "symbol": "ACB",
+            "displaySymbol": "ACB",
+            "watchlistCode": "us_10783",
+            "watchlistAssetCode": "USSTOCK:10783",
+            "icon": "https://image-cdn.pluang.com/icons/light/global-stocks/acb.svg",
+            "isTradable": true,
+            "subscriptionId": "five_seconds:us_stock:trade_price:10783",
+            "stockType": "PALN",
+            "sparkLine": "https://asset-price-charts.s3.ap-southeast-1.amazonaws.com/globalStock-10783-1d.png?ts=1791251600000",
+            "category": "PALN",
+            "group": "global_equity",
+            "leverageText": "",
+            "recurringAssetType": "GLOBAL_SINGLE_STOCK",
+            "securityType": "STOCK",
+            "structuralGroup": "global_equity",
+            "structuralSubGroup": "stocks",
+            "searchLabel": "Saham AS",
+            "isMetal": false,
+            "chartTicker": "ACB"
+          },
+          "clickAction": {
+            "type": "SCREEN",
+            "target": "GLOBAL_STOCK_HOME_SCREEN"
+          },
+          "display": {
+            "lastPriceAndPercentageChange": {
+              "currentPrice": 4.58,
+              "currentPriceDisplay": "$4,58",
+              "percentageChange": 16.836734693877556,
+              "percentageDisplay": "+16,84%",
+              "valueColor": "#06251C",
+              "percentageColor": "#1FC62A",
+              "lastDayClosingPrice": 3.92,
+              "lastClosingPrice": 3.92,
+              "dividendAmount": 0,
+              "arrowIcon": "GREEN"
+            }
+          }
+        }
+      ],
+      "size": 10
+    }
+  },
+  "marketOverviewResult": {
+    "lastUpdated": "2026-10-06T01:50:51.853Z",
+    "assetCategoryData": [
+      {
+        "category": "cryptocurrency",
+        "title": "Crypto",
+        "sentiment": {
+          "label": "Greed",
+          "labelType": "SUCCESS",
+          "title": "Sentimen Pasar",
+          "image": "https://mobile-app-production.s3.ap-southeast-1.amazonaws.com/icons/greed.svg",
+          "description": "Pasar mulai naik karena minat beli semakin meningkat. Harga dapat melonjak, tapi berisiko menjauh dari nilai dasarnya.",
+          "buttonText": "Mengerti",
+          "readMore": {
+            "title": "Cara perhitungan Fear and Greed Index",
+            "link": "https://pluang.com/id/pwa/market-sentiments"
+          }
+        },
+        "assets": [
+          {
+            "assetId": 10000,
+            "name": "BTC/IDR",
+            "formattedValue": "Rp1,53M",
+            "percentageChange": "-1,10%",
+            "percentageColor": "#FF504B",
+            "valueColor": "#FF504B",
+            "currentPrice": 1532900000,
+            "tileInfo": {
+              "symbol": "BTC",
+              "subscriptionId": "five_seconds:asset_price:crypto:BTC",
+              "sparkLine": "https://asset-price-charts.s3.ap-southeast-1.amazonaws.com/cryptocurrency-10000-1d.png?ts=1791251600000",
+              "category": "cryptocurrency"
+            }
+          },
+          {
+            "assetId": 10001,
+            "name": "ETH/IDR",
+            "formattedValue": "Rp48,46jt",
+            "percentageChange": "-0,37%",
+            "percentageColor": "#FF504B",
+            "valueColor": "#FF504B",
+            "currentPrice": 48457248,
+            "tileInfo": {
+              "symbol": "ETH",
+              "subscriptionId": "five_seconds:asset_price:crypto:ETH",
+              "sparkLine": "https://asset-price-charts.s3.ap-southeast-1.amazonaws.com/cryptocurrency-10001-1d.png?ts=1791251600000",
+              "category": "cryptocurrency"
+            }
+          },
+          {
+            "assetId": 10005,
+            "name": "USDT/IDR",
+            "formattedValue": "Rp17,89rb",
+            "percentageChange": "+0,15%",
+            "percentageColor": "#1FC62A",
+            "valueColor": "#1FC62A",
+            "currentPrice": 17887,
+            "tileInfo": {
+              "symbol": "USDT",
+              "subscriptionId": "five_seconds:asset_price:crypto:USDT",
+              "sparkLine": "https://asset-price-charts.s3.ap-southeast-1.amazonaws.com/cryptocurrency-10005-1d.png?ts=1791251600000",
+              "category": "cryptocurrency"
+            }
+          },
+          {
+            "assetId": 10032,
+            "name": "SOL/IDR",
+            "formattedValue": "Rp2,15jt",
+            "percentageChange": "-0,55%",
+            "percentageColor": "#FF504B",
+            "valueColor": "#FF504B",
+            "currentPrice": 2153705,
+            "tileInfo": {
+              "symbol": "SOL",
+              "subscriptionId": "five_seconds:asset_price:crypto:SOL",
+              "sparkLine": "https://asset-price-charts.s3.ap-southeast-1.amazonaws.com/cryptocurrency-10032-1d.png?ts=1791251600000",
+              "category": "cryptocurrency"
+            }
+          }
+        ]
+      },
+      {
+        "category": "global_equity",
+        "title": "Pasar AS",
+        "sentiment": {
+          "label": "Fear",
+          "labelType": "ERROR",
+          "title": "Sentimen Pasar",
+          "image": "https://mobile-app-production.s3.ap-southeast-1.amazonaws.com/icons/fear.svg",
+          "description": "Pasar cenderung hati-hati, permintaan menurun dan harga melemah. Ini dapat menjadi saat yang baik untuk mengamati tanda-tanda pemulihan.",
+          "buttonText": "Mengerti",
+          "readMore": {
+            "title": "Cara perhitungan Fear and Greed Index",
+            "link": "https://pluang.com/id/pwa/market-sentiments?optionTab=us-stocks"
+          }
+        },
+        "assets": [
+          {
+            "assetId": 10751,
+            "name": "S&P 500",
+            "formattedValue": "7.773,95",
+            "percentageChange": "+0,66%",
+            "percentageColor": "#1FC62A",
+            "valueColor": "#1FC62A",
+            "currentPrice": 0,
+            "tileInfo": {
+              "symbol": "SPY",
+              "subscriptionId": "",
+              "sparkLine": "https://asset-price-charts.s3.ap-southeast-1.amazonaws.com/globalStock-10751-1d-extended.png?ts=1791251600000",
+              "category": "PALN"
+            }
+          },
+          {
+            "assetId": 10738,
+            "name": "NASDAQ",
+            "formattedValue": "31.076,44",
+            "percentageChange": "+0,87%",
+            "percentageColor": "#1FC62A",
+            "valueColor": "#1FC62A",
+            "currentPrice": 0,
+            "tileInfo": {
+              "symbol": "QQQ",
+              "subscriptionId": "",
+              "sparkLine": "https://asset-price-charts.s3.ap-southeast-1.amazonaws.com/globalStock-10738-1d-extended.png?ts=1791251600000",
+              "category": "PALN"
+            }
+          },
+          {
+            "assetId": 10752,
+            "name": "DJIA",
+            "formattedValue": "51.267,90",
+            "percentageChange": "+0,18%",
+            "percentageColor": "#1FC62A",
+            "valueColor": "#1FC62A",
+            "currentPrice": 0,
+            "tileInfo": {
+              "symbol": "DIA",
+              "subscriptionId": "",
+              "sparkLine": "https://asset-price-charts.s3.ap-southeast-1.amazonaws.com/globalStock-10752-1d-extended.png?ts=1791251600000",
+              "category": "PALN"
+            }
+          },
+          {
+            "assetId": 10760,
+            "name": "IWM",
+            "formattedValue": "2.847,14",
+            "percentageChange": "+0,50%",
+            "percentageColor": "#1FC62A",
+            "valueColor": "#1FC62A",
+            "currentPrice": 0,
+            "tileInfo": {
+              "symbol": "IWM",
+              "subscriptionId": "",
+              "sparkLine": "https://asset-price-charts.s3.ap-southeast-1.amazonaws.com/globalStock-10760-1d-extended.png?ts=1791251600000",
+              "category": "PALN"
+            }
+          }
+        ]
+      },
+      {
+        "category": "indonesia_stocks",
+        "title": "Pasar ID",
+        "assets": [
+          {
+            "name": "IHSG",
+            "formattedValue": "6.118,86",
+            "percentageChange": "0,00%",
+            "percentageColor": "#A0A4AB",
+            "valueColor": "#A0A4AB",
+            "currentPrice": 0,
+            "tileInfo": {
+              "symbol": "",
+              "subscriptionId": "",
+              "sparkLine": "",
+              "category": ""
+            }
+          },
+          {
+            "name": "IDX 30",
+            "formattedValue": "335,76",
+            "percentageChange": "+1,52%",
+            "percentageColor": "#1FC62A",
+            "valueColor": "#1FC62A",
+            "currentPrice": 0,
+            "tileInfo": {
+              "symbol": "",
+              "subscriptionId": "",
+              "sparkLine": "",
+              "category": ""
+            }
+          }
+        ]
+      },
+      {
+        "category": "commodities",
+        "title": "Komoditas",
+        "commoditiesInfo": "*Harga Gold dan Silver adalah harga futures. ",
+        "assets": [
+          {
+            "name": "Gold*",
+            "formattedValue": "$4.158,80",
+            "percentageChange": "+0,05%",
+            "percentageColor": "#1FC62A",
+            "valueColor": "#1FC62A",
+            "currentPrice": 0,
+            "tileInfo": {
+              "symbol": "",
+              "subscriptionId": "",
+              "sparkLine": "",
+              "category": ""
+            }
+          },
+          {
+            "name": "Silver*",
+            "formattedValue": "$61,10",
+            "percentageChange": "-0,33%",
+            "percentageColor": "#FF504B",
+            "valueColor": "#FF504B",
+            "currentPrice": 0,
+            "tileInfo": {
+              "symbol": "",
+              "subscriptionId": "",
+              "sparkLine": "",
+              "category": ""
+            }
+          },
+          {
+            "name": "Copper",
+            "formattedValue": "$6,67",
+            "percentageChange": "+0,47%",
+            "percentageColor": "#1FC62A",
+            "valueColor": "#1FC62A",
+            "currentPrice": 0,
+            "tileInfo": {
+              "symbol": "",
+              "subscriptionId": "",
+              "sparkLine": "",
+              "category": ""
+            }
+          },
+          {
+            "name": "Crude Oil",
+            "formattedValue": "$89,50",
+            "percentageChange": "+0,08%",
+            "percentageColor": "#1FC62A",
+            "valueColor": "#1FC62A",
+            "currentPrice": 0,
+            "tileInfo": {
+              "symbol": "",
+              "subscriptionId": "",
+              "sparkLine": "",
+              "category": ""
+            }
+          }
+        ]
+      },
+      {
+        "category": "global_market",
+        "title": "Pasar Global",
+        "assets": [
+          {
+            "name": "ASX 200",
+            "formattedValue": "8.729,40",
+            "percentageChange": "+0,50%",
+            "percentageColor": "#1FC62A",
+            "valueColor": "#1FC62A",
+            "currentPrice": 0,
+            "tileInfo": {
+              "symbol": "",
+              "subscriptionId": "",
+              "sparkLine": "",
+              "category": ""
+            }
+          },
+          {
+            "name": "SSE",
+            "formattedValue": "3.842,19",
+            "percentageChange": "+0,31%",
+            "percentageColor": "#1FC62A",
+            "valueColor": "#1FC62A",
+            "currentPrice": 0,
+            "tileInfo": {
+              "symbol": "",
+              "subscriptionId": "",
+              "sparkLine": "",
+              "category": ""
+            }
+          },
+          {
+            "name": "HSI",
+            "formattedValue": "24.214,00",
+            "percentageChange": "+0,72%",
+            "percentageColor": "#1FC62A",
+            "valueColor": "#1FC62A",
+            "currentPrice": 0,
+            "tileInfo": {
+              "symbol": "",
+              "subscriptionId": "",
+              "sparkLine": "",
+              "category": ""
+            }
+          },
+          {
+            "name": "STI",
+            "formattedValue": "5.658,65",
+            "percentageChange": "-0,10%",
+            "percentageColor": "#FF504B",
+            "valueColor": "#FF504B",
+            "currentPrice": 0,
+            "tileInfo": {
+              "symbol": "",
+              "subscriptionId": "",
+              "sparkLine": "",
+              "category": ""
+            }
+          },
+          {
+            "name": "Nikkei 225",
+            "formattedValue": "70.133,39",
+            "percentageChange": "+0,27%",
+            "percentageColor": "#1FC62A",
+            "valueColor": "#1FC62A",
+            "currentPrice": 0,
+            "tileInfo": {
+              "symbol": "",
+              "subscriptionId": "",
+              "sparkLine": "",
+              "category": ""
+            }
+          },
+          {
+            "name": "DAX 30",
+            "formattedValue": "25.326,00",
+            "percentageChange": "+0,04%",
+            "percentageColor": "#1FC62A",
+            "valueColor": "#1FC62A",
+            "currentPrice": 0,
+            "tileInfo": {
+              "symbol": "",
+              "subscriptionId": "",
+              "sparkLine": "",
+              "category": ""
+            }
+          },
+          {
+            "name": "FTSE 100",
+            "formattedValue": "10.497,94",
+            "percentageChange": "+0,34%",
+            "percentageColor": "#1FC62A",
+            "valueColor": "#1FC62A",
+            "currentPrice": 0,
+            "tileInfo": {
+              "symbol": "",
+              "subscriptionId": "",
+              "sparkLine": "",
+              "category": ""
+            }
+          },
+          {
+            "name": "CAC 40",
+            "formattedValue": "7.834,10",
+            "percentageChange": "-0,80%",
+            "percentageColor": "#FF504B",
+            "valueColor": "#FF504B",
+            "currentPrice": 0,
+            "tileInfo": {
+              "symbol": "",
+              "subscriptionId": "",
+              "sparkLine": "",
+              "category": ""
+            }
+          }
+        ]
+      },
+      {
+        "category": "currencies",
+        "title": "Kurs",
+        "assets": [
+          {
+            "name": "USD/IDR",
+            "formattedValue": "Rp17.919",
+            "percentageChange": "0,00%",
+            "percentageColor": "#A0A4AB",
+            "valueColor": "#A0A4AB",
+            "currentPrice": 0,
+            "tileInfo": {
+              "symbol": "",
+              "subscriptionId": "",
+              "sparkLine": "",
+              "category": ""
+            }
+          },
+          {
+            "name": "EUR/IDR",
+            "formattedValue": "Rp20.097",
+            "percentageChange": "+0,02%",
+            "percentageColor": "#1FC62A",
+            "valueColor": "#1FC62A",
+            "currentPrice": 0,
+            "tileInfo": {
+              "symbol": "",
+              "subscriptionId": "",
+              "sparkLine": "",
+              "category": ""
+            }
+          },
+          {
+            "name": "GBP/IDR",
+            "formattedValue": "Rp23.671,61",
+            "percentageChange": "+0,05%",
+            "percentageColor": "#1FC62A",
+            "valueColor": "#1FC62A",
+            "currentPrice": 0,
+            "tileInfo": {
+              "symbol": "",
+              "subscriptionId": "",
+              "sparkLine": "",
+              "category": ""
+            }
+          },
+          {
+            "name": "JPY/IDR",
+            "formattedValue": "Rp113,45",
+            "percentageChange": "+0,02%",
+            "percentageColor": "#1FC62A",
+            "valueColor": "#1FC62A",
+            "currentPrice": 0,
+            "tileInfo": {
+              "symbol": "",
+              "subscriptionId": "",
+              "sparkLine": "",
+              "category": ""
+            }
+          },
+          {
+            "name": "CNY/IDR",
+            "formattedValue": "Rp2.695,42",
+            "percentageChange": "+0,88%",
+            "percentageColor": "#1FC62A",
+            "valueColor": "#1FC62A",
+            "currentPrice": 0,
+            "tileInfo": {
+              "symbol": "",
+              "subscriptionId": "",
+              "sparkLine": "",
+              "category": ""
+            }
+          }
+        ]
+      },
+      {
+        "category": "bonds",
+        "title": "Obligasi",
+        "assets": [
+          {
+            "name": "US 2 Yr",
+            "formattedValue": "+4,83%",
+            "percentageChange": "+1,05%",
+            "percentageColor": "#000000",
+            "valueColor": "#000000",
+            "currentPrice": 0,
+            "tileInfo": {
+              "symbol": "",
+              "subscriptionId": "",
+              "sparkLine": "",
+              "category": ""
+            }
+          },
+          {
+            "name": "US 10 Yr",
+            "formattedValue": "+5,28%",
+            "percentageChange": "+0,76%",
+            "percentageColor": "#000000",
+            "valueColor": "#000000",
+            "currentPrice": 0,
+            "tileInfo": {
+              "symbol": "",
+              "subscriptionId": "",
+              "sparkLine": "",
+              "category": ""
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "source": "us-market",
+  "subSource": "stocks",
+  "breadcrumbs": [
+    {
+      "label": "Home",
+      "href": "/"
+    },
+    {
+      "label": "Explore",
+      "href": "/explore"
+    },
+    {
+      "label": "Harga Pasar AS",
+      "href": "/explore/us-market"
+    },
+    {
+      "label": "Saham",
+      "href": "/explore/us-market/stocks"
+    }
+  ],
+  "breadcrumbSchema": {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      {
+        "@type": "ListItem",
+        "position": 1,
+        "item": {
+          "@type": "WebPage",
+          "@id": "https://pluang.com/",
+          "name": "Home"
+        }
+      },
+      {
+        "@type": "ListItem",
+        "position": 2,
+        "item": {
+          "@type": "WebPage",
+          "@id": "https://pluang.com/explore",
+          "name": "Explore"
+        }
+      },
+      {
+        "@type": "ListItem",
+        "position": 3,
+        "item": {
+          "@type": "WebPage",
+          "@id": "https://pluang.com/explore/us-market",
+          "name": "Harga Pasar AS"
+        }
+      },
+      {
+        "@type": "ListItem",
+        "position": 4,
+        "item": {
+          "@type": "WebPage",
+          "@id": "https://pluang.com/explore/us-market/stocks",
+          "name": "Saham"
+        }
+      }
+    ]
+  },
+  "selectedOption": {
+    "value": "market_cap_desc",
+    "label": "MARKET_CAP_HIGH_LOW"
+  },
+  "sortByLabel": "",
+  "selectedTime": {
+    "value": "ONE_DAY",
+    "label": "1D"
+  },
+  "subCategory": "",
+  "category": "stocks_funds_leveraged_inverse",
+  "sortingOptions": [
+    {
+      "value": "market_cap_desc",
+      "label": "MARKET_CAP_HIGH_LOW"
+    },
+    {
+      "value": "market_cap_asc",
+      "label": "MARKET_CAP_LOW_HIGH"
+    },
+    {
+      "value": "alphabetical_asc",
+      "label": "ALPHA_A_Z"
+    },
+    {
+      "value": "alphabetical_desc",
+      "label": "ALPHA_Z_A"
+    },
+    {
+      "value": "price_percentage_desc",
+      "label": "PERFORMANCE_HIGH_LOW"
+    },
+    {
+      "value": "price_percentage_asc",
+      "label": "PERFORMANCE_LOW_HIGH"
+    },
+    {
+      "value": "price_desc",
+      "label": "PRICE_HIGH_LOW"
+    },
+    {
+      "value": "price_asc",
+      "label": "PRICE_LOW_HIGH"
+    }
+  ],
+  "metaData": [
+    "Jelajahi saham Amerika terbaik hari ini, cek harga saham US dalam Rupiah, pantau market saham AS, dan temukan saham dengan volume trading tertinggi serta pergerakan pasar real-time di Pluang.",
+    "Lihat daftar saham Amerika berdasarkan market cap, perubahan harga harian, volume transaksi, dan performa pasar. Temukan saham US yang sedang naik, turun, dan paling dicari di Indonesia.",
+    "Temukan peluang investasi saham Amerika dengan data harga real-time, grafik pasar, tren saham AS, serta analisis pergerakan harga untuk membantu keputusan investasi yang lebih cerdas."
+  ],
+  "metaHeadings": [
+    "Harga Saham Amerika Hari Ini",
+    "Daftar Saham AS Berdasarkan Market Cap",
+    "Peluang Investasi Saham Amerika"
+  ],
+  "allowedCanonicalParams": [
+    "category",
+    "subcategory",
+    "page"
+  ],
+  "appRatingData": {
+    "android": {
+      "rating": 4.71999979019165,
+      "reviews": 124432
+    },
+    "ios": {
+      "rating": 4.59476,
+      "reviews": 12842
+    },
+    "lastUpdated": "2026-10-04T11:01:25.048Z"
+  },
+  "showDownloadWidget": true
+}
