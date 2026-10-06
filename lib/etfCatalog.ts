@@ -28,10 +28,10 @@ export const ETF_METRIC_LABELS = {
   trackingError5Y: "5Y index tracking error",
   medianSpread30D: "30-day median bid/ask spread",
   premiumDiscount: "Premium / discount to NAV",
-  overallScore: "Overall peer score",
-  fundQualityScore: "Fund-quality subscore",
-  historicalPerformanceScore: "Historical-performance subscore",
-  scoreCoverage: "Score input coverage",
+  overallScore: "Legacy peer score",
+  fundQualityScore: "Legacy peer quality field",
+  historicalPerformanceScore: "Legacy peer performance field",
+  scoreCoverage: "Legacy peer input coverage",
   topTenWeight: "Top-ten holdings weight",
   effectiveHoldingsCount: "Effective holdings count",
   largestHoldingWeight: "Largest holding weight",
@@ -68,10 +68,10 @@ export const ETF_METRIC_HELP: Partial<Record<ETFMetricKey, string>> = {
   largestHoldingWeight: "Weight of the largest security in the complete, dated portfolio holdings set.",
   largestSectorWeight: "Weight of the largest sector using a dated, common sector classification.",
   underwaterObservationRate: "Share of daily observations below the running adjusted-price peak over the same five-year window.",
-  overallScore: "Peer-relative historical comparison score. Scoring remains unavailable until all inputs and verified peer cohorts pass the release gates.",
-  fundQualityScore: "Peer-relative cost, index-implementation, and diversification subscore. Requires a verified eligible cohort and complete inputs.",
-  historicalPerformanceScore: "Peer-relative risk-adjusted performance, rolling consistency, and drawdown subscore. Requires a verified eligible cohort and complete inputs.",
-  scoreCoverage: "Resolved share of the configured score input weights. Coverage is not confidence or a probability.",
+  overallScore: "Retired peer-relative score placeholder. Current role-specific ETF scorecards are shown in the Score column and Score assessment details.",
+  fundQualityScore: "Retired peer-relative quality placeholder. It is not used by the independent Full Grand Score methodology.",
+  historicalPerformanceScore: "Retired peer-relative performance placeholder. It is not used by current role-specific scorecards.",
+  scoreCoverage: "Retired peer-input coverage placeholder. Current ranked score coverage appears above the ETF table.",
 };
 
 export type ETFMetricUnit = "percent" | "percentagePoints" | "ratio" | "basisPoints" | "tradingDays" | "score" | "count" | "currency" | "date";
@@ -93,6 +93,46 @@ export interface ETFMetricResult {
 
 export type ETFKind = "etf" | "etn" | "excluded";
 export type ETFStrategy = "core" | "income" | "leveraged" | "trust" | "commodity" | "digital" | "allocation" | "etn";
+export type ETFScorecardKind = "core" | "full" | "cost-only" | "tactical" | "etn-execution";
+export type ETFScoreStatus =
+  | "available"
+  | "notApplicable"
+  | "identityUnresolved"
+  | "mandatePending"
+  | "insufficientHistory"
+  | "missingSource"
+  | "staleInput"
+  | "invalidInput"
+  | "methodologyPending";
+
+export interface ETFScoreComponent {
+  points: number | null;
+  weight: number;
+  inputValue?: number | null;
+  inputUnit?: "percent" | "percentagePoints" | "basisPoints" | "ratio" | "score";
+}
+
+/** Versioned per-fund result; no peer membership or current table order affects the score. */
+export interface ETFScoreAssessment {
+  scorecardId: string;
+  kind: ETFScorecardKind;
+  family: string;
+  horizon: "1Y" | "3Y" | "5Y" | "60-session" | "252-session";
+  methodologyVersion: string;
+  methodologyState: "candidate" | "frozen";
+  comparisonGroupId: string | null;
+  comparisonGroupEvidence: string[];
+  cutoff: string | null;
+  runId: string;
+  status: ETFScoreStatus;
+  score: number | null;
+  rankedEligible: boolean;
+  reason: string;
+  components?: Record<string, ETFScoreComponent>;
+  sourceIds?: string[];
+  inputDates?: Record<string, string | null>;
+  observations?: Record<string, number>;
+}
 
 export interface ETFRecord {
   id: string;
@@ -136,6 +176,7 @@ export interface ETFMetricSnapshot {
   historyObservations?: number;
   officialBenchmarkId?: string | null;
   comparisonBenchmarkId?: string | null;
+  scoreAssessments?: ETFScoreAssessment[];
   metadataProvenance?: {
     sourceId: string;
     status: "fetchedUnverified" | "issuerVerified";
