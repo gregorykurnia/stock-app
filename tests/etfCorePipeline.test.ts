@@ -7,6 +7,7 @@ import {
   coreSourceReadiness,
   isUsEquityTradingSession,
   normalizeIssuerSpreadPctToBps,
+  usEquitySessionAgeFromDate,
   validateETFCoreIssuerInput,
 } from "../lib/etfCorePipeline";
 import type { TiingoDailyBar } from "../lib/etfTiingo";
@@ -73,12 +74,20 @@ test("issuer inputs validate and normalize spread percentages to basis points", 
   assert.equal(normalizeIssuerSpreadPctToBps(-0.01), null);
 });
 
-test("issuer sample spreads remain stale under the two-day rule and cannot publish scores", () => {
+test("issuer spread freshness counts completed US trading sessions", () => {
   const now = new Date("2026-10-06T12:00:00.000Z");
   const readiness = coreSourceReadiness(now);
   assert.equal(readiness.length, 3);
   assert.ok(readiness.every((input) => input.feeFresh));
-  assert.ok(readiness.every((input) => !input.spreadFresh));
+  assert.deepEqual(readiness.map(({ ticker, spreadFresh, spreadAgeSessions }) => ({ ticker, spreadFresh, spreadAgeSessions })), [
+    { ticker: "VOO", spreadFresh: false, spreadAgeSessions: 18 },
+    { ticker: "VTI", spreadFresh: true, spreadAgeSessions: 1 },
+    { ticker: "VXUS", spreadFresh: false, spreadAgeSessions: 6 },
+  ]);
+  assert.equal(usEquitySessionAgeFromDate("2026-10-02", new Date("2026-10-06T20:14:00.000Z")), 1);
+  assert.equal(usEquitySessionAgeFromDate("2026-10-02", new Date("2026-10-06T20:15:00.000Z")), 2);
+  assert.equal(usEquitySessionAgeFromDate("2026-10-02", new Date("2026-10-07T22:30:00.000Z")), 3);
+  assert.equal(usEquitySessionAgeFromDate("2026-10-08", now), Number.POSITIVE_INFINITY);
 
   const record = ETF_CATALOG.find((item) => item.ticker === "VTI");
   assert.ok(record);
@@ -91,9 +100,9 @@ test("issuer sample spreads remain stale under the two-day rule and cannot publi
   });
   const core3Y = assessments.find((assessment) => assessment.kind === "core" && assessment.horizon === "3Y");
   const costOnly = assessments.find((assessment) => assessment.kind === "cost-only");
-  assert.equal(core3Y?.status, "staleInput");
+  assert.equal(core3Y?.status, "methodologyPending");
   assert.equal(core3Y?.score, null);
-  assert.match(core3Y?.reason ?? "", /spread disclosure is stale/i);
-  assert.equal(costOnly?.status, "staleInput");
+  assert.match(core3Y?.reason ?? "", /candidate scorecard constants/i);
+  assert.equal(costOnly?.status, "methodologyPending");
   assert.equal(costOnly?.score, null);
 });

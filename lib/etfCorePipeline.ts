@@ -22,6 +22,8 @@ import {
 import type { TiingoDailyBar } from "./etfTiingo";
 
 const DAY_MS = 86_400_000;
+const MAX_SPREAD_AGE_SESSIONS = 2;
+const US_EQUITY_SESSION_CLOSE_BUFFER_MINUTES = 15;
 const SOURCE_REVIEW_DATE = "2026-10-06";
 const MARKET_HISTORY_SOURCE = "Tiingo EOD adjusted close";
 const MARKET_HISTORY_SOURCE_ID = "tiingo:eod:adjusted-close:v1";
@@ -182,6 +184,48 @@ export function usEquityMarketHolidays(year: number): Set<string> {
 export function isUsEquityTradingSession(dateValue: string): boolean {
   const date = parseDate(dateValue);
   return Boolean(date && !isWeekend(date) && !usEquityMarketHolidays(date.getUTCFullYear()).has(dateValue));
+}
+
+function lastCompletedUsEquitySession(now: Date): string | null {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(now);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const year = Number(values.year);
+  const month = Number(values.month);
+  const day = Number(values.day);
+  const hour = Number(values.hour);
+  const minute = Number(values.minute);
+  if (![year, month, day, hour, minute].every(Number.isFinite)) return null;
+
+  const cursor = new Date(Date.UTC(year, month - 1, day));
+  const localMinute = hour * 60 + minute;
+  if (localMinute < (16 * 60) + US_EQUITY_SESSION_CLOSE_BUFFER_MINUTES) cursor.setUTCDate(cursor.getUTCDate() - 1);
+  while (!isUsEquityTradingSession(dateString(cursor))) cursor.setUTCDate(cursor.getUTCDate() - 1);
+  return dateString(cursor);
+}
+
+/** Counts completed NYSE/NYSE Arca sessions strictly after a source date. */
+export function usEquitySessionAgeFromDate(financialDate: string, now: Date): number {
+  const sourceDate = parseDate(financialDate);
+  const completedSession = lastCompletedUsEquitySession(now);
+  const endDate = completedSession ? parseDate(completedSession) : null;
+  if (!sourceDate || !endDate || sourceDate > endDate) return Number.POSITIVE_INFINITY;
+
+  let age = 0;
+  const cursor = new Date(sourceDate);
+  cursor.setUTCDate(cursor.getUTCDate() + 1);
+  while (cursor <= endDate) {
+    if (isUsEquityTradingSession(dateString(cursor))) age += 1;
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return age;
 }
 
 function monthString(date: Date): string {
@@ -456,7 +500,8 @@ export function buildETFCoreAssessments(input: {
   const cutoffWindow = buildETFCoreMarketWindow(bars, "3Y", now, cutoffDate);
   const expenseFresh = dateFresh(facts.expenseRatio.financialDate, now, 365)
     && (!facts.expenseRatio.waiverExpiryDate || facts.expenseRatio.waiverExpiryDate >= dateString(now));
-  const spreadFresh = dateFresh(facts.medianSpread.financialDate, now, 2);
+  const spreadAgeSessions = usEquitySessionAgeFromDate(facts.medianSpread.financialDate, now);
+  const spreadFresh = spreadAgeSessions >= 0 && spreadAgeSessions <= MAX_SPREAD_AGE_SESSIONS;
   const expenseRatio: VerifiedExpenseRatio = {
     value: facts.expenseRatio.valuePct,
     sourceId: facts.expenseRatio.sourceId,
@@ -505,7 +550,7 @@ export function buildETFCoreAssessments(input: {
       if (window.missingSessionDates.length) inputGaps.push(`Tiingo history is missing ${window.missingSessionDates.length} expected US trading session(s), beginning ${window.missingSessionDates[0]}.`);
       else inputGaps.push(`Core ${horizon} does not have an exact complete ${horizon === "3Y" ? 36 : 12}-month window through ${window.cutoff || "the last completed UTC month"}.`);
     }
-    if (!spreadFresh) inputGaps.push(`Issuer 30-day median spread disclosure is stale (as of ${spreadAsOf}; maximum age is two calendar days).`);
+    if (!spreadFresh) inputGaps.push(`Issuer 30-day median spread disclosure is stale (as of ${spreadAsOf}; maximum age is ${MAX_SPREAD_AGE_SESSIONS} completed US trading sessions).`);
     const calculation = calculateCoreScore({
       family: facts.mandate.family,
       horizon,
@@ -560,7 +605,7 @@ export function buildETFCoreAssessments(input: {
     medianSpread,
   });
   const costAssessment = toAssessment("cost-only", facts.mandate.family, "3Y", group.groupId,
-    groupEvidence, runId, cost, spreadFresh ? [] : [`Issuer 30-day median spread disclosure is stale (as of ${spreadAsOf}; maximum age is two calendar days).`], historyHash);
+    groupEvidence, runId, cost, spreadFresh ? [] : [`Issuer 30-day median spread disclosure is stale (as of ${spreadAsOf}; maximum age is ${MAX_SPREAD_AGE_SESSIONS} completed US trading sessions).`], historyHash);
   costAssessment.sourceUrls = [...new Set([facts.identitySourceUrl, facts.expenseRatio.sourceUrl, facts.medianSpread.sourceUrl])];
   result.push(costAssessment);
   return result;
@@ -570,14 +615,18 @@ export function issuerInputTickers(): string[] {
   return Object.keys(ISSUER_INPUTS).sort();
 }
 
-export function coreSourceReadiness(now: Date): { ticker: string; family: string; feeFresh: boolean; spreadFresh: boolean; sources: string[] }[] {
-  return Object.entries(ISSUER_INPUTS).map(([ticker, facts]) => ({
-    ticker,
-    family: facts.mandate.family,
-    feeFresh: dateFresh(facts.expenseRatio.financialDate, now, 365),
-    spreadFresh: dateFresh(facts.medianSpread.financialDate, now, 2),
-    sources: [facts.identitySourceUrl, facts.mandate.sourceUrl, facts.expenseRatio.sourceUrl, facts.medianSpread.sourceUrl],
-  })).sort((left, right) => left.ticker.localeCompare(right.ticker));
+export function coreSourceReadiness(now: Date): { ticker: string; family: string; feeFresh: boolean; spreadFresh: boolean; spreadAgeSessions: number | null; sources: string[] }[] {
+  return Object.entries(ISSUER_INPUTS).map(([ticker, facts]) => {
+    const spreadAgeSessions = usEquitySessionAgeFromDate(facts.medianSpread.financialDate, now);
+    return {
+      ticker,
+      family: facts.mandate.family,
+      feeFresh: dateFresh(facts.expenseRatio.financialDate, now, 365),
+      spreadFresh: spreadAgeSessions >= 0 && spreadAgeSessions <= MAX_SPREAD_AGE_SESSIONS,
+      spreadAgeSessions: Number.isFinite(spreadAgeSessions) ? spreadAgeSessions : null,
+      sources: [facts.identitySourceUrl, facts.mandate.sourceUrl, facts.expenseRatio.sourceUrl, facts.medianSpread.sourceUrl],
+    };
+  }).sort((left, right) => left.ticker.localeCompare(right.ticker));
 }
 
 export function buildETFCoreCoverageSummary(input: {
