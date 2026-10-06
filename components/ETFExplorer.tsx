@@ -15,7 +15,7 @@ import { preferredETFTableReturn } from "@/lib/etfReturnDisplay";
 
 type View = "explore" | "compare" | "shortlist";
 type Scope = "etf" | "etn" | "all";
-type SortKey = "ticker" | "category" | "issuer" | "structure";
+type SortKey = "ticker" | "category" | "exposure" | `metric:${ETFMetricKey}` | "issuer" | "dataStatus";
 type DataFilter = "all" | "identity-warning" | "source-located";
 
 interface ETFCounts {
@@ -220,6 +220,40 @@ function DataStatus({ record }: { record: ETFRecord }) {
   return <span className="badge border bg-gray-50 text-gray-600 border-gray-200" title={`${resolved} of ${tracked.length} fields sourced or explicitly resolved`}>{resolved === tracked.length ? "Ready" : `Partial · ${resolved}/${tracked.length}`}</span>;
 }
 
+function dataStatusSortValue(record: ETFRecord) {
+  if (record.identityWarning) return "Identity review";
+  const snapshot = record.metricSnapshot;
+  if (!snapshot?.observedAt) return "No snapshot";
+  if (snapshot.lastError) return "Refresh issue";
+  if (snapshot.stale) return "Stale";
+  const tracked = Object.keys(ETF_METRIC_LABELS).filter((key) => key !== "overlap") as ETFMetricKey[];
+  const resolved = tracked.filter((key) => {
+    const state = (snapshot.states[key] ?? "").toLowerCase();
+    return state.startsWith("available") || state.includes("no distributions") || state === "not yet recovered" || state === "no drawdown in available history";
+  }).length;
+  return resolved === tracked.length ? "Ready" : "Partial";
+}
+
+function sortValue(record: ETFRecord, key: SortKey): string | number | null {
+  if (key.startsWith("metric:")) {
+    const metricKey = key.slice("metric:".length) as ETFMetricKey;
+    if (record.identityWarning) return null;
+    if (metricKey === "cagr5Y") {
+      const tableReturn = preferredETFTableReturn(record.metricSnapshot, record.identityWarning);
+      const value = tableReturn.valueOverride ?? record.metricSnapshot?.values[tableReturn.metricKey];
+      return typeof value === "number" && Number.isFinite(value) ? value : null;
+    }
+    const value = record.metricSnapshot?.values[metricKey];
+    return typeof value === "number" && Number.isFinite(value) ? value : null;
+  }
+
+  if (key === "ticker") return record.ticker;
+  if (key === "category") return `${record.category} ${strategyLabel(record.strategy)}`;
+  if (key === "exposure") return record.exposure;
+  if (key === "issuer") return record.issuer;
+  return dataStatusSortValue(record);
+}
+
 function SummaryCard({ label, value, note, tone = "text-gray-900" }: { label: string; value: string | number; note: string; tone?: string }) {
   return (
     <div className="surface-card min-w-0 p-4">
@@ -290,10 +324,10 @@ function ETFTable({ records, shortlist, compareTickers, onSelect, onToggleShortl
             <tr className="border-b border-[var(--border)] bg-gray-50/80 text-[11px] uppercase tracking-wide text-gray-500">
               <th scope="col" aria-sort={sortKey === "ticker" ? (descending ? "descending" : "ascending") : "none"} className="sticky left-0 z-20 min-w-56 bg-gray-50 px-4 py-3 text-left font-semibold"><SortButton label="Fund" sortKey="ticker" currentSort={sortKey} descending={descending} onChange={onSort} /></th>
               <th scope="col" aria-sort={sortKey === "category" ? (descending ? "descending" : "ascending") : "none"} className="min-w-56 px-4 py-3 text-left font-semibold"><SortButton label="Category / strategy" sortKey="category" currentSort={sortKey} descending={descending} onChange={onSort} /></th>
-              <th scope="col" className="min-w-64 px-4 py-3 text-left font-semibold">Exposure</th>
-              {TABLE_METRICS.map((metric) => <th key={metric.key} scope="col" className="whitespace-nowrap px-4 py-3 text-right font-semibold">{metric.label}</th>)}
+              <th scope="col" aria-sort={sortKey === "exposure" ? (descending ? "descending" : "ascending") : "none"} className="min-w-64 px-4 py-3 text-left font-semibold"><SortButton label="Exposure" sortKey="exposure" currentSort={sortKey} descending={descending} onChange={onSort} /></th>
+              {TABLE_METRICS.map((metric) => <th key={metric.key} scope="col" aria-sort={sortKey === `metric:${metric.key}` ? (descending ? "descending" : "ascending") : "none"} className="whitespace-nowrap px-4 py-3 text-right font-semibold"><SortButton label={metric.label} sortKey={`metric:${metric.key}`} currentSort={sortKey} descending={descending} onChange={onSort} /></th>)}
               <th scope="col" aria-sort={sortKey === "issuer" ? (descending ? "descending" : "ascending") : "none"} className="min-w-32 px-4 py-3 text-left font-semibold"><SortButton label="Issuer" sortKey="issuer" currentSort={sortKey} descending={descending} onChange={onSort} /></th>
-              <th scope="col" className="min-w-36 px-4 py-3 text-left font-semibold">Data status</th>
+              <th scope="col" aria-sort={sortKey === "dataStatus" ? (descending ? "descending" : "ascending") : "none"} className="min-w-36 px-4 py-3 text-left font-semibold"><SortButton label="Data status" sortKey="dataStatus" currentSort={sortKey} descending={descending} onChange={onSort} /></th>
               <th scope="col" className="px-4 py-3 text-right font-semibold">Actions</th>
             </tr>
           </thead>
@@ -508,10 +542,15 @@ export default function ETFExplorer({ catalogue, etns, exclusions, categoryMeta,
       return matchesSearch && matchesCategory && matchesStrategy && matchesIssuer && matchesData && matchesComplexity;
     });
     return rows.sort((a, b) => {
-      const av = sortKey === "ticker" ? a.ticker : sortKey === "category" ? a.category : sortKey === "issuer" ? a.issuer : a.structure;
-      const bv = sortKey === "ticker" ? b.ticker : sortKey === "category" ? b.category : sortKey === "issuer" ? b.issuer : b.structure;
-      const comparison = av.localeCompare(bv);
-      return descending ? -comparison : comparison;
+      const av = sortValue(a, sortKey);
+      const bv = sortValue(b, sortKey);
+      if (av === null) return bv === null ? a.ticker.localeCompare(b.ticker) : 1;
+      if (bv === null) return -1;
+      const comparison = typeof av === "number" && typeof bv === "number"
+        ? av - bv
+        : String(av).localeCompare(String(bv), undefined, { numeric: true, sensitivity: "base" });
+      if (comparison !== 0) return descending ? -comparison : comparison;
+      return a.ticker.localeCompare(b.ticker);
     });
   }, [scopedRecords, search, category, strategy, issuer, dataFilter, includeComplex, sortKey, descending]);
 
