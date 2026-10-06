@@ -93,8 +93,10 @@ async function refreshTicker(ticker: string) {
   ];
   const expenseRatioSource = expenseRatioCandidates.find(({ value }) => typeof value === "number" && Number.isFinite(value));
   const expenseRatio = typeof expenseRatioSource?.value === "number" ? expenseRatioSource.value : null;
-  const netAssets = [fundProfile.totalNetAssets, summaryDetail.totalAssets]
-    .find((value: unknown) => typeof value === "number" && Number.isFinite(value)) ?? null;
+  const totalAssets = summaryDetail.totalAssets;
+  const netAssets = typeof totalAssets === "number" && Number.isFinite(totalAssets) && totalAssets > 0
+    ? totalAssets
+    : null;
   const inceptionDate = normalizeDate(summaryDetail.fundInceptionDate);
   const observedAt = normalizeDate(chart?.meta?.regularMarketTime) ?? bars.at(-1)!.date;
   const metrics = calculateETFMetrics({
