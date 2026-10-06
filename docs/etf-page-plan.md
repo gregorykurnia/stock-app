@@ -1,6 +1,6 @@
 # ETF page plan
 
-Status: proposed; public-catalogue census and qualitative research recorded. Financial enrichment, identity resolution, and implementation remain pending.
+Status: implementation complete; live market-data enrichment, Firestore snapshots, and scheduled refresh are in place. The first production backfill and its coverage audit follow deployment. Identity conflicts and fields absent from the provider remain explicitly unresolved.
 Requested: 2026-10-06
 
 Research: [Pluang ETF research and complete public-catalogue audit](pluang-etf-research.md), observed 2026-10-06. Evidence and the reconciled universe are saved under [research/pluang-etf-2026-10-06](research/pluang-etf-2026-10-06/audit-manifest.json).
@@ -13,7 +13,7 @@ Research: [Pluang ETF research and complete public-catalogue audit](pluang-etf-r
 - Correct ROBO's issuer mapping; resolve FLOT's Australian VanEck versus US iShares identity before adding statistics. FNGU's platform index name conflicts with current issuer material; confirm its note series/CUSIP and corporate actions before joining histories.
 - Availability is **catalogue-listed**, not authenticated tradability-confirmed. Public account/KYC-dependent disabled flags are insufficient evidence of suspension. Show the snapshot date and this distinction.
 - Underlying structures include conventional equity/bond ETFs, options/0DTE income funds, single-stock strategies, daily leveraged/inverse funds, a weekly leveraged distribution strategy (**NVDW**), physical trusts, commodity pools, and spot/futures digital exposure. Store leverage multiple and reset interval independently.
-- Issuer source locators and candidate fundamentals are recorded for the full research census. **They are not a validated numerical dataset.** Matched-date return/distribution histories, daily drawdown/recovery, current normalized fees/AUM, and holdings coverage still need enrichment and validation. Do not mark Phase 1 complete or publish candidate observations as verified statistics.
+- Issuer source locators and candidate fundamentals are recorded for the full research census. **They are not a validated numerical dataset.** The Phase 1 enrichment now calculates return, distribution, drawdown, volatility, and recovery metrics from Yahoo Finance daily history, and stores each snapshot with its source, observation date, and field-level status. Yahoo-reported expense ratio, net assets, inception date, and top holdings are stored when available. Missing provider fields and insufficient history remain visible; FLOT and FNGU are skipped until identity/continuity review. Audit the first backfill before treating provider coverage as complete.
 
 ## Purpose and scope
 
@@ -27,7 +27,7 @@ The page should answer:
 4. How does it compare with similar funds?
 5. What exposure would it add to my portfolio?
 
-This document defines the product and analysis sections. The companion research now contains the complete observed public-catalogue census and per-product exposure/source records. Account-specific availability and current normalized fund statistics remain unverified. Use the reconciled research universe as the initial catalogue, with explicit unresolved and missing-data states.
+This document defines the product and analysis sections. The companion research now contains the complete observed public-catalogue census and per-product exposure/source records. Account-specific availability remains unverified. Use the reconciled research universe as the initial catalogue, with explicit unresolved and missing-data states; keep provider-sourced metrics labeled with their source date.
 
 ## Recommended page structure
 

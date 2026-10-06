@@ -6,9 +6,11 @@ import {
   ETF_METRIC_LABELS,
   type ETFCategoryMeta,
   type ETFMetricKey,
+  type ETFMetricSnapshot,
   type ETFRecord,
   type ETFStrategy,
 } from "@/lib/etfCatalog";
+import { weightedHoldingsOverlap } from "@/lib/etfMetricCalculations";
 
 type View = "explore" | "compare" | "shortlist";
 type Scope = "etf" | "etn" | "all";
@@ -62,6 +64,7 @@ const TABLE_METRICS: Array<{ key: ETFMetricKey; label: string }> = [
 
 const DETAIL_METRICS: ETFMetricKey[] = [
   "totalReturn1Y",
+  "calendarYearReturns",
   "cagr3Y",
   "cagr5Y",
   "cagr10Y",
@@ -72,6 +75,9 @@ const DETAIL_METRICS: ETFMetricKey[] = [
   "recoveryTime",
   "topTenWeight",
   "overlap",
+  "expenseRatio",
+  "netAssets",
+  "inceptionDate",
 ];
 
 function formatSnapshotDate(value: string) {
@@ -132,13 +138,49 @@ function candidateMetricLabel(key: string) {
   return labels[key] ?? key.replace(/([A-Z])/g, " $1").replace(/^./, (value) => value.toUpperCase());
 }
 
-function PendingMetric({ state = "not collected/validated" }: { state?: string }) {
-  return <span className="text-gray-400" title={state}>Pending</span>;
+function metricText(key: ETFMetricKey, value: number | string | undefined, state?: string, currency?: string | null) {
+  if (value === undefined || value === "") {
+    if (!state || state.toLowerCase().includes("not collected") || state.toLowerCase().includes("not validated")) return "Pending";
+    if (state.toLowerCase().includes("insufficient")) return "Insufficient history";
+    if (state.toLowerCase().includes("not yet recovered")) return "Not yet recovered";
+    if (state.toLowerCase().includes("no distributions")) return "0.00%";
+    if (state.toLowerCase().includes("compare")) return "Select funds to compare";
+    if (state.toLowerCase().includes("unavailable")) return "Unavailable";
+    if (state.toLowerCase().includes("price history")) return "Price history unavailable";
+    return state;
+  }
+  if (typeof value === "string") return value;
+  if (["totalReturn1Y", "cagr3Y", "cagr5Y", "cagr10Y", "trailingDistributionYield", "averageCashYield5Y", "maxDrawdown5Y", "volatility5Y", "topTenWeight", "expenseRatio"].includes(key)) {
+    const signedReturn = value > 0 && ["totalReturn1Y", "cagr3Y", "cagr5Y", "cagr10Y"].includes(key);
+    return `${signedReturn ? "+" : ""}${value.toFixed(key === "expenseRatio" ? 4 : 2)}%`;
+  }
+  if (key === "recoveryTime") return `${Math.round(value).toLocaleString()} trading days`;
+  if (key === "netAssets") {
+    return new Intl.NumberFormat("en-US", { style: "currency", currency: currency ?? "USD", notation: "compact", maximumFractionDigits: 2 }).format(value);
+  }
+  return value.toLocaleString();
+}
+
+function FundMetric({ record, metricKey }: { record: ETFRecord; metricKey: ETFMetricKey }) {
+  const snapshot = record.metricSnapshot;
+  const state = record.identityWarning ? `Identity review: ${record.identityWarning}` : snapshot?.states[metricKey] ?? record.metricStates[metricKey];
+  const value = record.identityWarning ? undefined : snapshot?.values[metricKey];
+  const label = [snapshot?.source, snapshot?.observedAt ? `Observed ${snapshot.observedAt}` : null, state].filter(Boolean).join(" · ");
+  return <span className={value === undefined ? "text-gray-400" : "font-semibold text-gray-800"} title={label || state}>{metricText(metricKey, value, state, snapshot?.currency)}</span>;
 }
 
 function DataStatus({ record }: { record: ETFRecord }) {
   if (record.identityWarning) return <span className="badge border bg-amber-50 text-amber-800 border-amber-200">Identity review</span>;
-  return <span className="badge border bg-gray-50 text-gray-600 border-gray-200">Metrics pending</span>;
+  const snapshot = record.metricSnapshot;
+  if (!snapshot?.observedAt) return <span className="badge border bg-gray-50 text-gray-600 border-gray-200">Awaiting refresh</span>;
+  if (snapshot.lastError) return <span className="badge border bg-amber-50 text-amber-800 border-amber-200" title={snapshot.lastError}>Refresh issue · last values kept</span>;
+  const tracked = Object.keys(ETF_METRIC_LABELS).filter((key) => key !== "overlap") as ETFMetricKey[];
+  const resolved = tracked.filter((key) => {
+    const state = (snapshot.states[key] ?? "").toLowerCase();
+    return state.startsWith("available") || state.includes("no distributions") || state === "not yet recovered" || state === "no drawdown in available history";
+  }).length;
+  if (snapshot.stale) return <span className="badge border bg-amber-50 text-amber-800 border-amber-200" title={`Last successful market data: ${snapshot.observedAt}`}>Stale · {resolved}/{tracked.length}</span>;
+  return <span className="badge border bg-gray-50 text-gray-600 border-gray-200" title={`${resolved} of ${tracked.length} fields sourced or explicitly resolved`}>{resolved === tracked.length ? "Ready" : `Partial · ${resolved}/${tracked.length}`}</span>;
 }
 
 function SummaryCard({ label, value, note, tone = "text-gray-900" }: { label: string; value: string | number; note: string; tone?: string }) {
@@ -203,7 +245,7 @@ function ETFTable({ records, shortlist, compareTickers, onSelect, onToggleShortl
               <th scope="col" aria-sort={sortKey === "ticker" ? (descending ? "descending" : "ascending") : "none"} className="sticky left-0 z-20 min-w-56 bg-gray-50 px-4 py-3 text-left font-semibold"><SortButton label="Fund" sortKey="ticker" currentSort={sortKey} descending={descending} onChange={onSort} /></th>
               <th scope="col" aria-sort={sortKey === "category" ? (descending ? "descending" : "ascending") : "none"} className="min-w-56 px-4 py-3 text-left font-semibold"><SortButton label="Category / strategy" sortKey="category" currentSort={sortKey} descending={descending} onChange={onSort} /></th>
               <th scope="col" className="min-w-64 px-4 py-3 text-left font-semibold">Exposure</th>
-              {TABLE_METRICS.map((metric) => <th key={metric.key} scope="col" title="This metric is not yet collected or validated for the catalogue snapshot." className="whitespace-nowrap px-4 py-3 text-right font-semibold">{metric.label}</th>)}
+              {TABLE_METRICS.map((metric) => <th key={metric.key} scope="col" className="whitespace-nowrap px-4 py-3 text-right font-semibold">{metric.label}</th>)}
               <th scope="col" aria-sort={sortKey === "issuer" ? (descending ? "descending" : "ascending") : "none"} className="min-w-32 px-4 py-3 text-left font-semibold"><SortButton label="Issuer" sortKey="issuer" currentSort={sortKey} descending={descending} onChange={onSort} /></th>
               <th scope="col" className="min-w-36 px-4 py-3 text-left font-semibold">Data status</th>
               <th scope="col" className="px-4 py-3 text-right font-semibold">Actions</th>
@@ -230,7 +272,7 @@ function ETFTable({ records, shortlist, compareTickers, onSelect, onToggleShortl
                   </th>
                   <td className="px-4 py-3 align-top"><span className="block max-w-52 text-xs font-semibold text-gray-800">{formatCategory(record.category)}</span><span className="mt-1 flex flex-wrap gap-1">{record.badges.slice(0, 2).map((badge) => <span key={badge} className={`badge border ${badgeClass(badge)}`}>{badge}</span>)}</span></td>
                   <td className="max-w-72 px-4 py-3 align-top text-xs leading-5 text-gray-600">{record.exposure}</td>
-                  {TABLE_METRICS.map((metric) => <td key={metric.key} className="whitespace-nowrap px-4 py-3 text-right text-xs"><PendingMetric state={record.metricStates[metric.key]} /></td>)}
+                  {TABLE_METRICS.map((metric) => <td key={metric.key} className="whitespace-nowrap px-4 py-3 text-right text-xs"><FundMetric record={record} metricKey={metric.key} /></td>)}
                   <td className="px-4 py-3 align-top text-xs text-gray-600">{record.issuer}</td>
                   <td className="px-4 py-3 align-top"><DataStatus record={record} /></td>
                   <td className="px-4 py-3 align-top"><div className="flex justify-end gap-1.5"><button type="button" className={`rounded-md border px-2 py-1 text-[11px] font-semibold transition-colors ${compared ? "border-indigo-200 bg-indigo-50 text-indigo-700" : "border-gray-200 bg-white text-gray-600 hover:border-indigo-200 hover:text-indigo-700"}`} onClick={(event) => { event.stopPropagation(); onToggleCompare(record); }} disabled={!compared && compareTickers.length >= 4} aria-label={`${compared ? "Remove" : "Add"} ${record.ticker} ${compared ? "from" : "to"} comparison`}>{compared ? "Compared" : "Compare"}</button><button type="button" className={`rounded-md border px-2 py-1 text-[11px] font-semibold transition-colors ${saved ? "border-amber-200 bg-amber-50 text-amber-800" : "border-gray-200 bg-white text-gray-600 hover:border-amber-200 hover:text-amber-800"}`} onClick={(event) => { event.stopPropagation(); onToggleShortlist(record); }} aria-label={`${saved ? "Remove" : "Save"} ${record.ticker} ${saved ? "from" : "to"} shortlist`}>{saved ? "Saved" : "Save"}</button></div></td>
@@ -251,7 +293,7 @@ function ETFTable({ records, shortlist, compareTickers, onSelect, onToggleShortl
                 <div className="flex items-start justify-between gap-3"><div className="flex min-w-0 items-start gap-2"><span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-50 font-mono text-[10px] font-bold text-indigo-700">{record.ticker.slice(0, 2)}</span><div className="min-w-0"><div className="font-mono font-bold text-gray-900">{record.ticker}</div><div className="truncate text-xs text-gray-500">{record.name}</div></div></div><DataStatus record={record} /></div>
                 <p className="mt-3 text-xs leading-5 text-gray-600">{record.exposure}</p>
                 <div className="mt-3 flex flex-wrap gap-1.5"><span className="badge border bg-indigo-50 text-indigo-700 border-indigo-200">{formatCategory(record.category)}</span>{record.badges.map((badge) => <span key={badge} className={`badge border ${badgeClass(badge)}`}>{badge}</span>)}</div>
-                <div className="mt-4 grid grid-cols-2 gap-3 border-t border-gray-100 pt-3 sm:grid-cols-4">{TABLE_METRICS.map((metric) => <div key={metric.key}><div className="text-[10px] uppercase tracking-wide text-gray-400">{metric.label}</div><div className="mt-1 text-xs font-semibold"><PendingMetric state={record.metricStates[metric.key]} /></div></div>)}</div>
+                <div className="mt-4 grid grid-cols-2 gap-3 border-t border-gray-100 pt-3 sm:grid-cols-4">{TABLE_METRICS.map((metric) => <div key={metric.key}><div className="text-[10px] uppercase tracking-wide text-gray-400">{metric.label}</div><div className="mt-1 text-xs"><FundMetric record={record} metricKey={metric.key} /></div></div>)}</div>
               </button>
               <div className="mt-3 flex items-center justify-between gap-2"><span className="text-[11px] text-gray-400">{record.issuer}</span><div className="flex gap-1.5"><button type="button" className={`rounded-md border px-2 py-1 text-[11px] font-semibold ${compared ? "border-indigo-200 bg-indigo-50 text-indigo-700" : "border-gray-200 bg-white text-gray-600"}`} onClick={() => onToggleCompare(record)} disabled={!compared && compareTickers.length >= 4}>{compared ? "Compared" : "Compare"}</button><button type="button" className={`rounded-md border px-2 py-1 text-[11px] font-semibold ${saved ? "border-amber-200 bg-amber-50 text-amber-800" : "border-gray-200 bg-white text-gray-600"}`} onClick={() => onToggleShortlist(record)}>{saved ? "Saved" : "Save"}</button></div></div>
             </article>
@@ -265,9 +307,33 @@ function ETFTable({ records, shortlist, compareTickers, onSelect, onToggleShortl
 function CompareView({ records, onSelect, onRemove }: { records: ETFRecord[]; onSelect: (record: ETFRecord) => void; onRemove: (record: ETFRecord) => void }) {
   return (
     <section className="space-y-4" aria-labelledby="compare-heading">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"><div><h2 id="compare-heading" className="text-lg font-bold text-gray-900">Compare selected funds</h2><p className="mt-1 text-xs text-gray-500">Select two to four funds from Explore. Matched-period statistics will be added after validated enrichment.</p></div><span className="text-xs font-semibold text-gray-500">{records.length}/4 selected</span></div>
-      {records.length === 0 ? <div className="surface-card flex min-h-56 flex-col items-center justify-center p-8 text-center"><div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-50 text-lg text-indigo-600">↔</div><h3 className="mt-3 text-sm font-bold text-gray-900">Choose funds to compare</h3><p className="mt-1 max-w-sm text-xs leading-5 text-gray-500">Use the Compare action in Explore, then return here for a side-by-side view of exposure, structure, and data coverage.</p></div> : <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">{records.map((record) => <article key={record.id} className="surface-card p-4"><div className="flex items-start justify-between gap-3"><button type="button" onClick={() => onSelect(record)} className="text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"><div className="font-mono text-lg font-bold text-gray-900">{record.ticker}</div><div className="mt-0.5 line-clamp-2 text-xs text-gray-500">{record.name}</div></button><button type="button" onClick={() => onRemove(record)} className="text-xs text-gray-400 hover:text-red-600" aria-label={`Remove ${record.ticker} from comparison`}>Remove</button></div><div className="mt-3 flex flex-wrap gap-1">{record.badges.map((badge) => <span key={badge} className={`badge border ${badgeClass(badge)}`}>{badge}</span>)}</div><dl className="mt-4 space-y-2 border-t border-gray-100 pt-3 text-xs"><div className="flex justify-between gap-3"><dt className="text-gray-400">Category</dt><dd className="text-right font-semibold text-gray-700">{formatCategory(record.category)}</dd></div><div className="flex justify-between gap-3"><dt className="text-gray-400">Issuer</dt><dd className="text-right text-gray-700">{record.issuer}</dd></div><div className="flex justify-between gap-3"><dt className="text-gray-400">5Y CAGR</dt><dd><PendingMetric state={record.metricStates.cagr5Y} /></dd></div><div className="flex justify-between gap-3"><dt className="text-gray-400">TTM yield</dt><dd><PendingMetric state={record.metricStates.trailingDistributionYield} /></dd></div><div className="flex justify-between gap-3"><dt className="text-gray-400">5Y drawdown</dt><dd><PendingMetric state={record.metricStates.maxDrawdown5Y} /></dd></div></dl><p className="mt-4 text-[11px] leading-4 text-gray-500">{record.exposure}</p></article>)}</div>}
-      <div className="surface-card border border-amber-200 bg-amber-50/70 p-4 text-xs leading-5 text-amber-900"><strong>Comparison rule:</strong> returns and income should be compared on common matched dates with reinvested distributions kept separate from cash yield. This snapshot has no validated numeric history yet, so blank metrics remain visible instead of being estimated.</div>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div><h2 id="compare-heading" className="text-lg font-bold text-gray-900">Compare selected funds</h2><p className="mt-1 text-xs text-gray-500">Compare sourced return, yield, drawdown, and holdings coverage for two to four funds.</p></div>
+        <span className="text-xs font-semibold text-gray-500">{records.length}/4 selected</span>
+      </div>
+      {records.length === 0 ? (
+        <div className="surface-card flex min-h-56 flex-col items-center justify-center p-8 text-center"><div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-50 text-lg text-indigo-600">↔</div><h3 className="mt-3 text-sm font-bold text-gray-900">Choose funds to compare</h3><p className="mt-1 max-w-sm text-xs leading-5 text-gray-500">Use the Compare action in Explore, then return here for a side-by-side view of exposure, structure, and data coverage.</p></div>
+      ) : (
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {records.map((record) => (
+            <article key={record.id} className="surface-card p-4">
+              <div className="flex items-start justify-between gap-3"><button type="button" onClick={() => onSelect(record)} className="text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"><div className="font-mono text-lg font-bold text-gray-900">{record.ticker}</div><div className="mt-0.5 line-clamp-2 text-xs text-gray-500">{record.name}</div></button><button type="button" onClick={() => onRemove(record)} className="text-xs text-gray-400 hover:text-red-600" aria-label={`Remove ${record.ticker} from comparison`}>Remove</button></div>
+              <div className="mt-3 flex flex-wrap gap-1">{record.badges.map((badge) => <span key={badge} className={`badge border ${badgeClass(badge)}`}>{badge}</span>)}</div>
+              <dl className="mt-4 space-y-2 border-t border-gray-100 pt-3 text-xs">
+                <div className="flex justify-between gap-3"><dt className="text-gray-400">Category</dt><dd className="text-right font-semibold text-gray-700">{formatCategory(record.category)}</dd></div>
+                <div className="flex justify-between gap-3"><dt className="text-gray-400">Issuer</dt><dd className="text-right text-gray-700">{record.issuer}</dd></div>
+                <div className="flex justify-between gap-3"><dt className="text-gray-400">5Y CAGR</dt><dd><FundMetric record={record} metricKey="cagr5Y" /></dd></div>
+                <div className="flex justify-between gap-3"><dt className="text-gray-400">TTM yield</dt><dd><FundMetric record={record} metricKey="trailingDistributionYield" /></dd></div>
+                <div className="flex justify-between gap-3"><dt className="text-gray-400">5Y drawdown</dt><dd><FundMetric record={record} metricKey="maxDrawdown5Y" /></dd></div>
+                <div className="flex justify-between gap-3"><dt className="text-gray-400">Top-ten overlap</dt><dd className="text-right">{records.length < 2 ? "Select another fund" : records.filter((peer) => peer.ticker !== record.ticker).map((peer) => { const value = weightedHoldingsOverlap(record.metricSnapshot?.holdings ?? [], peer.metricSnapshot?.holdings ?? []); return <span key={peer.ticker} className="block">{peer.ticker}: {value == null ? "Holdings unavailable" : `≥${value.toFixed(2)}%`}</span>; })}</dd></div>
+              </dl>
+              <p className="mt-4 text-[11px] leading-4 text-gray-500">{record.exposure}</p>
+            </article>
+          ))}
+        </div>
+      )}
+      {records.length > 0 && <p className="text-[11px] leading-5 text-gray-500">Top-ten overlap is a minimum: it sums shared symbols’ smaller reported weights across the providers’ top-ten lists and does not capture holdings outside those lists.</p>}
+      <div className="surface-card border border-amber-200 bg-amber-50/70 p-4 text-xs leading-5 text-amber-900"><strong>Comparison rule:</strong> return history uses adjusted prices over the same date windows, while trailing cash yield uses reported distribution events. The source date and coverage state are shown with every fund.</div>
     </section>
   );
 }
@@ -293,9 +359,9 @@ function ETFDetailDrawer({ record, saved, compared, onClose, onToggleShortlist, 
 
           <section aria-labelledby="what-buying-heading"><h3 id="what-buying-heading" className="text-sm font-bold text-gray-900">What am I buying?</h3><p className="mt-2 text-sm leading-6 text-gray-600">{record.exposure}</p><p className="mt-2 text-xs leading-5 text-gray-500">{roleExplanation(record)}</p><div className="mt-3 flex flex-wrap gap-1.5">{record.badges.map((badge) => <span key={badge} className={`badge border ${badgeClass(badge)}`}>{badge}</span>)}</div></section>
 
-          <section aria-labelledby="fund-overview-heading"><h3 id="fund-overview-heading" className="text-sm font-bold text-gray-900">Fund overview</h3><dl className="mt-3 grid grid-cols-1 gap-x-5 gap-y-3 text-xs sm:grid-cols-2">{[["Issuer", record.issuer], ["Catalogue category", formatCategory(record.category)], ["Structure", formatStructure(record.structure)], ["Platform asset ID", String(record.assetId)], ["Catalogue listing", "Public listing observed"], ["Tradability", "Authenticated tradability not checked"], ["Catalogue page", record.cataloguePage ? String(record.cataloguePage) : "US catalogue addition"], ["Source observed", formatSnapshotDate(record.observedAt)]].map(([label, value]) => <div key={label}><dt className="text-gray-400">{label}</dt><dd className="mt-1 font-semibold text-gray-700">{value}</dd></div>)}</dl>{(record.leverageTarget || record.resetInterval) && <div className="mt-4 rounded-xl bg-gray-50 p-3 text-xs leading-5 text-gray-600"><strong className="text-gray-800">Reset and leverage:</strong> {record.leverageTarget ? `${record.leverageTarget} target` : "Target not recorded"}{record.resetInterval ? ` · ${record.resetInterval} reset` : ""}. This is a property of the underlying product, separate from any account-level financing.</div>}</section>
+          <section aria-labelledby="fund-overview-heading"><h3 id="fund-overview-heading" className="text-sm font-bold text-gray-900">Fund overview</h3><dl className="mt-3 grid grid-cols-1 gap-x-5 gap-y-3 text-xs sm:grid-cols-2">{[["Issuer", record.issuer], ["Catalogue category", formatCategory(record.category)], ["Structure", formatStructure(record.structure)], ["Platform asset ID", String(record.assetId)], ["Catalogue listing", "Public listing observed"], ["Tradability", "Authenticated tradability not checked"], ["Catalogue page", record.cataloguePage ? String(record.cataloguePage) : "US catalogue addition"], ["Source observed", formatSnapshotDate(record.observedAt)], ["Inception date", metricText("inceptionDate", record.metricSnapshot?.values.inceptionDate, record.metricSnapshot?.states.inceptionDate)], ["Expense ratio", metricText("expenseRatio", record.metricSnapshot?.values.expenseRatio, record.metricSnapshot?.states.expenseRatio)], ["Fund net assets", metricText("netAssets", record.metricSnapshot?.values.netAssets, record.metricSnapshot?.states.netAssets, record.metricSnapshot?.currency)]].map(([label, value]) => <div key={label}><dt className="text-gray-400">{label}</dt><dd className="mt-1 font-semibold text-gray-700">{value}</dd></div>)}</dl>{(record.leverageTarget || record.resetInterval) && <div className="mt-4 rounded-xl bg-gray-50 p-3 text-xs leading-5 text-gray-600"><strong className="text-gray-800">Reset and leverage:</strong> {record.leverageTarget ? `${record.leverageTarget} target` : "Target not recorded"}{record.resetInterval ? ` · ${record.resetInterval} reset` : ""}. This is a property of the underlying product, separate from any account-level financing.</div>}</section>
 
-          <section aria-labelledby="metric-status-heading"><div className="flex items-end justify-between gap-3"><div><h3 id="metric-status-heading" className="text-sm font-bold text-gray-900">Analysis coverage</h3><p className="mt-1 text-xs text-gray-500">Blank metrics are explicit data states, not estimates.</p></div><span className="badge border bg-gray-50 text-gray-600 border-gray-200">Snapshot {formatSnapshotDate(record.observedAt)}</span></div><div className="mt-3 grid grid-cols-1 gap-x-5 gap-y-3 rounded-xl border border-gray-100 bg-gray-50/70 p-4 sm:grid-cols-2">{DETAIL_METRICS.map((key) => <div key={key} className="flex items-center justify-between gap-3 text-xs"><span className="text-gray-500">{ETF_METRIC_LABELS[key]}</span><PendingMetric state={record.metricStates[key]} /></div>)}</div><p className="mt-3 text-[11px] leading-5 text-gray-400">The research snapshot located issuer sources but did not validate matched-date returns, distributions, fees, AUM, holdings, drawdowns, or volatility. Those fields will be enriched in a later phase.</p></section>
+          <section aria-labelledby="metric-status-heading"><div className="flex items-end justify-between gap-3"><div><h3 id="metric-status-heading" className="text-sm font-bold text-gray-900">Analysis coverage</h3><p className="mt-1 text-xs text-gray-500">Values come from the provider history and are calculated with the date and source shown below.</p></div><span className="badge border bg-gray-50 text-gray-600 border-gray-200">Market data {record.metricSnapshot?.observedAt ?? "awaiting refresh"}</span></div><div className="mt-3 grid grid-cols-1 gap-x-5 gap-y-3 rounded-xl border border-gray-100 bg-gray-50/70 p-4 sm:grid-cols-2">{DETAIL_METRICS.map((key) => <div key={key} className="flex items-center justify-between gap-3 text-xs"><span className="text-gray-500">{ETF_METRIC_LABELS[key]}</span><FundMetric record={record} metricKey={key} /></div>)}</div><p className="mt-3 text-[11px] leading-5 text-gray-400">{record.metricSnapshot?.source ?? "Yahoo Finance via yahoo-finance2"}. Insufficient history, missing provider fields, and open recovery periods keep their own status instead of receiving estimated values.</p></section>
 
           {Object.keys(record.candidateMetrics).length > 0 && <details className="rounded-xl border border-gray-200"><summary className="cursor-pointer px-4 py-3 text-xs font-semibold text-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">Issuer research leads · unvalidated</summary><div className="border-t border-gray-100 px-4 py-3"><p className="text-[11px] leading-5 text-amber-800">These observations come from issuer research and are shown for review only. They are not production comparison values.</p><dl className="mt-3 grid grid-cols-1 gap-3 text-xs sm:grid-cols-2">{Object.entries(record.candidateMetrics).map(([key, value]) => <div key={key}><dt className="text-gray-400">{candidateMetricLabel(key)}</dt><dd className="mt-1 font-semibold text-gray-700">{value}</dd></div>)}</dl></div></details>}
 
@@ -321,9 +387,34 @@ export default function ETFExplorer({ catalogue, etns, exclusions, categoryMeta,
   const [compareTickers, setCompareTickers] = useState<string[]>([]);
   const [shortlist, setShortlist] = useState<Record<string, ShortlistEntry>>({});
   const [shortlistHydrated, setShortlistHydrated] = useState(false);
+  const [metricSnapshots, setMetricSnapshots] = useState<Record<string, ETFMetricSnapshot>>({});
+  const [metricsLoaded, setMetricsLoaded] = useState(false);
 
-  const allRecords = useMemo(() => [...catalogue, ...etns], [catalogue, etns]);
+  const allRecords = useMemo<ETFRecord[]>(
+    () => [...catalogue, ...etns].map((record): ETFRecord => ({ ...record, metricSnapshot: metricSnapshots[record.ticker] })),
+    [catalogue, etns, metricSnapshots],
+  );
   const recordByTicker = useMemo(() => new Map(allRecords.map((record) => [record.ticker, record])), [allRecords]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/etf-metrics", { signal: controller.signal, cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("ETF metric snapshots are not available yet");
+        return response.json() as Promise<{ snapshots?: Record<string, ETFMetricSnapshot> }>;
+      })
+      .then((payload) => {
+        if (!controller.signal.aborted) {
+          setMetricSnapshots(payload.snapshots ?? {});
+          setMetricsLoaded(true);
+        }
+      })
+      .catch((error: unknown) => {
+        if (error instanceof Error && error.name !== "AbortError") console.warn("[etf-metrics] snapshot load failed", error.message);
+        if (!controller.signal.aborted) setMetricsLoaded(true);
+      });
+    return () => controller.abort();
+  }, []);
 
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
@@ -419,7 +510,10 @@ export default function ETFExplorer({ catalogue, etns, exclusions, categoryMeta,
     const headers = ["Ticker", "Name", "Issuer", "Exposure", "Category", "Strategy", "Structure", "Instrument", "Asset ID", "Catalogue page", "Availability", "Research status", "Identity warning", "Issuer source", "Issuer source URL", "Snapshot date", "Candidate metrics (unvalidated)", ...Object.values(ETF_METRIC_LABELS).flatMap((label) => [`${label} value`, `${label} state`])];
     const rows = filteredRecords.map((record) => [
       record.ticker, record.name, record.issuer, record.exposure, record.category, strategyLabel(record.strategy), formatStructure(record.structure), record.kind === "etn" ? "ETN" : "ETF / ETF-like", record.assetId, record.cataloguePage ?? "", record.availabilityStatus, record.researchStatus, record.identityWarning ?? "", record.sourceTitle, record.sourceUrl, record.observedAt, Object.entries(record.candidateMetrics).map(([key, value]) => `${candidateMetricLabel(key)}: ${value}`).join("; "),
-      ...Object.keys(ETF_METRIC_LABELS).flatMap((key) => ["", record.metricStates[key as ETFMetricKey]]),
+      ...Object.keys(ETF_METRIC_LABELS).flatMap((key) => [
+        record.metricSnapshot?.values[key as ETFMetricKey] ?? "",
+        record.metricSnapshot?.states[key as ETFMetricKey] ?? record.metricStates[key as ETFMetricKey],
+      ]),
     ]);
     downloadCsv(`etf-catalogue-${snapshotDate}.csv`, headers, rows);
   }
@@ -433,7 +527,7 @@ export default function ETFExplorer({ catalogue, etns, exclusions, categoryMeta,
 
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="ETF catalogue coverage"><SummaryCard label="ETF / ETF-like" value={counts.etfLike} note="Retained candidates in the reviewed public catalogue" tone="text-indigo-700" /><SummaryCard label="Separate ETNs" value={counts.etns} note="Shown separately because issuer-credit risk differs" tone="text-red-700" /><SummaryCard label="Excluded discoveries" value={counts.exclusions} note="2 company stocks and 1 closed-end fund" /><SummaryCard label="Tradability confirmed" value={counts.tradabilityConfirmed} note="Authenticated account access was not checked" tone="text-amber-700" /></section>
 
-      <section className="rounded-2xl border border-amber-200 bg-amber-50/80 p-4 sm:p-5" aria-label="Data coverage notice"><div className="flex items-start gap-3"><span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-100 font-bold text-amber-800">!</span><div><h2 className="text-sm font-bold text-amber-950">Research coverage is intentionally explicit</h2><p className="mt-1 max-w-4xl text-xs leading-5 text-amber-900">The {counts.etfLike} ETF / ETF-like rows and {counts.etns} ETNs come from the {formatSnapshotDate(snapshotDate)} public-catalogue audit. Performance, distributions, fees, AUM, drawdowns, volatility, and holdings are still unvalidated, so comparison cells show Pending and every row remains visible. Listing evidence does not confirm that a signed-in account can trade the instrument.</p></div></div></section>
+      <section className="rounded-2xl border border-sky-200 bg-sky-50/80 p-4 sm:p-5" aria-label="Data coverage notice"><div className="flex items-start gap-3"><span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sky-100 font-bold text-sky-800">i</span><div><h2 className="text-sm font-bold text-sky-950">Fund metrics are refreshed automatically</h2><p className="mt-1 max-w-4xl text-xs leading-5 text-sky-900">{metricsLoaded ? `${Object.keys(metricSnapshots).length} funds have stored market-data snapshots.` : "Loading stored market-data snapshots…"} Returns, drawdown, volatility, and cash yield are calculated from Yahoo Finance daily prices and distribution events. Fund size, expense ratio, inception date, and top holdings are shown when Yahoo Finance reports them. Each row keeps its source date and tells you when history is short or a provider field is missing. Listing evidence still does not confirm account-specific tradability.</p></div></div></section>
 
       <nav className="segmented w-full overflow-x-auto sm:w-fit" aria-label="ETF page views"><button type="button" className={`segmented-btn flex-1 sm:flex-none ${view === "explore" ? "is-active" : ""}`} onClick={() => setView("explore")}>Explore <span className="ml-1 text-[10px] text-gray-400">{filteredRecords.length}</span></button><button type="button" className={`segmented-btn flex-1 sm:flex-none ${view === "compare" ? "is-active" : ""}`} onClick={() => setView("compare")}>Compare <span className="ml-1 text-[10px] text-gray-400">{compareRecords.length}</span></button><button type="button" className={`segmented-btn flex-1 sm:flex-none ${view === "shortlist" ? "is-active" : ""}`} onClick={() => setView("shortlist")}>Shortlist <span className="ml-1 text-[10px] text-gray-400">{shortlistRecords.length}</span></button></nav>
 
@@ -451,11 +545,11 @@ export default function ETFExplorer({ catalogue, etns, exclusions, categoryMeta,
       {view === "compare" && <CompareView records={compareRecords} onSelect={setSelected} onRemove={toggleCompare} />}
       {view === "shortlist" && <ShortlistView records={shortlistRecords} shortlist={shortlist} onSelect={setSelected} onRemove={toggleShortlist} onUpdate={updateShortlist} />}
 
-      {selected && <ETFDetailDrawer record={selected} saved={Boolean(shortlist[selected.ticker])} compared={compareTickers.includes(selected.ticker)} onClose={() => setSelected(null)} onToggleShortlist={toggleShortlist} onToggleCompare={toggleCompare} />}
+      {selected && <ETFDetailDrawer record={recordByTicker.get(selected.ticker) ?? selected} saved={Boolean(shortlist[selected.ticker])} compared={compareTickers.includes(selected.ticker)} onClose={() => setSelected(null)} onToggleShortlist={toggleShortlist} onToggleCompare={toggleCompare} />}
 
       <details className="surface-card overflow-hidden"><summary className="cursor-pointer px-4 py-3 text-xs font-semibold text-gray-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">Audit boundary · {exclusions.length} discoveries excluded from the fund table</summary><div className="border-t border-gray-100 px-4 py-3"><p className="text-[11px] leading-5 text-gray-500">The public audit also found labels that resolve to operating-company stocks or a closed-end fund. They remain accounted for here and are excluded from ETF / ETN comparisons.</p><div className="mt-3 grid gap-2 sm:grid-cols-3">{exclusions.map((record) => <div key={record.id} className="rounded-lg bg-gray-50 p-3"><div className="font-mono text-xs font-bold text-gray-800">{record.ticker}</div><div className="mt-1 text-[11px] text-gray-500">{formatStructure(record.structure)} · {record.name}</div></div>)}</div></div></details>
 
-      <footer className="border-t border-[var(--border)] pt-4 text-[11px] leading-5 text-gray-400">Catalogue snapshot observed {formatSnapshotDate(snapshotDate)}. Issuer source locators and candidate metrics are research inputs, not validated financial statistics. Review current fund documents and customer terms before acting.</footer>
+      <footer className="border-t border-[var(--border)] pt-4 text-[11px] leading-5 text-gray-400">Catalogue snapshot observed {formatSnapshotDate(snapshotDate)}. Financial figures are sourced from Yahoo Finance, calculated from daily adjusted prices and distribution events, and refreshed by the scheduled data job. Provider coverage differs by fund; the displayed status and observation date apply to each row. Review current issuer documents and customer terms before acting.</footer>
     </div>
   );
 }

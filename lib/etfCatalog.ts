@@ -14,7 +14,10 @@ export const ETF_METRIC_LABELS = {
   volatility5Y: "5Y annualized volatility",
   recoveryTime: "Maximum drawdown recovery",
   topTenWeight: "Top-ten holdings weight",
-  overlap: "Holdings overlap",
+  overlap: "Top-ten overlap (minimum)",
+  expenseRatio: "Reported expense ratio",
+  netAssets: "Fund net assets",
+  inceptionDate: "Fund inception date",
 } as const;
 
 export type ETFMetricKey = keyof typeof ETF_METRIC_LABELS;
@@ -47,6 +50,20 @@ export interface ETFRecord {
   identityWarning: string | null;
   leverageTarget: string | null;
   resetInterval: "daily" | "weekly" | null;
+  metricSnapshot?: ETFMetricSnapshot;
+}
+
+export interface ETFMetricSnapshot {
+  ticker: string;
+  values: Partial<Record<ETFMetricKey, number | string>>;
+  states: Partial<Record<ETFMetricKey, string>>;
+  holdings: Array<{ symbol: string; weightPct: number }>;
+  source: string;
+  currency: string | null;
+  observedAt: string | null;
+  lastAttemptAt: string | null;
+  lastError?: string | null;
+  stale?: boolean;
 }
 
 export interface ETFCategoryMeta {

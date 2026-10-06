@@ -1,0 +1,29 @@
+name: Refresh ETF metrics
+
+on:
+  schedule:
+    - cron: "23 9 * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: refresh-etf-metrics
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Refresh every ETF and ETN in small batches
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          APP_URL: https://stock-app-five-sable.vercel.app
+        run: |
+          for offset in $(seq 0 12 216); do
+            echo "Refreshing ETF batch at offset ${offset}"
+            response=$(curl --fail-with-body --show-error --silent --max-time 310 \
+              "${APP_URL}/api/etf-metrics?offset=${offset}&limit=12" \
+              -X POST -H "Authorization: Bearer ${CRON_SECRET}")
+            printf '%s\n' "$response" | jq '{offset,requested,updated:(.updated|length),skippedIdentityReview,failed,remaining}'
+            printf '%s\n' "$response" | jq -e '.requested > 0 and (.updated | length) + (.skippedIdentityReview | length) + (.failed | length) == .requested' >/dev/null
+          done
