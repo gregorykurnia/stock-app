@@ -244,6 +244,10 @@ function sortValue(record: ETFRecord, key: SortKey): string | number | null {
       return typeof value === "number" && Number.isFinite(value) ? value : null;
     }
     const value = record.metricSnapshot?.values[metricKey];
+    if (metricKey === "trailingDistributionYield" && value === undefined) {
+      const state = (record.metricSnapshot?.states[metricKey] ?? record.metricStates[metricKey]).toLowerCase();
+      if (state.includes("no distributions")) return 0;
+    }
     return typeof value === "number" && Number.isFinite(value) ? value : null;
   }
 
