@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import { downloadCsv } from "@/lib/exportCsv";
 import {
+  ETF_METRIC_HELP,
   ETF_METRIC_LABELS,
   type ETFCategoryMeta,
   type ETFMetricKey,
@@ -58,12 +59,22 @@ const STRATEGY_OPTIONS: Array<{ value: ETFStrategy; label: string }> = [
   { value: "etn", label: "ETN" },
 ];
 
-const TABLE_METRICS: Array<{ key: ETFMetricKey; label: string }> = [
-  { key: "cagr5Y", label: "Return" },
-  { key: "cagr10Y", label: "10Y CAGR" },
-  { key: "trailingDistributionYield", label: "TTM yield" },
-  { key: "maxDrawdown5Y", label: "5Y drawdown" },
-];
+const METRIC_PRESETS = {
+  quantitative: {
+    label: "Quantitative",
+    metrics: ["cagr5Y", "sharpe5Y", "maxDrawdown5Y", "rolling5YWorstCagr", "expenseRatio"],
+  },
+  growth: { label: "Growth", metrics: ["cagr5Y", "cagr10Y", "benchmarkExcessCagr5Y"] },
+  risk: { label: "Risk", metrics: ["volatility5Y", "sharpe5Y", "sortino5Y", "calmar5Y", "maxDrawdown5Y", "recoveryTime"] },
+  consistency: { label: "Consistency", metrics: ["rolling5YMedianCagr", "rolling5YP10Cagr", "rolling5YWorstCagr", "rolling5YBestCagr", "rolling5YPositiveRate", "rolling5YBenchmarkWinRate"] },
+  index: { label: "Index efficiency", metrics: ["trackingDifference5Y", "trackingError5Y", "expenseRatio", "medianSpread30D", "premiumDiscount"] },
+  income: { label: "Income & existing", metrics: ["cagr5Y", "cagr10Y", "trailingDistributionYield", "averageCashYield5Y", "maxDrawdown5Y"] },
+} as const satisfies Record<string, { label: string; metrics: ETFMetricKey[] }>;
+
+type MetricPreset = keyof typeof METRIC_PRESETS | "custom";
+type TableMetric = { key: ETFMetricKey; label: string };
+const CUSTOM_COLUMN_STORAGE_KEY = "stock-analysis-etf-columns-v1";
+const DEFAULT_CUSTOM_METRICS: ETFMetricKey[] = [...METRIC_PRESETS.quantitative.metrics];
 
 const DETAIL_METRICS: ETFMetricKey[] = [
   "totalReturn1Y",
@@ -75,16 +86,48 @@ const DETAIL_METRICS: ETFMetricKey[] = [
   "averageCashYield5Y",
   "maxDrawdown5Y",
   "volatility5Y",
+  "sharpe5Y",
+  "sortino5Y",
+  "calmar5Y",
   "recoveryTime",
+  "underwaterObservationRate",
+  "rolling5YMedianCagr",
+  "rolling5YP10Cagr",
+  "rolling5YWorstCagr",
+  "rolling5YBestCagr",
+  "rolling5YPositiveRate",
+  "rolling5YBenchmarkWinRate",
+  "benchmarkExcessCagr5Y",
+  "trackingDifference5Y",
+  "trackingError5Y",
   "topTenWeight",
+  "effectiveHoldingsCount",
+  "largestHoldingWeight",
+  "largestSectorWeight",
+  "medianSpread30D",
+  "premiumDiscount",
+  "overallScore",
+  "fundQualityScore",
+  "historicalPerformanceScore",
+  "scoreCoverage",
   "overlap",
   "expenseRatio",
   "netAssets",
   "inceptionDate",
 ];
 
+const STATUS_METRICS: ETFMetricKey[] = [
+  "totalReturn1Y", "cagr3Y", "cagr5Y", "cagr10Y", "calendarYearReturns",
+  "trailingDistributionYield", "averageCashYield5Y", "maxDrawdown5Y", "volatility5Y",
+  "recoveryTime", "topTenWeight", "expenseRatio", "netAssets", "inceptionDate",
+];
+
 function formatSnapshotDate(value: string) {
   return new Intl.DateTimeFormat("en-US", { dateStyle: "medium", timeZone: "UTC" }).format(new Date(`${value}T00:00:00Z`));
+}
+
+function isMetricPreset(value: unknown): value is MetricPreset {
+  return value === "custom" || (typeof value === "string" && Object.hasOwn(METRIC_PRESETS, value));
 }
 
 function formatCategory(category: string) {
@@ -142,14 +185,15 @@ function candidateMetricLabel(key: string) {
 }
 
 function displayMetricState(state?: string) {
-  return state?.toLowerCase().includes("insufficient") ? "NA" : state;
+  return state?.toLowerCase().includes("insufficient") ? "Insufficient history" : state;
 }
 
-function metricText(key: ETFMetricKey, value: number | string | undefined, state?: string, currency?: string | null) {
+function metricText(key: ETFMetricKey, value: number | string | undefined, state?: string, currency?: string | null, result?: NonNullable<ETFMetricSnapshot["metricResults"]>[ETFMetricKey]) {
   const displayState = displayMetricState(state);
   if (value === undefined || value === "") {
+    if (key === "recoveryTime" && result?.status === "unrecovered") return `${result.observations.toLocaleString()} trading days elapsed · not yet recovered`;
     if (!displayState || displayState.toLowerCase().includes("not collected") || displayState.toLowerCase().includes("not validated") || displayState.toLowerCase().includes("no snapshot")) return "No data";
-    if (displayState === "NA") return displayState;
+    if (displayState.toLowerCase().includes("insufficient")) return "Insufficient history";
     if (displayState.toLowerCase().includes("not yet recovered")) return "Not yet recovered";
     if (displayState.toLowerCase().includes("no distributions")) return "0.00%";
     if (displayState.toLowerCase().includes("compare")) return "Select funds to compare";
@@ -158,9 +202,14 @@ function metricText(key: ETFMetricKey, value: number | string | undefined, state
     return displayState;
   }
   if (typeof value === "string") return value;
-  if (["totalReturn1Y", "cagr3Y", "cagr5Y", "cagr10Y", "trailingDistributionYield", "averageCashYield5Y", "maxDrawdown5Y", "volatility5Y", "topTenWeight", "expenseRatio"].includes(key)) {
+  if (["sharpe5Y", "sortino5Y", "calmar5Y"].includes(key)) return value.toFixed(2);
+  if (["medianSpread30D"].includes(key)) return `${value.toFixed(1)} bps`;
+  if (["effectiveHoldingsCount"].includes(key)) return value.toFixed(1);
+  if (["overallScore", "fundQualityScore", "historicalPerformanceScore"].includes(key)) return `${Math.round(value)}/100`;
+  if (["totalReturn1Y", "cagr3Y", "cagr5Y", "cagr10Y", "trailingDistributionYield", "averageCashYield5Y", "maxDrawdown5Y", "volatility5Y", "topTenWeight", "largestHoldingWeight", "largestSectorWeight", "underwaterObservationRate", "rolling5YMedianCagr", "rolling5YP10Cagr", "rolling5YWorstCagr", "rolling5YBestCagr", "rolling5YPositiveRate", "rolling5YBenchmarkWinRate", "benchmarkExcessCagr5Y", "trackingDifference5Y", "trackingError5Y", "premiumDiscount", "scoreCoverage", "expenseRatio"].includes(key)) {
     const signedReturn = value > 0 && ["totalReturn1Y", "cagr3Y", "cagr5Y", "cagr10Y"].includes(key);
-    return `${signedReturn ? "+" : ""}${value.toFixed(key === "expenseRatio" ? 4 : 2)}%`;
+    const unit = key === "benchmarkExcessCagr5Y" || key === "trackingDifference5Y" ? " pp" : "%";
+    return `${signedReturn ? "+" : ""}${value.toFixed(key === "expenseRatio" ? 4 : 2)}${unit}`;
   }
   if (key === "recoveryTime") return `${Math.round(value).toLocaleString()} trading days`;
   if (key === "netAssets") {
@@ -178,32 +227,30 @@ function FundMetric({ record, metricKey, valueOverride, stateOverride }: {
   const snapshot = record.metricSnapshot;
   const state = record.identityWarning ? `Identity review: ${record.identityWarning}` : stateOverride ?? snapshot?.states[metricKey] ?? record.metricStates[metricKey];
   const value = record.identityWarning ? undefined : valueOverride ?? snapshot?.values[metricKey];
-  const label = [snapshot?.source, snapshot?.observedAt ? `Observed ${snapshot.observedAt}` : null, displayMetricState(state)].filter(Boolean).join(" · ");
-  return <span className={value === undefined ? "text-gray-400" : "font-semibold text-gray-800"} title={label || state}>{metricText(metricKey, value, state, snapshot?.currency)}</span>;
+  const result = snapshot?.metricResults?.[metricKey];
+  const label = [
+    ETF_METRIC_HELP[metricKey] ?? ETF_METRIC_LABELS[metricKey],
+    snapshot?.source,
+    result?.startDate && result.endDate ? `${result.startDate} to ${result.endDate}` : null,
+    result?.observations ? `${result.observations} observations` : null,
+    result?.sourceIds.length ? `Sources: ${result.sourceIds.join(", ")}` : null,
+    result?.methodologyId ? `Method: ${result.methodologyId}` : null,
+    result?.reason,
+    snapshot?.observedAt ? `Retrieved market data ${snapshot.observedAt}` : null,
+    displayMetricState(state),
+  ].filter(Boolean).join(" · ");
+  return <span className={value === undefined ? "text-gray-400" : "font-semibold text-gray-800"} title={label || state}>{metricText(metricKey, value, state, snapshot?.currency, result)}</span>;
 }
 
-function formatHistoryPeriod(history: NonNullable<ETFMetricSnapshot["sinceInceptionReturn"]>) {
-  if (history.annualized) return `${history.periodYears.toFixed(2)} years`;
-  const start = new Date(`${history.startDate}T00:00:00Z`);
-  const end = new Date(`${history.endDate}T00:00:00Z`);
-  let months = (end.getUTCFullYear() - start.getUTCFullYear()) * 12 + end.getUTCMonth() - start.getUTCMonth();
-  if (end.getUTCDate() < start.getUTCDate()) months -= 1;
-  return `${Math.max(1, months)} months`;
-}
-
-function FundReturn({ record }: { record: ETFRecord }) {
-  const snapshot = record.metricSnapshot;
-  const tableReturn = preferredETFTableReturn(snapshot, record.identityWarning);
-  const periodLabel = typeof tableReturn.valueOverride === "number" && snapshot?.sinceInceptionReturn
-    ? `${tableReturn.periodLabel} · ${formatHistoryPeriod(snapshot.sinceInceptionReturn)}`
-    : tableReturn.periodLabel;
-
-  return (
-    <span className="block leading-tight">
-      <FundMetric record={record} metricKey={tableReturn.metricKey} valueOverride={tableReturn.valueOverride} stateOverride={tableReturn.stateOverride} />
-      <span className="mt-0.5 block text-[10px] font-normal leading-3 text-gray-400">{periodLabel}</span>
-    </span>
-  );
+function OtherHistoryHint({ record }: { record: ETFRecord }) {
+  const history = preferredETFTableReturn(record.metricSnapshot, record.identityWarning);
+  if (history.metricKey === "cagr5Y" && history.valueOverride === undefined) return null;
+  const value = history.valueOverride ?? record.metricSnapshot?.values[history.metricKey];
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  const periodLabel = history.valueOverride !== undefined && record.metricSnapshot?.sinceInceptionReturn?.annualized
+    ? `${history.periodLabel} · ${record.metricSnapshot.sinceInceptionReturn.periodYears.toFixed(2)} years`
+    : history.periodLabel;
+  return <span className="mt-0.5 block text-[10px] font-normal leading-3 text-gray-400">Other history: {periodLabel} · {metricText(history.metricKey, value, history.stateOverride, record.metricSnapshot?.currency)}</span>;
 }
 
 function DataStatus({ record }: { record: ETFRecord }) {
@@ -211,10 +258,10 @@ function DataStatus({ record }: { record: ETFRecord }) {
   const snapshot = record.metricSnapshot;
   if (!snapshot?.observedAt) return <span className="badge border bg-gray-50 text-gray-600 border-gray-200" title="No stored market-data snapshot is available for this fund.">No snapshot</span>;
   if (snapshot.lastError) return <span className="badge border bg-amber-50 text-amber-800 border-amber-200" title={snapshot.lastError}>Refresh issue · last values kept</span>;
-  const tracked = Object.keys(ETF_METRIC_LABELS).filter((key) => key !== "overlap") as ETFMetricKey[];
+  const tracked = STATUS_METRICS;
   const resolved = tracked.filter((key) => {
     const state = (snapshot.states[key] ?? "").toLowerCase();
-    return state.startsWith("available") || state.includes("no distributions") || state === "not yet recovered" || state === "no drawdown in available history";
+    return state.startsWith("available") || state.includes("no distributions") || state.includes("not yet recovered") || state.includes("no drawdown in window");
   }).length;
   if (snapshot.stale) return <span className="badge border bg-amber-50 text-amber-800 border-amber-200" title={`Last successful market data: ${snapshot.observedAt}`}>Stale · {resolved}/{tracked.length}</span>;
   return <span className="badge border bg-gray-50 text-gray-600 border-gray-200" title={`${resolved} of ${tracked.length} fields sourced or explicitly resolved`}>{resolved === tracked.length ? "Ready" : `Partial · ${resolved}/${tracked.length}`}</span>;
@@ -226,10 +273,10 @@ function dataStatusSortValue(record: ETFRecord) {
   if (!snapshot?.observedAt) return "No snapshot";
   if (snapshot.lastError) return "Refresh issue";
   if (snapshot.stale) return "Stale";
-  const tracked = Object.keys(ETF_METRIC_LABELS).filter((key) => key !== "overlap") as ETFMetricKey[];
+  const tracked = STATUS_METRICS;
   const resolved = tracked.filter((key) => {
     const state = (snapshot.states[key] ?? "").toLowerCase();
-    return state.startsWith("available") || state.includes("no distributions") || state === "not yet recovered" || state === "no drawdown in available history";
+    return state.startsWith("available") || state.includes("no distributions") || state.includes("not yet recovered") || state.includes("no drawdown in window");
   }).length;
   return resolved === tracked.length ? "Ready" : "Partial";
 }
@@ -238,11 +285,9 @@ function sortValue(record: ETFRecord, key: SortKey): string | number | null {
   if (key.startsWith("metric:")) {
     const metricKey = key.slice("metric:".length) as ETFMetricKey;
     if (record.identityWarning) return null;
-    if (metricKey === "cagr5Y") {
-      const tableReturn = preferredETFTableReturn(record.metricSnapshot, record.identityWarning);
-      const value = tableReturn.valueOverride ?? record.metricSnapshot?.values[tableReturn.metricKey];
-      return typeof value === "number" && Number.isFinite(value) ? value : null;
-    }
+    const exactResult = record.metricSnapshot?.metricResults?.[metricKey];
+    if (exactResult && exactResult.status !== "available") return null;
+    if (exactResult && typeof exactResult.value === "number" && Number.isFinite(exactResult.value)) return exactResult.value;
     const value = record.metricSnapshot?.values[metricKey];
     if (metricKey === "trailingDistributionYield" && value === undefined) {
       const state = (record.metricSnapshot?.states[metricKey] ?? record.metricStates[metricKey]).toLowerCase();
@@ -293,10 +338,11 @@ function SortButton({ label, sortKey, currentSort, descending, onChange }: { lab
   );
 }
 
-function ETFTable({ records, shortlist, compareTickers, onSelect, onToggleShortlist, onToggleCompare, sortKey, descending, onSort }: {
+function ETFTable({ records, shortlist, compareTickers, metrics, onSelect, onToggleShortlist, onToggleCompare, sortKey, descending, onSort }: {
   records: ETFRecord[];
   shortlist: Record<string, ShortlistEntry>;
   compareTickers: string[];
+  metrics: TableMetric[];
   onSelect: (record: ETFRecord) => void;
   onToggleShortlist: (record: ETFRecord) => void;
   onToggleCompare: (record: ETFRecord) => void;
@@ -310,16 +356,18 @@ function ETFTable({ records, shortlist, compareTickers, onSelect, onToggleShortl
       onSelect(record);
     }
   }
+  const mobileMetrics = metrics.slice(0, 4);
+  const additionalMobileMetrics = metrics.slice(4);
 
   return (
     <>
       <div className="hidden overflow-x-auto rounded-b-2xl lg:block">
-        <table className="w-full min-w-[1700px] table-fixed border-collapse text-sm">
+        <table className="w-full min-w-[1850px] table-fixed border-collapse text-sm">
           <colgroup>
             <col className="w-[18%]" />
             <col className="w-[14%]" />
             <col className="w-[16%]" />
-            {TABLE_METRICS.map((metric) => <col key={metric.key} className="w-[6%]" />)}
+            {metrics.map((metric) => <col key={metric.key} className="w-[6%]" />)}
             <col className="w-[8%]" />
             <col className="w-[8%]" />
             <col className="w-[12%]" />
@@ -329,7 +377,7 @@ function ETFTable({ records, shortlist, compareTickers, onSelect, onToggleShortl
               <th scope="col" aria-sort={sortKey === "ticker" ? (descending ? "descending" : "ascending") : "none"} className="sticky left-0 z-20 min-w-56 bg-gray-50 px-4 py-3 text-left font-semibold"><SortButton label="Fund" sortKey="ticker" currentSort={sortKey} descending={descending} onChange={onSort} /></th>
               <th scope="col" aria-sort={sortKey === "category" ? (descending ? "descending" : "ascending") : "none"} className="min-w-56 px-4 py-3 text-left font-semibold"><SortButton label="Category / strategy" sortKey="category" currentSort={sortKey} descending={descending} onChange={onSort} /></th>
               <th scope="col" aria-sort={sortKey === "exposure" ? (descending ? "descending" : "ascending") : "none"} className="min-w-64 px-4 py-3 text-left font-semibold"><SortButton label="Exposure" sortKey="exposure" currentSort={sortKey} descending={descending} onChange={onSort} /></th>
-              {TABLE_METRICS.map((metric) => <th key={metric.key} scope="col" aria-sort={sortKey === `metric:${metric.key}` ? (descending ? "descending" : "ascending") : "none"} className="whitespace-nowrap px-4 py-3 text-right font-semibold"><SortButton label={metric.label} sortKey={`metric:${metric.key}`} currentSort={sortKey} descending={descending} onChange={onSort} /></th>)}
+              {metrics.map((metric) => <th key={metric.key} scope="col" title={ETF_METRIC_HELP[metric.key] ?? ETF_METRIC_LABELS[metric.key]} aria-sort={sortKey === `metric:${metric.key}` ? (descending ? "descending" : "ascending") : "none"} className="whitespace-nowrap px-4 py-3 text-right font-semibold"><SortButton label={metric.label} sortKey={`metric:${metric.key}`} currentSort={sortKey} descending={descending} onChange={onSort} /></th>)}
               <th scope="col" aria-sort={sortKey === "issuer" ? (descending ? "descending" : "ascending") : "none"} className="min-w-32 px-4 py-3 text-left font-semibold"><SortButton label="Issuer" sortKey="issuer" currentSort={sortKey} descending={descending} onChange={onSort} /></th>
               <th scope="col" aria-sort={sortKey === "dataStatus" ? (descending ? "descending" : "ascending") : "none"} className="min-w-36 px-4 py-3 text-left font-semibold"><SortButton label="Data status" sortKey="dataStatus" currentSort={sortKey} descending={descending} onChange={onSort} /></th>
               <th scope="col" className="px-4 py-3 text-right font-semibold">Actions</th>
@@ -356,7 +404,7 @@ function ETFTable({ records, shortlist, compareTickers, onSelect, onToggleShortl
                   </th>
                   <td className="px-4 py-3 align-top"><span className="block max-w-52 text-xs font-semibold text-gray-800">{formatCategory(record.category)}</span><span className="mt-1 flex flex-wrap gap-1">{record.badges.slice(0, 2).map((badge) => <span key={badge} className={`badge border ${badgeClass(badge)}`}>{badge}</span>)}</span></td>
                   <td className="max-w-72 px-4 py-3 align-top text-xs leading-5 text-gray-600">{record.exposure}</td>
-                  {TABLE_METRICS.map((metric) => <td key={metric.key} className={`px-4 py-3 text-right text-xs ${metric.key === "cagr5Y" ? "" : "whitespace-nowrap"}`}>{metric.key === "cagr5Y" ? <FundReturn record={record} /> : <FundMetric record={record} metricKey={metric.key} />}</td>)}
+                  {metrics.map((metric) => <td key={metric.key} className="whitespace-nowrap px-4 py-3 text-right text-xs"><FundMetric record={record} metricKey={metric.key} />{metric.key === "cagr5Y" && <OtherHistoryHint record={record} />}</td>)}
                   <td className="px-4 py-3 align-top text-xs text-gray-600">{record.issuer}</td>
                   <td className="px-4 py-3 align-top"><DataStatus record={record} /></td>
                   <td className="px-4 py-3 align-top"><div className="flex justify-end gap-1.5"><button type="button" className={`rounded-md border px-2 py-1 text-[11px] font-semibold transition-colors ${compared ? "border-indigo-200 bg-indigo-50 text-indigo-700" : "border-gray-200 bg-white text-gray-600 hover:border-indigo-200 hover:text-indigo-700"}`} onClick={(event) => { event.stopPropagation(); onToggleCompare(record); }} disabled={!compared && compareTickers.length >= 4} aria-label={`${compared ? "Remove" : "Add"} ${record.ticker} ${compared ? "from" : "to"} comparison`}>{compared ? "Compared" : "Compare"}</button><button type="button" className={`rounded-md border px-2 py-1 text-[11px] font-semibold transition-colors ${saved ? "border-amber-200 bg-amber-50 text-amber-800" : "border-gray-200 bg-white text-gray-600 hover:border-amber-200 hover:text-amber-800"}`} onClick={(event) => { event.stopPropagation(); onToggleShortlist(record); }} aria-label={`${saved ? "Remove" : "Save"} ${record.ticker} ${saved ? "from" : "to"} shortlist`}>{saved ? "Saved" : "Save"}</button></div></td>
@@ -377,8 +425,9 @@ function ETFTable({ records, shortlist, compareTickers, onSelect, onToggleShortl
                 <div className="flex items-start justify-between gap-3"><div className="flex min-w-0 items-start gap-2"><span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-50 font-mono text-[10px] font-bold text-indigo-700">{record.ticker.slice(0, 2)}</span><div className="min-w-0"><div className="font-mono font-bold text-gray-900">{record.ticker}</div><div className="truncate text-xs text-gray-500">{record.name}</div></div></div><DataStatus record={record} /></div>
                 <p className="mt-3 text-xs leading-5 text-gray-600">{record.exposure}</p>
                 <div className="mt-3 flex flex-wrap gap-1.5"><span className="badge border bg-indigo-50 text-indigo-700 border-indigo-200">{formatCategory(record.category)}</span>{record.badges.map((badge) => <span key={badge} className={`badge border ${badgeClass(badge)}`}>{badge}</span>)}</div>
-                <div className="mt-4 grid grid-cols-2 gap-3 border-t border-gray-100 pt-3 sm:grid-cols-4">{TABLE_METRICS.map((metric) => <div key={metric.key}><div className="text-[10px] uppercase tracking-wide text-gray-400">{metric.label}</div><div className="mt-1 text-xs">{metric.key === "cagr5Y" ? <FundReturn record={record} /> : <FundMetric record={record} metricKey={metric.key} />}</div></div>)}</div>
+                <div className="mt-4 grid grid-cols-2 gap-3 border-t border-gray-100 pt-3 sm:grid-cols-4">{mobileMetrics.map((metric) => <div key={metric.key}><div className="text-[10px] uppercase tracking-wide text-gray-400">{metric.label}</div><div className="mt-1 text-xs"><FundMetric record={record} metricKey={metric.key} />{metric.key === "cagr5Y" && <OtherHistoryHint record={record} />}</div></div>)}</div>
               </button>
+              {additionalMobileMetrics.length > 0 && <details className="mt-3 rounded-lg border border-gray-100 px-3 py-2"><summary className="cursor-pointer text-[11px] font-semibold text-indigo-700">More selected metrics ({additionalMobileMetrics.length})</summary><div className="mt-3 grid grid-cols-2 gap-3">{additionalMobileMetrics.map((metric) => <div key={metric.key}><div className="text-[10px] uppercase tracking-wide text-gray-400">{metric.label}</div><div className="mt-1 text-xs"><FundMetric record={record} metricKey={metric.key} /></div></div>)}</div></details>}
               <div className="mt-3 flex items-center justify-between gap-2"><span className="text-[11px] text-gray-400">{record.issuer}</span><div className="flex gap-1.5"><button type="button" className={`rounded-md border px-2 py-1 text-[11px] font-semibold ${compared ? "border-indigo-200 bg-indigo-50 text-indigo-700" : "border-gray-200 bg-white text-gray-600"}`} onClick={() => onToggleCompare(record)} disabled={!compared && compareTickers.length >= 4}>{compared ? "Compared" : "Compare"}</button><button type="button" className={`rounded-md border px-2 py-1 text-[11px] font-semibold ${saved ? "border-amber-200 bg-amber-50 text-amber-800" : "border-gray-200 bg-white text-gray-600"}`} onClick={() => onToggleShortlist(record)}>{saved ? "Saved" : "Save"}</button></div></div>
             </article>
           );
@@ -409,6 +458,9 @@ function CompareView({ records, onSelect, onRemove }: { records: ETFRecord[]; on
                 <div className="flex justify-between gap-3"><dt className="text-gray-400">5Y CAGR</dt><dd><FundMetric record={record} metricKey="cagr5Y" /></dd></div>
                 <div className="flex justify-between gap-3"><dt className="text-gray-400">TTM yield</dt><dd><FundMetric record={record} metricKey="trailingDistributionYield" /></dd></div>
                 <div className="flex justify-between gap-3"><dt className="text-gray-400">5Y drawdown</dt><dd><FundMetric record={record} metricKey="maxDrawdown5Y" /></dd></div>
+                <div className="flex justify-between gap-3"><dt className="text-gray-400">5Y volatility</dt><dd><FundMetric record={record} metricKey="volatility5Y" /></dd></div>
+                <div className="flex justify-between gap-3"><dt className="text-gray-400">5Y Calmar</dt><dd><FundMetric record={record} metricKey="calmar5Y" /></dd></div>
+                <div className="flex justify-between gap-3"><dt className="text-gray-400">Worst rolling 5Y CAGR</dt><dd><FundMetric record={record} metricKey="rolling5YWorstCagr" /></dd></div>
                 <div className="flex justify-between gap-3"><dt className="text-gray-400">Top-ten overlap</dt><dd className="text-right">{records.length < 2 ? "Select another fund" : records.filter((peer) => peer.ticker !== record.ticker).map((peer) => { const value = weightedHoldingsOverlap(record.metricSnapshot?.holdings ?? [], peer.metricSnapshot?.holdings ?? []); return <span key={peer.ticker} className="block">{peer.ticker}: {value == null ? "Holdings unavailable" : `≥${value.toFixed(2)}%`}</span>; })}</dd></div>
               </dl>
               <p className="mt-4 text-[11px] leading-4 text-gray-500">{record.exposure}</p>
@@ -417,7 +469,7 @@ function CompareView({ records, onSelect, onRemove }: { records: ETFRecord[]; on
         </div>
       )}
       {records.length > 0 && <p className="text-[11px] leading-5 text-gray-500">Top-ten overlap is a minimum: it sums shared symbols’ smaller reported weights across the providers’ top-ten lists and does not capture holdings outside those lists.</p>}
-      <div className="surface-card border border-amber-200 bg-amber-50/70 p-4 text-xs leading-5 text-amber-900"><strong>Comparison rule:</strong> return history uses adjusted prices over the same date windows, while trailing cash yield uses reported distribution events. The source date and coverage state are shown with every fund.</div>
+      <div className="surface-card border border-amber-200 bg-amber-50/70 p-4 text-xs leading-5 text-amber-900"><strong>Matched-date comparison is gated.</strong> These cards show each fund’s own five-year period. Aligned wealth and drawdown charts, rolling-window differences, and benchmark excess need persisted normalized history and a cleared data-source license. Available and unavailable inputs remain separate; the cards do not rank unlike exposures.</div>
     </section>
   );
 }
@@ -445,7 +497,7 @@ function ETFDetailDrawer({ record, saved, compared, onClose, onToggleShortlist, 
 
           <section aria-labelledby="fund-overview-heading"><h3 id="fund-overview-heading" className="text-sm font-bold text-gray-900">Fund overview</h3><dl className="mt-3 grid grid-cols-1 gap-x-5 gap-y-3 text-xs sm:grid-cols-2">{[["Issuer", record.issuer], ["Catalogue category", formatCategory(record.category)], ["Structure", formatStructure(record.structure)], ["Platform asset ID", String(record.assetId)], ["Catalogue listing", "Public listing observed"], ["Tradability", "Authenticated tradability not checked"], ["Catalogue page", record.cataloguePage ? String(record.cataloguePage) : "US catalogue addition"], ["Source observed", formatSnapshotDate(record.observedAt)], ["Inception date", metricText("inceptionDate", record.metricSnapshot?.values.inceptionDate, record.metricSnapshot?.states.inceptionDate)], ["Expense ratio", metricText("expenseRatio", record.metricSnapshot?.values.expenseRatio, record.metricSnapshot?.states.expenseRatio)], ["Fund net assets", metricText("netAssets", record.metricSnapshot?.values.netAssets, record.metricSnapshot?.states.netAssets, record.metricSnapshot?.currency)]].map(([label, value]) => <div key={label}><dt className="text-gray-400">{label}</dt><dd className="mt-1 font-semibold text-gray-700">{value}</dd></div>)}</dl>{(record.leverageTarget || record.resetInterval) && <div className="mt-4 rounded-xl bg-gray-50 p-3 text-xs leading-5 text-gray-600"><strong className="text-gray-800">Reset and leverage:</strong> {record.leverageTarget ? `${record.leverageTarget} target` : "Target not recorded"}{record.resetInterval ? ` · ${record.resetInterval} reset` : ""}. This is a property of the underlying product, separate from any account-level financing.</div>}</section>
 
-          <section aria-labelledby="metric-status-heading"><div className="flex items-end justify-between gap-3"><div><h3 id="metric-status-heading" className="text-sm font-bold text-gray-900">Analysis coverage</h3><p className="mt-1 text-xs text-gray-500">Values come from the provider history and are calculated with the date and source shown below.</p></div><span className="badge border bg-gray-50 text-gray-600 border-gray-200">Market data {record.metricSnapshot?.observedAt ?? "no stored snapshot"}</span></div><div className="mt-3 grid grid-cols-1 gap-x-5 gap-y-3 rounded-xl border border-gray-100 bg-gray-50/70 p-4 sm:grid-cols-2">{DETAIL_METRICS.map((key) => <div key={key} className="flex items-center justify-between gap-3 text-xs"><span className="text-gray-500">{ETF_METRIC_LABELS[key]}</span><FundMetric record={record} metricKey={key} /></div>)}</div><p className="mt-3 text-[11px] leading-5 text-gray-400">{record.metricSnapshot?.source ?? "Yahoo Finance via yahoo-finance2"}. NA indicates short price history; missing provider fields and open recovery periods keep their own status instead of receiving estimated values.</p></section>
+          <section aria-labelledby="metric-status-heading"><div className="flex items-end justify-between gap-3"><div><h3 id="metric-status-heading" className="text-sm font-bold text-gray-900">Analysis coverage</h3><p className="mt-1 text-xs text-gray-500">Each value keeps its date range, sample count, source, and method.</p></div><span className="badge border bg-gray-50 text-gray-600 border-gray-200">Market data {record.metricSnapshot?.observedAt ?? "no stored snapshot"}</span></div><div className="mt-3 grid grid-cols-1 gap-x-5 gap-y-3 rounded-xl border border-gray-100 bg-gray-50/70 p-4 sm:grid-cols-2">{DETAIL_METRICS.map((key) => <div key={key} className="flex items-start justify-between gap-3 text-xs"><span className="text-gray-500">{ETF_METRIC_LABELS[key]}</span><div className="max-w-[65%] text-right"><FundMetric record={record} metricKey={key} />{record.metricSnapshot?.metricResults?.[key]?.reason && <p className="mt-1 text-[10px] leading-4 text-gray-400">{record.metricSnapshot.metricResults[key]?.reason}</p>}</div></div>)}</div><p className="mt-3 text-[11px] leading-5 text-gray-400">{record.metricSnapshot?.source ?? "Yahoo Finance via yahoo-finance2"}. Missing inputs and open recovery periods retain their own states. The Yahoo series and metadata have not passed source licensing or adjustment verification.</p></section>
 
           {Object.keys(record.candidateMetrics).length > 0 && <details className="rounded-xl border border-gray-200"><summary className="cursor-pointer px-4 py-3 text-xs font-semibold text-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">Issuer research leads · unvalidated</summary><div className="border-t border-gray-100 px-4 py-3"><p className="text-[11px] leading-5 text-amber-800">These observations come from issuer research and are shown for review only. They are not production comparison values.</p><dl className="mt-3 grid grid-cols-1 gap-3 text-xs sm:grid-cols-2">{Object.entries(record.candidateMetrics).map(([key, value]) => <div key={key}><dt className="text-gray-400">{candidateMetricLabel(key)}</dt><dd className="mt-1 font-semibold text-gray-700">{value}</dd></div>)}</dl></div></details>}
 
@@ -467,6 +519,9 @@ export default function ETFExplorer({ catalogue, etns, exclusions, categoryMeta,
   const [includeComplex, setIncludeComplex] = useState(true);
   const [sortKey, setSortKey] = useState<SortKey>("ticker");
   const [descending, setDescending] = useState(false);
+  const [metricPreset, setMetricPreset] = useState<MetricPreset>("quantitative");
+  const [customMetrics, setCustomMetrics] = useState<ETFMetricKey[]>(DEFAULT_CUSTOM_METRICS);
+  const [columnsHydrated, setColumnsHydrated] = useState(false);
   const [selected, setSelected] = useState<ETFRecord | null>(null);
   const [compareTickers, setCompareTickers] = useState<string[]>([]);
   const [shortlist, setShortlist] = useState<Record<string, ShortlistEntry>>({});
@@ -474,6 +529,11 @@ export default function ETFExplorer({ catalogue, etns, exclusions, categoryMeta,
   const [metricSnapshots, setMetricSnapshots] = useState<Record<string, ETFMetricSnapshot>>(initialMetricSnapshots);
   const [metricLoadError, setMetricLoadError] = useState(initialMetricLoadError);
   const [metricRetrying, setMetricRetrying] = useState(false);
+
+  const selectedMetricColumns = useMemo<TableMetric[]>(() => {
+    const keys = metricPreset === "custom" ? customMetrics : METRIC_PRESETS[metricPreset].metrics;
+    return keys.map((key) => ({ key, label: ETF_METRIC_LABELS[key] }));
+  }, [metricPreset, customMetrics]);
 
   const allRecords = useMemo<ETFRecord[]>(
     () => [...catalogue, ...etns].map((record): ETFRecord => ({ ...record, metricSnapshot: metricSnapshots[record.ticker] })),
@@ -509,6 +569,30 @@ export default function ETFExplorer({ catalogue, etns, exclusions, categoryMeta,
     });
     return () => window.cancelAnimationFrame(frame);
   }, []);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      try {
+        const stored = window.localStorage.getItem(CUSTOM_COLUMN_STORAGE_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored) as { preset?: MetricPreset; metrics?: string[] };
+          if (isMetricPreset(parsed.preset)) setMetricPreset(parsed.preset);
+          if (Array.isArray(parsed.metrics)) {
+            const available = parsed.metrics.filter((metric): metric is ETFMetricKey => metric in ETF_METRIC_LABELS);
+            if (available.length) setCustomMetrics(available);
+          }
+        }
+      } catch {
+        // A malformed saved column choice should not interrupt ETF browsing.
+      }
+      setColumnsHydrated(true);
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
+  useEffect(() => {
+    if (columnsHydrated) window.localStorage.setItem(CUSTOM_COLUMN_STORAGE_KEY, JSON.stringify({ preset: metricPreset, metrics: customMetrics }));
+  }, [columnsHydrated, metricPreset, customMetrics]);
 
   useEffect(() => {
     if (shortlistHydrated) window.localStorage.setItem(SHORTLIST_STORAGE_KEY, JSON.stringify(shortlist));
@@ -596,13 +680,23 @@ export default function ETFExplorer({ catalogue, etns, exclusions, categoryMeta,
   }
 
   function exportCsv() {
-    const headers = ["Ticker", "Name", "Issuer", "Exposure", "Category", "Strategy", "Structure", "Instrument", "Asset ID", "Catalogue page", "Availability", "Research status", "Identity warning", "Issuer source", "Issuer source URL", "Snapshot date", "Candidate metrics (unvalidated)", ...Object.values(ETF_METRIC_LABELS).flatMap((label) => [`${label} value`, `${label} state`])];
+    const headers = ["Ticker", "Name", "Issuer", "Exposure", "Category", "Strategy", "Structure", "Instrument", "Asset ID", "Catalogue page", "Availability", "Research status", "Identity warning", "Issuer source", "Issuer source URL", "Snapshot date", "Snapshot source", "Schema version", "Calculation version", "Run ID", "Candidate metrics (unvalidated)", ...selectedMetricColumns.flatMap(({ key }) => [`${ETF_METRIC_LABELS[key]} value`, `${ETF_METRIC_LABELS[key]} unit`, `${ETF_METRIC_LABELS[key]} state`, `${ETF_METRIC_LABELS[key]} start date`, `${ETF_METRIC_LABELS[key]} end date`, `${ETF_METRIC_LABELS[key]} observations`, `${ETF_METRIC_LABELS[key]} source IDs`, `${ETF_METRIC_LABELS[key]} reference IDs`, `${ETF_METRIC_LABELS[key]} methodology`])];
     const rows = filteredRecords.map((record) => [
-      record.ticker, record.name, record.issuer, record.exposure, record.category, strategyLabel(record.strategy), formatStructure(record.structure), record.kind === "etn" ? "ETN" : "ETF / ETF-like", record.assetId, record.cataloguePage ?? "", record.availabilityStatus, record.researchStatus, record.identityWarning ?? "", record.sourceTitle, record.sourceUrl, record.observedAt, Object.entries(record.candidateMetrics).map(([key, value]) => `${candidateMetricLabel(key)}: ${value}`).join("; "),
-      ...Object.keys(ETF_METRIC_LABELS).flatMap((key) => [
-        record.metricSnapshot?.values[key as ETFMetricKey] ?? "",
-        record.metricSnapshot?.states[key as ETFMetricKey] ?? record.metricStates[key as ETFMetricKey],
-      ]),
+      record.ticker, record.name, record.issuer, record.exposure, record.category, strategyLabel(record.strategy), formatStructure(record.structure), record.kind === "etn" ? "ETN" : "ETF / ETF-like", record.assetId, record.cataloguePage ?? "", record.availabilityStatus, record.researchStatus, record.identityWarning ?? "", record.sourceTitle, record.sourceUrl, record.observedAt, record.metricSnapshot?.source ?? "", record.metricSnapshot?.schemaVersion ?? "", record.metricSnapshot?.calculationVersion ?? "", record.metricSnapshot?.runId ?? "", Object.entries(record.candidateMetrics).map(([key, value]) => `${candidateMetricLabel(key)}: ${value}`).join("; "),
+      ...selectedMetricColumns.flatMap(({ key }) => {
+        const result = record.metricSnapshot?.metricResults?.[key];
+        return [
+          result?.value ?? record.metricSnapshot?.values[key] ?? "",
+          result?.unit ?? "",
+          record.metricSnapshot?.states[key] ?? record.metricStates[key],
+          result?.startDate ?? "",
+          result?.endDate ?? "",
+          result?.observations ?? "",
+          result?.sourceIds.join(" | ") ?? "",
+          [result?.benchmarkId, result?.riskFreeSeriesId].filter(Boolean).join(" | "),
+          result?.methodologyId ?? "",
+        ];
+      }),
     ]);
     downloadCsv(`etf-catalogue-${snapshotDate}.csv`, headers, rows);
   }
@@ -616,7 +710,7 @@ export default function ETFExplorer({ catalogue, etns, exclusions, categoryMeta,
 
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="ETF catalogue coverage"><SummaryCard label="ETF / ETF-like" value={counts.etfLike} note="Retained candidates in the reviewed public catalogue" tone="text-indigo-700" /><SummaryCard label="Separate ETNs" value={counts.etns} note="Shown separately because issuer-credit risk differs" tone="text-red-700" /><SummaryCard label="Excluded discoveries" value={counts.exclusions} note="2 company stocks and 1 closed-end fund" /><SummaryCard label="Tradability confirmed" value={counts.tradabilityConfirmed} note="Authenticated account access was not checked" tone="text-amber-700" /></section>
 
-      <section className="rounded-2xl border border-sky-200 bg-sky-50/80 p-4 sm:p-5" aria-label="Data coverage notice"><div className="flex items-start gap-3"><span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sky-100 font-bold text-sky-800">i</span><div><h2 className="text-sm font-bold text-sky-950">Fund metrics are refreshed automatically</h2><p className="mt-1 max-w-4xl text-xs leading-5 text-sky-900">{metricLoadError ? "Saved market data could not be loaded." : `${Object.keys(metricSnapshots).length} funds have stored market-data snapshots.`} Returns, drawdown, volatility, and cash yield are calculated from Yahoo Finance daily prices and distribution events. Fund size, expense ratio, inception date, and top holdings are shown when Yahoo Finance reports them. Each row keeps its source date and tells you when history is short or a provider field is missing. Listing evidence still does not confirm account-specific tradability.</p>{metricLoadError && <button type="button" onClick={() => void reloadMetricSnapshots()} disabled={metricRetrying} className="mt-2 text-xs font-semibold text-sky-800 underline disabled:opacity-60">{metricRetrying ? "Retrying…" : "Retry loading saved data"}</button>}</div></div></section>
+      <section className="rounded-2xl border border-sky-200 bg-sky-50/80 p-4 sm:p-5" aria-label="Data coverage notice"><div className="flex items-start gap-3"><span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sky-100 font-bold text-sky-800">i</span><div><h2 className="text-sm font-bold text-sky-950">Fund metrics and source coverage</h2><p className="mt-1 max-w-4xl text-xs leading-5 text-sky-900">{metricLoadError ? "Saved market data could not be loaded." : `${Object.keys(metricSnapshots).length} funds have stored market-data snapshots.`} Growth, daily drawdown, monthly volatility, Calmar, and rolling returns are calculated from provider adjusted prices. Risk-free returns, official NAV/index series, full holdings, and verified peer mappings are not configured, so Sharpe, Sortino, tracking metrics, and peer scores remain unavailable. Yahoo-reported metadata and price adjustments have not passed source verification. Historical outcomes describe the observed period and are not forecasts. Listing evidence does not confirm account-specific tradability.</p>{metricLoadError && <button type="button" onClick={() => void reloadMetricSnapshots()} disabled={metricRetrying} className="mt-2 text-xs font-semibold text-sky-800 underline disabled:opacity-60">{metricRetrying ? "Retrying…" : "Retry loading saved data"}</button>}</div></div></section>
 
       <nav className="segmented w-full overflow-x-auto sm:w-fit" aria-label="ETF page views"><button type="button" className={`segmented-btn flex-1 sm:flex-none ${view === "explore" ? "is-active" : ""}`} onClick={() => setView("explore")}>Explore <span className="ml-1 text-[10px] text-gray-400">{filteredRecords.length}</span></button><button type="button" className={`segmented-btn flex-1 sm:flex-none ${view === "compare" ? "is-active" : ""}`} onClick={() => setView("compare")}>Compare <span className="ml-1 text-[10px] text-gray-400">{compareRecords.length}</span></button><button type="button" className={`segmented-btn flex-1 sm:flex-none ${view === "shortlist" ? "is-active" : ""}`} onClick={() => setView("shortlist")}>Shortlist <span className="ml-1 text-[10px] text-gray-400">{shortlistRecords.length}</span></button></nav>
 
@@ -627,8 +721,8 @@ export default function ETFExplorer({ catalogue, etns, exclusions, categoryMeta,
 
         <section className="surface-card p-4 sm:p-5" aria-label="ETF catalogue filters"><div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5"><label className="text-xs font-semibold text-gray-600 xl:col-span-2">Search<input type="search" className="input-field mt-1 w-full" placeholder="Ticker, name, issuer, exposure…" value={search} onChange={(event) => setSearch(event.target.value)} /></label><label className="text-xs font-semibold text-gray-600">Category<select className="input-field mt-1 w-full" value={category} onChange={(event) => setCategory(event.target.value)}><option value="all">All categories</option>{categoryMeta.map((item) => <option key={item.key} value={item.key}>{formatCategory(item.key)}</option>)}</select></label><label className="text-xs font-semibold text-gray-600">Strategy<select className="input-field mt-1 w-full" value={strategy} onChange={(event) => setStrategy(event.target.value as ETFStrategy | "all")}><option value="all">All strategies</option>{STRATEGY_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label><label className="text-xs font-semibold text-gray-600">Issuer<select className="input-field mt-1 w-full" value={issuer} onChange={(event) => setIssuer(event.target.value)}><option value="all">All issuers</option>{issuers.map((value) => <option key={value} value={value}>{value}</option>)}</select></label></div><div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-gray-100 pt-3"><label className="flex items-center gap-2 text-xs text-gray-600"><input type="checkbox" checked={includeComplex} onChange={(event) => setIncludeComplex(event.target.checked)} className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />Include leveraged, inverse, and option-income products</label><label className="flex items-center gap-2 text-xs text-gray-600">Data state<select className="input-field py-1" value={dataFilter} onChange={(event) => setDataFilter(event.target.value as DataFilter)}><option value="all">All rows</option><option value="identity-warning">Identity review</option><option value="source-located">Source located</option></select></label><span className="text-[11px] text-gray-400">Numeric filters unlock after validated enrichment.</span>{activeFilterCount > 0 && <button type="button" className="ml-auto text-xs font-semibold text-indigo-600 hover:text-indigo-800" onClick={clearFilters}>Clear filters ({activeFilterCount})</button>}</div></section>
 
-        <section className="surface-card overflow-hidden" aria-labelledby="comparison-table-heading"><div className="flex flex-col gap-3 border-b border-[var(--border)] px-4 py-4 sm:flex-row sm:items-end sm:justify-between sm:px-5"><div><h2 id="comparison-table-heading" className="text-lg font-bold text-gray-900">Browse funds</h2><p className="mt-1 text-xs text-gray-500">{filteredRecords.length} of {scopedRecords.length} records · alphabetical by default · select a row for the research panel</p></div><div className="flex flex-wrap items-center gap-2"><button type="button" className="btn btn-secondary" onClick={exportCsv}>Export CSV</button>{compareRecords.length > 0 && <button type="button" className="btn btn-ghost" onClick={() => setView("compare")}>Review compare · {compareRecords.length}</button>}</div></div>{filteredRecords.length === 0 ? <div className="p-10 text-center text-sm text-gray-500">No catalogue rows match these filters.</div> : <ETFTable records={filteredRecords} shortlist={shortlist} compareTickers={compareTickers} onSelect={setSelected} onToggleShortlist={toggleShortlist} onToggleCompare={toggleCompare} sortKey={sortKey} descending={descending} onSort={changeSort} />}</section>
-        <p className="text-[11px] leading-5 text-gray-400">Metric columns show stored values on the initial page render. If a value is unavailable, the row gives its reason (NA for short history or missing provider data); missing values are never replaced with zero or an estimate.</p>
+        <section className="surface-card overflow-hidden" aria-labelledby="comparison-table-heading"><div className="flex flex-col gap-3 border-b border-[var(--border)] px-4 py-4 sm:flex-row sm:items-end sm:justify-between sm:px-5"><div><h2 id="comparison-table-heading" className="text-lg font-bold text-gray-900">Browse funds</h2><p className="mt-1 text-xs text-gray-500">{filteredRecords.length} of {scopedRecords.length} records · selected metrics sort by unrounded value · unavailable values stay last</p></div><div className="flex flex-wrap items-center gap-2"><button type="button" className="btn btn-secondary" onClick={exportCsv}>Export CSV</button>{compareRecords.length > 0 && <button type="button" className="btn btn-ghost" onClick={() => setView("compare")}>Review compare · {compareRecords.length}</button>}</div></div><div className="flex flex-col gap-3 border-b border-gray-100 px-4 py-3 sm:flex-row sm:items-center sm:px-5"><label className="flex items-center gap-2 text-xs font-semibold text-gray-600">Metric preset<select className="input-field py-1" value={metricPreset} onChange={(event) => setMetricPreset(event.target.value as MetricPreset)}>{Object.entries(METRIC_PRESETS).map(([key, preset]) => <option key={key} value={key}>{preset.label}</option>)}<option value="custom">Custom columns</option></select></label><span className="text-[11px] leading-4 text-gray-400">Select a metric header to sort. Returns, ratios, percentage points, and spreads keep separate units.</span></div>{metricPreset === "custom" && <details className="border-b border-gray-100 px-4 py-3 sm:px-5" open><summary className="cursor-pointer text-xs font-semibold text-indigo-700">Choose table columns</summary><div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 sm:grid-cols-3 lg:grid-cols-4">{(Object.keys(ETF_METRIC_LABELS) as ETFMetricKey[]).filter((key) => key !== "overlap").map((key) => <label key={key} className="flex items-start gap-2 text-[11px] leading-4 text-gray-600"><input type="checkbox" className="mt-0.5 h-3.5 w-3.5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" checked={customMetrics.includes(key)} onChange={(event) => setCustomMetrics((current) => event.target.checked ? [...current, key] : current.filter((item) => item !== key))} /><span title={ETF_METRIC_HELP[key]}>{ETF_METRIC_LABELS[key]}</span></label>)}</div></details>}{filteredRecords.length === 0 ? <div className="p-10 text-center text-sm text-gray-500">No catalogue rows match these filters.</div> : <ETFTable records={filteredRecords} shortlist={shortlist} compareTickers={compareTickers} metrics={selectedMetricColumns} onSelect={setSelected} onToggleShortlist={toggleShortlist} onToggleCompare={toggleCompare} sortKey={sortKey} descending={descending} onSort={changeSort} />}</section>
+        <p className="text-[11px] leading-5 text-gray-400">Five-year columns use the exact five-year period and show insufficient history for newer funds. Hover a value for its definition, dates, sample count, source, and calculation method. Missing inputs are never replaced with estimates or zero.</p>
       </>}
 
       {view === "compare" && <CompareView records={compareRecords} onSelect={setSelected} onRemove={toggleCompare} />}

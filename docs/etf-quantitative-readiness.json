@@ -1,0 +1,194 @@
+{
+  "asOf": "2026-10-06",
+  "schemaVersion": 1,
+  "status": "phase-1-audit-complete-with-provider-and-policy-gates",
+  "baseline": {
+    "currency": "USD",
+    "returnBasis": "Provider adjusted market price; distributions treated as reinvested only where the provider adjustment behavior is validated",
+    "cutoff": "Last completed UTC calendar month-end; monthly observations must be consecutive",
+    "currentHistoryRequestStart": "10.1 years before refresh",
+    "rawHistoryPersisted": false,
+    "officialBenchmarkId": null,
+    "comparisonBenchmarkId": null
+  },
+  "sources": [
+    {
+      "id": "yahoo-finance2.chart",
+      "input": "ETF daily market prices, adjusted prices, distributions, splits, currency",
+      "provider": "Yahoo Finance through the existing yahoo-finance2 adapter",
+      "endpoint": "Library chart module constructs https://${YF_QUERY_HOST}/v8/finance/chart/{symbol}; see installed node_modules/yahoo-finance2/esm/src/modules/chart.js",
+      "packageVersion": "3.15.4",
+      "normalizedFields": {
+        "quote.date": "YYYY-MM-DD market observation date",
+        "quote.close": "unadjusted closing market price",
+        "quote.adjclose": "provider adjusted closing price; required for total-return calculations, with no raw-close fallback",
+        "events.dividends[].amount": "provider-reported distribution per share",
+        "events.dividends[].date": "distribution date",
+        "meta.currency": "provider-reported trading currency"
+      },
+      "sampleEvidence": "Installed ChartResultArrayQuote and ChartEventsArray TypeScript declarations expose date, close, optional adjclose, and dividend events. No live sample response is checked in; provider response, dividend adjustment behavior, split treatment, revisions, and historical completeness still require validation.",
+      "credentials": [],
+      "cost": "No account or cost is configured in this repository; commercial data rights and applicable cost are unverified.",
+      "licensing": {
+        "status": "blockedByPolicy",
+        "reason": "The existing integration uses an unofficial automated adapter. Yahoo's general terms prohibit automated collection without express prior permission. No permission or licensed redistribution terms are recorded for this application.",
+        "evidenceUrl": "https://legal.yahoo.com/us/en/yahoo/terms/otos/index.html"
+      },
+      "fallback": "A licensed provider adapter must be selected and verified before releasing new automated history acquisition or claiming a comparable, licensed data product.",
+      "readiness": "blockedByPolicy"
+    },
+    {
+      "id": "yahoo-finance2.quoteSummary",
+      "input": "Provider-reported expense ratio, net assets, inception date, and top holdings",
+      "provider": "Yahoo Finance through the existing yahoo-finance2 adapter",
+      "modules": ["fundProfile", "summaryDetail", "topHoldings"],
+      "normalizedFields": {
+        "fundProfile.feesExpensesInvestment.netExpRatio": "provider-reported net expense ratio as a decimal fraction",
+        "fundProfile.feesExpensesInvestment.annualReportExpenseRatio": "provider-reported annual report expense ratio as a decimal fraction",
+        "fundProfile.feesExpensesInvestment.grossExpRatio": "provider-reported gross expense ratio as a decimal fraction",
+        "summaryDetail.totalAssets": "provider-reported total assets; share-class meaning is unverified",
+        "summaryDetail.fundInceptionDate": "provider-reported inception date",
+        "topHoldings.holdings[].symbol": "security symbol in the partial top-holdings set",
+        "topHoldings.holdings[].holdingPercent": "provider-reported fractional weight"
+      },
+      "sampleEvidence": "Current adapter mapping is in app/api/etf-metrics/route.ts; no retained provider response or issuer reconciliation is checked in.",
+      "credentials": [],
+      "financialAsOfDate": "Not supplied consistently by the current adapter",
+      "cost": "Unverified",
+      "licensing": "Same unresolved Yahoo Finance terms gate as yahoo-finance2.chart",
+      "fallback": "Issuer machine-readable factsheets, holdings files, or a licensed provider. Missing fields stay unavailable.",
+      "readiness": "blockedByPolicy"
+    },
+    {
+      "id": "fred.TB3MS",
+      "input": "Potential risk-free rate reference",
+      "provider": "Board of Governors of the Federal Reserve System via FRED",
+      "series": "TB3MS — 3-Month Treasury Bill Secondary Market Rate, Discount Basis",
+      "frequencyAndUnits": "Monthly business-day average, percent per annum, discount basis",
+      "whyNotUsedAsReturns": "A quoted yield is not a monthly realized holding-period return. Converting this series to risk-free monthly returns would require a separately specified and validated timing, maturity, reinvestment, and price-conversion methodology.",
+      "credentials": "FRED API credential not configured; public series page is available",
+      "cost": "Not audited for a production feed",
+      "evidenceUrl": "https://fred.stlouisfed.org/series/TB3MS",
+      "fallback": "Select an actual monthly Treasury-bill holding-period total-return series, or approve and document a separately labeled yield-derived proxy methodology.",
+      "readiness": "blockedByProvider"
+    },
+    {
+      "id": "official-index-total-return",
+      "input": "Official benchmark total-return levels and identity/version history",
+      "provider": null,
+      "endpoint": null,
+      "credentials": "None configured",
+      "costAndLicense": "Not audited; index history may require a licensed source",
+      "verifiedMappings": 0,
+      "fallback": "An explicitly labeled comparison ETF may be selected by the user after its history is authorized and persisted; it cannot produce official tracking statistics.",
+      "readiness": "blockedByProvider"
+    },
+    {
+      "id": "issuer-nav-total-return",
+      "input": "Historical ETF NAV total-return levels",
+      "provider": null,
+      "endpoint": null,
+      "credentials": "None configured",
+      "costAndLicense": "Not audited",
+      "fallback": "Market-price performance remains separate; official tracking difference/error stay unavailable.",
+      "readiness": "blockedByProvider"
+    },
+    {
+      "id": "issuer-full-holdings",
+      "input": "Complete dated holdings and sector classifications",
+      "provider": null,
+      "endpoint": null,
+      "credentials": "None configured",
+      "coverage": "Current Yahoo quoteSummary path supplies top holdings only; full coverage and valuation dates are not confirmed.",
+      "fallback": "Show top-ten data as partial provider coverage; do not calculate effective holdings count or score diversification.",
+      "readiness": "blockedByProvider"
+    },
+    {
+      "id": "issuer-or-licensed-trading-metrics",
+      "input": "Historical 30-day median spread and matched market-price/NAV premium-discount observations",
+      "provider": null,
+      "endpoint": null,
+      "credentials": "None configured",
+      "fallback": "A live quote is not a historical median; no spread or premium-discount value is manufactured.",
+      "readiness": "blockedByProvider"
+    }
+  ],
+  "peerGroups": {
+    "verifiedMemberships": 0,
+    "sameIndexRelationships": 0,
+    "scoringCohortMinimum": 10,
+    "scope": "Verified geography, size/style, currency/hedging, and index-weighting policy are required. Catalogue category and ticker/name similarity do not create a peer group.",
+    "readiness": "blockedByPolicy"
+  },
+  "policies": {
+    "freshnessLimitsDays": {
+      "marketHistoryRetrieval": 5,
+      "expenseRatioFinancialDate": 365,
+      "assetsFinancialDate": 90,
+      "completeHoldingsFinancialDate": 45,
+      "spreadObservation": 2,
+      "navPremiumDiscountObservation": 1
+    },
+    "metadataDateDifferenceAcrossPeersDays": 30,
+    "holdingsDateDifferenceAcrossPeersDays": 7,
+    "monthEndObservationToleranceDays": 3,
+    "missingExpectedMonth": "Invalidate affected period; do not fill or bridge a missing month.",
+    "fullHoldingsReconciliation": {
+      "acceptedNormalizedWeightTotalPercent": [99, 101],
+      "cashAndRounding": "Must be reported and reconciled before a complete-portfolio score input is accepted. These bounds are provisional until a provider precision audit is complete."
+    },
+    "rolling": {
+      "windowMonths": 60,
+      "levelsPerWindow": 61,
+      "evaluationSpanMonths": 180,
+      "minimumWindowsForSummary": 12,
+      "quantile": "Linear interpolation at (n - 1) * p",
+      "winRule": "Strictly positive paired CAGR gap; exact ties are not wins"
+    },
+    "scoreQuantizationAndMateriality": {
+      "status": "blockedByPolicy",
+      "reason": "Provider precision, licensed-source uncertainty, and complete-holdings coverage have not been audited. Display rounding is not an approved score tie tolerance.",
+      "provisionalDisplayPrecision": {
+        "returnsVolatilityDrawdownPercent": 2,
+        "expenseRatioPercent": 4,
+        "ratios": 2,
+        "spreadBasisPoints": 1,
+        "score": 0
+      }
+    },
+    "storage": {
+      "current": "Compact per-ticker snapshots in Firestore etf_metrics; raw price history and shared reference series are not stored.",
+      "target": "Versioned annual chunks in a dedicated history collection or object storage, with an atomic manifest and on-demand chart reads. Keep comparison caches keyed by tickers, window, cutoff, sources, and methodology.",
+      "sizing": "No licensed source or coherent retention policy is selected. Measure serialized chunks and Firestore read/write cost before enabling history retention; Firestore Standard documents have a 1 MiB maximum."
+    },
+    "legacyMigration": {
+      "oldCollection": "etf_metrics",
+      "legacyValues": "Preserve existing values and states. New snapshots add schemaVersion 2, calculationVersion, runId, and typed metricResults. Existing snapshots without those fields remain readable.",
+      "unitMapping": "Return, yield, volatility, drawdown, and concentration values use percent; expenseRatio retains provider net/gross label; recoveryTime uses tradingDays; new risk ratios use ratio; comparison return gaps use percentagePoints; spreads use basisPoints.",
+      "provenance": "Legacy provider metadata is fetchedUnverified; no historical source date is rewritten as a retrieval date."
+    },
+    "retryAndRunPolicy": {
+      "attemptsPerTicker": 3,
+      "backoffMilliseconds": [500, 1000],
+      "workerConcurrency": 2,
+      "batchSizeMaximum": 12,
+      "universeIdentifier": "SHA-256 of the stable ordered ticker universe, truncated to 20 hex characters; workflow checks it across batches.",
+      "publish": "A ticker snapshot is saved after its own refresh succeeds. This is not a coherent whole-universe scoring run; cohort/reference failures remain visible and no score is published.",
+      "providerAuthorizationGate": "The API requires server environment variable ETF_YAHOO_AUTOMATION_AUTHORIZED=true. The GitHub workflow requires repository variable ETF_YAHOO_AUTOMATION_AUTHORIZED=true. Both default off; prior snapshots remain readable.",
+      "workflowFailure": "Any failed ticker or incomplete batch fails an enabled scheduled workflow while prior snapshots remain readable."
+    }
+  },
+  "metricReadiness": [
+    { "metric": "cagr5Y / cagr10Y", "status": "blockedByPolicy", "implemented": true, "dependency": "Complete adjusted monthly levels are calculated, but the existing Yahoo source lacks approved automated-use rights and verified adjustment behavior." },
+    { "metric": "volatility5Y / maxDrawdown5Y / recoveryTime / underwaterObservationRate", "status": "blockedByPolicy", "implemented": true, "dependency": "The formulas use a complete 60-month window and daily adjusted levels; current provider rights and input conventions remain unverified." },
+    { "metric": "calmar5Y", "status": "blockedByPolicy", "implemented": true, "dependency": "Formula uses a complete five-year CAGR and daily maximum drawdown; the underlying source still needs approval." },
+    { "metric": "rolling5YMedianCagr / P10 / worst / best / positiveRate", "status": "blockedByPolicy", "implemented": true, "dependency": "At least 12 complete five-year windows are calculated. Current history request is capped at 10.1 years, so the configured 15-year evaluation span is not reached, and source approval remains outstanding." },
+    { "metric": "sharpe5Y / sortino5Y", "status": "blockedByProvider", "dependency": "Aligned monthly risk-free holding-period returns." },
+    { "metric": "benchmarkExcessCagr5Y / rolling5YBenchmarkWinRate", "status": "blockedByProvider", "dependency": "Persisted and authorized common comparison-reference history; no default proxy is assigned." },
+    { "metric": "trackingDifference5Y / trackingError5Y", "status": "blockedByProvider", "dependency": "Verified fund NAV and official index total-return histories with compatible dividend conventions." },
+    { "metric": "medianSpread30D / premiumDiscount", "status": "blockedByProvider", "dependency": "Historical spread feed and matched NAV/market-price observations." },
+    { "metric": "effectiveHoldingsCount / largestHoldingWeight / largestSectorWeight", "status": "blockedByProvider", "dependency": "Complete dated holdings, coverage reconciliation, and common sector taxonomy." },
+    { "metric": "overallScore / fundQualityScore / historicalPerformanceScore / scoreCoverage", "status": "blockedByPolicy", "dependency": "At least 10 verified comparable portfolios, all required fresh inputs, source approval, final materiality rules, and frozen cohort manifests." },
+    { "metric": "matched wealth / drawdown / rolling comparison charts", "status": "blockedByPolicy", "dependency": "Authorized normalized raw history, chunk storage, coherent common-window API, and cache." }
+  ]
+}

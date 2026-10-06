@@ -1,6 +1,6 @@
 # ETF quantitative comparison implementation plan
 
-Requested: 2026-10-06. Status: execution plan; no application changes implemented by this document.
+Requested: 2026-10-06. Status: phased implementation in progress as of 2026-10-06. See [the dated coverage and phase report](etf-quantitative-coverage-2026-10-06.md) and [source/readiness manifest](etf-quantitative-readiness.json). Provider-gated benchmarks, risk-free returns, full holdings, scoring, raw-history storage, and matched-date charts are not treated as ready.
 
 ## Outcome
 

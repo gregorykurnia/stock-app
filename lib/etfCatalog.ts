@@ -13,7 +13,29 @@ export const ETF_METRIC_LABELS = {
   maxDrawdown5Y: "5Y maximum drawdown",
   volatility5Y: "5Y annualized volatility",
   recoveryTime: "Maximum drawdown recovery",
+  underwaterObservationRate: "5Y daily observations below prior peak",
+  sharpe5Y: "5Y Sharpe ratio",
+  sortino5Y: "5Y Sortino ratio",
+  calmar5Y: "5Y Calmar ratio",
+  rolling5YMedianCagr: "Rolling 5Y median CAGR",
+  rolling5YP10Cagr: "Rolling 5Y P10 CAGR",
+  rolling5YWorstCagr: "Worst rolling 5Y CAGR",
+  rolling5YBestCagr: "Best rolling 5Y CAGR",
+  rolling5YPositiveRate: "Positive rolling 5Y windows",
+  rolling5YBenchmarkWinRate: "Rolling 5Y benchmark win rate",
+  benchmarkExcessCagr5Y: "5Y comparison benchmark excess CAGR",
+  trackingDifference5Y: "5Y index tracking difference",
+  trackingError5Y: "5Y index tracking error",
+  medianSpread30D: "30-day median bid/ask spread",
+  premiumDiscount: "Premium / discount to NAV",
+  overallScore: "Overall peer score",
+  fundQualityScore: "Fund-quality subscore",
+  historicalPerformanceScore: "Historical-performance subscore",
+  scoreCoverage: "Score input coverage",
   topTenWeight: "Top-ten holdings weight",
+  effectiveHoldingsCount: "Effective holdings count",
+  largestHoldingWeight: "Largest holding weight",
+  largestSectorWeight: "Largest sector weight",
   overlap: "Top-ten overlap (minimum)",
   expenseRatio: "Reported expense ratio",
   netAssets: "Fund net assets",
@@ -21,6 +43,53 @@ export const ETF_METRIC_LABELS = {
 } as const;
 
 export type ETFMetricKey = keyof typeof ETF_METRIC_LABELS;
+
+export const ETF_METRIC_HELP: Partial<Record<ETFMetricKey, string>> = {
+  cagr5Y: "Annualized total return across the last 60 complete monthly returns. Uses actual elapsed days and the last completed month-end; it does not fall back to a shorter history.",
+  cagr10Y: "Annualized total return across the last 120 complete monthly returns. Uses actual elapsed days and the last completed month-end.",
+  volatility5Y: "Sample standard deviation of 60 complete monthly adjusted-price returns, multiplied by the square root of 12.",
+  sharpe5Y: "Annualized mean monthly return above matched monthly risk-free holding returns, divided by sample deviation. Unavailable until a verified risk-free return series is configured.",
+  sortino5Y: "Annualized mean monthly return above the risk-free minimum acceptable return, divided by downside deviation across all months. Unavailable until matched risk-free returns are available.",
+  calmar5Y: "Five-year CAGR divided by the absolute five-year maximum drawdown. Undefined when maximum drawdown is zero.",
+  maxDrawdown5Y: "Largest peak-to-trough decline in daily adjusted prices over the five-year window, including its starting level.",
+  recoveryTime: "Trading observations from the worst drawdown peak until that peak is regained. An open drawdown remains unrecovered.",
+  rolling5YMedianCagr: "Median CAGR across complete five-year monthly windows in the available rolling evaluation span. At least 12 windows are required.",
+  rolling5YP10Cagr: "10th percentile of complete five-year rolling CAGRs using linear interpolation. At least 12 windows are required.",
+  rolling5YWorstCagr: "Lowest complete five-year rolling CAGR in the available evaluation span. At least 12 windows are required for the summary.",
+  rolling5YBestCagr: "Highest complete five-year rolling CAGR in the available evaluation span. At least 12 windows are required for the summary.",
+  rolling5YPositiveRate: "Share of complete five-year rolling windows with a CAGR above zero. Overlapping windows are correlated and this is not a probability of future success.",
+  rolling5YBenchmarkWinRate: "Share of paired rolling five-year windows where this fund's CAGR strictly exceeds an explicitly selected comparison reference. No default reference is assigned.",
+  benchmarkExcessCagr5Y: "Fund CAGR minus a user-selected comparison fund's CAGR over identical dates. This is a return gap, not regression alpha or official index tracking.",
+  trackingDifference5Y: "NAV total-return CAGR minus official benchmark total-return CAGR on identical dates. Requires verified NAV and official index inputs.",
+  trackingError5Y: "Annualized sample deviation of monthly NAV returns minus official benchmark returns. Requires verified NAV and official index inputs.",
+  medianSpread30D: "Provider-reported median bid/ask spread over 30 days, in basis points. A live quote is not a substitute.",
+  premiumDiscount: "Market price divided by NAV minus one, at matched valuation dates and conventions.",
+  effectiveHoldingsCount: "Inverse Herfindahl concentration, 1 divided by the sum of squared normalized portfolio weights. Requires verified full holdings.",
+  largestHoldingWeight: "Weight of the largest security in the complete, dated portfolio holdings set.",
+  largestSectorWeight: "Weight of the largest sector using a dated, common sector classification.",
+  underwaterObservationRate: "Share of daily observations below the running adjusted-price peak over the same five-year window.",
+  overallScore: "Peer-relative historical comparison score. Scoring remains unavailable until all inputs and verified peer cohorts pass the release gates.",
+  fundQualityScore: "Peer-relative cost, index-implementation, and diversification subscore. Requires a verified eligible cohort and complete inputs.",
+  historicalPerformanceScore: "Peer-relative risk-adjusted performance, rolling consistency, and drawdown subscore. Requires a verified eligible cohort and complete inputs.",
+  scoreCoverage: "Resolved share of the configured score input weights. Coverage is not confidence or a probability.",
+};
+
+export type ETFMetricUnit = "percent" | "percentagePoints" | "ratio" | "basisPoints" | "tradingDays" | "score" | "count" | "currency" | "date";
+export type ETFMetricStatus = "available" | "insufficientHistory" | "unavailable" | "notApplicable" | "stale" | "invalidInput" | "unrecovered" | "undefined" | "provisional";
+
+export interface ETFMetricResult {
+  value: number | null;
+  unit: ETFMetricUnit;
+  status: ETFMetricStatus;
+  reason?: string;
+  startDate: string | null;
+  endDate: string | null;
+  observations: number;
+  sourceIds: string[];
+  benchmarkId?: string;
+  riskFreeSeriesId?: string;
+  methodologyId: string;
+}
 
 export type ETFKind = "etf" | "etn" | "excluded";
 export type ETFStrategy = "core" | "income" | "leveraged" | "trust" | "commodity" | "digital" | "allocation" | "etn";
@@ -57,6 +126,30 @@ export interface ETFMetricSnapshot {
   ticker: string;
   values: Partial<Record<ETFMetricKey, number | string>>;
   states: Partial<Record<ETFMetricKey, string>>;
+  metricResults?: Partial<Record<ETFMetricKey, ETFMetricResult>>;
+  schemaVersion?: number;
+  calculationVersion?: string;
+  runId?: string;
+  historyRunId?: string;
+  historyStartDate?: string | null;
+  historyEndDate?: string | null;
+  historyObservations?: number;
+  officialBenchmarkId?: string | null;
+  comparisonBenchmarkId?: string | null;
+  metadataProvenance?: {
+    sourceId: string;
+    status: "fetchedUnverified" | "issuerVerified";
+    retrievedAt: string;
+    expenseRatioLabel?: string | null;
+    holdingsCoverage: "partialTopHoldings" | "full" | "unavailable";
+  };
+  drawdownDetails?: {
+    peakDate: string | null;
+    troughDate: string | null;
+    recoveryDate: string | null;
+    underwaterObservationRate: number | null;
+    elapsedUnderwaterTradingDays: number | null;
+  };
   sinceInceptionReturn?: {
     value: number;
     periodYears: number;

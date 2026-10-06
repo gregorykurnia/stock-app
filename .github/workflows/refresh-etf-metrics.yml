@@ -2,7 +2,7 @@ name: Refresh ETF metrics
 
 on:
   schedule:
-    - cron: "23 9 * * *"
+    - cron: "23 23 * * 1-5"
   workflow_dispatch: {}
 
 concurrency:
@@ -18,12 +18,37 @@ jobs:
         env:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
           APP_URL: https://stock-app-five-sable.vercel.app
+          ETF_YAHOO_AUTOMATION_AUTHORIZED: ${{ vars.ETF_YAHOO_AUTOMATION_AUTHORIZED }}
         run: |
-          for offset in $(seq 0 12 216); do
+          set -euo pipefail
+          if [ "${ETF_YAHOO_AUTOMATION_AUTHORIZED:-}" != "true" ]; then
+            echo "ETF refresh skipped: configure an authorized market-data provider before enabling scheduled data requests."
+            exit 0
+          fi
+          offset=0
+          expected_universe_id=""
+          while true; do
             echo "Refreshing ETF batch at offset ${offset}"
             response=$(curl --fail-with-body --show-error --silent --max-time 310 \
               "${APP_URL}/api/etf-metrics?offset=${offset}&limit=12" \
               -X POST -H "Authorization: Bearer ${CRON_SECRET}")
-            printf '%s\n' "$response" | jq '{offset,requested,updated:(.updated|length),skippedIdentityReview,failed,remaining}'
-            printf '%s\n' "$response" | jq -e '.requested > 0 and (.updated | length) + (.skippedIdentityReview | length) + (.failed | length) == .requested' >/dev/null
+            printf '%s\n' "$response" | jq '{offset,nextOffset,universeId,universeCount,requested,updated:(.updated|length),skippedIdentityReview,failed,remaining}'
+            printf '%s\n' "$response" | jq -e '.requested > 0 and (.updated | length) + (.skippedIdentityReview | length) + (.failed | length) == .requested and (.failed | length) == 0' >/dev/null
+            batch_universe_id=$(printf '%s\n' "$response" | jq -r '.universeId')
+            if [ -z "$expected_universe_id" ]; then
+              expected_universe_id="$batch_universe_id"
+            elif [ "$expected_universe_id" != "$batch_universe_id" ]; then
+              echo "ETF universe changed during refresh; rerun to publish a coherent batch set" >&2
+              exit 1
+            fi
+            remaining=$(printf '%s\n' "$response" | jq -r '.remaining')
+            next_offset=$(printf '%s\n' "$response" | jq -r '.nextOffset')
+            if [ "$remaining" -eq 0 ]; then
+              break
+            fi
+            if [ "$next_offset" -le "$offset" ]; then
+              echo "ETF refresh returned a non-advancing nextOffset" >&2
+              exit 1
+            fi
+            offset="$next_offset"
           done

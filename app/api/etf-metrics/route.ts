@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createHash, randomUUID } from "node:crypto";
 import { ETF_CATALOG, ETF_ETNS } from "@/lib/etfCatalog";
 import { calculateETFMetrics, type ETFDistribution, type ETFPriceBar } from "@/lib/etfMetricCalculations";
 import { getETFMetricSnapshots, recordETFMetricRefreshError, saveETFMetricSnapshot } from "@/lib/etfMetricStore";
@@ -15,6 +16,10 @@ const REFRESH_SOURCE = "Yahoo Finance via yahoo-finance2";
 const DEFAULT_BATCH_SIZE = 12;
 const MAX_BATCH_SIZE = 12;
 const HISTORY_START = new Date(Date.now() - 10.1 * 365.2425 * 24 * 60 * 60 * 1000);
+
+function pause(milliseconds: number) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
 
 function normalizeDate(value: unknown): string | null {
   if (value == null) return null;
@@ -66,6 +71,7 @@ async function refreshTicker(ticker: string) {
     return [{ date, close: quote.close, adjustedClose: quote.adjclose }];
   }).sort((left: ETFPriceBar, right: ETFPriceBar) => left.date.localeCompare(right.date));
   if (bars.length < 2) throw new Error("Yahoo Finance returned no usable adjusted daily history");
+  if (bars.some((bar, index) => index > 0 && bars[index - 1].date === bar.date)) throw new Error("Yahoo Finance returned duplicate daily bars");
 
   const rawEvents = eventList(chart?.events?.dividends);
   const distributions: ETFDistribution[] = (rawEvents ?? []).flatMap((rawEvent) => {
@@ -99,6 +105,8 @@ async function refreshTicker(ticker: string) {
     : null;
   const inceptionDate = normalizeDate(summaryDetail.fundInceptionDate);
   const observedAt = normalizeDate(chart?.meta?.regularMarketTime) ?? bars.at(-1)!.date;
+  const retrievedAt = new Date().toISOString();
+  const runId = randomUUID();
   const metrics = calculateETFMetrics({
     ticker,
     bars,
@@ -106,11 +114,13 @@ async function refreshTicker(ticker: string) {
     distributionEventsAvailable: rawEvents !== null,
     currency: typeof chart?.meta?.currency === "string" ? chart.meta.currency : null,
     observedAt,
+    retrievedAt,
+    runId,
     metadata: { expenseRatio, expenseRatioType: expenseRatioSource?.label ?? null, netAssets, inceptionDate },
     holdings,
   });
   await saveETFMetricSnapshot(metrics);
-  return { ticker, observedAt, holdings: holdings.length, quoteSummaryAvailable: summaryResult.status === "fulfilled" };
+  return { ticker, observedAt, runId, historyObservations: bars.length, holdings: holdings.length, quoteSummaryAvailable: summaryResult.status === "fulfilled" };
 }
 
 export async function GET() {
@@ -133,6 +143,12 @@ export async function POST(request: NextRequest) {
   if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
+  if (process.env.ETF_YAHOO_AUTOMATION_AUTHORIZED !== "true") {
+    return NextResponse.json({
+      error: "ETF refresh is paused until an authorized market-data source is configured",
+      readiness: "blockedByPolicy",
+    }, { status: 503 });
+  }
 
   const rawOffset = Number(request.nextUrl.searchParams.get("offset") ?? 0);
   const rawLimit = Number(request.nextUrl.searchParams.get("limit") ?? DEFAULT_BATCH_SIZE);
@@ -144,7 +160,7 @@ export async function POST(request: NextRequest) {
   const batch = universe.slice(rawOffset, rawOffset + rawLimit);
   if (!batch.length) return NextResponse.json({ error: "offset is beyond the ETF universe" }, { status: 400 });
 
-  const updated: Array<{ ticker: string; observedAt: string; holdings: number; quoteSummaryAvailable: boolean }> = [];
+  const updated: Array<{ ticker: string; observedAt: string; runId: string; historyObservations: number; holdings: number; quoteSummaryAvailable: boolean; attempts: number }> = [];
   const skipped: string[] = [];
   const failed: Array<{ ticker: string; error: string }> = [];
   let index = 0;
@@ -155,10 +171,21 @@ export async function POST(request: NextRequest) {
         skipped.push(record.ticker);
         continue;
       }
-      try {
-        updated.push(await refreshTicker(record.ticker));
-      } catch (error) {
-        const message = safeError(error);
+      let lastError: unknown;
+      let refreshed: Awaited<ReturnType<typeof refreshTicker>> | null = null;
+      let attempts = 0;
+      for (attempts = 1; attempts <= 3 && !refreshed; attempts += 1) {
+        try {
+          refreshed = await refreshTicker(record.ticker);
+        } catch (error) {
+          lastError = error;
+          if (attempts < 3) await pause(500 * 2 ** (attempts - 1));
+        }
+      }
+      if (refreshed) {
+        updated.push({ ...refreshed, attempts: attempts - 1 });
+      } else {
+        const message = safeError(lastError);
         failed.push({ ticker: record.ticker, error: message });
         await recordETFMetricRefreshError(record.ticker, message, new Date().toISOString()).catch((storeError) => {
           console.error(`[etf-metrics] could not store error status for ${record.ticker}`, storeError);
@@ -168,8 +195,13 @@ export async function POST(request: NextRequest) {
   };
   await Promise.all(Array.from({ length: Math.min(2, batch.length) }, worker));
 
+  const nextOffset = rawOffset + batch.length;
+  const universeId = createHash("sha256").update(universe.map((record) => record.ticker).join("\n")).digest("hex").slice(0, 20);
   return NextResponse.json({
     offset: rawOffset,
+    nextOffset,
+    universeId,
+    universeCount: universe.length,
     requested: batch.length,
     updated,
     skippedIdentityReview: skipped,
