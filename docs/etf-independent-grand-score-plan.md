@@ -4,6 +4,10 @@ Requested: 2026-10-06. Expanded: 2026-10-06 to cover the catalogue with strategy
 
 ## Agreed outcome
 
+### Authorized two-fund Free Core trial — 2026-10-07
+
+The user requested a trial for VOO and VXUS of the simpler free-data approach discussed after this plan: Yahoo historical prices, sourced annual net fees, and no mandatory spread input. The separately labelled trial uses `(0.30 × FeePoints + 0.40 × HistoricalOutcomes) / 0.70`, reusing the equity-index outcome curves below. Its 1Y/3Y results are saved and displayed at `/etf/free-core-trial`; [the trial report](etf-free-core-trial-2026-10-07.md) records sources, numbers, provider differences and reproduction. This authorizes the two-fund experiment, not changing existing Core/Full formula versions or claiming broad release coverage. The remaining plan below continues to describe those original scorecards.
+
 Add a visible, explainable Score column to `/etf`, calculated independently for each eligible fund. Publish a broadly available Core Score first, and retain the more demanding Full Grand Score for verified equity index funds. The agreed Full Grand Score remains:
 
 ```text

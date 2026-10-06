@@ -266,7 +266,7 @@ function sourceIssues(input: CoreScoreInput): { status: ScoreCalculationStatus; 
   return null;
 }
 
-function computeMarketOutcome(input: CoreScoreInput): { cagrPct: number; downsideDeviationPct: number } | null {
+function computeMarketOutcome(input: Pick<CoreScoreInput, "horizon" | "market" | "cutoff">): { cagrPct: number; downsideDeviationPct: number } | null {
   const count = input.horizon === "3Y" ? 36 : 12;
   const returns = input.market.monthlyReturns;
   if (returns.length !== count) return null;
@@ -278,6 +278,25 @@ function computeMarketOutcome(input: CoreScoreInput): { cagrPct: number; downsid
   if (annualGrowth == null) return null;
   const downsideDeviation = 100 * Math.sqrt(12 * returns.reduce((sum, value) => sum + Math.min(value, 0) ** 2, 0) / count);
   return { cagrPct: annualGrowth, downsideDeviationPct: downsideDeviation };
+}
+
+/** Shared outcome calculation; ownership costs and publication policy are assessed separately. */
+export function calculateCoreHistoricalOutcomes(input: Pick<CoreScoreInput, "family" | "horizon" | "market" | "cutoff" | "maxDrawdownMagnitudePct">) {
+  const outcomes = computeMarketOutcome(input);
+  if (!outcomes || !finite(input.maxDrawdownMagnitudePct) || input.maxDrawdownMagnitudePct < 0 || input.maxDrawdownMagnitudePct > 100) return null;
+  const settings = ETF_CORE_SCORECARD_CANDIDATES[input.family];
+  const growth = growthPoints(outcomes.cagrPct, settings.growthAnchor, settings.growthScale);
+  const drawdown = drawdownResiliencePoints(input.maxDrawdownMagnitudePct, settings.drawdownScale);
+  const downside = downsidePoints(outcomes.downsideDeviationPct, settings.downsideScale);
+  if (growth == null || drawdown == null || downside == null) return null;
+  const score = geometricMean([growth, drawdown, downside], [settings.growthWeight, settings.drawdownWeight, settings.downsideWeight]);
+  if (score == null) return null;
+  const components: Record<string, ScoreComponent> = {
+    growth: { points: growth, weight: settings.growthWeight, inputValue: outcomes.cagrPct, inputUnit: "percent" },
+    drawdown: { points: drawdown, weight: settings.drawdownWeight, inputValue: input.maxDrawdownMagnitudePct, inputUnit: "percent" },
+    downside: { points: downside, weight: settings.downsideWeight, inputValue: outcomes.downsideDeviationPct, inputUnit: "percent" },
+  };
+  return { ...outcomes, score, components };
 }
 
 function result(
@@ -322,20 +341,15 @@ export function calculateCoreScore(input: CoreScoreInput): ScoreCalculation {
   if (issue) return result(input, null, issue.status, issue.reason, sourceIds);
   const now = input.now ?? new Date();
   if (!lastCompletedMonthCutoff(input.cutoff, now)) return result(input, null, "invalidInput", "The score cutoff must be the last completed UTC month-end trading date.", sourceIds);
-  const outcomes = computeMarketOutcome(input);
+  const outcomes = calculateCoreHistoricalOutcomes(input);
   if (!outcomes) {
     const required = input.horizon === "3Y" ? 36 : 12;
     const currentCount = input.market.monthlyReturns.length;
     return result(input, null, currentCount === required ? "invalidInput" : "insufficientHistory", `Core ${input.horizon} requires exactly ${required} complete monthly returns and matching complete daily history.`, sourceIds);
   }
   const costs = calculateCostAndTradingScore(input.expenseRatio.value, input.medianSpread.value, settings);
-  const growth = growthPoints(outcomes.cagrPct, settings.growthAnchor, settings.growthScale);
-  const drawdown = drawdownResiliencePoints(input.maxDrawdownMagnitudePct, settings.drawdownScale);
-  const downside = downsidePoints(outcomes.downsideDeviationPct, settings.downsideScale);
-  if (!costs || growth == null || drawdown == null || downside == null) return result(input, null, "invalidInput", "Core score components could not be calculated from finite, valid inputs.", sourceIds);
-  const historicalOutcomes = geometricMean([growth, drawdown, downside], [settings.growthWeight, settings.drawdownWeight, settings.downsideWeight]);
-  if (historicalOutcomes == null) return result(input, null, "invalidInput", "Core outcome weights or component points are invalid.", sourceIds);
-  const score = 0.6 * costs.score + 0.4 * historicalOutcomes;
+  if (!costs) return result(input, null, "invalidInput", "Core score components could not be calculated from finite, valid inputs.", sourceIds);
+  const score = 0.6 * costs.score + 0.4 * outcomes.score;
   const methodologyPending = ETF_CORE_SCORECARD_METHODOLOGY_STATE !== "frozen";
   return result(
     input,
@@ -346,9 +360,7 @@ export function calculateCoreScore(input: CoreScoreInput): ScoreCalculation {
     {
       fee: { points: costs.feePoints, weight: 0.3, inputValue: input.expenseRatio.value, inputUnit: "percent" },
       spread: { points: costs.spreadPoints, weight: 0.3, inputValue: input.medianSpread.value, inputUnit: "basisPoints" },
-      growth: { points: growth, weight: 0.4 * settings.growthWeight, inputValue: outcomes.cagrPct, inputUnit: "percent" },
-      drawdown: { points: drawdown, weight: 0.4 * settings.drawdownWeight, inputValue: input.maxDrawdownMagnitudePct, inputUnit: "percent" },
-      downside: { points: downside, weight: 0.4 * settings.downsideWeight, inputValue: outcomes.downsideDeviationPct, inputUnit: "percent" },
+      ...Object.fromEntries(Object.entries(outcomes.components).map(([key, component]) => [key, { ...component, weight: 0.4 * component.weight }])),
     },
   );
 }
