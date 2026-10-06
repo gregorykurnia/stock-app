@@ -118,7 +118,8 @@ export async function fetchHistoricalSnapshotQuotes(
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const matching = (chart?.quotes ?? []).filter((quote: any) => (
           quote?.date && (ticker === "IDR=X"
-            ? new Date(quote.date).toISOString().slice(0, 10)
+            // Yahoo FX sessions start at 23:00 UTC on the preceding calendar day.
+            ? new Date(new Date(quote.date).getTime() + 3_600_000).toISOString().slice(0, 10)
             : dateInNewYork(new Date(quote.date))) === sessionDate
           && typeof quote.close === "number" && Number.isFinite(quote.close) && quote.close > 0
         ));
@@ -147,8 +148,8 @@ export async function fetchPortfolioSessionDates(start: string, end: string): Pr
   const chart = await yf.chart("SPY", {
     period1: new Date(`${start}T00:00:00Z`), period2, interval: "1d", return: "array",
   });
-  const dates = (chart.quotes ?? []).flatMap((quote: { date: Date; close: number | null }) => {
-    if (quote.close == null || !Number.isFinite(quote.close) || quote.close <= 0) return [];
+  const dates = (chart.quotes ?? []).flatMap((quote: { date: Date }) => {
+    if (!quote.date || Number.isNaN(new Date(quote.date).getTime())) return [];
     const date = dateInNewYork(new Date(quote.date));
     return date >= start && date <= end ? [date] : [];
   });
