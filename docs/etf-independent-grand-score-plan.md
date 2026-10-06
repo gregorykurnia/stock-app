@@ -1,6 +1,6 @@
 # Independent ETF Grand Score implementation plan
 
-Requested: 2026-10-06. Expanded: 2026-10-06 to cover the catalogue with strategy-specific scorecards. Status: implementation plan; scoring is not implemented.
+Requested: 2026-10-06. Expanded: 2026-10-06 to cover the catalogue with strategy-specific scorecards. Updated: 2026-10-06 with the personal-use, free-data implementation handoff. Status: scoring formulas, routing and UI scaffolding exist; acquisition, validation and publication of live scores are unfinished.
 
 ## Agreed outcome
 
@@ -13,6 +13,53 @@ Grand Score = 0.60 × Fund Quality + 0.40 × Historical Performance
 The user accepted this blend. Scores must come from fetched financial inputs and server calculations. The previously simulated quality score of 95 and rolling-return assumptions are examples, not fund ratings or production inputs. Do not tune thresholds to give VOO, VTI, or VXUS a desired result.
 
 This document supersedes the score-related peer percentiles, minimum-ten-peer requirement, score weights, and scoring release instructions in [the quantitative comparison plan](etf-quantitative-comparison-plan.md). Its other metric, provenance, comparison, and source requirements continue to apply. [The dated coverage report](etf-quantitative-coverage-2026-10-06.md) remains a record of the earlier implementation state; writing this plan does not resolve its source gaps.
+
+## Implementation handoff: personal use with free data
+
+This section records the user's latest decisions and makes the next implementation concrete. Documentation is authorized now; runtime implementation has not yet been requested. Use the formulas and eligibility rules below rather than inventing an easier score to fill empty rows.
+
+### Decisions and access
+
+- The app is for the user's personal use. Start with Core 3Y and Core 1Y scores, plus clearly separate cost-only results. Full and Tactical/ETN execution are later enrichment with their own input requirements.
+- Use Tiingo's free Starter EOD API for market history, subject to live entitlement and ticker checks, and official issuer disclosures for identity, mandate, comparison dimensions, net fees and 30-day median spreads. Do not buy a provider subscription.
+- The user supplied a Tiingo token, but its validity, account entitlement and coverage have not been tested. Do not copy the supplied token into documentation, source, fixtures, logs or commits. Rotate the token shared in chat before implementation and configure the replacement as server-only `TIINGO_API_TOKEN` in `.env.local` and the deployment's secret environment. Never use a `NEXT_PUBLIC_` prefix. This documentation update does not configure credentials.
+- Tiingo's [current pricing](https://www.tiingo.com/about/pricing), checked 2026-10-06, lists Starter at $0/month with 500 unique symbols/month, 50 requests/hour, 1,000 requests/day and 1 GB/month, for personal internal use. These limits fit the 216-ETF symbol count, but do not prove every ticker or historical period is available. Confirm the account's actual limits before backfill. Do not expose source history or scores to other users without confirming the applicable display/derived-data rights.
+- The [EOD documentation](https://www.tiingo.com/documentation/end-of-day) describes raw and dividend/split-adjusted prices, `adjClose`, `divCash`, `splitFactor`, and historical date-range requests. Use daily adjusted closes for returns; do not add dividends again to an already adjusted series. Retain raw close, actions, source dates and adjustment provenance for reconciliation.
+- Fees and spreads can be available without another paid feed: [iShares IVV](https://www.ishares.com/us/products/239726/ishares-core-sp-500-etf) publishes fees, a dated 30-day median spread and mandate documents; [State Street SPY](https://www.ssga.com/us/en/individual/etfs/state-street-spdr-sp-500-etf-trust-spy) is another issuer disclosure example. These examples establish available fields, not full-catalogue coverage or a supported bulk API. Check download interfaces, access terms and field definitions per issuer. If automatic access is unavailable, support a validated dated file import with provenance.
+
+No additional API key is currently confirmed necessary for Core. Issuer spread coverage, exact net-fee definitions/dates, mandate evidence and Tiingo history completeness remain the principal data uncertainties. Full needs separate NAV and official total-return index histories; Tactical needs exact daily references and NAV; ETNs need indicative-value histories. Do not promise these are all freely available. Risk-free series and full holdings are supporting metrics, not Core prerequisites.
+
+### What is already implemented
+
+| Existing area | Current state | Next work |
+|---|---|---|
+| `lib/etfScoring.ts` | Pure Core, cost-only, Full and execution formulas with validity checks | Validate candidate curves and wire real normalized inputs; do not duplicate the math |
+| `lib/etfScorecard.ts` | Candidate constants/version IDs, routing, comparison dimensions and assessment selection | Populate sourced mandate verification and freeze only reviewed variants |
+| `lib/etfCatalog.ts` | Snapshot and `scoreAssessments` contracts | Extend only for normalized input/provenance requirements |
+| `components/ETFExplorer.tsx` | Score column, coverage, details, grouping and CSV | Verify real saved assessments, matched horizons and missing-input reasons |
+| `app/api/etf-metrics/route.ts` | Yahoo refresh adapter and saved-snapshot reads | Add Tiingo/issuer orchestration; currently no calculation or persistence of `scoreAssessments` |
+| `lib/etfMetricStore.ts` | Firestore snapshot writes/reads | Add retained inputs, run manifests and safe score publication |
+| `.github/workflows/refresh-etf-metrics.yml` | Yahoo-authorized batch refresh | Add resumable provider-aware scheduling; keep Yahoo authorization separate |
+
+Current scoring methodology states are `candidate`; complete inputs still yield `methodologyPending` and no publishable number. Never fix this by toggling the state alone or setting `verified`, `authorized`, `complete` or `fresh` to true without supporting checks.
+
+### Ordered implementation checklist
+
+1. **Confirm access and produce a coverage manifest.** Check the rotated Tiingo credential using a small sample without printing it. Inventory all catalogue records and issuer families. For each ticker record identity, source URL/file, source/financial dates, fee designation/waiver, spread window/method, mandate/comparison evidence, currency, inception/continuity, history endpoints and precise missing-input reasons. Record ETF, ETN and excluded denominators separately. Assess source retention/use and supported download interfaces. API errors and missing fields are blockers, not zero values.
+2. **Validate a representative batch before broad collection.** Include VOO, VTI and VXUS plus at least one sourced example from every proposed launch family, active/passive mandates, dividend-heavy funds, short histories, leverage and unresolved identities. Reconcile provider actions and returns with dated issuer disclosures using the same endpoints and conventions. Record tolerances and discrepancies. Family-specific validation is required before that family publishes scores.
+3. **Build shared acquisition adapters.** Add one server-only Tiingo history adapter and shared issuer adapters/import schemas, then run ticker records through them. Normalize fees in percentage units (`0.03` means 0.03%), spreads in basis points (`0.01%` means 1 bp), and monthly returns as decimals. Preserve net/gross designation, waiver expiry and genuine financial dates. Capture spread definition and window: a current bid/ask quote cannot substitute for the disclosed 30-day median. Verify comparison dimensions against dated sources rather than inferring them from ticker/category names.
+4. **Store and validate complete windows.** Retain authorized daily history in bounded chunks and input manifests in the existing Firestore setup, measuring document size/read cost. Preserve hashes or immutable references sufficient to reproduce each score run. Derive exactly 12/36 monthly returns from 13/37 endpoints and daily drawdowns on those same periods through the last completed UTC month. Validate missing trading sessions against the relevant exchange calendar, duplicates, splits, distributions, currency and mandate continuity. Do not fill missing months or use today's price with a month-end historical window.
+5. **Review and version the methodology.** Run the existing acceptance checks below, including synthetic edge cases, monotonicity, reproducibility and sensitivity across cutoffs/families/horizons. Retain the validation report and accepted configuration. Assign frozen version IDs only to reviewed variants; leave unsupported variants candidate. User authorization to implement is not evidence that the curves or sources passed validation.
+6. **Calculate and persist assessments.** Feed verified routing and normalized inputs into the existing pure functions. Store separate Core 3Y, Core 1Y and cost-only assessments, components, dates, source IDs, common cutoff, comparison evidence and run/method IDs. Publish `available` only for complete validated inputs and frozen methods. Save explicit statuses/reasons for every other route. Preserve successful prior results after acquisition failures, but mark their current freshness/eligibility accurately. Prevent a legacy metrics write from silently deleting assessments. Recompute or withdraw availability when an input becomes stale or invalid; a recent market snapshot alone cannot make an old spread fresh.
+7. **Backfill with persistent progress.** Use a provider budget and resumable cursor across process restarts/jobs, bounded retries with backoff, and a stable universe ID. A 12-ticker batch alone does not enforce Tiingo's 50/hour limit. With one history request per ETF, 216 ETFs need five hourly quota windows; metadata calls, retries, reconciliation and bandwidth add work. Do not keep a serverless request asleep for hours. Validate whether permitted bulk updates can reduce request volume before using them. Budget other jobs that share the account and avoid overlapping runs.
+8. **Refresh and publish from the selected provider.** Add a distinct Tiingo configuration path; do not set `ETF_YAHOO_AUTOMATION_AUTHORIZED=true` to enable Tiingo. Separate per-input acquisition freshness from the completed-month score cutoff. Refresh incremental daily histories with enough overlap to detect provider revisions, re-fetch older affected chunks when adjustments change, and update issuer disclosures within configured freshness limits. Monthly score windows change after the next completed month; current fees/spreads can require recomputation sooner. Give all ranked comparisons the same cutoff. Cache per-fund results so page reads need neither provider calls nor LLM calls.
+9. **Verify the user-visible result and release coverage.** Confirm server-rendered `/etf` and `/api/etf-metrics` return the saved assessments; test selection, grouping, numeric sorting, mobile, details, Compare and CSV. Keep 1Y/3Y, Core/Full and cost-only distinct. Produce numerical/ranked coverage and blocker counts by family/horizon. Use the existing 80% targets as acceptance goals and report actual shortfalls honestly. Leveraged ETFs, ETNs and exclusions must retain explicit routes/reasons while their execution inputs remain unavailable. Run relevant validations, commit only related changes and push the branch as required by `AGENTS.md`.
+
+### Completion and cost expectations
+
+The first milestone is a reproducible numerical Core score displayed from a saved assessment for the representative validated batch. Broad release additionally requires validated shared adapters, a resumable backfill, scheduled refresh, a catalogue-wide coverage report and the UI/export checks above. An API key, a functioning price download or a visible Score column alone does not complete the feature.
+
+216 records are ordinary batch-processing scale; adapter and source reconciliation work determine development effort. Build by issuer family rather than writing 216 individual scrapers. The data budget is $0 for this personal-use route, subject to measured coverage and limits. Hosting/storage remain subject to existing quotas and are not guaranteed free at every usage level. Runtime scoring and refreshes are deterministic code with no LLM calls or ongoing AI-credit cost; development/research consumes session usage. Do not quote a guaranteed implementation time or credit total before the sample audit. Retain specific blockers if free sources cannot meet the coverage target instead of fabricating inputs, changing the formula or purchasing a feed.
 
 ## Coverage objective and comparison frame
 
@@ -255,8 +302,8 @@ Requirements apply to the selected scorecard and horizon, not the union of every
 
 | Area | Change |
 |---|---|
-| `lib/etfScoring.ts` (new) | Pure component functions, quality/historical/composite calculation, typed reasons, unrounded results |
-| `lib/etfScorecard.ts` (new) | Versioned Core/Full/execution variants, strategy routing precedence, comparison-group definitions, weights, curves, input contracts and eligibility; no fund-specific scores |
+| `lib/etfScoring.ts` (existing) | Pure component functions, quality/historical/composite calculation, typed reasons, unrounded results |
+| `lib/etfScorecard.ts` (existing) | Versioned Core/Full/execution variants, strategy routing precedence, comparison-group definitions, weights, curves, input contracts and eligibility; no fund-specific scores |
 | Provider adapters (new) | Shared normalized metadata, price, NAV, benchmark and spread acquisition interfaces |
 | Benchmark registry (new) | Verified effective-dated fund-to-index mappings with evidence; no peer cohort requirement |
 | `lib/etfCatalog.ts` | Extend snapshot contracts with scorecard ID, methodology version, common cutoff, statuses and breakdown |
