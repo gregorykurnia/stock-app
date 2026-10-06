@@ -11,6 +11,7 @@ import {
   type ETFStrategy,
 } from "@/lib/etfCatalog";
 import { weightedHoldingsOverlap } from "@/lib/etfMetricCalculations";
+import { preferredETFTableReturn } from "@/lib/etfReturnDisplay";
 
 type View = "explore" | "compare" | "shortlist";
 type Scope = "etf" | "etn" | "all";
@@ -58,7 +59,7 @@ const STRATEGY_OPTIONS: Array<{ value: ETFStrategy; label: string }> = [
 ];
 
 const TABLE_METRICS: Array<{ key: ETFMetricKey; label: string }> = [
-  { key: "cagr5Y", label: "5Y CAGR" },
+  { key: "cagr5Y", label: "Return" },
   { key: "cagr10Y", label: "10Y CAGR" },
   { key: "trailingDistributionYield", label: "TTM yield" },
   { key: "maxDrawdown5Y", label: "5Y drawdown" },
@@ -168,12 +169,41 @@ function metricText(key: ETFMetricKey, value: number | string | undefined, state
   return value.toLocaleString();
 }
 
-function FundMetric({ record, metricKey }: { record: ETFRecord; metricKey: ETFMetricKey }) {
+function FundMetric({ record, metricKey, valueOverride, stateOverride }: {
+  record: ETFRecord;
+  metricKey: ETFMetricKey;
+  valueOverride?: number;
+  stateOverride?: string;
+}) {
   const snapshot = record.metricSnapshot;
-  const state = record.identityWarning ? `Identity review: ${record.identityWarning}` : snapshot?.states[metricKey] ?? record.metricStates[metricKey];
-  const value = record.identityWarning ? undefined : snapshot?.values[metricKey];
+  const state = record.identityWarning ? `Identity review: ${record.identityWarning}` : stateOverride ?? snapshot?.states[metricKey] ?? record.metricStates[metricKey];
+  const value = record.identityWarning ? undefined : valueOverride ?? snapshot?.values[metricKey];
   const label = [snapshot?.source, snapshot?.observedAt ? `Observed ${snapshot.observedAt}` : null, displayMetricState(state)].filter(Boolean).join(" · ");
   return <span className={value === undefined ? "text-gray-400" : "font-semibold text-gray-800"} title={label || state}>{metricText(metricKey, value, state, snapshot?.currency)}</span>;
+}
+
+function formatHistoryPeriod(history: NonNullable<ETFMetricSnapshot["sinceInceptionReturn"]>) {
+  if (history.annualized) return `${history.periodYears.toFixed(2)} years`;
+  const start = new Date(`${history.startDate}T00:00:00Z`);
+  const end = new Date(`${history.endDate}T00:00:00Z`);
+  let months = (end.getUTCFullYear() - start.getUTCFullYear()) * 12 + end.getUTCMonth() - start.getUTCMonth();
+  if (end.getUTCDate() < start.getUTCDate()) months -= 1;
+  return `${Math.max(1, months)} months`;
+}
+
+function FundReturn({ record }: { record: ETFRecord }) {
+  const snapshot = record.metricSnapshot;
+  const tableReturn = preferredETFTableReturn(snapshot, record.identityWarning);
+  const periodLabel = typeof tableReturn.valueOverride === "number" && snapshot?.sinceInceptionReturn
+    ? `${tableReturn.periodLabel} · ${formatHistoryPeriod(snapshot.sinceInceptionReturn)}`
+    : tableReturn.periodLabel;
+
+  return (
+    <span className="block leading-tight">
+      <FundMetric record={record} metricKey={tableReturn.metricKey} valueOverride={tableReturn.valueOverride} stateOverride={tableReturn.stateOverride} />
+      <span className="mt-0.5 block text-[10px] font-normal leading-3 text-gray-400">{periodLabel}</span>
+    </span>
+  );
 }
 
 function DataStatus({ record }: { record: ETFRecord }) {
@@ -288,7 +318,7 @@ function ETFTable({ records, shortlist, compareTickers, onSelect, onToggleShortl
                   </th>
                   <td className="px-4 py-3 align-top"><span className="block max-w-52 text-xs font-semibold text-gray-800">{formatCategory(record.category)}</span><span className="mt-1 flex flex-wrap gap-1">{record.badges.slice(0, 2).map((badge) => <span key={badge} className={`badge border ${badgeClass(badge)}`}>{badge}</span>)}</span></td>
                   <td className="max-w-72 px-4 py-3 align-top text-xs leading-5 text-gray-600">{record.exposure}</td>
-                  {TABLE_METRICS.map((metric) => <td key={metric.key} className="whitespace-nowrap px-4 py-3 text-right text-xs"><FundMetric record={record} metricKey={metric.key} /></td>)}
+                  {TABLE_METRICS.map((metric) => <td key={metric.key} className={`px-4 py-3 text-right text-xs ${metric.key === "cagr5Y" ? "" : "whitespace-nowrap"}`}>{metric.key === "cagr5Y" ? <FundReturn record={record} /> : <FundMetric record={record} metricKey={metric.key} />}</td>)}
                   <td className="px-4 py-3 align-top text-xs text-gray-600">{record.issuer}</td>
                   <td className="px-4 py-3 align-top"><DataStatus record={record} /></td>
                   <td className="px-4 py-3 align-top"><div className="flex justify-end gap-1.5"><button type="button" className={`rounded-md border px-2 py-1 text-[11px] font-semibold transition-colors ${compared ? "border-indigo-200 bg-indigo-50 text-indigo-700" : "border-gray-200 bg-white text-gray-600 hover:border-indigo-200 hover:text-indigo-700"}`} onClick={(event) => { event.stopPropagation(); onToggleCompare(record); }} disabled={!compared && compareTickers.length >= 4} aria-label={`${compared ? "Remove" : "Add"} ${record.ticker} ${compared ? "from" : "to"} comparison`}>{compared ? "Compared" : "Compare"}</button><button type="button" className={`rounded-md border px-2 py-1 text-[11px] font-semibold transition-colors ${saved ? "border-amber-200 bg-amber-50 text-amber-800" : "border-gray-200 bg-white text-gray-600 hover:border-amber-200 hover:text-amber-800"}`} onClick={(event) => { event.stopPropagation(); onToggleShortlist(record); }} aria-label={`${saved ? "Remove" : "Save"} ${record.ticker} ${saved ? "from" : "to"} shortlist`}>{saved ? "Saved" : "Save"}</button></div></td>
@@ -309,7 +339,7 @@ function ETFTable({ records, shortlist, compareTickers, onSelect, onToggleShortl
                 <div className="flex items-start justify-between gap-3"><div className="flex min-w-0 items-start gap-2"><span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-indigo-50 font-mono text-[10px] font-bold text-indigo-700">{record.ticker.slice(0, 2)}</span><div className="min-w-0"><div className="font-mono font-bold text-gray-900">{record.ticker}</div><div className="truncate text-xs text-gray-500">{record.name}</div></div></div><DataStatus record={record} /></div>
                 <p className="mt-3 text-xs leading-5 text-gray-600">{record.exposure}</p>
                 <div className="mt-3 flex flex-wrap gap-1.5"><span className="badge border bg-indigo-50 text-indigo-700 border-indigo-200">{formatCategory(record.category)}</span>{record.badges.map((badge) => <span key={badge} className={`badge border ${badgeClass(badge)}`}>{badge}</span>)}</div>
-                <div className="mt-4 grid grid-cols-2 gap-3 border-t border-gray-100 pt-3 sm:grid-cols-4">{TABLE_METRICS.map((metric) => <div key={metric.key}><div className="text-[10px] uppercase tracking-wide text-gray-400">{metric.label}</div><div className="mt-1 text-xs"><FundMetric record={record} metricKey={metric.key} /></div></div>)}</div>
+                <div className="mt-4 grid grid-cols-2 gap-3 border-t border-gray-100 pt-3 sm:grid-cols-4">{TABLE_METRICS.map((metric) => <div key={metric.key}><div className="text-[10px] uppercase tracking-wide text-gray-400">{metric.label}</div><div className="mt-1 text-xs">{metric.key === "cagr5Y" ? <FundReturn record={record} /> : <FundMetric record={record} metricKey={metric.key} />}</div></div>)}</div>
               </button>
               <div className="mt-3 flex items-center justify-between gap-2"><span className="text-[11px] text-gray-400">{record.issuer}</span><div className="flex gap-1.5"><button type="button" className={`rounded-md border px-2 py-1 text-[11px] font-semibold ${compared ? "border-indigo-200 bg-indigo-50 text-indigo-700" : "border-gray-200 bg-white text-gray-600"}`} onClick={() => onToggleCompare(record)} disabled={!compared && compareTickers.length >= 4}>{compared ? "Compared" : "Compare"}</button><button type="button" className={`rounded-md border px-2 py-1 text-[11px] font-semibold ${saved ? "border-amber-200 bg-amber-50 text-amber-800" : "border-gray-200 bg-white text-gray-600"}`} onClick={() => onToggleShortlist(record)}>{saved ? "Saved" : "Save"}</button></div></div>
             </article>

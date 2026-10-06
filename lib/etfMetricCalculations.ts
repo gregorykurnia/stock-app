@@ -1,4 +1,4 @@
-import type { ETFMetricSnapshot } from "@/lib/etfCatalog";
+import type { ETFMetricSnapshot } from "./etfCatalog";
 
 export interface ETFPriceBar {
   date: string;
@@ -75,6 +75,25 @@ function cagrForPeriod(bars: ETFPriceBar[], years: number, asOf: number): number
   const end = closestBeforeOrAt(bars, asOf)!;
   const factor = end.adjustedClose / start.adjustedClose;
   return round((factor ** (1 / period.elapsedYears) - 1) * 100);
+}
+
+function sinceInceptionReturn(bars: ETFPriceBar[], asOf: number): ETFMetricSnapshot["sinceInceptionReturn"] {
+  const start = bars[0];
+  const end = closestBeforeOrAt(bars, asOf);
+  if (!start || !end || start.date >= end.date) return undefined;
+
+  const periodYears = (dateMs(end.date) - dateMs(start.date)) / (YEAR_DAYS * DAY_MS);
+  const factor = end.adjustedClose / start.adjustedClose;
+  if (periodYears <= 0 || factor <= 0) return undefined;
+
+  const annualized = periodYears >= 0.999;
+  return {
+    value: round((factor ** (annualized ? 1 / periodYears : 1) - 1) * 100),
+    periodYears: round(periodYears, 3),
+    startDate: start.date,
+    endDate: end.date,
+    annualized,
+  };
 }
 
 function annualReturns(bars: ETFPriceBar[], asOf: number): Record<string, number> {
@@ -161,6 +180,7 @@ export function calculateETFMetrics(input: {
   const states: ETFMetricSnapshot["states"] = {};
   const now = dateMs(input.observedAt);
   const latest = bars.at(-1);
+  const sinceInception = sinceInceptionReturn(bars, now);
 
   const setHistory = (key: "totalReturn1Y" | "cagr3Y" | "cagr5Y" | "cagr10Y", years: number) => {
     const period = periodReturn(bars, years, now);
@@ -248,6 +268,7 @@ export function calculateETFMetrics(input: {
     ticker: input.ticker,
     values,
     states,
+    ...(sinceInception ? { sinceInceptionReturn: sinceInception } : {}),
     holdings: held,
     source: SOURCE,
     currency: input.currency,

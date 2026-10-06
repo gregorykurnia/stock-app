@@ -1,4 +1,4 @@
-import rawResearchUniverse from "@/docs/research/pluang-etf-2026-10-06/research-universe.json";
+import rawResearchUniverse from "../docs/research/pluang-etf-2026-10-06/research-universe.json";
 
 export const ETF_SNAPSHOT_DATE = "2026-10-06";
 
@@ -57,6 +57,13 @@ export interface ETFMetricSnapshot {
   ticker: string;
   values: Partial<Record<ETFMetricKey, number | string>>;
   states: Partial<Record<ETFMetricKey, string>>;
+  sinceInceptionReturn?: {
+    value: number;
+    periodYears: number;
+    startDate: string;
+    endDate: string;
+    annualized: boolean;
+  };
   holdings: Array<{ symbol: string; weightPct: number }>;
   source: string;
   currency: string | null;
