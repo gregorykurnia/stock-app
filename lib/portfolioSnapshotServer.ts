@@ -6,8 +6,8 @@ import {
   getPortfolioPerformanceSnapshots,
   savePortfolioPerformanceSnapshot,
 } from "@/lib/firestore";
-import { fetchHistoricalSnapshotQuotes, fetchSnapshotQuotes } from "@/lib/yahooServer";
-import { newYorkMarketContext } from "@/lib/portfolioSchedule";
+import { fetchHistoricalSnapshotQuotes, fetchSnapshotQuotes, fetchPortfolioSessionDates } from "@/lib/yahooServer";
+import { newYorkMarketContext, completedSessionCutoff, sessionEndTimestamp } from "@/lib/portfolioSchedule";
 import { buildLedgerPortfolioSnapshot } from "@/lib/portfolioSnapshot";
 import {
   emptySnapshotBuckets,
@@ -150,7 +150,7 @@ export async function recaptureAffectedPortfolioSnapshots(): Promise<PortfolioSn
     transactions,
     (tickers) => fetchHistoricalSnapshotQuotes(tickers, snapshot.sessionDate),
     {
-      asOf: `${snapshot.sessionDate}T23:59:59.999Z`,
+      asOf: sessionEndTimestamp(snapshot.sessionDate),
       sessionDate: snapshot.sessionDate,
       capturedAt,
     },
@@ -163,4 +163,35 @@ export async function recaptureAffectedPortfolioSnapshots(): Promise<PortfolioSn
     transactionIds: impact.transactionIds,
     recaptured: rebuilt.map((snapshot) => ({ sessionDate: snapshot.sessionDate, status: snapshot.status })),
   };
+}
+
+/** Recover gaps from the start of tracking; each request bounds writes to three sessions. */
+export async function recoverPortfolioSnapshots(audit = false) {
+  const [transactions, snapshots] = await Promise.all([
+    getPortfolioLedgerTransactions(), getPortfolioPerformanceSnapshots(),
+  ]);
+  if (transactions.length === 0) throw new Error("Automatic historical recovery requires a portfolio ledger");
+  const start = snapshots[0]?.sessionDate ?? transactions.map((item) => (
+    newYorkMarketContext(new Date(item.occurredAt)).sessionDate
+  )).sort()[0];
+  const cutoff = completedSessionCutoff();
+  const sessions = await fetchPortfolioSessionDates(start, cutoff);
+  const existing = new Map(snapshots.map((snapshot) => [snapshot.sessionDate, snapshot]));
+  const stale = new Set(findLedgerSnapshotImpact(snapshots, transactions).affectedSnapshotDates);
+  const pending = sessions.filter((date) => existing.get(date)?.status !== "complete" || stale.has(date));
+  const recovered: { sessionDate: string; status: PortfolioSnapshot["status"] }[] = [];
+  if (!audit) {
+    for (const date of pending.slice(0, 3)) {
+      const snapshot = await buildLedgerPortfolioSnapshot("scheduled", transactions,
+        (tickers) => fetchHistoricalSnapshotQuotes(tickers, date), {
+          asOf: sessionEndTimestamp(date), sessionDate: date,
+        });
+      await savePortfolioPerformanceSnapshot(snapshot);
+      recovered.push({ sessionDate: date, status: snapshot.status });
+    }
+  }
+  const complete = new Set(recovered.filter((item) => item.status === "complete").map((item) => item.sessionDate));
+  const remaining = pending.filter((date) => !complete.has(date));
+  return { healthy: remaining.length === 0, cutoff, latestSessionDate: sessions.at(-1) ?? null,
+    recovered, pendingSessionDates: remaining };
 }

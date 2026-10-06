@@ -1,0 +1,20 @@
+name: Audit portfolio snapshots
+
+on:
+  schedule:
+    # Separate daily verification after the overnight recovery window.
+    - cron: "23 13 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Verify every completed trading session has a complete snapshot
+        run: |
+          curl --fail-with-body --show-error --silent --max-time 310 \
+            "https://stock-app-five-sable.vercel.app/api/cron/portfolio-snapshot?audit=1" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" > response.json
+          cat response.json
+          jq -e '.healthy == true and (.pendingSessionDates | length == 0)' response.json

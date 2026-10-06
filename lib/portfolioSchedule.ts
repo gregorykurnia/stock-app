@@ -28,3 +28,21 @@ export function newYorkMarketContext(now = new Date()) {
   };
 }
 
+/** The latest date whose regular close has had time to publish, including overnight retries. */
+export function completedSessionCutoff(now = new Date()): string {
+  const context = newYorkMarketContext(now);
+  if (context.isAfterCloseBuffer) return context.sessionDate;
+  const previous = new Date(`${context.sessionDate}T12:00:00Z`);
+  previous.setUTCDate(previous.getUTCDate() - 1);
+  return previous.toISOString().slice(0, 10);
+}
+
+/** Include the entire New York ledger day, respecting daylight saving time. */
+export function sessionEndTimestamp(sessionDate: string): string {
+  const nextNoon = new Date(`${sessionDate}T12:00:00Z`);
+  nextNoon.setUTCDate(nextNoon.getUTCDate() + 1);
+  const hour = Number(new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York", hour: "2-digit", hourCycle: "h23",
+  }).format(nextNoon));
+  return new Date(nextNoon.getTime() - hour * 3_600_000 - 1).toISOString();
+}

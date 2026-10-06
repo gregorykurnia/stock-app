@@ -2,17 +2,24 @@ name: Capture portfolio snapshot
 
 on:
   schedule:
-    # 4:15pm New York is 20:15 UTC during EDT and 21:15 UTC during EST.
-    # Both fire year-round; the endpoint rejects the pre-close run and deduplicates the other.
-    - cron: "15 20,21 * * 1-5"
+    # Recover missed sessions across midnight and after weekends as well.
+    - cron: "17,47 0-12,20-23 * * *"
   workflow_dispatch: {}
+
+concurrency:
+  group: portfolio-snapshot-capture
+  cancel-in-progress: false
 
 jobs:
   capture:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Call portfolio snapshot endpoint
         run: |
-          curl -sf -X GET "https://stock-app-five-sable.vercel.app/api/cron/portfolio-snapshot" \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}"
-
+          curl --fail-with-body --show-error --silent --max-time 310 \
+            --retry 2 --retry-all-errors --retry-delay 20 \
+            "https://stock-app-five-sable.vercel.app/api/cron/portfolio-snapshot" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" > response.json
+          cat response.json
+          jq -e '.healthy == true and (.pendingSessionDates | length == 0)' response.json

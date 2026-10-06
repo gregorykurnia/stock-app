@@ -117,7 +117,10 @@ export async function fetchHistoricalSnapshotQuotes(
         const chart: any = await yf.chart(ticker, { period1, period2, interval: "1d" });
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const matching = (chart?.quotes ?? []).filter((quote: any) => (
-          quote?.date && dateInNewYork(new Date(quote.date)) === sessionDate && quote.close != null
+          quote?.date && (ticker === "IDR=X"
+            ? new Date(quote.date).toISOString().slice(0, 10)
+            : dateInNewYork(new Date(quote.date))) === sessionDate
+          && typeof quote.close === "number" && Number.isFinite(quote.close) && quote.close > 0
         ));
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const quote: any = matching.sort((left: any, right: any) => new Date(left.date).getTime() - new Date(right.date).getTime()).at(-1);
@@ -125,7 +128,7 @@ export async function fetchHistoricalSnapshotQuotes(
         result[ticker] = {
           price: quote?.close ?? null,
           marketTime,
-          marketDate: marketTime ? dateInNewYork(new Date(marketTime)) : null,
+          marketDate: marketTime ? sessionDate : null,
         };
       } catch {
         result[ticker] = { price: null, marketTime: null, marketDate: null };
@@ -134,6 +137,23 @@ export async function fetchHistoricalSnapshotQuotes(
   }
 
   return result;
+}
+
+/** Actual published US daily bars exclude weekends and exchange holidays. Fail on provider errors. */
+export async function fetchPortfolioSessionDates(start: string, end: string): Promise<string[]> {
+  if (start > end) return [];
+  const period2 = new Date(`${end}T00:00:00Z`);
+  period2.setUTCDate(period2.getUTCDate() + 1);
+  const chart = await yf.chart("SPY", {
+    period1: new Date(`${start}T00:00:00Z`), period2, interval: "1d", return: "array",
+  });
+  const dates = (chart.quotes ?? []).flatMap((quote: { date: Date; close: number | null }) => {
+    if (quote.close == null || !Number.isFinite(quote.close) || quote.close <= 0) return [];
+    const date = dateInNewYork(new Date(quote.date));
+    return date >= start && date <= end ? [date] : [];
+  });
+  if (dates.length === 0) throw new Error("US trading-session history is unavailable");
+  return [...new Set<string>(dates)].sort();
 }
 
 export async function fetchQuotes(tickers: string[]): Promise<{
