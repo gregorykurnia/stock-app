@@ -511,10 +511,10 @@ function CategoryCard({ category, count, active, onClick }: { category: ETFCateg
   );
 }
 
-function SortButton({ label, sortKey, currentSort, descending, onChange }: { label: string; sortKey: SortKey; currentSort: SortKey; descending: boolean; onChange: (key: SortKey) => void }) {
+function SortButton({ label, sortKey, currentSort, descending, onChange, align = "left" }: { label: string; sortKey: SortKey; currentSort: SortKey; descending: boolean; onChange: (key: SortKey) => void; align?: "left" | "right" }) {
   return (
-    <button type="button" className="inline-flex items-center gap-1 rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500" onClick={() => onChange(sortKey)}>
-      {label}<span aria-hidden="true" className="text-[9px]">{currentSort === sortKey ? (descending ? "▼" : "▲") : "↕"}</span>
+    <button type="button" className={`flex w-full min-w-0 items-start gap-1 rounded whitespace-normal leading-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${align === "right" ? "justify-end text-right" : "text-left"}`} onClick={() => onChange(sortKey)}>
+      <span className="min-w-0 break-words">{label}</span><span aria-hidden="true" className="shrink-0 pt-0.5 text-[9px] leading-3">{currentSort === sortKey ? (descending ? "▼" : "▲") : "↕"}</span>
     </button>
   );
 }
@@ -560,7 +560,7 @@ function ETFTable({ records, shortlist, compareTickers, metrics, onSelect, onTog
               <th scope="col" aria-sort={sortKey === "category" ? (descending ? "descending" : "ascending") : "none"} className="min-w-56 px-4 py-3 text-left font-semibold"><SortButton label="Category / strategy" sortKey="category" currentSort={sortKey} descending={descending} onChange={onSort} /></th>
               <th scope="col" aria-sort={sortKey === "exposure" ? (descending ? "descending" : "ascending") : "none"} className="min-w-64 px-4 py-3 text-left font-semibold"><SortButton label="Exposure" sortKey="exposure" currentSort={sortKey} descending={descending} onChange={onSort} /></th>
               <th scope="col" aria-sort={sortKey === "score" ? (descending ? "descending" : "ascending") : "none"} title="Independent scorecard result. Ranked only inside the same methodology, horizon, and verified comparison group." className="min-w-36 px-4 py-3 text-left font-semibold"><SortButton label="Score" sortKey="score" currentSort={sortKey} descending={descending} onChange={onSort} /></th>
-              {metrics.map((metric) => <th key={metric.key} scope="col" title={ETF_METRIC_HELP[metric.key] ?? ETF_METRIC_LABELS[metric.key]} aria-sort={sortKey === `metric:${metric.key}` ? (descending ? "descending" : "ascending") : "none"} className="whitespace-nowrap px-4 py-3 text-right font-semibold"><SortButton label={metric.label} sortKey={`metric:${metric.key}`} currentSort={sortKey} descending={descending} onChange={onSort} /></th>)}
+              {metrics.map((metric) => <th key={metric.key} scope="col" title={ETF_METRIC_HELP[metric.key] ?? ETF_METRIC_LABELS[metric.key]} aria-sort={sortKey === `metric:${metric.key}` ? (descending ? "descending" : "ascending") : "none"} className="min-w-36 px-4 py-3 align-top text-right font-semibold"><SortButton label={metric.label} sortKey={`metric:${metric.key}`} currentSort={sortKey} descending={descending} onChange={onSort} align="right" /></th>)}
               <th scope="col" aria-sort={sortKey === "issuer" ? (descending ? "descending" : "ascending") : "none"} className="min-w-32 px-4 py-3 text-left font-semibold"><SortButton label="Issuer" sortKey="issuer" currentSort={sortKey} descending={descending} onChange={onSort} /></th>
               <th scope="col" aria-sort={sortKey === "dataStatus" ? (descending ? "descending" : "ascending") : "none"} className="min-w-36 px-4 py-3 text-left font-semibold"><SortButton label="Data status" sortKey="dataStatus" currentSort={sortKey} descending={descending} onChange={onSort} /></th>
               <th scope="col" className="px-4 py-3 text-right font-semibold">Actions</th>
