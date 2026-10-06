@@ -241,7 +241,16 @@ function ETFTable({ records, shortlist, compareTickers, onSelect, onToggleShortl
   return (
     <>
       <div className="hidden overflow-x-auto rounded-b-2xl lg:block">
-        <table className="w-full min-w-[1220px] border-collapse text-sm">
+        <table className="w-full min-w-[1700px] table-fixed border-collapse text-sm">
+          <colgroup>
+            <col className="w-[18%]" />
+            <col className="w-[14%]" />
+            <col className="w-[16%]" />
+            {TABLE_METRICS.map((metric) => <col key={metric.key} className="w-[6%]" />)}
+            <col className="w-[8%]" />
+            <col className="w-[8%]" />
+            <col className="w-[12%]" />
+          </colgroup>
           <thead>
             <tr className="border-b border-[var(--border)] bg-gray-50/80 text-[11px] uppercase tracking-wide text-gray-500">
               <th scope="col" aria-sort={sortKey === "ticker" ? (descending ? "descending" : "ascending") : "none"} className="sticky left-0 z-20 min-w-56 bg-gray-50 px-4 py-3 text-left font-semibold"><SortButton label="Fund" sortKey="ticker" currentSort={sortKey} descending={descending} onChange={onSort} /></th>
