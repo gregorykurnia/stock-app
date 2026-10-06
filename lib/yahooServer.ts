@@ -131,6 +131,21 @@ export async function fetchHistoricalSnapshotQuotes(
           marketTime,
           marketDate: marketTime ? sessionDate : null,
         };
+        // Yahoo may leave the newest daily candle's close null after the session ends.
+        // Its regular-market quote is usable only when stamped at that session's close.
+        if (!quote && ticker !== "IDR=X") {
+          const latest = await yf.quote(ticker);
+          const timestamp = latest?.regularMarketTime ? new Date(latest.regularMarketTime) : null;
+          const closeHour = timestamp ? Number(new Intl.DateTimeFormat("en-US", {
+            timeZone: "America/New_York", hour: "2-digit", hourCycle: "h23",
+          }).format(timestamp)) : 0;
+          if (timestamp && dateInNewYork(timestamp) === sessionDate && closeHour >= 16
+            && typeof latest.regularMarketPrice === "number"
+            && Number.isFinite(latest.regularMarketPrice) && latest.regularMarketPrice > 0) {
+            result[ticker] = { price: latest.regularMarketPrice,
+              marketTime: timestamp.toISOString(), marketDate: sessionDate };
+          }
+        }
       } catch {
         result[ticker] = { price: null, marketTime: null, marketDate: null };
       }
