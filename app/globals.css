@@ -6,6 +6,7 @@
   --foreground: #16161d;
   --muted: #6b7280;
   --border: #e6e6ee;
+  --app-navigation-height: calc(3.5rem + 2.5rem + 1px);
 
   --accent: #4f46e5;
   --accent-hover: #4338ca;

@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import Link from "next/link";
+import AppNavigation from "@/components/AppNavigation";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import "./globals.css";
 
@@ -47,24 +47,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <ServiceWorkerRegister />
-        <nav className="sticky top-0 z-40 bg-white/80 backdrop-blur border-b border-[var(--border)] px-4 sm:px-6 overflow-x-auto whitespace-nowrap">
-          <div className="max-w-screen-xl mx-auto flex items-center gap-1 sm:gap-2 h-14 text-sm">
-            <Link href="/" className="flex items-center gap-2 font-bold text-[var(--foreground)] shrink-0 mr-3 sm:mr-5">
-              <span className="w-2 h-2 rounded-full bg-[var(--accent)]" />
-              Stock Analysis
-            </Link>
-            <Link href="/" className="shrink-0 px-3 py-1.5 rounded-md font-medium text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-black/[0.03] transition-colors">Master Table</Link>
-            <Link href="/portfolio" className="shrink-0 px-3 py-1.5 rounded-md font-medium text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-black/[0.03] transition-colors">Portfolio</Link>
-            <Link href="/performance" className="shrink-0 px-3 py-1.5 rounded-md font-medium text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-black/[0.03] transition-colors">Performance</Link>
-            <Link href="/performance-returns" className="shrink-0 px-3 py-1.5 rounded-md font-medium text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-black/[0.03] transition-colors">Performance Returns</Link>
-            <Link href="/personal-finance" className="shrink-0 px-3 py-1.5 rounded-md font-medium text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-black/[0.03] transition-colors">Personal Finance</Link>
-            <Link href="/markets" className="shrink-0 px-3 py-1.5 rounded-md font-medium text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-black/[0.03] transition-colors">Markets</Link>
-            <Link href="/etf" className="shrink-0 px-3 py-1.5 rounded-md font-medium text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-black/[0.03] transition-colors">ETF</Link>
-            <Link href="/heatmap" className="shrink-0 px-3 py-1.5 rounded-md font-medium text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-black/[0.03] transition-colors">Heatmap</Link>
-            <Link href="/screener-draft" className="shrink-0 px-3 py-1.5 rounded-md font-medium text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-black/[0.03] transition-colors">Screener Draft</Link>
-            <Link href="/notes" className="shrink-0 px-3 py-1.5 rounded-md font-medium text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-black/[0.03] transition-colors">Notes</Link>
-          </div>
-        </nav>
+        <AppNavigation />
         {children}
       </body>
     </html>
