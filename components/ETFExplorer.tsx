@@ -242,7 +242,7 @@ function scoreGroupForRecord(record: ETFRecord) {
 function scoreSortValue(record: ETFRecord): number | null {
   const assessment = scoreForRecord(record);
   return assessment?.status === "available" && assessment.rankedEligible
-    && !record.metricSnapshot?.stale
+    && !record.metricSnapshot?.scoreStale
     && typeof assessment.score === "number" && Number.isFinite(assessment.score)
     ? assessment.score
     : null;
@@ -269,15 +269,15 @@ function ScoreCell({ record }: { record: ETFRecord }) {
   const status = assessment?.status ?? route.status;
   const scoreAvailable = assessment?.status === "available" && typeof assessment.score === "number" && Number.isFinite(assessment.score);
   const reason = assessment?.reason || route.reason;
-  const stale = Boolean(record.metricSnapshot?.stale);
+  const stale = Boolean(record.metricSnapshot?.scoreStale);
   const sortState = assessment?.rankedEligible ? "Ranked within this scorecard and comparison group" : "Not eligible for ranked placement";
-  const title = [label, assessment?.comparisonGroupId, scoreStatusLabel(status), reason, assessment?.cutoff ? `Cutoff ${assessment.cutoff}` : null, assessment?.methodologyVersion ? `Method ${assessment.methodologyVersion}` : null, sortState, stale ? "Stored market-data snapshot is stale." : null].filter(Boolean).join(" · ");
+  const title = [label, assessment?.comparisonGroupId, scoreStatusLabel(status), reason, assessment?.cutoff ? `Cutoff ${assessment.cutoff}` : null, assessment?.methodologyVersion ? `Method ${assessment.methodologyVersion}` : null, sortState, stale ? "Stored Core assessment is stale." : null].filter(Boolean).join(" · ");
   return (
     <span className="block min-w-32 text-left" title={title} aria-label={`${record.ticker} score: ${scoreAvailable ? `${assessment?.score?.toFixed(1)} out of 100` : scoreStatusLabel(status)}. ${label}. ${reason}`}>
       <span className="block font-semibold tabular-nums text-gray-800">{scoreAvailable ? `${assessment?.score?.toFixed(1)}/100` : "Not scored"}</span>
       <span className="mt-0.5 block max-w-40 text-[10px] leading-4 text-gray-500">{assessment ? label : routeCandidateLabel(route.candidate)}</span>
       {scoreAvailable && scoreMatchedOutcome(assessment) && <span className="block max-w-40 text-[10px] leading-4 text-gray-500">{scoreMatchedOutcome(assessment)}</span>}
-      <span className="block text-[10px] leading-4 text-gray-400">{stale ? "Snapshot stale" : compactScoreReason(record, assessment)}{assessment?.rankedEligible === false && scoreAvailable ? " · Unranked" : ""}</span>
+      <span className="block text-[10px] leading-4 text-gray-400">{stale ? "Score inputs stale" : compactScoreReason(record, assessment)}{assessment?.rankedEligible === false && scoreAvailable ? " · Unranked" : ""}</span>
     </span>
   );
 }
@@ -286,7 +286,7 @@ function scoreCoverageSummary(records: ETFRecord[]) {
   const countReady = (record: ETFRecord, accepts: (assessment: ETFScoreAssessment) => boolean) =>
     (record.metricSnapshot?.scoreAssessments ?? []).some((assessment) => assessment.status === "available"
       && assessment.rankedEligible && typeof assessment.score === "number" && Number.isFinite(assessment.score)
-      && !record.metricSnapshot?.stale && accepts(assessment));
+      && !record.metricSnapshot?.scoreStale && accepts(assessment));
   const tacticalRecords = records.filter(isTacticalETF);
   const longTermRecords = records.filter((record) => !isTacticalETF(record));
   const numerical = (record: ETFRecord) => countReady(record, (assessment) => assessment.kind === "core" || assessment.kind === "full" || assessment.kind === "tactical");
@@ -711,6 +711,7 @@ function ETFScoreDetails({ record }: { record: ETFRecord }) {
                   <div><dt className="text-gray-400">Cutoff · method</dt><dd className="mt-0.5 font-medium text-gray-700">{assessment.cutoff ?? "No completed run"} · {assessment.methodologyVersion}</dd></div>
                   <div><dt className="text-gray-400">Ranking</dt><dd className="mt-0.5 font-medium text-gray-700">{assessment.rankedEligible && scoreAvailable ? "Eligible within the matching scorecard group" : "Not ranked"}</dd></div>
                   {assessment.sourceIds && <div><dt className="text-gray-400">Input sources</dt><dd className="mt-0.5 break-words font-medium text-gray-700">{assessment.sourceIds.join(", ") || "Not recorded"}</dd></div>}
+                  {assessment.sourceUrls && <div className="sm:col-span-2"><dt className="text-gray-400">Source documents</dt><dd className="mt-0.5 flex flex-wrap gap-x-3 gap-y-1 font-medium text-indigo-700">{assessment.sourceUrls.map((url) => <a key={url} className="underline decoration-indigo-200 underline-offset-2 hover:text-indigo-900" href={url} target="_blank" rel="noreferrer">{url.includes("tiingo.com") ? "Tiingo EOD fields" : "Official issuer disclosure"}</a>)}</dd></div>}
                 </dl>
                 {scoreAvailable && assessment.components && <div className="mt-3 overflow-x-auto rounded-lg border border-gray-100 bg-white"><table className="w-full min-w-[420px] text-left text-[11px]"><thead><tr className="border-b border-gray-100 text-gray-400"><th className="px-2.5 py-2 font-medium">Component</th><th className="px-2.5 py-2 text-right font-medium">Weight</th><th className="px-2.5 py-2 text-right font-medium">Points</th><th className="px-2.5 py-2 text-right font-medium">Input</th></tr></thead><tbody>{Object.entries(assessment.components).map(([key, component]) => <tr key={key} className="border-b border-gray-50 last:border-0"><th className="px-2.5 py-2 font-medium text-gray-700">{key.replace(/([A-Z])/g, " $1").replace(/^./, (value) => value.toUpperCase())}</th><td className="px-2.5 py-2 text-right tabular-nums text-gray-500">{(component.weight * 100).toFixed(0)}%</td><td className="px-2.5 py-2 text-right font-mono tabular-nums text-gray-800">{component.points == null ? "—" : component.points.toFixed(2)}</td><td className="px-2.5 py-2 text-right font-mono tabular-nums text-gray-500">{component.inputValue == null ? "—" : `${component.inputValue.toFixed(3)} ${component.inputUnit ?? ""}`}</td></tr>)}</tbody></table></div>}
               </article>
@@ -944,14 +945,14 @@ export default function ETFExplorer({ catalogue, etns, exclusions, categoryMeta,
   }
 
   function exportCsv() {
-    const headers = ["Ticker", "Name", "Issuer", "Exposure", "Category", "Strategy", "Structure", "Instrument", "Asset ID", "Catalogue page", "Availability", "Research status", "Identity warning", "Issuer source", "Issuer source URL", "Snapshot date", "Snapshot source", "Schema version", "Calculation version", "Run ID", "Candidate metrics (unvalidated)", "Score route candidate", "Score route status", "Score route reason", "Primary score", "Assessment", "Score family", "Score horizon", "Comparison group", "Ranked eligible", "Score status", "Score reason", "Score cutoff", "Methodology version", "Score run ID", "Score source IDs", "Score components", "Score input dates", "Score observations", "All score variants (JSON)", ...selectedMetricColumns.flatMap(({ key }) => [`${ETF_METRIC_LABELS[key]} value`, `${ETF_METRIC_LABELS[key]} unit`, `${ETF_METRIC_LABELS[key]} state`, `${ETF_METRIC_LABELS[key]} start date`, `${ETF_METRIC_LABELS[key]} end date`, `${ETF_METRIC_LABELS[key]} observations`, `${ETF_METRIC_LABELS[key]} source IDs`, `${ETF_METRIC_LABELS[key]} reference IDs`, `${ETF_METRIC_LABELS[key]} methodology`])];
+    const headers = ["Ticker", "Name", "Issuer", "Exposure", "Category", "Strategy", "Structure", "Instrument", "Asset ID", "Catalogue page", "Availability", "Research status", "Identity warning", "Issuer source", "Issuer source URL", "Snapshot date", "Snapshot source", "Schema version", "Calculation version", "Run ID", "Candidate metrics (unvalidated)", "Score route candidate", "Score route status", "Score route reason", "Primary score", "Assessment", "Score family", "Score horizon", "Comparison group", "Ranked eligible", "Score status", "Score reason", "Score cutoff", "Methodology version", "Score run ID", "Score source IDs", "Score source URLs", "Score components", "Score input dates", "Score observations", "All score variants (JSON)", ...selectedMetricColumns.flatMap(({ key }) => [`${ETF_METRIC_LABELS[key]} value`, `${ETF_METRIC_LABELS[key]} unit`, `${ETF_METRIC_LABELS[key]} state`, `${ETF_METRIC_LABELS[key]} start date`, `${ETF_METRIC_LABELS[key]} end date`, `${ETF_METRIC_LABELS[key]} observations`, `${ETF_METRIC_LABELS[key]} source IDs`, `${ETF_METRIC_LABELS[key]} reference IDs`, `${ETF_METRIC_LABELS[key]} methodology`])];
     const rows = filteredRecords.map((record) => {
       const route = routeETFFund(record);
       const assessment = scoreForRecord(record);
       return [
         record.ticker, record.name, record.issuer, record.exposure, record.category, strategyLabel(record.strategy), formatStructure(record.structure), record.kind === "etn" ? "ETN" : "ETF / ETF-like", record.assetId, record.cataloguePage ?? "", record.availabilityStatus, record.researchStatus, record.identityWarning ?? "", record.sourceTitle, record.sourceUrl, record.observedAt, record.metricSnapshot?.source ?? "", record.metricSnapshot?.schemaVersion ?? "", record.metricSnapshot?.calculationVersion ?? "", record.metricSnapshot?.runId ?? "", Object.entries(record.candidateMetrics).map(([key, value]) => `${candidateMetricLabel(key)}: ${value}`).join("; "),
         routeCandidateLabel(route.candidate), route.status, route.reason,
-        assessment?.score ?? "", assessment ? scoreAssessmentLabel(assessment) : "", assessment?.family ?? "", assessment?.horizon ?? "", assessment?.comparisonGroupId ?? "", assessment?.rankedEligible && !record.metricSnapshot?.stale ? "Yes" : "No", assessment?.status ?? route.status, assessment?.reason ?? route.reason, assessment?.cutoff ?? "", assessment?.methodologyVersion ?? "", assessment?.runId ?? "", assessment?.sourceIds?.join(" | ") ?? "", JSON.stringify(assessment?.components ?? {}), JSON.stringify(assessment?.inputDates ?? {}), JSON.stringify(assessment?.observations ?? {}), JSON.stringify(record.metricSnapshot?.scoreAssessments ?? []),
+        assessment?.score ?? "", assessment ? scoreAssessmentLabel(assessment) : "", assessment?.family ?? "", assessment?.horizon ?? "", assessment?.comparisonGroupId ?? "", assessment?.rankedEligible && !record.metricSnapshot?.scoreStale ? "Yes" : "No", assessment?.status ?? route.status, assessment?.reason ?? route.reason, assessment?.cutoff ?? "", assessment?.methodologyVersion ?? "", assessment?.runId ?? "", assessment?.sourceIds?.join(" | ") ?? "", assessment?.sourceUrls?.join(" | ") ?? "", JSON.stringify(assessment?.components ?? {}), JSON.stringify(assessment?.inputDates ?? {}), JSON.stringify(assessment?.observations ?? {}), JSON.stringify(record.metricSnapshot?.scoreAssessments ?? []),
         ...selectedMetricColumns.flatMap(({ key }) => {
           const result = record.metricSnapshot?.metricResults?.[key];
           return [

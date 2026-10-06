@@ -30,6 +30,7 @@ export default async function ETFPage() {
     initialMetricSnapshots = Object.fromEntries(Object.entries(storedSnapshots).map(([ticker, snapshot]) => [ticker, {
       ...snapshot,
       stale: !snapshot.observedAt || now - new Date(snapshot.observedAt).getTime() > 5 * 24 * 60 * 60 * 1000,
+      scoreStale: !snapshot.scoreObservedAt || now - new Date(snapshot.scoreObservedAt).getTime() > 5 * 24 * 60 * 60 * 1000,
     }]));
   } catch (error) {
     console.error("[etf] failed to load stored metric snapshots", error);

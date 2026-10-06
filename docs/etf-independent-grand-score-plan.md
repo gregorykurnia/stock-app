@@ -1,6 +1,6 @@
 # Independent ETF Grand Score implementation plan
 
-Requested: 2026-10-06. Expanded: 2026-10-06 to cover the catalogue with strategy-specific scorecards. Updated: 2026-10-06 with the personal-use, free-data implementation handoff. Status: scoring formulas, routing and UI scaffolding exist; acquisition, validation and publication of live scores are unfinished.
+Requested: 2026-10-06. Expanded: 2026-10-06 to cover the catalogue with strategy-specific scorecards. Updated: 2026-10-06 with the personal-use, free-data implementation handoff and Core pipeline. Status: the Tiingo Core acquisition, history retention, score assessment and UI publication path is implemented; live Tiingo coverage validation, issuer-data breadth and methodology approval remain unfinished. See the [Core coverage report](etf-core-coverage-2026-10-06.md).
 
 ## Agreed outcome
 
@@ -16,7 +16,7 @@ This document supersedes the score-related peer percentiles, minimum-ten-peer re
 
 ## Implementation handoff: personal use with free data
 
-This section records the user's latest decisions and makes the next implementation concrete. Documentation is authorized now; runtime implementation has not yet been requested. Use the formulas and eligibility rules below rather than inventing an easier score to fill empty rows.
+This section records the user's latest decisions and makes the Core implementation concrete. Use the formulas and eligibility rules below rather than inventing an easier score to fill empty rows.
 
 ### Decisions and access
 
@@ -37,9 +37,9 @@ No additional API key is currently confirmed necessary for Core. Issuer spread c
 | `lib/etfScorecard.ts` | Candidate constants/version IDs, routing, comparison dimensions and assessment selection | Populate sourced mandate verification and freeze only reviewed variants |
 | `lib/etfCatalog.ts` | Snapshot and `scoreAssessments` contracts | Extend only for normalized input/provenance requirements |
 | `components/ETFExplorer.tsx` | Score column, coverage, details, grouping and CSV | Verify real saved assessments, matched horizons and missing-input reasons |
-| `app/api/etf-metrics/route.ts` | Yahoo refresh adapter and saved-snapshot reads | Add Tiingo/issuer orchestration; currently no calculation or persistence of `scoreAssessments` |
-| `lib/etfMetricStore.ts` | Firestore snapshot writes/reads | Add retained inputs, run manifests and safe score publication |
-| `.github/workflows/refresh-etf-metrics.yml` | Yahoo-authorized batch refresh | Add resumable provider-aware scheduling; keep Yahoo authorization separate |
+| `app/api/etf-metrics/route.ts` | Yahoo refresh and saved-snapshot reads | Added separate Tiingo Core refresh, persisted cursor, account gate and assessment publication |
+| `lib/etfMetricStore.ts` | Firestore snapshot writes/reads | Added year-partitioned Core history, hourly request budget, retained assessments and legacy-write preservation |
+| `.github/workflows/refresh-etf-metrics.yml` | Yahoo-authorized batch refresh | Yahoo path remains separate; `.github/workflows/refresh-etf-core.yml` advances the Tiingo cursor hourly |
 
 Current scoring methodology states are `candidate`; complete inputs still yield `methodologyPending` and no publishable number. Never fix this by toggling the state alone or setting `verified`, `authorized`, `complete` or `fresh` to true without supporting checks.
 

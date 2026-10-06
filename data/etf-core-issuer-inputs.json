@@ -1,0 +1,120 @@
+{
+  "schemaVersion": 1,
+  "sourcePolicy": "Official issuer disclosures, manually reviewed and retained with financial dates. Values are inputs only when the source record is current and its status is verified.",
+  "funds": {
+    "VOO": {
+      "issuer": "Vanguard",
+      "identityVerified": true,
+      "identitySourceId": "vanguard:VOO:product-page",
+      "identitySourceUrl": "https://advisors.vanguard.com/investments/products/voo/vanguard-sp-500-etf",
+      "mandate": {
+        "family": "equity-index",
+        "effectiveDate": "2026-06-30",
+        "reviewedAt": "2026-10-06",
+        "sourceId": "vanguard:VOO:product-page",
+        "sourceUrl": "https://advisors.vanguard.com/investments/products/voo/vanguard-sp-500-etf",
+        "comparisonDimensions": {
+          "geography": "United States",
+          "exposure": "S&P 500 large-cap equities",
+          "sizeStyle": "large-cap blend",
+          "incomeObjective": "broad-market core",
+          "management": "passive index",
+          "currency": "USD",
+          "hedging": "unhedged",
+          "concentrationClass": "broad diversified"
+        }
+      },
+      "expenseRatio": {
+        "valuePct": 0.03,
+        "financialDate": "2026-04-28",
+        "designation": "net",
+        "waiverExpiryDate": null,
+        "sourceId": "vanguard:VOO:product-page",
+        "sourceUrl": "https://advisors.vanguard.com/investments/products/voo/vanguard-sp-500-etf"
+      },
+      "medianSpread": {
+        "valuePct": 0.004,
+        "financialDate": "2026-09-09",
+        "definition": "Issuer-disclosed 30-day bid/ask spread; percentage of market price.",
+        "sourceId": "vanguard:VOO:product-page",
+        "sourceUrl": "https://advisors.vanguard.com/investments/products/voo/vanguard-sp-500-etf"
+      }
+    },
+    "VTI": {
+      "issuer": "Vanguard",
+      "identityVerified": true,
+      "identitySourceId": "vanguard:VTI:product-page",
+      "identitySourceUrl": "https://advisors.vanguard.com/investments/products/vti/vanguard-total-stock-market-etf",
+      "mandate": {
+        "family": "equity-index",
+        "effectiveDate": "2026-06-30",
+        "reviewedAt": "2026-10-06",
+        "sourceId": "vanguard:VTI:product-page",
+        "sourceUrl": "https://advisors.vanguard.com/investments/products/vti/vanguard-total-stock-market-etf",
+        "comparisonDimensions": {
+          "geography": "United States",
+          "exposure": "US total stock market",
+          "sizeStyle": "large-mid-small blend",
+          "incomeObjective": "broad-market core",
+          "management": "passive index",
+          "currency": "USD",
+          "hedging": "unhedged",
+          "concentrationClass": "broad diversified"
+        }
+      },
+      "expenseRatio": {
+        "valuePct": 0.03,
+        "financialDate": "2026-04-28",
+        "designation": "net",
+        "waiverExpiryDate": null,
+        "sourceId": "vanguard:VTI:product-page",
+        "sourceUrl": "https://advisors.vanguard.com/investments/products/vti/vanguard-total-stock-market-etf"
+      },
+      "medianSpread": {
+        "valuePct": 0.01,
+        "financialDate": "2026-10-02",
+        "definition": "Issuer-disclosed 30-day median bid/ask spread; percentage of market price.",
+        "sourceId": "vanguard:VTI:product-page",
+        "sourceUrl": "https://advisors.vanguard.com/investments/products/vti/vanguard-total-stock-market-etf"
+      }
+    },
+    "VXUS": {
+      "issuer": "Vanguard",
+      "identityVerified": true,
+      "identitySourceId": "vanguard:VXUS:product-page",
+      "identitySourceUrl": "https://advisors.vanguard.com/investments/products/vxus/vanguard-total-international-stock-etf",
+      "mandate": {
+        "family": "equity-index",
+        "effectiveDate": "2026-06-30",
+        "reviewedAt": "2026-10-06",
+        "sourceId": "vanguard:VXUS:product-page",
+        "sourceUrl": "https://advisors.vanguard.com/investments/products/vxus/vanguard-total-international-stock-etf",
+        "comparisonDimensions": {
+          "geography": "developed and emerging markets ex-US",
+          "exposure": "international all-cap equities",
+          "sizeStyle": "large-mid-small blend",
+          "incomeObjective": "broad-market core",
+          "management": "passive index",
+          "currency": "USD",
+          "hedging": "unhedged",
+          "concentrationClass": "broad diversified"
+        }
+      },
+      "expenseRatio": {
+        "valuePct": 0.05,
+        "financialDate": "2026-02-27",
+        "designation": "net",
+        "waiverExpiryDate": null,
+        "sourceId": "vanguard:VXUS:product-page",
+        "sourceUrl": "https://advisors.vanguard.com/investments/products/vxus/vanguard-total-international-stock-etf"
+      },
+      "medianSpread": {
+        "valuePct": 0.01,
+        "financialDate": "2026-09-25",
+        "definition": "Issuer-disclosed 30-day median bid/ask spread; percentage of market price.",
+        "sourceId": "vanguard:VXUS:product-page",
+        "sourceUrl": "https://advisors.vanguard.com/investments/products/vxus/vanguard-total-international-stock-etf"
+      }
+    }
+  }
+}

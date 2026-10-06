@@ -130,8 +130,10 @@ export interface ETFScoreAssessment {
   reason: string;
   components?: Record<string, ETFScoreComponent>;
   sourceIds?: string[];
+  sourceUrls?: string[];
   inputDates?: Record<string, string | null>;
   observations?: Record<string, number>;
+  inputHash?: string;
 }
 
 export interface ETFRecord {
@@ -177,6 +179,9 @@ export interface ETFMetricSnapshot {
   officialBenchmarkId?: string | null;
   comparisonBenchmarkId?: string | null;
   scoreAssessments?: ETFScoreAssessment[];
+  scoreObservedAt?: string | null;
+  scoreStale?: boolean;
+  scoreHistoryHash?: string | null;
   metadataProvenance?: {
     sourceId: string;
     status: "fetchedUnverified" | "issuerVerified";

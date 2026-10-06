@@ -1,0 +1,32 @@
+name: Refresh ETF Core inputs
+
+on:
+  schedule:
+    - cron: "35 * * * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: refresh-etf-core
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Refresh one Tiingo quota-sized batch
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          APP_URL: https://stock-app-five-sable.vercel.app
+          ETF_TIINGO_AUTOMATION_AUTHORIZED: ${{ vars.ETF_TIINGO_AUTOMATION_AUTHORIZED }}
+        run: |
+          set -euo pipefail
+          if [ "${ETF_TIINGO_AUTOMATION_AUTHORIZED:-}" != "true" ]; then
+            echo "ETF Core refresh skipped: the Tiingo replacement token and account entitlement have not been authorized."
+            exit 0
+          fi
+          response=$(curl --fail-with-body --show-error --silent --max-time 300 \
+            "${APP_URL}/api/etf-metrics?provider=tiingo&limit=35" \
+            -X POST -H "Authorization: Bearer ${CRON_SECRET}")
+          printf '%s\n' "$response" | jq '{provider,runId,universeCount,offset,nextOffset,requested,updated:(.updated|length),failed,remaining,complete,waitingForNextDailyRefresh}'
+          printf '%s\n' "$response" | jq -e '(.requested // 0) >= 0 and ((.failed // []) | length) == 0' >/dev/null
