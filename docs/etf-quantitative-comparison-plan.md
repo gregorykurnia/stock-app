@@ -150,11 +150,79 @@ Require at least 12 valid rolling windows to show summary statistics. Five years
 
 ## Quantitative selection and ranking
 
-Initial release: sortable individual statistics and matched-date tradeoff comparisons. Do not collapse all metrics into an unexplained weighted score or use arbitrary Sharpe thresholds to declare a fund good.
+Include an explainable overall score, fund-quality subscore, and historical-performance subscore once the data and peer eligibility gates below pass. Sortable individual statistics and matched-date tradeoff comparisons remain available even when scores are unavailable. Do not use arbitrary Sharpe thresholds to declare a fund good.
 
 Later, add a historical tradeoff frontier within verified peer groups. Use matched-period CAGR (higher), volatility (lower), absolute drawdown (lower), and expense ratio (lower). A fund is dominated only when another is no worse on every selected available dimension and better on at least one. Use declared numerical precision/tolerance rules; expose dimensions and the comparison fund. Do not impute missing values or mix currencies/windows. Do not double-count correlated Sharpe/Sortino/Calmar in a composite.
 
 Label outcomes “Historical tradeoff frontier” or “Higher return / larger drawdown,” not “Best to buy.” Lower concentration and larger AUM are context rather than universally better inputs. Suppress frontier labels when fewer than two fully comparable funds exist. Distinguish tiny numeric differences from persuasive evidence; formal significance claims are deferred until a dependence-aware statistical method is designed.
+
+## Overall scoring methodology
+
+### Purpose and eligible universe
+
+Provide a 0–100 score for comparing conventional unleveraged equity index ETFs **within a verified peer group**. The score combines implementation quality and historical outcomes; it is not a probability of profit, a forecast, or an assessment of whether an exposure fits a particular investor. Methodology version 1 uses proposed product weights, not empirically proven optimal weights. Validate its behavior before release rather than tuning it to make familiar tickers win.
+
+VOO, VXUS, and VT illustrate different roles: US large-cap blend, broad international equity excluding the US, and global all-cap equity. Each can offer a strong implementation of its mandate while producing different historical performance. They belong to different scored cohorts. Never hardcode their scores or assume their ranking from reputation. A 90 in one group and an 85 in another does not establish which region will outperform or which ETF is universally better.
+
+Scoring for bonds, active funds, options income, leveraged/inverse products, ETNs, commodities, and digital assets requires separately specified methodologies and is outside version 1. These entries retain their metrics and show `notApplicable` for this score.
+
+### Weights and component inputs
+
+Convert each input into a peer-relative percentile score using the rules below, then average inputs within a component. Weights are versioned configuration. Financial inputs and results are fetched/calculated, never manually assigned.
+
+| Component | Overall weight | Inputs and within-component weights | Favorable direction |
+|---|---:|---|---|
+| Cost efficiency | 20% | Net expense ratio 75%; verified 30-day median spread 25% | Lower |
+| Index implementation | 20% | Absolute official NAV/index CAGR gap 60%; tracking error 40% | Lower deviation from mandate |
+| Diversification within mandate | 20% | Effective holdings count 50%; largest holding weight 25%; largest sector weight 25% | More effective holdings / less concentration, within equivalent mandate |
+| Risk-adjusted performance | 20% | Sharpe 50%; Sortino 50% | Higher |
+| Return consistency | 10% | Rolling 5Y median CAGR 50%; rolling 5Y P10 CAGR 50% | Higher |
+| Drawdown resilience | 10% | Absolute maximum drawdown 70%; fraction of daily observations underwater 30% | Lower |
+
+`fundQualityScore = (costScore + implementationScore + diversificationScore) / 3`.
+
+`historicalPerformanceScore = 0.50 * riskAdjustedScore + 0.25 * consistencyScore + 0.25 * resilienceScore`.
+
+`overallScore = 0.60 * fundQualityScore + 0.40 * historicalPerformanceScore`.
+
+Calmar, headline CAGR, recovery time, rolling benchmark win share, AUM, and fund age remain supporting metrics. Do not add them as extra weighted inputs in version 1. Calmar duplicates growth/drawdown information; AUM and age do not establish quality by themselves. Cost and tracking outcomes also overlap economically, so audit sensitivity to their combined 40% weight and disclose that dependence.
+
+For index implementation, retain signed tracking difference in the explanation, but score absolute deviation from zero. Persistent positive deviation requires investigation of benchmark convention, lending, or replication rather than automatically receiving bonus points. Do not apply this criterion to active strategies.
+
+Diversification is a deliberate preference for broad index building blocks, not a universal investment advantage. Peer groups must have equivalent geography, size/style mandate, currency/hedging, and index weighting approach. Do not penalize a sector fund for failing to diversify outside its sector or compare equal-weight with capitalization-weight mandates under the same quality cohort.
+
+### Additional data and calculation requirements
+
+- Add `effectiveHoldingsCount = 1 / sum(w[i]^2)` using normalized weights of a complete portfolio and retain reported coverage. Require provider-confirmed full holdings coverage and reconcile rounding/cash using a documented tolerance; top-ten holdings cannot produce this score.
+- Add `largestHoldingWeight` and `largestSectorWeight` from verified holdings and a common sector taxonomy. Handle cash and unmapped assets explicitly; missing sector classification blocks the relevant component.
+- Add `underwaterObservationRate`: fraction of daily observations below the running total-return peak over the common score window. Equality to the peak is not underwater. This includes ongoing drawdowns without pretending that recovery occurred. Keep recovery time and ongoing underwater duration visible separately.
+- Use a common 5Y or 10Y window for ratios, tracking, and drawdown inputs. Rolling 5Y statistics use an identical evaluation span and window endpoints across the scored cohort. The score label includes both the main window and rolling evaluation span.
+- Current fees, spreads, and holdings have their own financial dates, displayed separately. Configure and document freshness limits by source during the feasibility audit; inputs outside those limits cannot produce a current score. Never describe current-holdings concentration as historical concentration.
+
+### Percentile normalization and cohort rules
+
+1. Build a persisted cohort from a broader verified provider universe where feasible, then intersect displayed results with the Pluang catalogue. Store `scoringUniverseScope` and source evidence. If only platform-listed funds are available, label scores “Within platform-listed peers”; do not imply a whole-market ranking.
+2. Remove duplicate share classes of the same portfolio from the reference cohort using stable portfolio identifiers and a deterministic representative rule. Keep distinct ETF products tracking the same index, since differences in their implementation are relevant. Never deduplicate by name alone.
+3. Require at least 10 unique eligible reference portfolios with complete, fresh required inputs. This is a versioned launch policy, not a statistical significance threshold. Freeze a cohort/run membership manifest so values are reproducible. Show excluded count and reasons; completeness selection can bias the reference group.
+4. Convert every input to a favorable-direction value (negate lower-is-better inputs). Before ranking, quantize values using fixed, unit-specific tolerances from the methodology registry. Approve tolerances after source precision/uncertainty audit; they must not vary by ticker or be chosen to obtain desired rankings.
+5. Sort favorable values ascending. With one-based average rank `rank` across ties and cohort size `N`, use `percentileScore = 100 * (rank - 1) / (N - 1)`. An all-tied cohort gives every member 50. Retain raw values and ranks; extremes are not evidence of a large economic advantage.
+6. Calculate components and weighted scores from unrounded percentile values; display whole-number scores. Put unavailable scores last when sorting, without substituting zero. Do not label a 0 as a bad investment or a 100 as a perfect investment.
+
+Scores change when peers or methodology change even if a fund's own inputs do not. Explain changes using raw-input changes versus cohort/methodology changes. Never pool scores from different cohort IDs or cutoff dates into a universal winner list.
+
+### Missing data, sensitivity, and reproducibility
+
+- Full overall score requires every weighted input, an eligible peer cohort, compatible periods, and fresh sources. No imputation or redistribution of missing component weights.
+- Show `provisional` coverage and available raw metrics/components when requirements fail; suppress the overall number. A subscore is shown only when all of its inputs can be scored against an eligible compatible cohort. Coverage is the percentage of overall methodology weight whose required inputs are resolved, displayed separately from the score.
+- Compute sensitivity scenarios with fund-quality/history splits of 50/50, 60/40, and 70/30, preserving weights within each subscore. Show score/rank range; flag a rank movement exceeding 20 percentile points under these scenarios. These thresholds are declared product policies. Historical period sensitivity uses separate 5Y/10Y scores, never mixed-window inputs.
+- Store `methodologyVersion`, `cohortId`, membership hash/count, universe scope, cutoff/window dates, rolling span/count, raw-input references, component scores, input ranks, quality/history/overall scores, coverage, status/reasons, and sensitivity outputs. Recompute on coherent refresh runs; keep old versions inspectable.
+- Suggested code boundary: a pure `lib/etfScoring.ts` consumes validated metrics plus a cohort/configuration; a server cohort builder resolves eligibility and sources. The UI reads stored results and never recalculates against only currently filtered rows.
+
+### Score columns and explanation panel
+
+Add selectable `overallScore`, `fundQualityScore`, `historicalPerformanceScore`, and `scoreCoverage` columns. Offer a Scoring preset: fund, scored peer group, Overall, Fund quality, Historical performance, Coverage, and data date. A peer selector is required for meaningful score sorting; use grouped results when browsing the full catalogue.
+
+Clicking a score opens its six-component breakdown, raw metrics, weights, percentile standing, sample size, dates, limitations, and sensitivity range. Show provisional reasons directly. Example UI copy may use hypothetical numbers, but production pages must use fetched/calculated results. CSV exports include all score provenance and component values. A high quality score can coexist with modest historical returns; explain that relationship without claiming expected outperformance.
 
 ## Refresh and reliability
 
@@ -189,9 +257,9 @@ Gate: comparisons use identical windows; insufficient rolling history is visible
 
 ### Phase 4 — UI and exports
 
-Add presets/picker, metric sorting/filtering, tooltips, matched-period Compare charts, source details, and expanded CSV. Preserve current shortlist behavior and explicitly explain disabled statistics. Add frontier analysis only after peer coverage supports it.
+Add presets/picker, metric sorting/filtering, tooltips, matched-period Compare charts, source details, and expanded CSV. Implement versioned cohort scoring, score columns/breakdowns, coverage, and sensitivity after source gates pass. Preserve current shortlist behavior and explicitly explain disabled statistics. Add frontier analysis only after peer coverage supports it.
 
-Gate: a user can compare two broad index ETFs and see growth, risk, consistency, expenses, source dates, and missing dependencies without treating unlike windows as a ranking.
+Gate: a user can compare two broad index ETFs and see growth, risk, consistency, expenses, source dates, and missing dependencies without treating unlike windows as a ranking. Scores are reproducible within their cohort and unavailable when required inputs or peer counts are insufficient. No hardcoded fund scores or score-based cross-cohort winners.
 
 ### Phase 5 — operations and release audit
 
@@ -203,6 +271,7 @@ Replace fixed scheduler offsets, add run/coverage manifests, complete a producti
 - Independent reference calculation for representative broad-equity, bond, distribution-heavy, and new funds; compare unrounded results with explicit tolerances. Hand-entered test fixtures are allowed; production financial values are fetched.
 - Integration: provider partial failure, unavailable NAV/index/risk-free, retries, stale retention, run consistency, old snapshot migration, and a universe change beyond the current batch range.
 - UI: numeric sorting including negative values/missing values, column persistence, keyboard accessibility, mobile layout, chart/common-date alignment, and CSV provenance. No same-index grouping from name similarity alone.
+- Scoring: weights sum to 100%; component/subscore formulas agree; favorable directions, average-rank ties/all-tied cohorts, quantization, duplicate share classes, cohort minimums, missing/stale inputs, full versus partial holdings, and sensitivity scenarios behave as specified. Changing a search filter must not change stored scores. Independently review correlated inputs and cohort selection bias; do not tune fixtures or weights to favor VOO/VXUS/VT.
 - Run relevant lint/type checks, focused tests, and build for implementation changes; `git diff --check` for every delivery. A documentation-only delivery validates links and internal consistency without requiring an application build.
 
 ## Source references
