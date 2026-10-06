@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import { downloadCsv } from "@/lib/exportCsv";
 import {
   ETF_METRIC_LABELS,
@@ -32,6 +32,8 @@ interface ETFExplorerProps {
   categoryMeta: ETFCategoryMeta[];
   counts: ETFCounts;
   snapshotDate: string;
+  initialMetricSnapshots: Record<string, ETFMetricSnapshot>;
+  initialMetricLoadError: boolean;
 }
 
 interface ShortlistEntry {
@@ -140,7 +142,7 @@ function candidateMetricLabel(key: string) {
 
 function metricText(key: ETFMetricKey, value: number | string | undefined, state?: string, currency?: string | null) {
   if (value === undefined || value === "") {
-    if (!state || state.toLowerCase().includes("not collected") || state.toLowerCase().includes("not validated")) return "Pending";
+    if (!state || state.toLowerCase().includes("not collected") || state.toLowerCase().includes("not validated") || state.toLowerCase().includes("no snapshot")) return "No data";
     if (state.toLowerCase().includes("insufficient")) return "Insufficient history";
     if (state.toLowerCase().includes("not yet recovered")) return "Not yet recovered";
     if (state.toLowerCase().includes("no distributions")) return "0.00%";
@@ -172,7 +174,7 @@ function FundMetric({ record, metricKey }: { record: ETFRecord; metricKey: ETFMe
 function DataStatus({ record }: { record: ETFRecord }) {
   if (record.identityWarning) return <span className="badge border bg-amber-50 text-amber-800 border-amber-200">Identity review</span>;
   const snapshot = record.metricSnapshot;
-  if (!snapshot?.observedAt) return <span className="badge border bg-gray-50 text-gray-600 border-gray-200">Awaiting refresh</span>;
+  if (!snapshot?.observedAt) return <span className="badge border bg-gray-50 text-gray-600 border-gray-200" title="No stored market-data snapshot is available for this fund.">No snapshot</span>;
   if (snapshot.lastError) return <span className="badge border bg-amber-50 text-amber-800 border-amber-200" title={snapshot.lastError}>Refresh issue · last values kept</span>;
   const tracked = Object.keys(ETF_METRIC_LABELS).filter((key) => key !== "overlap") as ETFMetricKey[];
   const resolved = tracked.filter((key) => {
@@ -361,7 +363,7 @@ function ETFDetailDrawer({ record, saved, compared, onClose, onToggleShortlist, 
 
           <section aria-labelledby="fund-overview-heading"><h3 id="fund-overview-heading" className="text-sm font-bold text-gray-900">Fund overview</h3><dl className="mt-3 grid grid-cols-1 gap-x-5 gap-y-3 text-xs sm:grid-cols-2">{[["Issuer", record.issuer], ["Catalogue category", formatCategory(record.category)], ["Structure", formatStructure(record.structure)], ["Platform asset ID", String(record.assetId)], ["Catalogue listing", "Public listing observed"], ["Tradability", "Authenticated tradability not checked"], ["Catalogue page", record.cataloguePage ? String(record.cataloguePage) : "US catalogue addition"], ["Source observed", formatSnapshotDate(record.observedAt)], ["Inception date", metricText("inceptionDate", record.metricSnapshot?.values.inceptionDate, record.metricSnapshot?.states.inceptionDate)], ["Expense ratio", metricText("expenseRatio", record.metricSnapshot?.values.expenseRatio, record.metricSnapshot?.states.expenseRatio)], ["Fund net assets", metricText("netAssets", record.metricSnapshot?.values.netAssets, record.metricSnapshot?.states.netAssets, record.metricSnapshot?.currency)]].map(([label, value]) => <div key={label}><dt className="text-gray-400">{label}</dt><dd className="mt-1 font-semibold text-gray-700">{value}</dd></div>)}</dl>{(record.leverageTarget || record.resetInterval) && <div className="mt-4 rounded-xl bg-gray-50 p-3 text-xs leading-5 text-gray-600"><strong className="text-gray-800">Reset and leverage:</strong> {record.leverageTarget ? `${record.leverageTarget} target` : "Target not recorded"}{record.resetInterval ? ` · ${record.resetInterval} reset` : ""}. This is a property of the underlying product, separate from any account-level financing.</div>}</section>
 
-          <section aria-labelledby="metric-status-heading"><div className="flex items-end justify-between gap-3"><div><h3 id="metric-status-heading" className="text-sm font-bold text-gray-900">Analysis coverage</h3><p className="mt-1 text-xs text-gray-500">Values come from the provider history and are calculated with the date and source shown below.</p></div><span className="badge border bg-gray-50 text-gray-600 border-gray-200">Market data {record.metricSnapshot?.observedAt ?? "awaiting refresh"}</span></div><div className="mt-3 grid grid-cols-1 gap-x-5 gap-y-3 rounded-xl border border-gray-100 bg-gray-50/70 p-4 sm:grid-cols-2">{DETAIL_METRICS.map((key) => <div key={key} className="flex items-center justify-between gap-3 text-xs"><span className="text-gray-500">{ETF_METRIC_LABELS[key]}</span><FundMetric record={record} metricKey={key} /></div>)}</div><p className="mt-3 text-[11px] leading-5 text-gray-400">{record.metricSnapshot?.source ?? "Yahoo Finance via yahoo-finance2"}. Insufficient history, missing provider fields, and open recovery periods keep their own status instead of receiving estimated values.</p></section>
+          <section aria-labelledby="metric-status-heading"><div className="flex items-end justify-between gap-3"><div><h3 id="metric-status-heading" className="text-sm font-bold text-gray-900">Analysis coverage</h3><p className="mt-1 text-xs text-gray-500">Values come from the provider history and are calculated with the date and source shown below.</p></div><span className="badge border bg-gray-50 text-gray-600 border-gray-200">Market data {record.metricSnapshot?.observedAt ?? "no stored snapshot"}</span></div><div className="mt-3 grid grid-cols-1 gap-x-5 gap-y-3 rounded-xl border border-gray-100 bg-gray-50/70 p-4 sm:grid-cols-2">{DETAIL_METRICS.map((key) => <div key={key} className="flex items-center justify-between gap-3 text-xs"><span className="text-gray-500">{ETF_METRIC_LABELS[key]}</span><FundMetric record={record} metricKey={key} /></div>)}</div><p className="mt-3 text-[11px] leading-5 text-gray-400">{record.metricSnapshot?.source ?? "Yahoo Finance via yahoo-finance2"}. Insufficient history, missing provider fields, and open recovery periods keep their own status instead of receiving estimated values.</p></section>
 
           {Object.keys(record.candidateMetrics).length > 0 && <details className="rounded-xl border border-gray-200"><summary className="cursor-pointer px-4 py-3 text-xs font-semibold text-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500">Issuer research leads · unvalidated</summary><div className="border-t border-gray-100 px-4 py-3"><p className="text-[11px] leading-5 text-amber-800">These observations come from issuer research and are shown for review only. They are not production comparison values.</p><dl className="mt-3 grid grid-cols-1 gap-3 text-xs sm:grid-cols-2">{Object.entries(record.candidateMetrics).map(([key, value]) => <div key={key}><dt className="text-gray-400">{candidateMetricLabel(key)}</dt><dd className="mt-1 font-semibold text-gray-700">{value}</dd></div>)}</dl></div></details>}
 
@@ -372,7 +374,7 @@ function ETFDetailDrawer({ record, saved, compared, onClose, onToggleShortlist, 
   );
 }
 
-export default function ETFExplorer({ catalogue, etns, exclusions, categoryMeta, counts, snapshotDate }: ETFExplorerProps) {
+export default function ETFExplorer({ catalogue, etns, exclusions, categoryMeta, counts, snapshotDate, initialMetricSnapshots, initialMetricLoadError }: ETFExplorerProps) {
   const [view, setView] = useState<View>("explore");
   const [scope, setScope] = useState<Scope>("etf");
   const [search, setSearch] = useState("");
@@ -387,8 +389,9 @@ export default function ETFExplorer({ catalogue, etns, exclusions, categoryMeta,
   const [compareTickers, setCompareTickers] = useState<string[]>([]);
   const [shortlist, setShortlist] = useState<Record<string, ShortlistEntry>>({});
   const [shortlistHydrated, setShortlistHydrated] = useState(false);
-  const [metricSnapshots, setMetricSnapshots] = useState<Record<string, ETFMetricSnapshot>>({});
-  const [metricsLoaded, setMetricsLoaded] = useState(false);
+  const [metricSnapshots, setMetricSnapshots] = useState<Record<string, ETFMetricSnapshot>>(initialMetricSnapshots);
+  const [metricLoadError, setMetricLoadError] = useState(initialMetricLoadError);
+  const [metricRetrying, setMetricRetrying] = useState(false);
 
   const allRecords = useMemo<ETFRecord[]>(
     () => [...catalogue, ...etns].map((record): ETFRecord => ({ ...record, metricSnapshot: metricSnapshots[record.ticker] })),
@@ -396,24 +399,20 @@ export default function ETFExplorer({ catalogue, etns, exclusions, categoryMeta,
   );
   const recordByTicker = useMemo(() => new Map(allRecords.map((record) => [record.ticker, record])), [allRecords]);
 
-  useEffect(() => {
-    const controller = new AbortController();
-    fetch("/api/etf-metrics", { signal: controller.signal, cache: "no-store" })
-      .then(async (response) => {
-        if (!response.ok) throw new Error("ETF metric snapshots are not available yet");
-        return response.json() as Promise<{ snapshots?: Record<string, ETFMetricSnapshot> }>;
-      })
-      .then((payload) => {
-        if (!controller.signal.aborted) {
-          setMetricSnapshots(payload.snapshots ?? {});
-          setMetricsLoaded(true);
-        }
-      })
-      .catch((error: unknown) => {
-        if (error instanceof Error && error.name !== "AbortError") console.warn("[etf-metrics] snapshot load failed", error.message);
-        if (!controller.signal.aborted) setMetricsLoaded(true);
-      });
-    return () => controller.abort();
+  const reloadMetricSnapshots = useCallback(async () => {
+    setMetricRetrying(true);
+    try {
+      const response = await fetch("/api/etf-metrics", { cache: "no-store" });
+      if (!response.ok) throw new Error("Stored market-data snapshots are unavailable");
+      const payload = await response.json() as { snapshots?: Record<string, ETFMetricSnapshot> };
+      setMetricSnapshots(payload.snapshots ?? {});
+      setMetricLoadError(false);
+    } catch (error: unknown) {
+      if (error instanceof Error && error.name !== "AbortError") console.warn("[etf-metrics] snapshot load failed", error.message);
+      setMetricLoadError(true);
+    } finally {
+      setMetricRetrying(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -442,7 +441,10 @@ export default function ETFExplorer({ catalogue, etns, exclusions, categoryMeta,
     return () => { document.removeEventListener("keydown", onKeyDown); document.body.style.overflow = previousOverflow; };
   }, [selected]);
 
-  const scopedRecords = useMemo(() => scope === "etf" ? catalogue : scope === "etn" ? etns : allRecords, [scope, catalogue, etns, allRecords]);
+  const scopedRecords = useMemo(
+    () => allRecords.filter((record) => scope === "all" || record.kind === scope),
+    [scope, allRecords],
+  );
   const issuers = useMemo(() => [...new Set(scopedRecords.map((record) => record.issuer))].sort((a, b) => a.localeCompare(b)), [scopedRecords]);
   const categoryCounts = useMemo(() => {
     const countsByCategory = new Map<string, number>();
@@ -527,7 +529,7 @@ export default function ETFExplorer({ catalogue, etns, exclusions, categoryMeta,
 
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="ETF catalogue coverage"><SummaryCard label="ETF / ETF-like" value={counts.etfLike} note="Retained candidates in the reviewed public catalogue" tone="text-indigo-700" /><SummaryCard label="Separate ETNs" value={counts.etns} note="Shown separately because issuer-credit risk differs" tone="text-red-700" /><SummaryCard label="Excluded discoveries" value={counts.exclusions} note="2 company stocks and 1 closed-end fund" /><SummaryCard label="Tradability confirmed" value={counts.tradabilityConfirmed} note="Authenticated account access was not checked" tone="text-amber-700" /></section>
 
-      <section className="rounded-2xl border border-sky-200 bg-sky-50/80 p-4 sm:p-5" aria-label="Data coverage notice"><div className="flex items-start gap-3"><span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sky-100 font-bold text-sky-800">i</span><div><h2 className="text-sm font-bold text-sky-950">Fund metrics are refreshed automatically</h2><p className="mt-1 max-w-4xl text-xs leading-5 text-sky-900">{metricsLoaded ? `${Object.keys(metricSnapshots).length} funds have stored market-data snapshots.` : "Loading stored market-data snapshots…"} Returns, drawdown, volatility, and cash yield are calculated from Yahoo Finance daily prices and distribution events. Fund size, expense ratio, inception date, and top holdings are shown when Yahoo Finance reports them. Each row keeps its source date and tells you when history is short or a provider field is missing. Listing evidence still does not confirm account-specific tradability.</p></div></div></section>
+      <section className="rounded-2xl border border-sky-200 bg-sky-50/80 p-4 sm:p-5" aria-label="Data coverage notice"><div className="flex items-start gap-3"><span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-sky-100 font-bold text-sky-800">i</span><div><h2 className="text-sm font-bold text-sky-950">Fund metrics are refreshed automatically</h2><p className="mt-1 max-w-4xl text-xs leading-5 text-sky-900">{metricLoadError ? "Saved market data could not be loaded." : `${Object.keys(metricSnapshots).length} funds have stored market-data snapshots.`} Returns, drawdown, volatility, and cash yield are calculated from Yahoo Finance daily prices and distribution events. Fund size, expense ratio, inception date, and top holdings are shown when Yahoo Finance reports them. Each row keeps its source date and tells you when history is short or a provider field is missing. Listing evidence still does not confirm account-specific tradability.</p>{metricLoadError && <button type="button" onClick={() => void reloadMetricSnapshots()} disabled={metricRetrying} className="mt-2 text-xs font-semibold text-sky-800 underline disabled:opacity-60">{metricRetrying ? "Retrying…" : "Retry loading saved data"}</button>}</div></div></section>
 
       <nav className="segmented w-full overflow-x-auto sm:w-fit" aria-label="ETF page views"><button type="button" className={`segmented-btn flex-1 sm:flex-none ${view === "explore" ? "is-active" : ""}`} onClick={() => setView("explore")}>Explore <span className="ml-1 text-[10px] text-gray-400">{filteredRecords.length}</span></button><button type="button" className={`segmented-btn flex-1 sm:flex-none ${view === "compare" ? "is-active" : ""}`} onClick={() => setView("compare")}>Compare <span className="ml-1 text-[10px] text-gray-400">{compareRecords.length}</span></button><button type="button" className={`segmented-btn flex-1 sm:flex-none ${view === "shortlist" ? "is-active" : ""}`} onClick={() => setView("shortlist")}>Shortlist <span className="ml-1 text-[10px] text-gray-400">{shortlistRecords.length}</span></button></nav>
 
@@ -539,7 +541,7 @@ export default function ETFExplorer({ catalogue, etns, exclusions, categoryMeta,
         <section className="surface-card p-4 sm:p-5" aria-label="ETF catalogue filters"><div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5"><label className="text-xs font-semibold text-gray-600 xl:col-span-2">Search<input type="search" className="input-field mt-1 w-full" placeholder="Ticker, name, issuer, exposure…" value={search} onChange={(event) => setSearch(event.target.value)} /></label><label className="text-xs font-semibold text-gray-600">Category<select className="input-field mt-1 w-full" value={category} onChange={(event) => setCategory(event.target.value)}><option value="all">All categories</option>{categoryMeta.map((item) => <option key={item.key} value={item.key}>{formatCategory(item.key)}</option>)}</select></label><label className="text-xs font-semibold text-gray-600">Strategy<select className="input-field mt-1 w-full" value={strategy} onChange={(event) => setStrategy(event.target.value as ETFStrategy | "all")}><option value="all">All strategies</option>{STRATEGY_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label><label className="text-xs font-semibold text-gray-600">Issuer<select className="input-field mt-1 w-full" value={issuer} onChange={(event) => setIssuer(event.target.value)}><option value="all">All issuers</option>{issuers.map((value) => <option key={value} value={value}>{value}</option>)}</select></label></div><div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-gray-100 pt-3"><label className="flex items-center gap-2 text-xs text-gray-600"><input type="checkbox" checked={includeComplex} onChange={(event) => setIncludeComplex(event.target.checked)} className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />Include leveraged, inverse, and option-income products</label><label className="flex items-center gap-2 text-xs text-gray-600">Data state<select className="input-field py-1" value={dataFilter} onChange={(event) => setDataFilter(event.target.value as DataFilter)}><option value="all">All rows</option><option value="identity-warning">Identity review</option><option value="source-located">Source located</option></select></label><span className="text-[11px] text-gray-400">Numeric filters unlock after validated enrichment.</span>{activeFilterCount > 0 && <button type="button" className="ml-auto text-xs font-semibold text-indigo-600 hover:text-indigo-800" onClick={clearFilters}>Clear filters ({activeFilterCount})</button>}</div></section>
 
         <section className="surface-card overflow-hidden" aria-labelledby="comparison-table-heading"><div className="flex flex-col gap-3 border-b border-[var(--border)] px-4 py-4 sm:flex-row sm:items-end sm:justify-between sm:px-5"><div><h2 id="comparison-table-heading" className="text-lg font-bold text-gray-900">Browse funds</h2><p className="mt-1 text-xs text-gray-500">{filteredRecords.length} of {scopedRecords.length} records · alphabetical by default · select a row for the research panel</p></div><div className="flex flex-wrap items-center gap-2"><button type="button" className="btn btn-secondary" onClick={exportCsv}>Export CSV</button>{compareRecords.length > 0 && <button type="button" className="btn btn-ghost" onClick={() => setView("compare")}>Review compare · {compareRecords.length}</button>}</div></div>{filteredRecords.length === 0 ? <div className="p-10 text-center text-sm text-gray-500">No catalogue rows match these filters.</div> : <ETFTable records={filteredRecords} shortlist={shortlist} compareTickers={compareTickers} onSelect={setSelected} onToggleShortlist={toggleShortlist} onToggleCompare={toggleCompare} sortKey={sortKey} descending={descending} onSort={changeSort} />}</section>
-        <p className="text-[11px] leading-5 text-gray-400">Metric states follow the ETF plan&apos;s data dictionary. Pending means the value was not collected and validated for this snapshot; it is not a zero, an estimate, or a recommendation.</p>
+        <p className="text-[11px] leading-5 text-gray-400">Metric columns show stored values on the initial page render. If a value is unavailable, the row gives its reason (such as insufficient history or missing provider data); missing values are never replaced with zero or an estimate.</p>
       </>}
 
       {view === "compare" && <CompareView records={compareRecords} onSelect={setSelected} onRemove={toggleCompare} />}
