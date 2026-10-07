@@ -55,7 +55,7 @@ Gate to M4: **passed for restricted validation only**. The sample met all prereg
 
 ### M4 — Durable acquisition, storage and refresh
 
-Status: **in progress; acquisition and retention are gated pending review**. M3 passed the restricted-validation dependency. The [M4 handoff](etf-scoring-m4-handoff.md) and [readiness record](etf-scoring-m4-readiness-2026-10-07.md) document the infrastructure inspection and initial policy gate. No new M4 capture or run has been written. Reuse the existing Firebase/Firestore patterns where they fit, and keep the M3 source blockers in force.
+Status: **in progress; data-use review, credentials and live-store verification remain open**. M3 passed the restricted-validation dependency. The [M4 handoff](etf-scoring-m4-handoff.md) and [readiness record](etf-scoring-m4-readiness-2026-10-07.md) document the infrastructure inspection, policy gate, immutable chunk/manifest format, Firestore Admin adapter, and resumable checkpoint core. No new M4 capture or run has been written to durable storage. Keep the M3 source blockers in force.
 
 Replace one-off acquisition with shared Yahoo history and dated issuer import/adapters for the validated scope. Integrate bounded history/provenance storage with the existing persistence design. Preserve immutable score inputs, methodology parameters and run IDs; detect provider adjustment revisions; keep credentials server-only. Add resumable progress, account-wide request budgeting, bounded retries and explicit source failures.
 

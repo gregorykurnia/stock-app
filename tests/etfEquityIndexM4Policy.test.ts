@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { test } from "node:test";
 import {
   assessETFEquityIndexM4RetentionPolicy,
+  assertETFEquityIndexM4IssuerAcquisitionAllowed,
   assertETFEquityIndexM4RetentionAllowed,
   assertETFEquityIndexM4YahooAcquisitionAllowed,
   type ETFM4DataUsePolicy,
@@ -42,6 +43,13 @@ test("reviewed policy with bounded retention permits the declared data categorie
   assert.equal(assessETFEquityIndexM4RetentionPolicy(policy, now).ready, true);
   assert.doesNotThrow(() => assertETFEquityIndexM4RetentionAllowed(policy, now));
   assert.doesNotThrow(() => assertETFEquityIndexM4YahooAcquisitionAllowed(policy, now));
+});
+
+test("issuer requests remain separately blocked unless approved", () => {
+  const policy = approvedPolicy();
+  assert.throws(() => assertETFEquityIndexM4IssuerAcquisitionAllowed(policy, now), /issuer-provider requests are not approved/);
+  policy.permissions.issuerProviderRequests = "approved";
+  assert.doesNotThrow(() => assertETFEquityIndexM4IssuerAcquisitionAllowed(policy, now));
 });
 
 test("retention approval requires a review record, timestamp, and bounded retention period", () => {

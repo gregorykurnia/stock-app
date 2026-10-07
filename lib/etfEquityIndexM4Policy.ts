@@ -25,6 +25,14 @@ const RETAINED_DATA_PERMISSIONS = [
   ["derivedScoreRetention", "derived-score retention"],
   ["issuerReturnEvidenceRetention", "issuer return-evidence retention"],
 ] as const;
+const ALL_PERMISSION_KEYS = [
+  "yahooProviderRequests",
+  "rawAdjustedCloseRetention",
+  "derivedScoreRetention",
+  "issuerReturnEvidenceRetention",
+  "issuerProviderRequests",
+] as const;
+const PERMISSION_STATUSES = ["approved", "blocked", "unresolved"] as const;
 
 function record(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -49,6 +57,11 @@ export function assessETFEquityIndexM4RetentionPolicy(
   if (!record(permissions)) {
     issues.push("The M4 policy is missing its permissions object.");
   } else {
+    for (const key of ALL_PERMISSION_KEYS) {
+      if (!PERMISSION_STATUSES.includes(permissions[key] as ETFM4PermissionStatus)) {
+        issues.push(`${key} must be approved, blocked or unresolved.`);
+      }
+    }
     for (const [key, label] of RETAINED_DATA_PERMISSIONS) {
       if (permissions[key] !== "approved") issues.push(`${label} is ${String(permissions[key] ?? "missing")}.`);
     }
@@ -78,5 +91,12 @@ export function assertETFEquityIndexM4YahooAcquisitionAllowed(policy: unknown, n
   assertETFEquityIndexM4RetentionAllowed(policy, now);
   if (!record(policy) || !record(policy.permissions) || policy.permissions.yahooProviderRequests !== "approved") {
     throw new Error("ETF M4 Yahoo acquisition is blocked: Yahoo provider requests are not approved in the reviewed data-use policy.");
+  }
+}
+
+export function assertETFEquityIndexM4IssuerAcquisitionAllowed(policy: unknown, now = new Date()): void {
+  assertETFEquityIndexM4RetentionAllowed(policy, now);
+  if (!record(policy) || !record(policy.permissions) || policy.permissions.issuerProviderRequests !== "approved") {
+    throw new Error("ETF M4 issuer acquisition is blocked: issuer-provider requests are not approved in the reviewed data-use policy.");
   }
 }

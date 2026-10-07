@@ -20,7 +20,9 @@ Keep this milestone bounded to the M3 validated sample and the unchanged `equity
 
 M4 has started with an explicit provider-use and retention gate. The [readiness record](etf-scoring-m4-readiness-2026-10-07.md) maps the current Firebase/Firestore and Vercel code, and [the policy file](../data/etf-scoring-data-use-policy.json) records the unresolved personal-use decisions. The M3 refresh script now requires an approved, dated retention review before it writes retained data and a separate Yahoo request approval before it acquires another capture. No M4 run has been written.
 
-The M3 artifact is 4,046,474 bytes, above Firestore's 1 MiB document limit. The existing ETF Firestore modules use the client SDK, and this repository has no Admin SDK initialization or checked-in rules establishing server-only writes. Select the server persistence adapter only after the data-use review and storage design are settled; the current state does not satisfy the M4 durable-storage gate.
+The M3 artifact is 4,046,474 bytes, above Firestore's 1 MiB document limit. The existing ETF stores use the client SDK; a separate Firebase Admin run-store adapter now exists, but no credential is configured or connected and there are no checked-in rules establishing reader access. It expects `FIREBASE_SERVICE_ACCOUNT_JSON` for project `stock-app-898d1` in a private server environment, plus configured Firestore TTL on `ttlExpiresAt`. The data-use review and live storage checks remain open, so the M4 durable-storage gate is not yet satisfied.
+
+`lib/etfEquityIndexM4Storage.ts` chunks exact raw M3 JSON bytes into hash-verified 512 KiB pieces, records an immutable manifest and retention expiry, replays persisted bytes before pointer promotion, detects adjusted-history revisions, and models per-ticker lease/retry progress with one shared hourly Yahoo budget scope. The run-store port requires create-only writes and revision compare-and-set. `lib/etfEquityIndexM4FirestoreStore.ts` implements that port, but so far it has only been exercised through the in-memory test store; it has not written to the deployed project.
 
 ## Implementation sequence
 
