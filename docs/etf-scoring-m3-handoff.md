@@ -4,7 +4,7 @@ Prepared 2026-10-07 after M2 specified the restricted candidate. Read the [roadm
 
 ## Entry status
 
-M2 passed the candidate-specification gate. This handoff fixes the M3 sample and evaluation protocol, but **M3 has not started**: no new ticker list has been frozen, no new market history has been acquired, and no M3 scores have been calculated. Do not treat this document as evidence that the candidate is released or that new funds are eligible.
+M2 passed the candidate-specification gate. The sample-registration substep is now complete: the [versioned 12-fund manifest](../data/etf-equity-index-m3-sample-v1.json) was frozen on 2026-10-07 at 04:45:40 UTC with SHA-256 `bbe0ad71f1477b214ae80d99df2cf11e875ef80ccbcf88fe77b226ba959b5853` (also retained in its [sidecar](../data/etf-equity-index-m3-sample-v1.sha256)). It covers four funds in each required stratum and four issuers, excludes every M1 ticker, and records official identity, mandate and net-fee sources before price acquisition. New market histories have not yet been acquired and no M3 scores have been calculated. Do not treat sample registration as evidence that the candidate is released or that new funds are eligible.
 
 Use method ID `equity-index-free-core-trial-v1` with the parameters and source rules in the M2 specification. Do not tune settings against the M3 sample. A justified method change returns to M2, increments the method version, and requires an affected M1 replay before M3 restarts with a fresh predeclared sample.
 

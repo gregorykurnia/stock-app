@@ -1,0 +1,334 @@
+{
+  "schemaVersion": 1,
+  "sampleId": "equity-index-m3-sample-v1",
+  "selectionDate": "2026-10-07",
+  "frozenAt": "2026-10-07T04:45:40Z",
+  "frozenBeforePriceAcquisition": true,
+  "selectionRule": "Official issuer identity, passive broad equity-index mandate, and dated net expense evidence were reviewed before obtaining any Yahoo price histories or calculating scores. Selection did not use realized returns or candidate outcomes.",
+  "minimums": {
+    "funds": 12,
+    "issuers": 3,
+    "perStratum": 4
+  },
+  "excludedM1Tickers": ["VOO", "VTI", "IVV", "ITOT", "SCHB", "VXUS", "VEA", "IXUS"],
+  "issuerDomainReviews": [
+    {
+      "issuer": "State Street Investment Management",
+      "domain": "www.ssga.com",
+      "reviewedAt": "2026-10-07",
+      "reviewedFunds": ["SPYM", "SPY", "SPTM", "SPDW", "CWI"],
+      "reviewNote": "Official U.S. product pages establish fund identity, ticker, benchmark and passive index objective. The official product lineup lists net expense ratios, dated July 9, 2026."
+    },
+    {
+      "issuer": "Charles Schwab Investment Management",
+      "domain": "www.schwabassetmanagement.com",
+      "reviewedAt": "2026-10-07",
+      "reviewedFunds": ["SCHX", "SCHF"],
+      "reviewNote": "Official product pages establish ticker, index objective, passive management style and total expense ratio; the issuer product finder dates net expense ratios August 27, 2026."
+    },
+    {
+      "issuer": "BlackRock / iShares",
+      "domain": "www.ishares.com",
+      "reviewedAt": "2026-10-07",
+      "reviewedFunds": ["IEFA", "EFA", "ACWX"],
+      "reviewNote": "Official product pages establish ticker, index mandate and prospectus fee; the issuer ETF listing reports net expense ratios as of August 31, 2026."
+    },
+    {
+      "issuer": "The Vanguard Group",
+      "domain": "advisors.vanguard.com",
+      "reviewedAt": "2026-10-07",
+      "reviewedFunds": ["VEU", "VSGX"],
+      "reviewNote": "Official product pages establish ticker, index replication mandate, passive approach and dated expense ratio."
+    }
+  ],
+  "comparisonGroups": [
+    {
+      "id": "sp500",
+      "basis": "Same S&P 500 index mandate, independently stated on the State Street SPY and SPYM issuer product pages.",
+      "tickers": ["SPY", "SPYM"]
+    },
+    {
+      "id": "msci-acwi-ex-us-large-mid",
+      "basis": "Both issuer pages identify the MSCI ACWI ex USA Index; exposure is large- and mid-cap developed and emerging markets excluding the U.S.",
+      "tickers": ["ACWX", "CWI"]
+    }
+  ],
+  "funds": [
+    {
+      "ticker": "SPYM",
+      "name": "State Street SPDR Portfolio S&P 500 ETF",
+      "issuer": "State Street Investment Management",
+      "issuerDomain": "www.ssga.com",
+      "exposureStratum": "us-broad-equity",
+      "indexName": "S&P 500 Index",
+      "identitySourceUrl": "https://www.ssga.com/us/en/individual/etfs/state-street-spdr-portfolio-sp-500-etf-spym",
+      "mandateSourceUrl": "https://www.ssga.com/us/en/individual/etfs/state-street-spdr-portfolio-sp-500-etf-spym",
+      "knownInceptionDate": "2005-11-08",
+      "knownMandateChangeDates": ["2020-01-24: S&P 500 Index is the current benchmark start date listed by the issuer."],
+      "selectionDate": "2026-10-07",
+      "comparisonGroupId": "sp500",
+      "inclusionRationale": "Passive, low-cost U.S. large-cap index ETF with the S&P 500 mandate; selected to pair with SPY on the same benchmark and broaden issuer representation. It was not selected from observed returns.",
+      "expenseRatio": {
+        "valuePct": 0.02,
+        "financialDate": "2026-07-09",
+        "designation": "net",
+        "waiverExpiryDate": null,
+        "waiverStatus": "The issuer net-expense-ratio listing reports 0.02%; no separate waiver is listed there.",
+        "sourceUrl": "https://www.ssga.com/library-content/products/fund-docs/etfs/us/information-schedules/spdr-etf-listing.pdf"
+      }
+    },
+    {
+      "ticker": "SPY",
+      "name": "State Street SPDR S&P 500 ETF Trust",
+      "issuer": "State Street Investment Management",
+      "issuerDomain": "www.ssga.com",
+      "exposureStratum": "us-broad-equity",
+      "indexName": "S&P 500 Index",
+      "identitySourceUrl": "https://www.ssga.com/us/en/individual/etfs/state-street-spdr-sp-500-etf-trust-spy",
+      "mandateSourceUrl": "https://www.ssga.com/us/en/individual/etfs/state-street-spdr-sp-500-etf-trust-spy",
+      "knownInceptionDate": "1993-01-22",
+      "knownMandateChangeDates": [],
+      "selectionDate": "2026-10-07",
+      "comparisonGroupId": "sp500",
+      "inclusionRationale": "Passive S&P 500 U.S. large-cap index trust; selected as a same-index comparison candidate with SPYM before outcome inspection.",
+      "expenseRatio": {
+        "valuePct": 0.0945,
+        "financialDate": "2026-07-09",
+        "designation": "net",
+        "waiverExpiryDate": null,
+        "waiverStatus": "The issuer net-expense-ratio listing reports 0.0945%; no separate waiver is listed there.",
+        "sourceUrl": "https://www.ssga.com/library-content/products/fund-docs/etfs/us/information-schedules/spdr-etf-listing.pdf"
+      }
+    },
+    {
+      "ticker": "SPTM",
+      "name": "State Street SPDR Portfolio S&P 1500 Composite Stock Market ETF",
+      "issuer": "State Street Investment Management",
+      "issuerDomain": "www.ssga.com",
+      "exposureStratum": "us-broad-equity",
+      "indexName": "S&P Composite 1500 Index",
+      "identitySourceUrl": "https://www.ssga.com/us/en/individual/etfs/state-street-spdr-portfolio-sp-1500-composite-stock-market-etf-sptm",
+      "mandateSourceUrl": "https://www.ssga.com/us/en/individual/etfs/state-street-spdr-portfolio-sp-1500-composite-stock-market-etf-sptm",
+      "knownInceptionDate": "2000-10-04",
+      "knownMandateChangeDates": ["2020-01-24: S&P Composite 1500 Index is the current benchmark start date listed by the issuer."],
+      "selectionDate": "2026-10-07",
+      "comparisonGroupId": "unranked-pending-peer",
+      "inclusionRationale": "Passive broad U.S. market index mandate spanning large-, mid- and small-cap companies; included as a different index exposure from the S&P 500 and large-cap funds.",
+      "expenseRatio": {
+        "valuePct": 0.03,
+        "financialDate": "2026-07-09",
+        "designation": "net",
+        "waiverExpiryDate": null,
+        "waiverStatus": "The issuer net-expense-ratio listing reports 0.03%; no separate waiver is listed there.",
+        "sourceUrl": "https://www.ssga.com/library-content/products/fund-docs/etfs/us/information-schedules/spdr-etf-listing.pdf"
+      }
+    },
+    {
+      "ticker": "SCHX",
+      "name": "Schwab U.S. Large-Cap ETF",
+      "issuer": "Charles Schwab Investment Management",
+      "issuerDomain": "www.schwabassetmanagement.com",
+      "exposureStratum": "us-broad-equity",
+      "indexName": "Dow Jones U.S. Large-Cap Total Stock Market Index",
+      "identitySourceUrl": "https://www.schwabassetmanagement.com/products/schx",
+      "mandateSourceUrl": "https://www.schwabassetmanagement.com/products/schx",
+      "knownInceptionDate": "2009-11-03",
+      "knownMandateChangeDates": [],
+      "selectionDate": "2026-10-07",
+      "comparisonGroupId": "unranked-pending-peer",
+      "inclusionRationale": "Passive broad U.S. large-cap index exposure covering the issuer-described 750 largest U.S. companies; retained as a distinct benchmark and not grouped with the S&P 500.",
+      "expenseRatio": {
+        "valuePct": 0.03,
+        "financialDate": "2026-08-27",
+        "designation": "net",
+        "waiverExpiryDate": null,
+        "waiverStatus": "The issuer product finder reports a 0.030% net expense ratio; no separate waiver is listed.",
+        "sourceUrl": "https://www.schwabassetmanagement.com/product-finder?combine=schx"
+      }
+    },
+    {
+      "ticker": "IEFA",
+      "name": "iShares Core MSCI EAFE ETF",
+      "issuer": "BlackRock / iShares",
+      "issuerDomain": "www.ishares.com",
+      "exposureStratum": "developed-ex-us-equity",
+      "indexName": "MSCI EAFE IMI Index (Net)",
+      "identitySourceUrl": "https://www.ishares.com/us/products/244049/IEFA",
+      "mandateSourceUrl": "https://www.ishares.com/us/products/244049/IEFA",
+      "knownInceptionDate": "2012-10-18",
+      "knownMandateChangeDates": [],
+      "selectionDate": "2026-10-07",
+      "comparisonGroupId": "unranked-pending-peer",
+      "inclusionRationale": "Passive developed-market index ETF covering large-, mid- and small-cap equities outside the U.S. and Canada; it can help measure broader developed-market cap coverage.",
+      "expenseRatio": {
+        "valuePct": 0.07,
+        "financialDate": "2026-08-31",
+        "designation": "net",
+        "waiverExpiryDate": null,
+        "waiverStatus": "The issuer lists a 0.07% current-prospectus expense ratio and 0.07% net ratio; no fee waiver is listed.",
+        "sourceUrl": "https://www.ishares.com/us/products/etf-investments"
+      }
+    },
+    {
+      "ticker": "EFA",
+      "name": "iShares MSCI EAFE ETF",
+      "issuer": "BlackRock / iShares",
+      "issuerDomain": "www.ishares.com",
+      "exposureStratum": "developed-ex-us-equity",
+      "indexName": "MSCI EAFE Index (Net)",
+      "identitySourceUrl": "https://www.ishares.com/us/products/239623/ishares-msci-eafe-etf",
+      "mandateSourceUrl": "https://www.ishares.com/us/products/239623/ishares-msci-eafe-etf",
+      "knownInceptionDate": "2001-08-14",
+      "knownMandateChangeDates": [],
+      "selectionDate": "2026-10-07",
+      "comparisonGroupId": "unranked-pending-peer",
+      "inclusionRationale": "Passive developed-market index ETF tracking large- and mid-cap developed markets outside the U.S. and Canada; its different index coverage from IEFA remains explicit.",
+      "expenseRatio": {
+        "valuePct": 0.32,
+        "financialDate": "2026-08-31",
+        "designation": "net",
+        "waiverExpiryDate": null,
+        "waiverStatus": "The issuer lists a 0.32% current-prospectus expense ratio and a 0.32% net ratio; no fee waiver is listed.",
+        "sourceUrl": "https://www.ishares.com/us/products/etf-investments"
+      }
+    },
+    {
+      "ticker": "SCHF",
+      "name": "Schwab International Equity ETF",
+      "issuer": "Charles Schwab Investment Management",
+      "issuerDomain": "www.schwabassetmanagement.com",
+      "exposureStratum": "developed-ex-us-equity",
+      "indexName": "FTSE Developed ex US Index (Net)",
+      "identitySourceUrl": "https://www.schwabassetmanagement.com/products/schf",
+      "mandateSourceUrl": "https://www.schwabassetmanagement.com/products/schf",
+      "knownInceptionDate": "2009-11-03",
+      "knownMandateChangeDates": [],
+      "selectionDate": "2026-10-07",
+      "comparisonGroupId": "unranked-pending-peer",
+      "inclusionRationale": "Passive developed-market index exposure to large- and mid-cap companies outside the U.S.; the issuer includes South Korea and Canada, so this is not treated as an MSCI EAFE clone.",
+      "expenseRatio": {
+        "valuePct": 0.03,
+        "financialDate": "2026-08-27",
+        "designation": "net",
+        "waiverExpiryDate": null,
+        "waiverStatus": "The issuer product finder reports a 0.030% net expense ratio; no separate waiver is listed.",
+        "sourceUrl": "https://www.schwabassetmanagement.com/product-finder?combine=schf"
+      }
+    },
+    {
+      "ticker": "SPDW",
+      "name": "State Street SPDR Portfolio Developed World ex-US ETF",
+      "issuer": "State Street Investment Management",
+      "issuerDomain": "www.ssga.com",
+      "exposureStratum": "developed-ex-us-equity",
+      "indexName": "S&P Developed Ex-U.S. BMI Index",
+      "identitySourceUrl": "https://www.ssga.com/us/en/individual/etfs/state-street-spdr-portfolio-developed-world-ex-us-etf-spdw",
+      "mandateSourceUrl": "https://www.ssga.com/us/en/individual/etfs/state-street-spdr-portfolio-developed-world-ex-us-etf-spdw",
+      "knownInceptionDate": "2007-04-20",
+      "knownMandateChangeDates": [],
+      "selectionDate": "2026-10-07",
+      "comparisonGroupId": "unranked-pending-peer",
+      "inclusionRationale": "Passive broad developed-market ex-U.S. index ETF across the S&P investable universe; it adds a different sourced benchmark to the developed-market stratum.",
+      "expenseRatio": {
+        "valuePct": 0.03,
+        "financialDate": "2026-07-09",
+        "designation": "net",
+        "waiverExpiryDate": null,
+        "waiverStatus": "The issuer net-expense-ratio listing reports 0.03%; no separate waiver is listed there.",
+        "sourceUrl": "https://www.ssga.com/library-content/products/fund-docs/etfs/us/information-schedules/spdr-etf-listing.pdf"
+      }
+    },
+    {
+      "ticker": "ACWX",
+      "name": "iShares MSCI ACWI ex U.S. ETF",
+      "issuer": "BlackRock / iShares",
+      "issuerDomain": "www.ishares.com",
+      "exposureStratum": "broad-international-ex-us-equity",
+      "indexName": "MSCI ACWI ex-US Index (Net)",
+      "identitySourceUrl": "https://www.ishares.com/us/products/239594/ishares-msci-acwi-ex-us-etf",
+      "mandateSourceUrl": "https://www.ishares.com/us/products/239594/ishares-msci-acwi-ex-us-etf",
+      "knownInceptionDate": "2008-03-26",
+      "knownMandateChangeDates": [],
+      "selectionDate": "2026-10-07",
+      "comparisonGroupId": "msci-acwi-ex-us-large-mid",
+      "inclusionRationale": "Passive broad international index exposure to large- and mid-cap developed and emerging markets outside the U.S.; it is an exact benchmark-family peer of CWI.",
+      "expenseRatio": {
+        "valuePct": 0.32,
+        "financialDate": "2026-08-31",
+        "designation": "net",
+        "waiverExpiryDate": null,
+        "waiverStatus": "The issuer lists a 0.32% current-prospectus expense ratio and a 0.32% net ratio; no fee waiver is listed.",
+        "sourceUrl": "https://www.ishares.com/us/products/etf-investments"
+      }
+    },
+    {
+      "ticker": "CWI",
+      "name": "State Street SPDR MSCI ACWI ex-US ETF",
+      "issuer": "State Street Investment Management",
+      "issuerDomain": "www.ssga.com",
+      "exposureStratum": "broad-international-ex-us-equity",
+      "indexName": "MSCI ACWI ex USA Index",
+      "identitySourceUrl": "https://www.ssga.com/us/en/individual/etfs/state-street-spdr-msci-acwi-ex-us-etf-cwi",
+      "mandateSourceUrl": "https://www.ssga.com/us/en/individual/etfs/state-street-spdr-msci-acwi-ex-us-etf-cwi",
+      "knownInceptionDate": "2007-01-10",
+      "knownMandateChangeDates": [],
+      "selectionDate": "2026-10-07",
+      "comparisonGroupId": "msci-acwi-ex-us-large-mid",
+      "inclusionRationale": "Passive broad international index ETF for developed and emerging markets excluding the U.S.; the issuer names the same MSCI ACWI ex USA benchmark family as ACWX.",
+      "expenseRatio": {
+        "valuePct": 0.30,
+        "financialDate": "2026-07-09",
+        "designation": "net",
+        "waiverExpiryDate": null,
+        "waiverStatus": "The issuer net-expense-ratio listing reports 0.30%; no separate waiver is listed there.",
+        "sourceUrl": "https://www.ssga.com/library-content/products/fund-docs/etfs/us/information-schedules/spdr-etf-listing.pdf"
+      }
+    },
+    {
+      "ticker": "VEU",
+      "name": "Vanguard FTSE All-World ex-US ETF",
+      "issuer": "The Vanguard Group",
+      "issuerDomain": "advisors.vanguard.com",
+      "exposureStratum": "broad-international-ex-us-equity",
+      "indexName": "FTSE All-World ex US Index",
+      "identitySourceUrl": "https://advisors.vanguard.com/investments/products/veu/vanguard-ftse-all-world-ex-us-etf",
+      "mandateSourceUrl": "https://advisors.vanguard.com/investments/products/veu/vanguard-ftse-all-world-ex-us-etf",
+      "knownInceptionDate": "2007-03-02",
+      "knownMandateChangeDates": [],
+      "selectionDate": "2026-10-07",
+      "comparisonGroupId": "unranked-pending-peer",
+      "inclusionRationale": "Passive index-replication ETF spanning developed and emerging markets outside the U.S.; its FTSE benchmark remains distinct from the MSCI peer group.",
+      "expenseRatio": {
+        "valuePct": 0.04,
+        "financialDate": "2026-02-27",
+        "designation": "net",
+        "waiverExpiryDate": null,
+        "waiverStatus": "Vanguard reports the current 0.04% expense ratio; no separate waiver is listed on the current product disclosure.",
+        "sourceUrl": "https://advisors.vanguard.com/investments/products/veu/vanguard-ftse-all-world-ex-us-etf"
+      }
+    },
+    {
+      "ticker": "VSGX",
+      "name": "Vanguard ESG International Stock ETF",
+      "issuer": "The Vanguard Group",
+      "issuerDomain": "advisors.vanguard.com",
+      "exposureStratum": "broad-international-ex-us-equity",
+      "indexName": "FTSE Global All Cap ex US Choice Index",
+      "identitySourceUrl": "https://advisors.vanguard.com/investments/products/vsgx/vanguard-esg-international-stock-etf",
+      "mandateSourceUrl": "https://advisors.vanguard.com/investments/products/vsgx/vanguard-esg-international-stock-etf",
+      "knownInceptionDate": "2018-09-18",
+      "knownMandateChangeDates": [],
+      "selectionDate": "2026-10-07",
+      "comparisonGroupId": "unranked-pending-peer",
+      "inclusionRationale": "Passive, broad developed/emerging and large/mid/small ex-U.S. index exposure; the index applies ESG screens, so it remains unranked against unscreened international peers.",
+      "expenseRatio": {
+        "valuePct": 0.10,
+        "financialDate": "2025-12-19",
+        "designation": "net",
+        "waiverExpiryDate": null,
+        "waiverStatus": "Vanguard reports the 0.10% expense ratio dated December 19, 2025; no separate waiver is listed on the current product disclosure.",
+        "sourceUrl": "https://advisors.vanguard.com/investments/products/vsgx/vanguard-esg-international-stock-etf"
+      }
+    }
+  ]
+}

@@ -2,7 +2,7 @@
 
 Last updated: 2026-10-07. **Start here for current status and delivery order.**
 
-**Next milestone: M3 — validate the restricted candidate on a previously unused sample.** M2 passed its specification gate on 2026-10-07; use the [M3 handoff](etf-scoring-m3-handoff.md) and [M2 candidate specification](etf-scoring-m2-handoff.md). M1's captured-data integrity and independent-calculation gates pass. The prior hash mismatch was traced to a precision change in Next.js's compiled JSON module and fixed by parsing the retained JSON text on the Node server. The historical point-in-time fee branch remains blocked. M3 and later milestones remain planned work with acceptance gates, not authorization to execute everything in one session.
+**Current milestone: M3 — validate the restricted candidate on a previously unused sample.** The sample was frozen before any new Yahoo histories or scores were produced; the [M3 handoff](etf-scoring-m3-handoff.md) records its SHA-256. M2 passed its specification gate on 2026-10-07; see the [M2 candidate specification](etf-scoring-m2-handoff.md). M1's captured-data integrity and independent-calculation gates pass. The prior hash mismatch was traced to a precision change in Next.js's compiled JSON module and fixed by parsing the retained JSON text on the Node server. The historical point-in-time fee branch remains blocked. M3 and later milestones remain planned work with acceptance gates, not authorization to execute everything in one session.
 
 This document governs delivery order and progress tracking. The [independent Grand Score plan](etf-independent-grand-score-plan.md) retains the original Core/Full formulas, family routing and broader coverage objectives. The [quantitative comparison plan](etf-quantitative-comparison-plan.md) and [ETF page plan](etf-page-plan.md) retain applicable metric and product requirements. This roadmap does not replace those scorecards with the Yahoo equity-index experiment.
 
@@ -42,7 +42,7 @@ Gate to M3: **passed for restricted validation only**. The specification and aud
 
 ### M3 — Expanded validation on previously unused equity-index funds
 
-Status: **next; depends on the M2 gate, which passed**. Use the [M3 handoff](etf-scoring-m3-handoff.md). Sample registration, acquisition and scoring have not started.
+Status: **in progress; sample frozen, acquisition and scoring pending**. The preregistered 12-fund sample and SHA-256 are in the [M3 handoff](etf-scoring-m3-handoff.md). No price history has been acquired for the frozen sample, and no scores have been calculated.
 
 Add a bounded, sourced sample of previously unused broad equity-index ETFs across issuers and verified U.S., developed-market and broad international exposures. Specify the sample and evaluation criteria before running it. Include a genuinely comparable developed-market peer for VEA where sources permit. Verify index/mandate differences rather than assuming all broad funds are interchangeable. Test short-history, missing-source and continuity rejection cases as well as successful windows.
 
