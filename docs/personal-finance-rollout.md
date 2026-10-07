@@ -27,7 +27,7 @@ The first release should be easy to maintain and cheap to run. It should use the
 - A /personal-finance route.
 - One record per month.
 - Inputs for income, Credit Card Payment, Future Planning Installments, and Actual Monthly Spending.
-- An automatic fixed Monthly Petty Cash Spendings deduction of Rp2,500,000.
+- An automatic fixed Monthly Petty Cash Spendings deduction of Rp2,000,000.
 - Automatic deficit carryover into the next recorded month.
 - Automatic 60% VXUS and 40% VOO recommendations when the remainder is positive.
 - Add, edit, and delete monthly records.
@@ -54,7 +54,7 @@ Calculations must be implemented in a pure TypeScript module so the UI and tests
 Process records in ascending month order. For each record:
 
 1. Apply the previous record's outstanding deficit as carryover. For consecutive records, this is the previous calendar month. If a month is skipped, preserve the outstanding deficit until the next recorded month; do not create synthetic empty records.
-2. Calculate planned deductions as Credit Card Payment + Future Planning Installments + Rp2,500,000 fixed petty cash.
+2. Calculate planned deductions as Credit Card Payment + Future Planning Installments + Rp2,000,000 fixed petty cash.
 3. Calculate the remainder as Income - Carryover Applied - Planned Deductions.
 4. If the remainder is positive, calculate DCA from that remainder.
 5. If the remainder is zero or negative, set all DCA recommendations to zero.
@@ -63,7 +63,7 @@ Process records in ascending month order. For each record:
 Use these formulas:
 
 - carryoverApplied = previous deficit carryover
-- plannedDeductions = creditCardPayment + futurePlanningInstallments + 2,500,000
+- plannedDeductions = creditCardPayment + futurePlanningInstallments + 2,000,000
 - remainder = income - carryoverApplied - plannedDeductions
 - dcaBase = max(remainder, 0)
 - vooRecommendation = round(dcaBase × 0.40)
@@ -81,16 +81,16 @@ Positive month:
 - Income: Rp20,000,000
 - Credit Card Payment: Rp5,000,000
 - Future Planning Installments: Rp4,000,000
-- Fixed petty cash: Rp2,500,000
-- Remainder: Rp8,500,000
-- VOO: Rp3,400,000
-- VXUS: Rp5,100,000
+- Fixed petty cash: Rp2,000,000
+- Remainder: Rp9,000,000
+- VOO: Rp3,600,000
+- VXUS: Rp5,400,000
 - Deficit carryover: Rp0
 
 Deficit followed by recovery:
 
-- Month one with Income Rp8,000,000, Credit Card Payment Rp4,000,000, and Future Planning Installments Rp3,000,000 produces a Rp1,500,000 deficit after petty cash.
-- The next recorded month first applies the Rp1,500,000 carryover, then applies that month's three planned deductions.
+- Month one with Income Rp8,000,000, Credit Card Payment Rp4,000,000, and Future Planning Installments Rp3,000,000 produces a Rp1,000,000 deficit after petty cash.
+- The next recorded month first applies the Rp1,000,000 carryover, then applies that month's three planned deductions.
 - DCA remains zero until that month's final remainder is positive.
 
 ## Data model
@@ -113,7 +113,7 @@ Do not persist carryover, remainder, or DCA values in v1. They are derived from 
 
 Use constants in lib/personalFinance.ts for:
 
-- fixed petty cash: 2,500,000
+- fixed petty cash: 2,000,000
 - VOO allocation: 40%
 - VXUS allocation: 60%
 
@@ -166,7 +166,7 @@ The dashboard should provide:
 
 - loading, empty, saving, and error states;
 - a month input and numeric fields;
-- a clear fixed petty cash line showing Rp2,500,000;
+- a clear fixed petty cash line showing Rp2,000,000;
 - save, edit, and delete controls;
 - a selected-month summary;
 - a newest-first history table;
@@ -230,7 +230,7 @@ The rollout is complete when all of the following are true:
 - The route loads without changing existing pages.
 - A user can save one monthly record and see it after a full reload.
 - A month cannot be duplicated because its YYYY-MM document ID is deterministic.
-- Rp2,500,000 is deducted automatically for every recorded month.
+- Rp2,000,000 is deducted automatically for every recorded month.
 - A previous deficit is applied before the current month's three planned deductions.
 - A deficit month shows zero VOO and VXUS recommendations and carries the deficit forward.
 - A positive remainder produces 60% VXUS and 40% VOO after whole-rupiah rounding, with the rounded recommendations summing to the DCA base.
@@ -244,7 +244,7 @@ The rollout is complete when all of the following are true:
 ## Risks and decisions to preserve
 
 - Firestore rules may need to allow the new collection. Check the existing rules and surface a clear error if access is denied; do not silently fall back to local-only storage.
-- The fixed petty cash amount is a v1 constant. Changing it later should be a deliberate migration or settings feature so historical calculations do not change unexpectedly.
+- The fixed petty cash amount is a v1 constant. Since derived values are recalculated from stored inputs, changing it updates every month's history; future changes should be deliberate.
 - Carryover is based on the next recorded row when a month is skipped. If personal usage shows that strict calendar-month behavior is preferable, make that a separate decision before changing the calculator.
 - The older Next.js version described in CLAUDE.md must not override the installed package or current local Next.js documentation.
 

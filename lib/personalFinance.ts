@@ -1,4 +1,4 @@
-export const MONTHLY_PETTY_CASH = 2_500_000;
+export const MONTHLY_PETTY_CASH = 2_000_000;
 export const VOO_ALLOCATION = 0.4;
 
 export interface PersonalFinanceMonthInput {
