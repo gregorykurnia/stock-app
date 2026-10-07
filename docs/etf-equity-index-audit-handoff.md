@@ -4,6 +4,8 @@ Prepared 2026-10-07. The eight-fund validation batch was pushed in commit `0f163
 
 Read the [trial report](etf-free-core-trial-2026-10-07.md), [batch report](etf-equity-index-validation-batch-2026-10-07.md), and [independent Grand Score plan](etf-independent-grand-score-plan.md) for context. The prompt below authorizes the next audit, not a methodology freeze or a catalogue rollout.
 
+This is milestone M1 in the [ETF scoring master roadmap](etf-scoring-roadmap.md). After the audit, use its outcome to prepare M2 (resolve findings and specify the candidate); the roadmap also records subsequent validation, refresh, integration, coverage and other-family milestones.
+
 ## Copyable prompt
 
 ```text
@@ -19,6 +21,7 @@ overwrite or include unrelated changes to
 docs/etf-quantitative-comparison-plan.md in your commit.
 
 Read these documents and implementations before editing:
+- docs/etf-scoring-roadmap.md
 - docs/etf-free-core-trial-2026-10-07.md
 - docs/etf-equity-index-validation-batch-2026-10-07.md
 - docs/etf-equity-index-audit-handoff.md
@@ -132,7 +135,15 @@ must be blocked. If a source or credential prevents a branch of real-data
 validation, report its exact blocker and complete the independent work
 that remains possible. Do not claim blocked checks passed.
 
-After validation, commit only the related validated changes and push the
-current branch to origin. Report the commit, checks, artifact/report
-paths, conclusions and precise outstanding blockers.
+Before finishing, update docs/etf-scoring-roadmap.md with the dated audit
+report/artifacts, M1 gate outcome and exact next milestone or revision
+work. Prepare a concrete M2 handoff based on the findings. Do not mark
+blocked checks passed or automatically start later milestones. Record
+historical-fee gaps separately from publication-blocking integrity or
+calculation failures.
+
+After validation, commit only the related validated changes, including
+the roadmap/handoff updates, and push the current branch to origin.
+Report the commit, checks, artifact/report paths, conclusions and
+precise outstanding blockers.
 ```

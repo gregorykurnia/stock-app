@@ -2,6 +2,10 @@
 
 Requested: 2026-10-06. Expanded: 2026-10-06 to cover the catalogue with strategy-specific scorecards. Updated: 2026-10-06 with the personal-use, free-data implementation handoff and Core pipeline. Status: the Tiingo Core acquisition path is live-validated and retained for VOO, VTI, and VXUS; catalogue-wide history, issuer-data breadth, return reconciliation beyond VTI, and methodology approval remain unfinished. See the [Core coverage report](etf-core-coverage-2026-10-06.md).
 
+## Start here: current delivery roadmap
+
+The [ETF scoring master roadmap](etf-scoring-roadmap.md) tracks the current milestone, later milestones and evidence required to advance. As of 2026-10-07, the separate Yahoo eight-fund equity-index batch is implemented; its reliability and methodology audit is next. Use the roadmap for sequencing and current progress. This document retains the original Core/Full specifications and broader objectives; the experiment does not replace them.
+
 ## Agreed outcome
 
 ### Authorized two-fund Free Core trial — 2026-10-07
