@@ -1,0 +1,354 @@
+{
+  "schemaVersion": 1,
+  "version": "equity-index-integrity-v2",
+  "serialization": "canonical-json-key-order-v1",
+  "hashAlgorithm": "SHA-256",
+  "artifactHash": "dab998b99f2cbce12f68a9f44b5d78d428773b7303870da4547acb0a73043e9d",
+  "metadataHash": "6e4162853bae2d66e34dfe9b8f70fbadc597a83aad1e603e187c2d7e564041bd",
+  "scoringParameters": {
+    "methodologyVersion": "equity-index-free-core-trial-v1",
+    "formula": "(feeWeight * feePoints) + (historicalWeight * historicalOutcomePoints)",
+    "feeWeight": 0.42857142857142855,
+    "historicalWeight": 0.5714285714285714,
+    "feeScalePct": 0.5,
+    "growthAnchorPct": 8,
+    "growthScalePct": 4,
+    "drawdownScalePct": 25,
+    "downsideScalePct": 15,
+    "growthWeight": 0.4,
+    "drawdownWeight": 0.35,
+    "downsideWeight": 0.25
+  },
+  "fundHashes": {
+    "VOO": "a4dc0c854cba581e0b47491a3e4c6528b367b7d4ae00202d120f1c4065448e85",
+    "VTI": "919192f75462675a0bb2071da3c5a761de74cae53adb144de3bc59b8e9b3598b",
+    "IVV": "beff7cf1fdd29ff5097082d5b856ce26aa391d8c6570071a75604ffbda43e12b",
+    "ITOT": "22e85e3604709b1127cb4d972b9639fb9dcd6ffc6b87071ab3162098e1b4621b",
+    "SCHB": "397f22d9c8ff8285f080be67d69416af3d40abe29da695925405552c01f80c29",
+    "VXUS": "04d12e695aa403a003d71997f2b04b6691c383c24c218da6391bc95c89fe369c",
+    "VEA": "0c2dcdb824dd47e7d1733241b6869d958c210eed35f3ab1fa1939eca415a7c16",
+    "IXUS": "0fb652ab3e56f62c724fa4b5c773f822b6ad39d273377dd33bb1ed8894378b96"
+  },
+  "rowHashes": {
+    "VOO|2019-12-31|1Y": {
+      "inputHash": "8a16958ba1c7b3eb3559116e91965f14d937d2f81759c38c1c8b35e4c95c4b3e",
+      "resultHash": "37d8c8c89ab7b92dbbc32802cdd341d20ba0e1ae453a942f12ed4a880040f064"
+    },
+    "VOO|2019-12-31|3Y": {
+      "inputHash": "c3ac621924b1cf0dbd889ac7fcd3bcaa4383bfa7592cafc00b646ff5e57df2b4",
+      "resultHash": "bbf868fa8c3d55b3ed47df831d9af88415965b351a5d4816326ce1cc39e81303"
+    },
+    "VOO|2020-03-31|1Y": {
+      "inputHash": "2154bfe404ab0ce5509f0e0599b02180ff002da789489b9353a202621cd4c462",
+      "resultHash": "e694c7b93012491c5f77ecc40b719b543fadc6f95037a75c7a1bcebd985cebf0"
+    },
+    "VOO|2020-03-31|3Y": {
+      "inputHash": "ba4175c5afb00d0402bf8505ebc4b13a41fc54df0c197f66e6458cd8ca6a51c9",
+      "resultHash": "93515ed67338eed566b37b35775160371436871b6e964964dfbdb29b2faa0949"
+    },
+    "VOO|2022-12-30|1Y": {
+      "inputHash": "370ecb10f6b3de8b699cab47469bcd4b6dc824e532010d7a1ea321a87316b31e",
+      "resultHash": "218163e8576c86d5f24b6fb38be98832ec85351dc8dbc2392f7024a647d4e608"
+    },
+    "VOO|2022-12-30|3Y": {
+      "inputHash": "91166d06eabf80fa22b0a087a52531bc27d790bcae23f5323fe24ffbe24dc705",
+      "resultHash": "b9b9678d0469ddce991e24f3e895230d99ba6ade0201b024f1c991c24582c57d"
+    },
+    "VOO|2024-12-31|1Y": {
+      "inputHash": "9f72fb0bb4bd815bcdcc3c61ae3b2debce615a730790185f05a46810ea9e8136",
+      "resultHash": "5fd170ad05f920d07c183bc5b4738ae953eb7624947efe27133c356324f28534"
+    },
+    "VOO|2024-12-31|3Y": {
+      "inputHash": "4ce5d68ecace2448f8de2783897d61f92973cafdfdaf8d9ef6fb3721d44f9d4c",
+      "resultHash": "7dc4d5e387c644dd51f22e8cf403ef8c79767813e5b31ae61c07c5d008918045"
+    },
+    "VOO|2026-09-30|1Y": {
+      "inputHash": "c4b3d08013d04a14b66a9650c77a0cdf121ae073bb58c1daaa0a7cf00b0b08ec",
+      "resultHash": "504c72425f663ffff954793280033f358e7ec9daecc7dd7c642952177c456da4"
+    },
+    "VOO|2026-09-30|3Y": {
+      "inputHash": "f249434b4efef3faff2751318ab6d624a74ace646bf0168d61f478d43d54fe7b",
+      "resultHash": "f54e79ff150dc0cc4d06517b2b8e153ecaa8900dcea52326c6cdaf81ed55d747"
+    },
+    "VTI|2019-12-31|1Y": {
+      "inputHash": "6839aa2d2ee08d6e98fc909b888031a005d9d391129575aa0204ad688d4c4471",
+      "resultHash": "78e1b7348462f99cd20e6965b4b6da601e816b26b730732ed701c4d253e91c4c"
+    },
+    "VTI|2019-12-31|3Y": {
+      "inputHash": "1228bacdc9134caadbffa0bbf6cf1cf005ef63e3e14c4f3f7532a26d227fdeb0",
+      "resultHash": "a0e1e18bfe2c0c4cddc882b057f19c1e638e29d49328e713dfc65778a0f77ac8"
+    },
+    "VTI|2020-03-31|1Y": {
+      "inputHash": "d59ddd5fd8ec9e747e23ef274b2fe7a8dda9edc8d05ec5d9618a8582b0712acf",
+      "resultHash": "2a0fc21274429af66df70583465e99ab4b705f8dd13c97b1899adbc864156ca4"
+    },
+    "VTI|2020-03-31|3Y": {
+      "inputHash": "555a17c3c356d9e51cea10660aadee49f4957e0a82b2d0dd7bf79735e125f2d3",
+      "resultHash": "697dfe993e6f1d89ab1b5e62b74094bcee71aca6e631c0be9920a8bbf2f6095c"
+    },
+    "VTI|2022-12-30|1Y": {
+      "inputHash": "0232a7b40006dbaa621bc5323f6a0d83262972fd24d18aa40f743e5577776481",
+      "resultHash": "54eae73441312901fde57b1b5690a6bcbec18f572bdb9005dea6f561549c2cbc"
+    },
+    "VTI|2022-12-30|3Y": {
+      "inputHash": "5a540a8f8dcd05330d7d1e3cf9e3a62d02a5a69c8aa3555e47e69895d54bc8c3",
+      "resultHash": "a07cb206a6739f8360b1ac57b1381954fd46633b85773bad5c25011f8548a744"
+    },
+    "VTI|2024-12-31|1Y": {
+      "inputHash": "d705267e73eaff4f34b524fc4ea3b559a2f80be9ebca964bc1503e2e0a510089",
+      "resultHash": "733cad22ae44dc2b9df411941aa01b26522fe43d04703ba21fac73b6ecb7d9d3"
+    },
+    "VTI|2024-12-31|3Y": {
+      "inputHash": "2707ce8c3fcb6c85b0ffbe9ca12967576807f99572039b8d17a317834ffcad93",
+      "resultHash": "685539b64941651e0298c3218dec6b812b08a52ab8bafcb9242fa0f0d507f616"
+    },
+    "VTI|2026-09-30|1Y": {
+      "inputHash": "40f91c046902bc2dc13ae9199b5900531b35feed34aa2c18deb11f696fa62fa4",
+      "resultHash": "31edcf62a42376266564fc10fbba1d93f6cad2c53e2e99d1e9281325f7b9bc2b"
+    },
+    "VTI|2026-09-30|3Y": {
+      "inputHash": "3a48973c37f89fe9d2b5bdb83a506be69cd6403d773b9842ee020ad940adbeef",
+      "resultHash": "9abb3aad04e91a22a362dd5e781a88a44625fbdff248cae52ba5308fbafc467d"
+    },
+    "IVV|2019-12-31|1Y": {
+      "inputHash": "947071834df091b3928ad619940cbaeadb51a381862a0d13b8a72dedc1c07c49",
+      "resultHash": "9ae7132670f242df1a911894852a7ec566d239ea65a8c283702d98dfd15ed04a"
+    },
+    "IVV|2019-12-31|3Y": {
+      "inputHash": "1f88fce7b66a1f22928928feba009249fa3801e2209636a58b181b312a60f4e9",
+      "resultHash": "18527af6c6bc74afdd33d717e0f4f6db8ddb24fb49804c6eaaeee41034d77685"
+    },
+    "IVV|2020-03-31|1Y": {
+      "inputHash": "81520ff69d70246939208558d827208962b120f529e7266c331ad535770b63be",
+      "resultHash": "be4ac87e3747662e825f7adf0cca91b5e5f1dc8c3614e9a05195be39c124bd60"
+    },
+    "IVV|2020-03-31|3Y": {
+      "inputHash": "0445428305af031adff33c4f522a74480c821063b22db597d497a7e7d5715fa2",
+      "resultHash": "f7343178c6220441ac45e8f301115b05e29b9c9a2742a932e8c635ca71c8bcfc"
+    },
+    "IVV|2022-12-30|1Y": {
+      "inputHash": "8d821d7a15433fc3db9599f259ee8853d3811cef9630f3dbd2d8c6983994cf2c",
+      "resultHash": "db95024be342da08b671ea7c8bb0fde625fb87d8897f190d7fe6abdfe1bd732b"
+    },
+    "IVV|2022-12-30|3Y": {
+      "inputHash": "6e2a94169fe1aa52cce6ab8a1eb67494026b5c66e806dc59e607d35337412e6c",
+      "resultHash": "d0e4f14a724cdf9e2c6ec621c6788422cb956740aefdfa4c552e13483e4cdc02"
+    },
+    "IVV|2024-12-31|1Y": {
+      "inputHash": "3143dd85acff10b69efee41e2af517d01201b7478d1f2c10401f30561b48e36d",
+      "resultHash": "b051ffd7b172ad5ffa87796bc222946d12f2e13eb2aee8687648778f4b205fa9"
+    },
+    "IVV|2024-12-31|3Y": {
+      "inputHash": "3ebab515e3c0505af8ae946d156c240d2cc9cfa56f7025f1548bd94f2f2dcb43",
+      "resultHash": "c1ae002609d0b0a4e29373001795ec2ae308b7610a69ebe1aa3b99fdadf06445"
+    },
+    "IVV|2026-09-30|1Y": {
+      "inputHash": "599561f377814c0395f68c18a9fb9c161d81eb5f7bb04504ea6188d934d53cd0",
+      "resultHash": "2bacc4a76c48b5bfbb5768ba178e158d942bf710ef52fee4c6b7b76c33d0918d"
+    },
+    "IVV|2026-09-30|3Y": {
+      "inputHash": "2521102d112ab9760a0170453474c21d1e13fb910b986ce8106624ed65b1883f",
+      "resultHash": "cff359670930afac61fb61ee37f37b970138b363466c28d302e209a951a97559"
+    },
+    "ITOT|2019-12-31|1Y": {
+      "inputHash": "c9c9c96f6c3bdabe77c40e310bd423dbf87963b27dcbd553f41b73e464115b7a",
+      "resultHash": "0d86f3686be9988117cfbeb7ab1f174a4c50afa5a8ab769d792878e72f71d12e"
+    },
+    "ITOT|2019-12-31|3Y": {
+      "inputHash": "f0c459b6f6e9712e38e1b9e38ca6459279aa66a4ffc3baa38290a19376f31235",
+      "resultHash": "80596c0a0034cb1e23361c6094d2f36edf471f1cfb6a4e35c00d6ad9898c11de"
+    },
+    "ITOT|2020-03-31|1Y": {
+      "inputHash": "22686409dd3c4596944758599c05739435465a4194142311cd7a18600820f64a",
+      "resultHash": "5302a5f44c426eaf9fced71215cf99b906b970a3ae8a15e14aaac635cb05b297"
+    },
+    "ITOT|2020-03-31|3Y": {
+      "inputHash": "4644e3256bdfc675ac2c3e1d7c15331a6a8557229ae4ca08278cdb423ac34e39",
+      "resultHash": "a751ee7d5587b8d20aa267b3618665655e1d7efc8f00770d4f6da6a5f131cf0e"
+    },
+    "ITOT|2022-12-30|1Y": {
+      "inputHash": "1bc837e76b92308482314e54edc0b8abc2d759d8ccddd0a6a14a904757f4316b",
+      "resultHash": "8de9cf1b575a099643461137ca7c5dd9c21f7f1c6468d36e955f04979c30342b"
+    },
+    "ITOT|2022-12-30|3Y": {
+      "inputHash": "b0a808822f6d44035be13d33f5b170d50df46f0d05da89fb1f7ccb5c7e35dd70",
+      "resultHash": "cafc89d4eba42d9698b8face28fd35b771cbb5f49f1838a59fead5323bdd32ad"
+    },
+    "ITOT|2024-12-31|1Y": {
+      "inputHash": "3cdb1988bd42e995f48d0393f0d612f868b61ba62d593a15c2a5413a020aeee4",
+      "resultHash": "cd7faae72d2722a59aca648f93c8052ad5749f20e73224ed966f6631032cf8d4"
+    },
+    "ITOT|2024-12-31|3Y": {
+      "inputHash": "0cbe88261ddcb8d21fa992a720569c792b532e5196d488819fd589a63c122715",
+      "resultHash": "d709848868a9e0252499a2930d524d93a12d6ed9f2695dd7a9d21b326dd7b9e9"
+    },
+    "ITOT|2026-09-30|1Y": {
+      "inputHash": "03434c38b99f420a59bf7ebb33369e63273657138a2ccc87bdfa8755dbffe3e7",
+      "resultHash": "f6074bf163fd4f81f833305b7bab770a8fa0a160f7dc9da5bd4ecdc494dcd0eb"
+    },
+    "ITOT|2026-09-30|3Y": {
+      "inputHash": "c46976ce68bc118a6aeb9fa679a1d9e40cb209cc436443130b6dacf173759daf",
+      "resultHash": "6d37f43da13736915e6794d516ff198356f534635d70d506f6f67a064248f9c5"
+    },
+    "SCHB|2019-12-31|1Y": {
+      "inputHash": "4f8c84fb2a250ac28348d0e2ff7cb435c95d711882cd9c173f4fb28e753cd133",
+      "resultHash": "59d734b1ea6f1612875495cdee813db356991d28d9c9410ea4dedeb9ab61922b"
+    },
+    "SCHB|2019-12-31|3Y": {
+      "inputHash": "0e6a4bc1b6e04d4a38b5ec03b29fc915a38f12303e17092f60c1450f75a11acf",
+      "resultHash": "025cdfd19f2fcd6145d262afe544cd9015b27e4d3fa2e2a41cb7015efad30d67"
+    },
+    "SCHB|2020-03-31|1Y": {
+      "inputHash": "52e5e60203139002edce976265f715780e7c13552f4d74c70483ca94f0c23577",
+      "resultHash": "990a7075e9bab7049b656ba7c85ffb0ca77f14afeef40ee451ed302da4f9cc3e"
+    },
+    "SCHB|2020-03-31|3Y": {
+      "inputHash": "487e133741bf9f807aa432d56f6b63f8e44bdd169112d91a22386ea38e7f4828",
+      "resultHash": "9a096f116b46295c673a9bcb24d9bc44dcb2b4c797bf87b85c5ac270debc3388"
+    },
+    "SCHB|2022-12-30|1Y": {
+      "inputHash": "475fb5b828c84acfbe769d14b0feead4f8aacb06a9be22f39505e0312c83efaa",
+      "resultHash": "0cd2949dee243b1ff273c7d5117c341df4ec8148b88fd4aa9028d835284837c9"
+    },
+    "SCHB|2022-12-30|3Y": {
+      "inputHash": "f74860d9f1c31e45769d04c4a25b9c5061efe0b8179ec09480750a4383926567",
+      "resultHash": "7de3f9b71ade5c7b286f95643765006fbb043962f809cb7415f8d74b0f37f511"
+    },
+    "SCHB|2024-12-31|1Y": {
+      "inputHash": "5a714a48eceec08ab93a4a8053115c722af29a9eb35e4e2fd46e4b33ccc19051",
+      "resultHash": "7e7452bae6673a8e311a3b2f86f1763bdf2090cf4e6826a800e8288095f65b5c"
+    },
+    "SCHB|2024-12-31|3Y": {
+      "inputHash": "567fa78fdca030a8d492b24d18c7809d023bef25aa5f042642a62b29444ab832",
+      "resultHash": "8070b0516aa1728af693798a8e212f5e91b0365198d9c0f14eaee52d65a04641"
+    },
+    "SCHB|2026-09-30|1Y": {
+      "inputHash": "1408cafc5340edb4e9befdd1e07c7a993113fe5c21ecac53440b916d0df9aa97",
+      "resultHash": "73a59194d26e58d238381c359ee44d8785d941e60f63c863ee94b0c21d5cfd9c"
+    },
+    "SCHB|2026-09-30|3Y": {
+      "inputHash": "8a343150891e7d09ea3a3dbc66e750ae5402d33fb1592d97148c9a9e99123e21",
+      "resultHash": "8c215b617597ab54f14a33e63edaea7cdceae33aed24328c5199715e4a4929e4"
+    },
+    "VXUS|2019-12-31|1Y": {
+      "inputHash": "be477a60f769b0444556c813f5a68e6ffac5d18f8f088525308e1e212b585920",
+      "resultHash": "d245a93683072bbac09709bcaf6a92704da6f33bb114c6b5ca7d6d1b18f52638"
+    },
+    "VXUS|2019-12-31|3Y": {
+      "inputHash": "3c270e97ba8cbcefaacb1f41587725a5f6c888c738a04de8a01d27b06aa41be2",
+      "resultHash": "94b7a1d66bf331551f29132fed6ad52fa86e139cb4897962b064d13fe16452e5"
+    },
+    "VXUS|2020-03-31|1Y": {
+      "inputHash": "901766caa360a8a82e2efe12626410c8be9ac24bf508a46578e427cc5bb63066",
+      "resultHash": "242addd4ed0ac6cec40bb4c99b70a710429a0574399afe1178265ae3e5b29d83"
+    },
+    "VXUS|2020-03-31|3Y": {
+      "inputHash": "eefc280f54cd876b8da21d0a0a56708e1cd30ff48600aed77c1f958ecfedd173",
+      "resultHash": "75f7cf647502364b24096b68cab8214e14c23863254fc723656276fd5e0680ae"
+    },
+    "VXUS|2022-12-30|1Y": {
+      "inputHash": "9ce99db6703af86d76bc093833fcf1b42e311c265ed63272c5c646e8ee479fad",
+      "resultHash": "7d77ed0c9bc9fcde480515df8dd822ec4ee391737fe5a98566562cdc5e170aab"
+    },
+    "VXUS|2022-12-30|3Y": {
+      "inputHash": "9846d69394c3051d2a2759bd24a45292afcfac4f42d486098707b1dfe0297770",
+      "resultHash": "86e1623d93dab2e1f76036c93389834434eb0800184078f04a5f02d7efaed74b"
+    },
+    "VXUS|2024-12-31|1Y": {
+      "inputHash": "99da208e534126cf086aded00a2188ee12e17a3acdaf136291b67f378af66b02",
+      "resultHash": "94fccd25abac108ab1219ead4b504ebe9ae086b3cd5e177221fe02e90e6a3b4a"
+    },
+    "VXUS|2024-12-31|3Y": {
+      "inputHash": "047c2eb74e5b5df882ecfe0dba208c9ac06ba6eb7730e29e0384065925de6815",
+      "resultHash": "78fa57dfbe86d0d865023c6b1e80c36b9f3160124826d42c5c4e9c2df272a208"
+    },
+    "VXUS|2026-09-30|1Y": {
+      "inputHash": "71e7c2f1829d63b295d28d470a21de43940fb7b7db8931b0fda3bbfbeef63d84",
+      "resultHash": "2872aa8aa21a2313279a767a900274d4aa5ec82f177a3c40e371df7d9f84d03d"
+    },
+    "VXUS|2026-09-30|3Y": {
+      "inputHash": "e5ff1c134903a268eb202cd934eeefcba6fe9b0a0af66c17edd2dc6675b856d4",
+      "resultHash": "6d73b04566f33188df2e8d7d61628d584693cd3898dad9b64c4389dbc7a7770d"
+    },
+    "VEA|2019-12-31|1Y": {
+      "inputHash": "e86ff78d6edc89268270b4984aaf223b6df4318864e838e40c9346f9b311eccf",
+      "resultHash": "1c242c5a99a6e244b989a758adf39ea3a19d85f3c8d5545909eab2f5c3a5fc70"
+    },
+    "VEA|2019-12-31|3Y": {
+      "inputHash": "e2f06a28ff4f6f6dc8309b5047f16921f185345acec4d8e7894491039dca305b",
+      "resultHash": "1670f1a141cdf963727a18b7ff31d447a796abc9cba41b762c472e275982918f"
+    },
+    "VEA|2020-03-31|1Y": {
+      "inputHash": "a9f7ea03abf968b2a0f52f7a0bc1c9fd232ae72f2b812f9ebbe981e71d502b82",
+      "resultHash": "7665a6407115f44df768d1963ee41d041d6d8102062142ca4e4f602db42db71a"
+    },
+    "VEA|2020-03-31|3Y": {
+      "inputHash": "cbd39ea0c10c32a9408a6aa394e6f90896ebd3d803f386bda3aef58a41ba772a",
+      "resultHash": "84bd1c82714a1bac7691cf79308eaa99c4958cbbaf4f8288f3e1675611fda9c5"
+    },
+    "VEA|2022-12-30|1Y": {
+      "inputHash": "4377e9c9c8853707a902244f4fa55a8bb76a3ac7965cdce8afd857acdec20ebe",
+      "resultHash": "12e434d7eecf8587a593dbf11368ab0846365bd216bbd10572fa85b1e781c530"
+    },
+    "VEA|2022-12-30|3Y": {
+      "inputHash": "5a035b41bf1915b607c8f34d5943e5276a60ba0f9fe49f659d498a013dec111c",
+      "resultHash": "cae27c855c0ad30815d0ef709f8afb121ba799d3016481e4d56a6dfc1370a770"
+    },
+    "VEA|2024-12-31|1Y": {
+      "inputHash": "3e6707b76c37f5c4c7c54b44a0490fd074c7b4f7969b753facaca60521499fcc",
+      "resultHash": "5fcdf36d63cced898e343539c9e26960530e8d29bb9e9a75458c3d6bb87f0a34"
+    },
+    "VEA|2024-12-31|3Y": {
+      "inputHash": "0269d0c2cd905cfa85537f53bc5ec850fce612b0c172d94e4d7149627d1f1f5b",
+      "resultHash": "93976c8c8e6e7878e2b5b593957d44ae853e0d757913a431cbe32250faeff9c6"
+    },
+    "VEA|2026-09-30|1Y": {
+      "inputHash": "958de6ec98a4debccfa1ce3398b930b9023e85b20042d86c5ffff0faf1496821",
+      "resultHash": "78c1372a3dbc3276ca9af22bc83b9872e1d84ad0f58f90366dca25ff7a50b642"
+    },
+    "VEA|2026-09-30|3Y": {
+      "inputHash": "dbfad2e945f32d8a5c13785b5c9eabdaa509fa58c68098a252743eab88798070",
+      "resultHash": "53e79504d029291370b77861ae7214a917d63d010d7fb62da24fea2d8c64e0bc"
+    },
+    "IXUS|2019-12-31|1Y": {
+      "inputHash": "0ee4a6602c517bf6f861d3f293cd2182e348b6524078f7e0ce1e82efbf6da87e",
+      "resultHash": "6a52dbb0048b81fa8f9313d2382165d14c5c47d8a84b6b9c972e17233437f58c"
+    },
+    "IXUS|2019-12-31|3Y": {
+      "inputHash": "9b2a13c021f7ecd4ae78cd36a1c8b542d7672c2d17ef3bd7b26fdb863e385e08",
+      "resultHash": "c89769bc881b0c1e93a4fb85f43216df80e5c925cd3f9c341ddd8dc91db7de2c"
+    },
+    "IXUS|2020-03-31|1Y": {
+      "inputHash": "f52eacba700efa606054c45adc24ef124079474f51b326632ad6cd1db3c940c5",
+      "resultHash": "a327c1764e1f93864480ba382b9c260fd613870eed079c4656555515d73c9d1c"
+    },
+    "IXUS|2020-03-31|3Y": {
+      "inputHash": "5f4bfb135e645949b30854389da818d1f751eca738fdb0dc28a895e3177c3144",
+      "resultHash": "b50dbee1d5bf82cbadffd32cf766f942cd6beb7d54ddbdc95db05331d0b9611e"
+    },
+    "IXUS|2022-12-30|1Y": {
+      "inputHash": "f613f09e3fa64cbd7bec4b9e896287da8a8a306219a3b7d497fc6ede2cd4156b",
+      "resultHash": "a56f1433c27a2cd513e09739fb576cdb7b024523260d288df45855c72f8ce4c3"
+    },
+    "IXUS|2022-12-30|3Y": {
+      "inputHash": "2148f30350b5647aa54261840bfd1d8d26519c062626b95b8b86569c5364931c",
+      "resultHash": "10e4fca655b8fc6a376e80b804011cee05103db443d3393732abcb2e891fe3a2"
+    },
+    "IXUS|2024-12-31|1Y": {
+      "inputHash": "789a962586d0cf0fdcafb21a2d5048fcfbd4f1411daab2afbe1f3a3863d81db7",
+      "resultHash": "7096dcdd7c06346eb4f107b47b66e5b3087e9af01c1736dc315cae16de53b59f"
+    },
+    "IXUS|2024-12-31|3Y": {
+      "inputHash": "4f0138245778fe0f1f6b6a9fb00cb72dd57df68681d59b61ff7b32c1b0ea3edf",
+      "resultHash": "e5a6b9990afecd4fbe90f8da023e7e110621120d9642b684cafe5fff9b24d2bf"
+    },
+    "IXUS|2026-09-30|1Y": {
+      "inputHash": "9fdd23ee18036d8f1e5814013d948bf968e631bffe973b65a8918f2b3da31e3c",
+      "resultHash": "b83698de23d5836ff182676cfedd2513da97128e151998133015089fd92dd849"
+    },
+    "IXUS|2026-09-30|3Y": {
+      "inputHash": "136e659301777d1499def72e96a36af5cfd54136ed6aa8b00555f80f286fba7e",
+      "resultHash": "b05cea64d95eaada4e0fcf7609a5f9be0f8adf0b0f5ce0ef4fdd7f87173f88f3"
+    }
+  }
+}

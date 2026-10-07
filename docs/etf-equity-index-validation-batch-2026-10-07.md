@@ -64,22 +64,14 @@ Each cell is `1Y / 3Y`, with the current dated fee held constant. All four histo
 
 - Common cutoff: 16/16 scores have complete inputs.
 - Historical sensitivity windows: 64/64 are complete and scored.
-- Score reproducibility from retained adjusted history and dated fee inputs: pass; common-cutoff input hash prefixes are shown above and full history and input hashes are retained in the JSON artifact.
-- Score bounds: pass. Scores are saved only when all row-level inputs pass.
-- Batch ready for this validation milestone: yes.
+- Baseline replay flag at capture: pass; hash prefixes are historical report values. Current page display separately verifies the retained artifact against the versioned integrity manifest and recalculates scores; see [the M1 reliability audit](etf-equity-index-audit-2026-10-07.md).
+- Score bounds at capture: pass. Scores were saved only when row-level inputs passed.
+- Batch ready at capture for this validation milestone: yes.
 - Price series are Yahoo Finance adjusted closes in USD. Dividends and splits are reflected in adjclose; no distribution is added a second time. No bid/ask spread was fetched or treated as zero.
 
 ## Precise blockers
 
-- No data-acquisition or issuer-source blockers were recorded in the captured run. The application integrity limitation below remains unresolved.
-
-## Follow-up reliability limitation and next milestone
-
-Standalone Node tests reproduced the retained batch scores. During implementation, an attempted replay in the Next.js production page produced different history hashes and blocked score display; the cause was not established. The current page checks saved validation flags, validated row status, score bounds and the presence of an input hash. It does not recompute the artifact's integrity before displaying scores. The captured validation totals above therefore do not establish page-level integrity verification.
-
-The batch runner also repeats the same scoring function to check determinism; this is not an independently implemented reference calculation. Historical-cutoff scores still hold the current disclosed fee constant, as described above.
-
-The next milestone is to diagnose and fix page reproducibility, independently verify the real-data calculations, audit weight/curve sensitivity and meaningful precision, and collect historical fee evidence where available. Follow the [copyable audit handoff prompt](etf-equity-index-audit-handoff.md). This follow-up note records a limitation; it does not change the captured prices or scores.
+- None at the time of this run.
 
 ## Scope
 

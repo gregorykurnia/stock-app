@@ -2,7 +2,7 @@
 
 Last updated: 2026-10-07. **Start here for current status and delivery order.**
 
-**Next milestone: M1 — audit the existing eight-fund equity-index batch.** Use the [audit handoff prompt](etf-equity-index-audit-handoff.md). The audit has been specified but has not been implemented. M2 follows its evidence and conclusions; subsequent milestones are planned work with acceptance gates, not completed features or authorization to execute everything in one session.
+**Next milestone: M2 — resolve the audit findings and specify a restricted candidate method.** Use the [M2 handoff](etf-scoring-m2-handoff.md). M1's captured-data integrity and independent-calculation gates pass. The prior hash mismatch was traced to a precision change in Next.js's compiled JSON module and fixed by parsing the retained JSON text on the Node server. The historical point-in-time fee branch remains blocked. M3 and later milestones remain planned work with acceptance gates, not authorization to execute everything in one session.
 
 This document governs delivery order and progress tracking. The [independent Grand Score plan](etf-independent-grand-score-plan.md) retains the original Core/Full formulas, family routing and broader coverage objectives. The [quantitative comparison plan](etf-quantitative-comparison-plan.md) and [ETF page plan](etf-page-plan.md) retain applicable metric and product requirements. This roadmap does not replace those scorecards with the Yahoo equity-index experiment.
 
@@ -13,8 +13,9 @@ This document governs delivery order and progress tracking. The [independent Gra
 | Original Tiingo Core acquisition | Sample validation recorded; broad publication unfinished | [Core coverage report](etf-core-coverage-2026-10-06.md), dated 2026-10-06; not a current whole-catalogue audit |
 | VOO/VXUS Yahoo Free Core trial | Implemented and pushed in `a854538` | [Trial report](etf-free-core-trial-2026-10-07.md); experimental, separate from Core/Full |
 | Eight-fund Yahoo equity-index batch | Implemented and pushed in `0f16372` | [Batch report](etf-equity-index-validation-batch-2026-10-07.md); captured 16/16 common-cutoff and 64/64 historical sensitivity results |
-| Page integrity and independent calculation audit | Open; M1 is next | Standalone replay passed, but the attempted Next.js page replay had an undiagnosed history-hash mismatch. The current page trusts saved flags and hash presence. Repeating one function checks determinism, not independent correctness. |
-| Historical fees | Current-fee sensitivity only in the recorded batch | Current dated fees were held constant at historical cutoffs; applicable historical issuer evidence has not yet been established. |
+| Page integrity and independent calculation audit | M1 gate passed for restricted M2 specification | [Dated audit report](etf-equity-index-audit-2026-10-07.md) and [reproducible audit data](../data/etf-equity-index-audit-2026-10-07.json): VOO history bar 278 changed from `180.93528747558594` to `180.9352874755859` in Next.js 16.2.10/Turbopack's compiled JSON module. The page now parses raw JSON text with Node, then replays and checks the v2 manifest. Independent calculations agree within 1.43e-14 across 80 rows. |
+| Historical fees | Blocked for point-in-time historical scoring | M1 found evidence leads but did not establish applicability and net/gross/waiver terms for all cutoff rows. All 32 historical fee rows stay blocked; eight current-fee rows at the common 2026-09-30 cutoff are eligible. |
+| Sensitivity and peer framing | M1 complete; candidate remains experimental | [Audit report](etf-equity-index-audit-2026-10-07.md): 37 scenarios/2,960 rows remain bounded, but 15 of 50 peer comparison rows change order under scenarios and 23 tie at one decimal. Use one decimal at most; no universal rank. |
 
 These are dated implementation records. A past capture does not establish current provider access, source freshness, whole-catalogue coverage or methodology acceptance.
 
@@ -22,15 +23,15 @@ These are dated implementation records. A past capture does not establish curren
 
 ### M1 — Reliability and methodology audit
 
-Status: **next, ready to start**. Scope: the existing VOO, VTI, IVV, ITOT, SCHB, VXUS, VEA and IXUS batch, both horizons and all five recorded cutoffs. Follow the [audit handoff](etf-equity-index-audit-handoff.md).
+Status: **complete for the captured-data integrity/calculation gate, with restrictions**. Scope: the existing VOO, VTI, IVV, ITOT, SCHB, VXUS, VEA and IXUS batch, both horizons and all five recorded cutoffs. See the [dated audit](etf-equity-index-audit-2026-10-07.md), [audit artifacts](../data/etf-equity-index-audit-2026-10-07.json), and [integrity manifest](../data/etf-equity-index-validation-integrity.json). The Next.js compiled JSON precision change was reproduced and fixed; the production page recomputes and verifies before display. The independent reference agrees within 1.43e-14. Historical point-in-time fees remain blocked for all 32 sensitivity rows; current-fee results at the common cutoff are separately eligible.
 
 Deliver the diagnosed hash mismatch and regression fix, verified integrity before score display, an independent real-data calculation check, weight/curve sensitivity results, precision conclusions, and a historical fee evidence matrix. Save an audit report and reproducible artifacts. Keep baseline observations distinguishable from refreshed data and experiments.
 
-Gate to M2: the report identifies exactly which checks passed, failed or remain blocked. Page integrity and independent calculation failures must be resolved before publication work. Missing historical fee disclosures block the affected point-in-time branch; they do not alone prohibit properly labelled current-fee analysis. A completed audit may recommend revising the method rather than expanding it.
+Gate to M2: **passed for restricted candidate specification only.** The report identifies passed, failed and blocked checks; current page integrity and independent calculation checks pass. The reproduced numeric-precision mismatch is fixed and retained as a regression case. Missing fee evidence blocks the historical point-in-time branch. This gate does not authorize publication or ranking beyond the bounded current-fee analysis.
 
 ### M2 — Resolve audit findings and specify the candidate method
 
-Status: planned, depends on M1.
+Status: **next**; use the [M2 handoff](etf-scoring-m2-handoff.md) and M1 evidence.
 
 Use the audit to select a documented candidate configuration, eligible mandates, required inputs, source-age rules, 1Y/3Y window rules, version/hash contract and comparison frame. Specify display precision or ties only where supported by the audit. Separate data validity, comparison eligibility and current freshness. Record the evidence behind each change from the baseline.
 

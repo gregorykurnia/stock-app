@@ -107,12 +107,26 @@ export interface ETFEquityIndexBatchSnapshot {
   funds: ETFEquityIndexFundSnapshot[];
 }
 
+export interface ETFEquityIndexIntegrityManifest {
+  schemaVersion: 1;
+  version: typeof ETF_EQUITY_INDEX_INTEGRITY_VERSION;
+  serialization: typeof ETF_EQUITY_INDEX_INTEGRITY_SERIALIZATION;
+  hashAlgorithm: "SHA-256";
+  artifactHash: string;
+  metadataHash: string;
+  scoringParameters: Record<string, string | number>;
+  fundHashes: Record<string, string>;
+  rowHashes: Record<string, { inputHash: string; resultHash: string }>;
+}
+
 type SourceDocument = { funds: Record<ETFEquityIndexBatchTicker, ETFEquityIndexSourceProfile> };
 const SOURCE_PROFILES = (sourceDocument as SourceDocument).funds;
 const DAY_MS = 86_400_000;
 const MAX_SOURCE_AGE_DAYS = 365;
 const MAX_HISTORY_AGE_DAYS = 5;
 const EXPECTED_HISTORY_SOURCE_ID = "yahoo-finance2.chart:adjusted-close";
+export const ETF_EQUITY_INDEX_INTEGRITY_VERSION = "equity-index-integrity-v2";
+export const ETF_EQUITY_INDEX_INTEGRITY_SERIALIZATION = "canonical-json-key-order-v1";
 
 function validDate(value: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
@@ -128,6 +142,30 @@ function ageDays(dateValue: string, asOf: Date): number {
 
 function sha256(value: unknown): string {
   return createHash("sha256").update(JSON.stringify(value)).digest("hex");
+}
+
+/** Canonical JSON for versioned hashes; array order and every JSON value are preserved. */
+export function canonicalJSONStringify(value: unknown): string {
+  if (value === null || typeof value === "string" || typeof value === "boolean") return JSON.stringify(value)!;
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) throw new TypeError("Canonical JSON does not accept non-finite numbers.");
+    return JSON.stringify(value);
+  }
+  if (Array.isArray(value)) return `[${value.map((item) => canonicalJSONStringify(item)).join(",")}]`;
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const keys = Object.keys(record).sort();
+    return `{${keys.map((key) => {
+      const child = record[key];
+      if (child === undefined) throw new TypeError(`Canonical JSON does not accept undefined at ${key}.`);
+      return `${JSON.stringify(key)}:${canonicalJSONStringify(child)}`;
+    }).join(",")}}`;
+  }
+  throw new TypeError(`Canonical JSON does not accept ${typeof value}.`);
+}
+
+export function canonicalSha256(value: unknown): string {
+  return createHash("sha256").update(canonicalJSONStringify(value)).digest("hex");
 }
 
 function officialIssuerHost(issuer: string): string | null {
@@ -208,12 +246,13 @@ function scoreResult(input: {
   ticker: ETFEquityIndexBatchTicker;
   profile: ETFEquityIndexSourceProfile;
   history: ETFEquityIndexHistory | null;
+  historyHash: string | null;
   historyIssues: string[];
   sourceIssues: string[];
   cutoff: string;
   horizon: "1Y" | "3Y";
 }): ETFEquityIndexResult {
-  const { ticker, profile, history, historyIssues: allHistoryIssues, sourceIssues: allSourceIssues, cutoff, horizon } = input;
+  const { ticker, profile, history, historyHash, historyIssues: allHistoryIssues, sourceIssues: allSourceIssues, cutoff, horizon } = input;
   const feeDate = profile.expenseRatio.financialDate;
   const base = {
     cutoff, horizon, feeFinancialDate: feeDate, feeDateAfterCutoff: feeDate > cutoff,
@@ -252,7 +291,6 @@ function scoreResult(input: {
   if (feePoints == null) blockers.push("A finite, nonnegative, sourced fee score input is required.");
   if (!historical) blockers.push("Complete adjusted-price history and valid historical outcome components are required.");
   const canScore = blockers.length === 0 && historical != null && feePoints != null;
-  const historyHash = sha256({ sourceId: EXPECTED_HISTORY_SOURCE_ID, bars: history.bars });
   const inputHash = sha256({
     ticker, method: ETF_EQUITY_INDEX_BATCH_METHOD, cutoff, horizon, historyHash,
     expenseRatio: profile.expenseRatio,
@@ -289,22 +327,22 @@ export function buildETFEquityIndexBatchSnapshot(input: {
     const sourceIssueGroups = sourceProfileIssues(ticker, profile, input.now);
     const historyBlockers = [...providerFailure, ...historyIssues(ticker, history, input.now)];
     const sourceBlockers = [...sourceIssueGroups.identity, ...sourceIssueGroups.mandate, ...sourceIssueGroups.fee];
+    const historyHash = history ? sha256({ sourceId: history.sourceId, bars: history.bars }) : null;
     const results: ETFEquityIndexResult[] = [];
     for (const cutoff of ETF_EQUITY_INDEX_BATCH_CUTOFFS) {
       for (const horizon of ["1Y", "3Y"] as const) {
         const result = scoreResult({
-          ticker, profile, history, historyIssues: historyBlockers, sourceIssues: sourceBlockers, cutoff, horizon,
+          ticker, profile, history, historyHash, historyIssues: historyBlockers, sourceIssues: sourceBlockers, cutoff, horizon,
         });
         // An accidental nondeterminism cannot leave a persisted result with a number.
         const replay = scoreResult({
-          ticker, profile, history, historyIssues: historyBlockers, sourceIssues: sourceBlockers, cutoff, horizon,
+          ticker, profile, history, historyHash, historyIssues: historyBlockers, sourceIssues: sourceBlockers, cutoff, horizon,
         });
         if (JSON.stringify(result) !== JSON.stringify(replay)) {
           results.push({ ...result, status: "blocked", reason: "Independent score reproduction did not match the initial calculation.", score: null, feePoints: null, historicalPoints: null, annualizedReturnPct: null, maxDrawdownMagnitudePct: null, downsideDeviationPct: null, inputHash: null });
         } else results.push(result);
       }
     }
-    const historyHash = history ? sha256({ sourceId: history.sourceId, bars: history.bars }) : null;
     const historyDates = history?.bars.map((bar) => bar.date) ?? [];
     return {
       ticker,
@@ -361,9 +399,94 @@ export function buildETFEquityIndexBatchSnapshot(input: {
   };
 }
 
+function retainedHistoryHash(history: ETFEquityIndexFundSnapshot["history"]): string {
+  return canonicalSha256({
+    provider: history?.provider ?? null,
+    sourceId: history?.sourceId ?? null,
+    sourceUrl: history?.sourceUrl ?? null,
+    retrievedAt: history?.retrievedAt ?? null,
+    currency: history?.currency ?? null,
+    bars: history?.bars ?? [],
+  });
+}
+
+function rowInputPayload(fund: ETFEquityIndexFundSnapshot, result: ETFEquityIndexResult, historyHash: string): unknown {
+  const { ticker, history } = fund;
+  const profile = Object.fromEntries(Object.entries(fund).filter(([key]) => !["ticker", "history", "coverage", "results"].includes(key)));
+  const bars = (history?.bars ?? []).filter((bar) => bar.date <= result.cutoff);
+  const window = buildETFCoreMarketWindow(bars, result.horizon, nextMonthStart(result.cutoff), result.cutoff);
+  return {
+    version: ETF_EQUITY_INDEX_INTEGRITY_VERSION,
+    ticker,
+    profile,
+    historyHash,
+    window: {
+      cutoff: result.cutoff,
+      horizon: result.horizon,
+      startDate: window.startDate,
+      monthEndDates: window.monthEndDates,
+      monthlyReturns: window.monthlyReturns,
+      maxDrawdownMagnitudePct: window.maxDrawdownMagnitudePct,
+      dailyObservations: window.dailyObservations,
+      expectedSessions: window.expectedSessions,
+      missingSessionDates: window.missingSessionDates,
+      complete: window.complete,
+    },
+    scoring: integrityScoringParameters(),
+  };
+}
+
+function integrityScoringParameters(): Record<string, string | number> {
+  const settings = ETF_CORE_SCORECARD_CANDIDATES["equity-index"];
+  return {
+    methodologyVersion: ETF_EQUITY_INDEX_BATCH_METHOD,
+    formula: "(feeWeight * feePoints) + (historicalWeight * historicalOutcomePoints)",
+    feeWeight: ETF_EQUITY_INDEX_BATCH_WEIGHTS.fee,
+    historicalWeight: ETF_EQUITY_INDEX_BATCH_WEIGHTS.historical,
+    feeScalePct: settings.feeScale,
+    growthAnchorPct: settings.growthAnchor,
+    growthScalePct: settings.growthScale,
+    drawdownScalePct: settings.drawdownScale,
+    downsideScalePct: settings.downsideScale,
+    growthWeight: settings.growthWeight,
+    drawdownWeight: settings.drawdownWeight,
+    downsideWeight: settings.downsideWeight,
+  };
+}
+
+export function createETFEquityIndexIntegrityManifest(snapshot: ETFEquityIndexBatchSnapshot): ETFEquityIndexIntegrityManifest {
+  const { funds, ...metadata } = snapshot;
+  const fundHashes: Record<string, string> = {};
+  const rowHashes: ETFEquityIndexIntegrityManifest["rowHashes"] = {};
+  for (const fund of funds) {
+    fundHashes[fund.ticker] = canonicalSha256(fund);
+    const historyHash = retainedHistoryHash(fund.history);
+    for (const result of fund.results) {
+      const rowId = `${fund.ticker}|${result.cutoff}|${result.horizon}`;
+      rowHashes[rowId] = {
+        inputHash: canonicalSha256(rowInputPayload(fund, result, historyHash)),
+        resultHash: canonicalSha256(result),
+      };
+    }
+  }
+  return {
+    schemaVersion: 1,
+    version: ETF_EQUITY_INDEX_INTEGRITY_VERSION,
+    serialization: ETF_EQUITY_INDEX_INTEGRITY_SERIALIZATION,
+    hashAlgorithm: "SHA-256",
+    artifactHash: canonicalSha256(snapshot),
+    metadataHash: canonicalSha256(metadata),
+    scoringParameters: integrityScoringParameters(),
+    fundHashes,
+    rowHashes,
+  };
+}
+
 export function reproduceETFEquityIndexBatchSnapshot(saved: ETFEquityIndexBatchSnapshot): {
   snapshot: ETFEquityIndexBatchSnapshot;
   savedScoresReproduce: boolean;
+  fundIssues: Record<string, string[]>;
+  globalIssues: string[];
 } {
   const histories = Object.fromEntries(saved.funds.flatMap((fund) => fund.history ? [[fund.ticker, {
     provider: fund.history.provider,
@@ -375,17 +498,74 @@ export function reproduceETFEquityIndexBatchSnapshot(saved: ETFEquityIndexBatchS
   }]] : [])) as Partial<Record<ETFEquityIndexBatchTicker, ETFEquityIndexHistory>>;
   const replay = buildETFEquityIndexBatchSnapshot({ histories, now: new Date(saved.asOf) });
   const savedByTicker = new Map(saved.funds.map((fund) => [fund.ticker, fund]));
-  let savedScoresReproduce = true;
+  const fundIssues: Record<string, string[]> = {};
+  const globalIssues: string[] = [];
+  const snapshotMetadata = (value: ETFEquityIndexBatchSnapshot) => Object.fromEntries(
+    Object.entries(value).filter(([key]) => key !== "funds" && key !== "validation"),
+  );
+  const savedMetadata = snapshotMetadata(saved);
+  const replayMetadata = snapshotMetadata(replay);
+  if (canonicalJSONStringify(savedMetadata) !== canonicalJSONStringify(replayMetadata)) {
+    globalIssues.push("Saved batch metadata does not match the supported replay configuration.");
+  }
+  if (saved.funds.length !== replay.funds.length || savedByTicker.size !== saved.funds.length) {
+    globalIssues.push("Saved batch fund count or ticker identities do not match the required eight-fund sample.");
+  }
+  if (canonicalJSONStringify(saved.validation) !== canonicalJSONStringify(replay.validation)) {
+    globalIssues.push("Saved batch validation totals or pass flags do not match values recomputed from retained inputs.");
+  }
   for (const fund of replay.funds) {
     const prior = savedByTicker.get(fund.ticker);
-    const match = JSON.stringify(prior?.results) === JSON.stringify(fund.results)
-      && prior?.history?.sha256 === fund.history?.sha256;
-    if (!match) {
-      savedScoresReproduce = false;
+    if (!prior) {
+      fundIssues[fund.ticker] = ["Required fund is missing from the saved batch."];
+      continue;
+    }
+    const sourceProfile = (value: ETFEquityIndexFundSnapshot) => ({
+      ticker: value.ticker, name: value.name, issuer: value.issuer, role: value.role,
+      identityVerified: value.identityVerified, identitySourceUrl: value.identitySourceUrl,
+      mandate: value.mandate, expenseRatio: value.expenseRatio,
+    });
+    const issues: string[] = [];
+    if (canonicalJSONStringify(sourceProfile(prior)) !== canonicalJSONStringify(sourceProfile(fund))) {
+      issues.push("Saved identity, mandate or dated fee provenance differs from the reviewed issuer source profile.");
+    }
+    const historyIdentity = (history: ETFEquityIndexFundSnapshot["history"]) => history && ({
+      provider: history.provider,
+      sourceId: history.sourceId,
+      sourceUrl: history.sourceUrl,
+      retrievedAt: history.retrievedAt,
+      currency: history.currency,
+      observations: history.observations,
+      firstDate: history.firstDate,
+      lastDate: history.lastDate,
+      sha256: history.sha256,
+    });
+    if (canonicalJSONStringify(historyIdentity(prior.history)) !== canonicalJSONStringify(historyIdentity(fund.history))) {
+      issues.push("Saved Yahoo history, retrieval metadata or history digest differs from the replayed retained inputs.");
+    }
+    if (canonicalJSONStringify(prior.coverage) !== canonicalJSONStringify(fund.coverage)) {
+      issues.push("Saved source-coverage results differ from the replayed issuer and history checks.");
+    }
+    if (canonicalJSONStringify(prior.results) !== canonicalJSONStringify(fund.results)) {
+      const changedResult = fund.results.find((result, index) => !prior.results[index]
+        || canonicalJSONStringify(result) !== canonicalJSONStringify(prior.results[index]));
+      issues.push(changedResult
+        ? `Saved score or window result differs from replay at ${changedResult.cutoff} ${changedResult.horizon}.`
+        : "Saved score results differ from the replayed score set.");
+    }
+    if (issues.length) fundIssues[fund.ticker] = issues;
+  }
+  for (const extraTicker of savedByTicker.keys()) {
+    if (!replay.funds.some((fund) => fund.ticker === extraTicker)) globalIssues.push(`Unexpected saved fund ${extraTicker} is present.`);
+  }
+  for (const fund of replay.funds) {
+    const issues = [...globalIssues, ...(fundIssues[fund.ticker] ?? [])];
+    if (issues.length) {
+      fundIssues[fund.ticker] = [...new Set([...(fundIssues[fund.ticker] ?? []), ...globalIssues])];
       fund.results = fund.results.map((result) => ({
         ...result,
         status: "blocked",
-        reason: "Saved score or history hash failed reproduction from the retained Yahoo inputs.",
+        reason: [...new Set(issues)].join(" "),
         score: null,
         feePoints: null,
         historicalPoints: null,
@@ -396,13 +576,113 @@ export function reproduceETFEquityIndexBatchSnapshot(saved: ETFEquityIndexBatchS
       }));
     }
   }
+  const savedScoresReproduce = Object.keys(fundIssues).length === 0 && globalIssues.length === 0;
   replay.validation.scoreReproducibility = savedScoresReproduce ? "pass" : "blocked";
   replay.validation.commonScoresPassed = replay.funds.flatMap((fund) => fund.results)
     .filter((result) => result.cutoff === replay.commonCutoff && result.status === "validated").length;
   replay.validation.historicalWindowsPassed = replay.funds.flatMap((fund) => fund.results)
     .filter((result) => result.cutoff !== replay.commonCutoff && result.status === "validated").length;
   replay.validation.batchReady = replay.validation.batchReady && savedScoresReproduce;
-  return { snapshot: replay, savedScoresReproduce };
+  return { snapshot: replay, savedScoresReproduce, fundIssues, globalIssues };
+}
+
+export function verifyETFEquityIndexBatchSnapshot(
+  saved: ETFEquityIndexBatchSnapshot,
+  manifest: ETFEquityIndexIntegrityManifest,
+): {
+  snapshot: ETFEquityIndexBatchSnapshot;
+  status: "passed" | "blocked";
+  savedScoresReproduce: boolean;
+  artifactHashMatches: boolean;
+  fundStatus: Record<string, "passed" | "blocked">;
+  issues: string[];
+} {
+  const replay = reproduceETFEquityIndexBatchSnapshot(saved);
+  const calculatedManifest = createETFEquityIndexIntegrityManifest(saved);
+  const globalIssues = [...replay.globalIssues];
+  const fundIssues = Object.fromEntries(Object.entries(replay.fundIssues).map(([ticker, issues]) => [ticker, [...issues]])) as Record<string, string[]>;
+  const manifestContractMatches = manifest.schemaVersion === calculatedManifest.schemaVersion
+    && manifest.version === calculatedManifest.version
+    && manifest.serialization === calculatedManifest.serialization
+    && manifest.hashAlgorithm === calculatedManifest.hashAlgorithm;
+  if (!manifestContractMatches) globalIssues.push("Integrity manifest version or serialization contract is unsupported.");
+  const expectedFundHashKeys = Object.keys(calculatedManifest.fundHashes).sort();
+  const recordedFundHashKeys = Object.keys(manifest.fundHashes ?? {}).sort();
+  const expectedRowHashKeys = Object.keys(calculatedManifest.rowHashes).sort();
+  const recordedRowHashKeys = Object.keys(manifest.rowHashes ?? {}).sort();
+  if (canonicalJSONStringify(expectedFundHashKeys) !== canonicalJSONStringify(recordedFundHashKeys)
+    || canonicalJSONStringify(expectedRowHashKeys) !== canonicalJSONStringify(recordedRowHashKeys)) {
+    globalIssues.push("Integrity manifest fund or row coverage does not match the saved batch.");
+  }
+  if (canonicalJSONStringify(manifest.scoringParameters ?? null) !== canonicalJSONStringify(calculatedManifest.scoringParameters)) {
+    globalIssues.push("Current scoring weights or curve parameters differ from the versioned integrity manifest.");
+  }
+  if (manifest.metadataHash !== calculatedManifest.metadataHash) {
+    globalIssues.push("Saved batch metadata hash does not match the versioned integrity manifest.");
+  }
+  for (const fund of saved.funds) {
+    const ticker = fund.ticker;
+    const issues = fundIssues[ticker] ?? (fundIssues[ticker] = []);
+    if (manifest.fundHashes?.[ticker] !== calculatedManifest.fundHashes[ticker]) {
+      issues.push("Saved fund inputs or outputs do not match the versioned fund integrity hash.");
+    }
+    for (const result of fund.results) {
+      const rowId = `${ticker}|${result.cutoff}|${result.horizon}`;
+      const expected = calculatedManifest.rowHashes[rowId];
+      const recorded = manifest.rowHashes?.[rowId];
+      if (!expected || !recorded || recorded.inputHash !== expected.inputHash || recorded.resultHash !== expected.resultHash) {
+        issues.push(`Saved ${result.cutoff} ${result.horizon} input or output hash does not match the versioned row integrity manifest.`);
+      }
+    }
+    if (!issues.length) delete fundIssues[ticker];
+  }
+  const artifactHashMatches = manifest.artifactHash === calculatedManifest.artifactHash;
+  const hasSpecificManifestMismatch = Object.values(fundIssues).some((issues) => issues.length > 0)
+    || globalIssues.some((issue) => issue.includes("metadata hash") || issue.includes("manifest version"));
+  if (!artifactHashMatches && !hasSpecificManifestMismatch) {
+    globalIssues.push("Saved batch artifact hash does not match the versioned integrity manifest.");
+  }
+  for (const fund of replay.snapshot.funds) {
+    const issues = [...globalIssues, ...(fundIssues[fund.ticker] ?? [])];
+    if (!issues.length) continue;
+    fund.results = fund.results.map((result) => ({
+      ...result,
+      status: "blocked",
+      reason: [...new Set(issues)].join(" "),
+      score: null,
+      feePoints: null,
+      historicalPoints: null,
+      annualizedReturnPct: null,
+      maxDrawdownMagnitudePct: null,
+      downsideDeviationPct: null,
+      inputHash: null,
+    }));
+  }
+  const fundStatus = Object.fromEntries(replay.snapshot.funds.map((fund) => [
+    fund.ticker,
+    globalIssues.length || fundIssues[fund.ticker]?.length ? "blocked" : "passed",
+  ])) as Record<string, "passed" | "blocked">;
+  const issues = [...new Set([
+    ...globalIssues,
+    ...Object.entries(fundIssues).flatMap(([ticker, reasons]) => reasons.map((reason) => `${ticker}: ${reason}`)),
+  ])];
+  const passed = issues.length === 0 && replay.savedScoresReproduce && artifactHashMatches;
+  replay.snapshot.validation.scoreReproducibility = passed ? "pass" : "blocked";
+  replay.snapshot.validation.commonScoresPassed = replay.snapshot.funds.flatMap((fund) => fund.results)
+    .filter((result) => result.cutoff === replay.snapshot.commonCutoff && result.status === "validated").length;
+  replay.snapshot.validation.historicalWindowsPassed = replay.snapshot.funds.flatMap((fund) => fund.results)
+    .filter((result) => result.cutoff !== replay.snapshot.commonCutoff && result.status === "validated").length;
+  replay.snapshot.validation.batchReady = passed && replay.snapshot.validation.commonScoresPassed === replay.snapshot.validation.requiredCommonScores
+    && replay.snapshot.validation.historicalWindowsPassed === replay.snapshot.validation.requiredHistoricalWindows
+    && replay.snapshot.validation.inRange === "pass";
+  return {
+    snapshot: replay.snapshot,
+    status: passed ? "passed" : "blocked",
+    savedScoresReproduce: replay.savedScoresReproduce,
+    artifactHashMatches,
+    fundStatus,
+    issues,
+  };
 }
 
 function scoreText(value: number | null): string {
@@ -455,7 +735,7 @@ export function renderETFEquityIndexBatchReport(snapshot: ETFEquityIndexBatchSna
     });
     lines.push(`| ${fund.ticker} | ${cells.join(" | ")} |`);
   }
-  lines.push("", "## Validation results", "", `- Common cutoff: ${snapshot.validation.commonScoresPassed}/${snapshot.validation.requiredCommonScores} scores have complete inputs.`, `- Historical sensitivity windows: ${snapshot.validation.historicalWindowsPassed}/${snapshot.validation.requiredHistoricalWindows} are complete and scored.`, `- Score reproducibility from retained adjusted history and dated fee inputs: ${snapshot.validation.scoreReproducibility}; common-cutoff input hash prefixes are shown above and full history and input hashes are retained in the JSON artifact.`, `- Score bounds: ${snapshot.validation.inRange}. Scores are saved only when all row-level inputs pass.`, `- Batch ready for this validation milestone: ${snapshot.validation.batchReady ? "yes" : "no"}.`, "- Price series are Yahoo Finance adjusted closes in USD. Dividends and splits are reflected in adjclose; no distribution is added a second time. No bid/ask spread was fetched or treated as zero.", "", "## Precise blockers", "");
+  lines.push("", "## Validation results", "", `- Common cutoff: ${snapshot.validation.commonScoresPassed}/${snapshot.validation.requiredCommonScores} scores have complete inputs.`, `- Historical sensitivity windows: ${snapshot.validation.historicalWindowsPassed}/${snapshot.validation.requiredHistoricalWindows} are complete and scored.`, `- Baseline replay flag at capture: ${snapshot.validation.scoreReproducibility}; hash prefixes are historical report values. Current page display separately verifies the retained artifact against the versioned integrity manifest and recalculates scores; see [the M1 reliability audit](etf-equity-index-audit-2026-10-07.md).`, `- Score bounds at capture: ${snapshot.validation.inRange}. Scores were saved only when row-level inputs passed.`, `- Batch ready at capture for this validation milestone: ${snapshot.validation.batchReady ? "yes" : "no"}.`, "- Price series are Yahoo Finance adjusted closes in USD. Dividends and splits are reflected in adjclose; no distribution is added a second time. No bid/ask spread was fetched or treated as zero.", "", "## Precise blockers", "");
   const blocked = snapshot.funds.flatMap((fund) => fund.results.filter((result) => result.status === "blocked").map((result) => `- **${fund.ticker} · ${result.cutoff} · ${result.horizon}:** ${result.reason || "Score unavailable; required inputs did not pass validation."}`));
   const sourceBlockers = snapshot.funds.flatMap((fund) => fund.coverage.blockers.map((blocker) => `- **${fund.ticker} source coverage:** ${blocker}`));
   lines.push(...(sourceBlockers.length || blocked.length ? [...new Set([...sourceBlockers, ...blocked])] : ["- None at the time of this run."]));
