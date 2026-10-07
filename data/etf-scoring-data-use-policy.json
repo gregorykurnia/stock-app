@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
   "targetDeployment": "personal-use",
-  "reviewedAt": null,
-  "reviewRecord": null,
-  "retentionDays": null,
+  "reviewedAt": "2026-10-07T08:14:32.000Z",
+  "reviewRecord": "Conservative personal-use defaults selected at the user's direction on 2026-10-07. Automated Yahoo and issuer requests are blocked; retention remains unresolved pending applicable source terms or express permission. Target retention if approved: 365 days.",
+  "retentionDays": 365,
   "permissions": {
-    "yahooProviderRequests": "unresolved",
+    "yahooProviderRequests": "blocked",
     "rawAdjustedCloseRetention": "unresolved",
     "derivedScoreRetention": "unresolved",
     "issuerReturnEvidenceRetention": "unresolved",
-    "issuerProviderRequests": "unresolved"
+    "issuerProviderRequests": "blocked"
   }
 }

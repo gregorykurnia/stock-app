@@ -5,15 +5,18 @@ import { canonicalSha256 } from "./etfEquityIndexValidationBatch";
 import { getETFEquityIndexM4Firestore } from "./firebaseAdminServer";
 import {
   ETF_M4_YAHOO_BUDGET_SCOPE,
+  type ETFEquityIndexM4AcquisitionPlan,
   type ETFEquityIndexM4ArtifactChunk,
   type ETFEquityIndexM4ProgressCheckpoint,
   type ETFEquityIndexM4RunManifest,
   type ETFEquityIndexM4RunStorePort,
+  type ETFEquityIndexM4TickerHistoryStage,
 } from "./etfEquityIndexM4Storage";
 
 const RUNS = "etf_equity_index_m4_runs";
 const JOBS = "etf_equity_index_m4_jobs";
 const CONTROL = "etf_equity_index_m4_control";
+const ACQUISITIONS = "etf_equity_index_m4_acquisitions";
 const MAX_DOCUMENT_JSON_BYTES = 900 * 1024;
 
 function fitsDocument(value: unknown, label: string): void {
@@ -41,6 +44,11 @@ export class ETFEquityIndexM4FirestoreStore implements ETFEquityIndexM4RunStoreP
 
   private runRef(runId: string) {
     return this.db.collection(RUNS).doc(runId);
+  }
+
+  private acquisitionRef(acquisitionId: string) {
+    if (!/^m4a-[a-f0-9]{64}$/.test(acquisitionId)) throw new Error("Invalid ETF M4 acquisition ID.");
+    return this.db.collection(ACQUISITIONS).doc(acquisitionId);
   }
 
   async putChunkIfAbsent(runId: string, chunk: ETFEquityIndexM4ArtifactChunk): Promise<void> {
@@ -108,11 +116,60 @@ export class ETFEquityIndexM4FirestoreStore implements ETFEquityIndexM4RunStoreP
       const current = snapshot.exists ? snapshot.data() as ETFEquityIndexM4ProgressCheckpoint : null;
       const currentRevision = current?.revision ?? -1;
       if (currentRevision !== expectedRevision) return false;
-      if (current?.status === "running" && current.runId !== checkpoint.runId
+      if (current?.status === "running" && current.acquisitionId !== checkpoint.acquisitionId
         && Date.parse(current.expiresAt) > Date.parse(checkpoint.updatedAt)) return false;
       transaction.set(ref, payload);
       return true;
     });
+  }
+
+  async putAcquisitionPlanIfAbsent(plan: ETFEquityIndexM4AcquisitionPlan): Promise<void> {
+    const payload = withTtl(plan);
+    fitsDocument(payload, `ETF M4 acquisition plan ${plan.acquisitionId}`);
+    const ref = this.acquisitionRef(plan.acquisitionId);
+    try {
+      await ref.create(payload);
+    } catch (error) {
+      if (!alreadyExists(error)) throw error;
+      const existing = await ref.get();
+      if (!existing.exists || canonicalSha256(cleanFirestoreRecord(existing.data()!)) !== canonicalSha256(plan)) {
+        throw new Error(`Immutable ETF M4 acquisition plan conflict for ${plan.acquisitionId}.`);
+      }
+    }
+  }
+
+  async getAcquisitionPlan(acquisitionId: string): Promise<ETFEquityIndexM4AcquisitionPlan | null> {
+    const snapshot = await this.acquisitionRef(acquisitionId).get();
+    return snapshot.exists
+      ? cleanFirestoreRecord(snapshot.data()!) as unknown as ETFEquityIndexM4AcquisitionPlan
+      : null;
+  }
+
+  async putTickerHistoryStageIfAbsent(stage: ETFEquityIndexM4TickerHistoryStage): Promise<void> {
+    if (!/^[A-Z0-9.-]{1,12}$/.test(stage.ticker)) throw new Error("Invalid ETF M4 ticker history stage ticker.");
+    const payload = withTtl(stage);
+    fitsDocument(payload, `ETF M4 staged history ${stage.acquisitionId}/${stage.ticker}`);
+    const ref = this.acquisitionRef(stage.acquisitionId).collection("ticker_histories").doc(stage.ticker);
+    try {
+      await ref.create(payload);
+    } catch (error) {
+      if (!alreadyExists(error)) throw error;
+      const existing = await ref.get();
+      if (!existing.exists || canonicalSha256(cleanFirestoreRecord(existing.data()!)) !== canonicalSha256(stage)) {
+        throw new Error(`Immutable ETF M4 staged history conflict for ${stage.acquisitionId}/${stage.ticker}.`);
+      }
+    }
+  }
+
+  async getTickerHistoryStage(
+    acquisitionId: string,
+    ticker: string,
+  ): Promise<ETFEquityIndexM4TickerHistoryStage | null> {
+    if (!/^[A-Z0-9.-]{1,12}$/.test(ticker)) throw new Error("Invalid ETF M4 ticker history stage ticker.");
+    const snapshot = await this.acquisitionRef(acquisitionId).collection("ticker_histories").doc(ticker).get();
+    return snapshot.exists
+      ? cleanFirestoreRecord(snapshot.data()!) as unknown as ETFEquityIndexM4TickerHistoryStage
+      : null;
   }
 
   async advanceLatestSuccessfulRun(manifest: ETFEquityIndexM4RunManifest): Promise<void> {

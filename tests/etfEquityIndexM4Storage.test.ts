@@ -6,13 +6,18 @@ import {
   assertETFEquityIndexM4ResumeCompatible,
   claimETFEquityIndexM4Ticker,
   compareETFEquityIndexM4HistoryRevisions,
+  createETFEquityIndexM4AcquisitionPlan,
   createETFEquityIndexM4ArtifactEnvelope,
   createETFEquityIndexM4Progress,
+  createETFEquityIndexM4TickerHistoryStage,
   ETF_M4_ARTIFACT_CHUNK_BYTES,
   persistETFEquityIndexM4ArtifactEnvelope,
+  persistETFEquityIndexM4TickerHistoryStage,
   recordETFEquityIndexM4TickerFailure,
   recordETFEquityIndexM4TickerSuccess,
   replayETFEquityIndexM4ArtifactEnvelope,
+  verifyETFEquityIndexM4TickerHistoryStage,
+  type ETFEquityIndexM4AcquisitionPlan,
   type ETFEquityIndexM4ArtifactChunk,
   type ETFEquityIndexM4ProgressCheckpoint,
   type ETFEquityIndexM4RunManifest,
@@ -44,10 +49,32 @@ const envelope = createETFEquityIndexM4ArtifactEnvelope({
   createdAt,
   now: new Date("2026-10-07T14:00:00.000Z"),
 });
+const sample = JSON.parse(rawArtifactText).snapshot.sample;
+const acquisitionPlan = createETFEquityIndexM4AcquisitionPlan({
+  sample,
+  sampleSha256: envelope.manifest.sampleSha256,
+  commonCutoff: envelope.manifest.commonCutoff,
+  createdAt,
+  policy: reviewedPolicy,
+  now: new Date("2026-10-07T14:00:00.000Z"),
+});
+const stagedHistory = {
+  provider: "Yahoo Finance" as const,
+  sourceId: "yahoo-finance2.chart:adjusted-close" as const,
+  sourceUrl: `https://finance.yahoo.com/quote/${acquisitionPlan.tickers[0]}/history/`,
+  retrievedAt: "2026-10-07T13:00:00.000Z",
+  currency: "USD",
+  bars: [
+    { date: "2026-10-06", adjustedClose: 100 },
+    { date: "2026-10-07", adjustedClose: 101 },
+  ],
+};
 
 class MemoryRunStore implements ETFEquityIndexM4RunStorePort {
   readonly chunks = new Map<string, ETFEquityIndexM4ArtifactChunk>();
   readonly manifests = new Map<string, ETFEquityIndexM4RunManifest>();
+  readonly acquisitionPlans = new Map<string, ETFEquityIndexM4AcquisitionPlan>();
+  readonly stagedHistories = new Map<string, ReturnType<typeof createETFEquityIndexM4TickerHistoryStage>>();
   latestRunId: string | null = null;
   readonly progress = new Map<string, ETFEquityIndexM4ProgressCheckpoint>();
 
@@ -82,6 +109,27 @@ class MemoryRunStore implements ETFEquityIndexM4RunStorePort {
     if ((current?.revision ?? -1) !== expectedRevision) return false;
     this.progress.set(runId, checkpoint);
     return true;
+  }
+
+  async putAcquisitionPlanIfAbsent(plan: ETFEquityIndexM4AcquisitionPlan): Promise<void> {
+    const existing = this.acquisitionPlans.get(plan.acquisitionId);
+    if (existing && canonicalSha256(existing) !== canonicalSha256(plan)) throw new Error("immutable acquisition plan conflict");
+    this.acquisitionPlans.set(plan.acquisitionId, plan);
+  }
+
+  async getAcquisitionPlan(acquisitionId: string): Promise<ETFEquityIndexM4AcquisitionPlan | null> {
+    return this.acquisitionPlans.get(acquisitionId) ?? null;
+  }
+
+  async putTickerHistoryStageIfAbsent(stage: ReturnType<typeof createETFEquityIndexM4TickerHistoryStage>): Promise<void> {
+    const key = `${stage.acquisitionId}/${stage.ticker}`;
+    const existing = this.stagedHistories.get(key);
+    if (existing && canonicalSha256(existing) !== canonicalSha256(stage)) throw new Error("immutable ticker history stage conflict");
+    this.stagedHistories.set(key, stage);
+  }
+
+  async getTickerHistoryStage(acquisitionId: string, ticker: string): Promise<ReturnType<typeof createETFEquityIndexM4TickerHistoryStage> | null> {
+    return this.stagedHistories.get(`${acquisitionId}/${ticker}`) ?? null;
   }
 
   async advanceLatestSuccessfulRun(manifest: ETFEquityIndexM4RunManifest): Promise<void> {
@@ -135,7 +183,7 @@ test("adjustment changes, newly available history, and failed refreshes are dist
 
 test("M4 checkpoint resumes in ticker order and enforces its shared hourly request budget", () => {
   const checkpoint = createETFEquityIndexM4Progress({
-    manifest: envelope.manifest,
+    plan: acquisitionPlan,
     now: createdAt,
     maxRequestsPerHour: 1,
     maxAttemptsPerTicker: 2,
@@ -153,10 +201,10 @@ test("M4 checkpoint resumes in ticker order and enforces its shared hourly reque
   assert.equal(limited.reason, "hourly-budget-exhausted");
   const nextHour = claimETFEquityIndexM4Ticker({ checkpoint: saved, now: "2026-10-07T14:00:00.000Z" });
   assert.equal(nextHour.ticker, envelope.manifest.funds[1].ticker);
-  assertETFEquityIndexM4ResumeCompatible(nextHour.checkpoint, envelope.manifest);
+  assertETFEquityIndexM4ResumeCompatible(nextHour.checkpoint, acquisitionPlan);
 
   assert.throws(() => createETFEquityIndexM4Progress({
-    manifest: envelope.manifest,
+    plan: acquisitionPlan,
     now: "2026-10-07T13:45:00.000Z",
     maxRequestsPerHour: 1,
     maxAttemptsPerTicker: 2,
@@ -169,7 +217,7 @@ test("M4 checkpoint resumes in ticker order and enforces its shared hourly reque
     tickers: saved.tickers.map((ticker) => ({ ...ticker, status: "failed" as const })),
   };
   const sameHourBudget = createETFEquityIndexM4Progress({
-    manifest: envelope.manifest,
+    plan: acquisitionPlan,
     now: "2026-10-07T13:45:00.000Z",
     maxRequestsPerHour: 1,
     maxAttemptsPerTicker: 2,
@@ -180,9 +228,26 @@ test("M4 checkpoint resumes in ticker order and enforces its shared hourly reque
 });
 
 test("expired capture lease is recovered and becomes a recorded failure after retry exhaustion", () => {
-  const singleTickerManifest = { ...envelope.manifest, funds: envelope.manifest.funds.slice(0, 1) };
+  const singleTickerPlan = {
+    ...acquisitionPlan,
+    tickers: acquisitionPlan.tickers.slice(0, 1),
+  };
+  const identity = {
+    sampleId: singleTickerPlan.sampleId,
+    sampleSha256: singleTickerPlan.sampleSha256,
+    commonCutoff: singleTickerPlan.commonCutoff,
+    createdAt: singleTickerPlan.createdAt,
+    expiresAt: singleTickerPlan.expiresAt,
+    tickers: singleTickerPlan.tickers,
+  };
+  singleTickerPlan.acquisitionId = `m4a-${canonicalSha256(identity)}`;
+  singleTickerPlan.planSha256 = canonicalSha256({
+    schemaVersion: singleTickerPlan.schemaVersion,
+    acquisitionId: singleTickerPlan.acquisitionId,
+    ...identity,
+  });
   const checkpoint = createETFEquityIndexM4Progress({
-    manifest: singleTickerManifest,
+    plan: singleTickerPlan,
     now: createdAt,
     maxRequestsPerHour: 4,
     maxAttemptsPerTicker: 1,
@@ -197,9 +262,26 @@ test("expired capture lease is recovered and becomes a recorded failure after re
 });
 
 test("retry delay is bounded, provider URLs are redacted, and retries exhaust explicitly", () => {
-  const singleTickerManifest = { ...envelope.manifest, funds: envelope.manifest.funds.slice(0, 1) };
+  const singleTickerPlan = {
+    ...acquisitionPlan,
+    tickers: acquisitionPlan.tickers.slice(0, 1),
+  };
+  const identity = {
+    sampleId: singleTickerPlan.sampleId,
+    sampleSha256: singleTickerPlan.sampleSha256,
+    commonCutoff: singleTickerPlan.commonCutoff,
+    createdAt: singleTickerPlan.createdAt,
+    expiresAt: singleTickerPlan.expiresAt,
+    tickers: singleTickerPlan.tickers,
+  };
+  singleTickerPlan.acquisitionId = `m4a-${canonicalSha256(identity)}`;
+  singleTickerPlan.planSha256 = canonicalSha256({
+    schemaVersion: singleTickerPlan.schemaVersion,
+    acquisitionId: singleTickerPlan.acquisitionId,
+    ...identity,
+  });
   let checkpoint = createETFEquityIndexM4Progress({
-    manifest: singleTickerManifest,
+    plan: singleTickerPlan,
     now: createdAt,
     maxRequestsPerHour: 10,
     maxAttemptsPerTicker: 2,
@@ -227,6 +309,49 @@ test("retry delay is bounded, provider URLs are redacted, and retries exhaust ex
     now: "2026-10-07T13:00:21.000Z",
   });
   assert.equal(checkpoint.tickers[0].status, "failed");
+});
+
+test("per-ticker staging is policy-gated, immutable, bounded by the plan, and read back before success", async () => {
+  assert.throws(() => createETFEquityIndexM4AcquisitionPlan({
+    sample,
+    sampleSha256: envelope.manifest.sampleSha256,
+    commonCutoff: envelope.manifest.commonCutoff,
+    createdAt,
+    policy: JSON.parse(readFileSync(join(process.cwd(), "data", "etf-scoring-data-use-policy.json"), "utf8")),
+    now: new Date("2026-10-07T14:00:00.000Z"),
+  }), /ETF M4 retention is blocked/);
+
+  const stage = createETFEquityIndexM4TickerHistoryStage({
+    plan: acquisitionPlan,
+    ticker: acquisitionPlan.tickers[0],
+    history: stagedHistory,
+    policy: reviewedPolicy,
+    createdAt,
+    now: new Date("2026-10-07T14:00:00.000Z"),
+  });
+  assert.equal(verifyETFEquityIndexM4TickerHistoryStage({ plan: acquisitionPlan, stage }).status, "passed");
+  const store = new MemoryRunStore();
+  const readback = await persistETFEquityIndexM4TickerHistoryStage({
+    plan: acquisitionPlan,
+    stage,
+    store,
+    policy: reviewedPolicy,
+    now: new Date("2026-10-07T14:00:00.000Z"),
+  });
+  assert.equal(readback.stageSha256, stage.stageSha256);
+  assert.equal(store.stagedHistories.size, 1);
+  await assert.rejects(() => store.putTickerHistoryStageIfAbsent({ ...stage, history: { ...stage.history, bars: [] } }), /immutable ticker history stage conflict/);
+
+  const corrupt = { ...stage, history: { ...stage.history, bars: [{ date: "2026-10-06", adjustedClose: -1 }] } };
+  assert.equal(verifyETFEquityIndexM4TickerHistoryStage({ plan: acquisitionPlan, stage: corrupt }).status, "blocked");
+  assert.throws(() => createETFEquityIndexM4TickerHistoryStage({
+    plan: acquisitionPlan,
+    ticker: "NOT-IN-SAMPLE",
+    history: stagedHistory,
+    policy: reviewedPolicy,
+    createdAt,
+    now: new Date("2026-10-07T14:00:00.000Z"),
+  }), /registered in the immutable acquisition plan/);
 });
 
 test("persisted run readback is replayed before latest-run promotion", async () => {

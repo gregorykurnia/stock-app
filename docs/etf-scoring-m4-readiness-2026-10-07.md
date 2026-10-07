@@ -1,6 +1,6 @@
 # ETF scoring M4 readiness · 2026-10-07
 
-Status: M4 implementation has started with a reviewed data-use gate. New Yahoo acquisition and retained-artifact writes are blocked until the personal-use source and retention decisions are recorded in [the policy file](../data/etf-scoring-data-use-policy.json). This is an implementation checkpoint, not the M4 acceptance report.
+Status: M4 implementation has started with conservative personal-use defaults recorded in [the policy file](../data/etf-scoring-data-use-policy.json). Automated Yahoo and issuer requests are blocked; raw-history, derived-score, and issuer-evidence retention remain unresolved pending applicable source terms or express permission. A 365-day retention target is selected but does not authorize writes. This is an implementation checkpoint, not the M4 acceptance report.
 
 ## Infrastructure inspection
 
@@ -13,17 +13,17 @@ Status: M4 implementation has started with a reviewed data-use gate. New Yahoo a
 
 ## Initial implementation
 
-`lib/etfEquityIndexM4Policy.ts` validates a dated, recorded source-use review and a bounded retention period. The M3 refresh script checks this policy before a new Yahoo request or writing its retained artifact. All five decisions in the checked-in policy are currently `unresolved`; this prevents a successful prior request from being treated as permission for another capture or durable storage.
+`lib/etfEquityIndexM4Policy.ts` validates a dated, recorded source-use review and a bounded retention period. The M3 refresh script checks this policy before a new Yahoo request or writing its retained artifact. The checked-in review blocks automated Yahoo and issuer requests and leaves all three retention categories unresolved. Yahoo's [Terms of Service](https://legal.yahoo.com/us/en/yahoo/terms/otos/index.html) restrict automated access or collection without prior express permission; no applicable permission or authorized market-data API agreement is evidenced here. A successful prior request is not treated as permission for another capture or durable storage.
 
 The policy separately records Yahoo requests, raw adjusted-close retention, derived-score retention, issuer return-evidence retention, and future issuer requests. It requires a review timestamp, review record, and retention period of 1–3650 days before retained data is written. The policy test uses synthetic policy objects and does not contact providers or write captured data.
 
-`lib/etfEquityIndexM4Storage.ts` defines an immutable M4 manifest, deterministic run IDs, content-hashed 512 KiB raw-text chunks, expiry metadata, exact chunk reassembly, and raw-text M3 replay before a run can advance the internal latest-success pointer. Its resumable ticker checkpoint tracks leases, retries, errors, and a shared hourly Yahoo request budget scope. `lib/etfEquityIndexM4FirestoreStore.ts` implements create-only Firestore records, transactional progress compare-and-set, readback, and passing-run promotion. Tests exercise the stored-run workflow with an in-memory adapter and replay the already retained M3 artifact under Node 26; no Firestore credentials or provider requests are used by those tests.
+`lib/etfEquityIndexM4Storage.ts` defines immutable M4 acquisition plans and manifests, deterministic IDs, content-hashed 512 KiB raw-text chunks, per-ticker history stages bound to the frozen sample and retention window, expiry metadata, exact chunk reassembly, and raw-text replay before a run can advance the internal latest-success pointer. Acquisition checkpoints track leases, retries, errors, and a shared hourly Yahoo request budget; a staged history is created and read back before its hash can mark a ticker complete. `lib/etfEquityIndexM4FirestoreStore.ts` implements create-only Firestore records, transactional progress compare-and-set, readback, and passing-run promotion. Tests exercise plan/stage/run behavior with an in-memory adapter and replay the already retained M3 artifact under Node 26; no Firestore credentials or provider requests are used by those tests.
 
 ## Open M4 dependencies
 
-1. Record which provider requests and data categories may be used and retained for the personal-use deployment, with a retention period.
+1. Establish an applicable permitted acquisition path and retention rights for each provider/data category. Until then, keep automated requests and durable M4 writes blocked; the 365-day window is only a target if later approved.
 2. Add the server credential to private local/Vercel configuration, verify its project and least-privilege Firestore access, and configure Firestore TTL for `ttlExpiresAt`.
 3. Measure storage and request costs and test the adapter's create-only, revision-CAS, TTL, concurrency and prior-run-preservation behavior against the deployed Firestore project.
-4. Connect resumable Yahoo acquisition to the store, retaining successful per-ticker histories in bounded staging records so an interrupted worker can resume without recapturing completed tickers.
+4. Connect a permitted provider adapter to the acquisition-plan and ticker-stage APIs. Enforce provider approval at the worker boundary, resume from verified stages, and assemble/replay the final M3 artifact after all sample tickers have an explicit success or failure state.
 
 Until these dependencies are met, M4 has not performed a new provider capture or written an M4 run. The M3 artifact remains the existing validation record; it has not been converted into a new persistent run.

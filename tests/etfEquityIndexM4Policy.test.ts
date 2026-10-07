@@ -31,7 +31,13 @@ function approvedPolicy(): ETFM4DataUsePolicy {
   };
 }
 
-test("unresolved checked-in policy blocks retention and Yahoo acquisition", () => {
+test("conservative checked-in policy blocks requests and retention pending rights review", () => {
+  assert.equal(currentPolicy.retentionDays, 365);
+  assert.equal(currentPolicy.permissions.yahooProviderRequests, "blocked");
+  assert.equal(currentPolicy.permissions.issuerProviderRequests, "blocked");
+  assert.equal(currentPolicy.permissions.rawAdjustedCloseRetention, "unresolved");
+  assert.equal(currentPolicy.permissions.derivedScoreRetention, "unresolved");
+  assert.equal(currentPolicy.permissions.issuerReturnEvidenceRetention, "unresolved");
   const assessment = assessETFEquityIndexM4RetentionPolicy(currentPolicy, now);
   assert.equal(assessment.ready, false);
   assert.throws(() => assertETFEquityIndexM4RetentionAllowed(currentPolicy, now), /retention is blocked/);
