@@ -129,7 +129,8 @@ function lastWeekday(year: number, month: number, weekday: number): string {
 
 function observedFixedHoliday(year: number, month: number, day: number): string {
   const date = new Date(Date.UTC(year, month, day));
-  if (date.getUTCDay() === 6) date.setUTCDate(date.getUTCDate() - 1);
+  // NYSE does not observe New Year's Day on the preceding Friday when January 1 falls on Saturday.
+  if (date.getUTCDay() === 6 && !(month === 0 && day === 1)) date.setUTCDate(date.getUTCDate() - 1);
   if (date.getUTCDay() === 0) date.setUTCDate(date.getUTCDate() + 1);
   return dateString(date);
 }
@@ -178,6 +179,7 @@ export function usEquityMarketHolidays(year: number): Set<string> {
     }
   }
   if (year === 2025) holidays.push("2025-01-09"); // National day of mourning for President Carter.
+  if (year === 2018) holidays.push("2018-12-05"); // National day of mourning for President George H.W. Bush.
   return new Set(holidays);
 }
 
@@ -250,7 +252,7 @@ export function lastCompletedUsMonthEnd(now: Date): string {
   return lastTradingSessionOfMonth(monthString(previousMonth));
 }
 
-function monthEndCutoff(now: Date, bars: TiingoDailyBar[], cutoffOverride?: string): string | null {
+function monthEndCutoff(now: Date, bars: Array<Pick<TiingoDailyBar, "date" | "adjustedClose">>, cutoffOverride?: string): string | null {
   const expectedCutoff = cutoffOverride ?? lastCompletedUsMonthEnd(now);
   const parsedCutoff = parseDate(expectedCutoff);
   if (!parsedCutoff || monthString(parsedCutoff) >= monthString(now)
@@ -278,7 +280,7 @@ function expectedSessions(startDate: string, endDate: string): string[] {
   return result;
 }
 
-function drawdownMagnitude(bars: TiingoDailyBar[]): number | null {
+function drawdownMagnitude(bars: Array<Pick<TiingoDailyBar, "date" | "adjustedClose">>): number | null {
   if (!bars.length) return null;
   let peak = bars[0].adjustedClose;
   let worst = 0;
@@ -291,7 +293,7 @@ function drawdownMagnitude(bars: TiingoDailyBar[]): number | null {
 }
 
 export function buildETFCoreMarketWindow(
-  allBars: TiingoDailyBar[],
+  allBars: Array<Pick<TiingoDailyBar, "date" | "adjustedClose">>,
   horizon: "1Y" | "3Y",
   now: Date,
   cutoffOverride?: string,

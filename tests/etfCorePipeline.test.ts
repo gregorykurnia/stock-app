@@ -29,6 +29,8 @@ function sessionBars(startDate: string, endDate: string): TiingoDailyBar[] {
 
 test("US market session calendar excludes observed closures and Good Friday", () => {
   assert.equal(isUsEquityTradingSession("2025-01-09"), false);
+  assert.equal(isUsEquityTradingSession("2018-12-05"), false);
+  assert.equal(isUsEquityTradingSession("2021-12-31"), true);
   assert.equal(isUsEquityTradingSession("2024-03-29"), false);
   assert.equal(isUsEquityTradingSession("2026-09-30"), true);
 });

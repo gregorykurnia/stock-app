@@ -1,0 +1,158 @@
+{
+  "schemaVersion": 1,
+  "sourcePolicy": "Broad, unleveraged, passive equity-index ETFs only. Dated net expense ratios and mandate descriptions were manually checked against official issuer disclosures on 2026-10-07. No spread input is required.",
+  "funds": {
+    "VOO": {
+      "name": "Vanguard S&P 500 ETF",
+      "issuer": "Vanguard",
+      "role": "U.S. large-cap equity index",
+      "identityVerified": true,
+      "identitySourceUrl": "https://advisors.vanguard.com/investments/products/voo/vanguard-sp-500-etf",
+      "mandate": {
+        "family": "equity-index",
+        "description": "Passively managed, full-replication S&P 500 U.S. large-cap index ETF.",
+        "sourceUrl": "https://advisors.vanguard.com/investments/products/voo/vanguard-sp-500-etf"
+      },
+      "expenseRatio": {
+        "valuePct": 0.03,
+        "financialDate": "2026-04-28",
+        "designation": "net",
+        "waiverExpiryDate": null,
+        "sourceUrl": "https://advisors.vanguard.com/investments/products/voo/vanguard-sp-500-etf"
+      }
+    },
+    "VTI": {
+      "name": "Vanguard Morningstar Total Stock Market ETF",
+      "issuer": "Vanguard",
+      "role": "U.S. total-market equity index",
+      "identityVerified": true,
+      "identitySourceUrl": "https://advisors.vanguard.com/investments/products/vti/vanguard-total-stock-market-etf",
+      "mandate": {
+        "family": "equity-index",
+        "description": "Passively managed U.S. total-stock-market index ETF spanning large, mid and small companies.",
+        "sourceUrl": "https://advisors.vanguard.com/investments/products/vti/vanguard-total-stock-market-etf"
+      },
+      "expenseRatio": {
+        "valuePct": 0.03,
+        "financialDate": "2026-04-28",
+        "designation": "net",
+        "waiverExpiryDate": null,
+        "sourceUrl": "https://advisors.vanguard.com/investments/products/vti/vanguard-total-stock-market-etf"
+      }
+    },
+    "IVV": {
+      "name": "iShares Core S&P 500 ETF",
+      "issuer": "iShares",
+      "role": "U.S. large-cap equity index",
+      "identityVerified": true,
+      "identitySourceUrl": "https://www.ishares.com/us/products/239726/ishares-core-sp-500-etf-ivv",
+      "mandate": {
+        "family": "equity-index",
+        "description": "Passively managed S&P 500 U.S. large-cap equity index ETF.",
+        "sourceUrl": "https://www.ishares.com/us/products/239726/ishares-core-sp-500-etf-ivv"
+      },
+      "expenseRatio": {
+        "valuePct": 0.03,
+        "financialDate": "2026-03-31",
+        "designation": "net",
+        "waiverExpiryDate": null,
+        "sourceUrl": "https://www.ishares.com/us/literature/summary-prospectus/sp-ishares-core-s-and-p-500-etf-3-31.pdf"
+      }
+    },
+    "ITOT": {
+      "name": "iShares Core S&P Total U.S. Stock Market ETF",
+      "issuer": "iShares",
+      "role": "U.S. total-market equity index",
+      "identityVerified": true,
+      "identitySourceUrl": "https://www.ishares.com/us/products/239724/ishares-core-sp-total-us-stock-market-etf",
+      "mandate": {
+        "family": "equity-index",
+        "description": "Passively managed index ETF covering U.S. stocks across market capitalizations.",
+        "sourceUrl": "https://www.ishares.com/us/products/239724/ishares-core-sp-total-us-stock-market-etf"
+      },
+      "expenseRatio": {
+        "valuePct": 0.03,
+        "financialDate": "2026-03-31",
+        "designation": "net",
+        "waiverExpiryDate": null,
+        "sourceUrl": "https://www.ishares.com/us/literature/summary-prospectus/sp-ishares-core-s-and-p-total-us-stock-market-etf-3-31.pdf"
+      }
+    },
+    "SCHB": {
+      "name": "Schwab U.S. Broad Market ETF",
+      "issuer": "Schwab Asset Management",
+      "role": "U.S. broad-market equity index",
+      "identityVerified": true,
+      "identitySourceUrl": "https://www.schwabassetmanagement.com/products/schb",
+      "mandate": {
+        "family": "equity-index",
+        "description": "Passive index ETF tracking a broad U.S. equity market index across large, mid and small companies.",
+        "sourceUrl": "https://www.schwabassetmanagement.com/products/schb"
+      },
+      "expenseRatio": {
+        "valuePct": 0.03,
+        "financialDate": "2026-08-27",
+        "designation": "net",
+        "waiverExpiryDate": null,
+        "sourceUrl": "https://www.schwabassetmanagement.com/product-finder?producttype=mf"
+      }
+    },
+    "VXUS": {
+      "name": "Vanguard Total International Stock ETF",
+      "issuer": "Vanguard",
+      "role": "International broad-market equity index · ex-U.S.",
+      "identityVerified": true,
+      "identitySourceUrl": "https://advisors.vanguard.com/investments/products/vxus/vanguard-total-international-stock-etf",
+      "mandate": {
+        "family": "equity-index",
+        "description": "Passively managed international all-cap equity index ETF covering developed and emerging markets outside the U.S.",
+        "sourceUrl": "https://advisors.vanguard.com/investments/products/vxus/vanguard-total-international-stock-etf"
+      },
+      "expenseRatio": {
+        "valuePct": 0.05,
+        "financialDate": "2026-02-27",
+        "designation": "net",
+        "waiverExpiryDate": null,
+        "sourceUrl": "https://advisors.vanguard.com/investments/products/vxus/vanguard-total-international-stock-etf"
+      }
+    },
+    "VEA": {
+      "name": "Vanguard FTSE Developed Markets ETF",
+      "issuer": "Vanguard",
+      "role": "International developed-market equity index · ex-U.S.",
+      "identityVerified": true,
+      "identitySourceUrl": "https://advisors.vanguard.com/investments/products/vea/vanguard-ftse-developed-markets-et",
+      "mandate": {
+        "family": "equity-index",
+        "description": "Passively managed index ETF covering developed-market equities outside the U.S.",
+        "sourceUrl": "https://advisors.vanguard.com/investments/products/vea/vanguard-ftse-developed-markets-et"
+      },
+      "expenseRatio": {
+        "valuePct": 0.03,
+        "financialDate": "2026-04-28",
+        "designation": "net",
+        "waiverExpiryDate": null,
+        "sourceUrl": "https://advisors.vanguard.com/investments/products/vea/vanguard-ftse-developed-markets-et"
+      }
+    },
+    "IXUS": {
+      "name": "iShares Core MSCI Total International Stock ETF",
+      "issuer": "iShares",
+      "role": "International broad-market equity index · ex-U.S.",
+      "identityVerified": true,
+      "identitySourceUrl": "https://www.ishares.com/us/products/244048/ishares-core-msci-total-international-stock-etf",
+      "mandate": {
+        "family": "equity-index",
+        "description": "Passively managed index ETF covering large, mid and small non-U.S. equities in developed and emerging markets.",
+        "sourceUrl": "https://www.ishares.com/us/products/244048/ishares-core-msci-total-international-stock-etf"
+      },
+      "expenseRatio": {
+        "valuePct": 0.07,
+        "financialDate": "2026-07-31",
+        "designation": "net",
+        "waiverExpiryDate": null,
+        "sourceUrl": "https://www.ishares.com/us/literature/summary-prospectus/sp-ishares-core-msci-total-international-stock-etf-7-31.pdf"
+      }
+    }
+  }
+}
