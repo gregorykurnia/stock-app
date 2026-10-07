@@ -1,0 +1,200 @@
+{
+  "protocolId": "issuer-market-price-return-reconciliation-v1",
+  "comparisonAsOf": "2026-08-31",
+  "oneYearStartDate": "2025-08-29",
+  "threeYearStartDate": "2023-08-31",
+  "endDate": "2026-08-31",
+  "tolerancePctPoints": 0.25,
+  "returnConvention": "U.S.-dollar market-price/Market Value total return with reinvested distributions where published; Yahoo adjusted close already includes dividends and splits. One-year endpoint return is cumulative; three-year return is annualized.",
+  "funds": [
+    {
+      "ticker": "SPYM",
+      "reviewNote": "State Street reports Market Value total return for the common 2026-08-31 cutoff.",
+      "sources": [{
+        "sourceName": "State Street SPYM Fund Performance",
+        "sourceType": "official-issuer",
+        "sourceUrl": "https://www.ssga.com/us/en/individual/etfs/state-street-spdr-portfolio-sp-500-etf-spym",
+        "asOfDate": "2026-08-31",
+        "returnConvention": "Market Value total return",
+        "oneYearReturnPct": 20.28,
+        "threeYearAnnualizedReturnPct": 21.01
+      }]
+    },
+    {
+      "ticker": "SPY",
+      "reviewNote": "State Street reports Market Value total return for the common 2026-08-31 cutoff.",
+      "sources": [{
+        "sourceName": "State Street SPY Fund Performance",
+        "sourceType": "official-issuer",
+        "sourceUrl": "https://www.ssga.com/us/en/individual/etfs/state-street-spdr-sp-500-etf-trust-spy",
+        "asOfDate": "2026-08-31",
+        "returnConvention": "Market Value total return",
+        "oneYearReturnPct": 20.17,
+        "threeYearAnnualizedReturnPct": 20.90
+      }]
+    },
+    {
+      "ticker": "SPTM",
+      "reviewNote": "State Street reports Market Value total return for the common 2026-08-31 cutoff.",
+      "sources": [{
+        "sourceName": "State Street SPTM Fund Performance",
+        "sourceType": "official-issuer",
+        "sourceUrl": "https://www.ssga.com/us/en/intermediary/etfs/state-street-spdr-portfolio-sp-1500-composite-stock-market-etf-sptm",
+        "asOfDate": "2026-08-31",
+        "returnConvention": "Market Value total return",
+        "oneYearReturnPct": 20.14,
+        "threeYearAnnualizedReturnPct": 20.44
+      }]
+    },
+    {
+      "ticker": "SCHX",
+      "reviewNote": "Schwab Asset Management market-price performance table is dated 2026-08-31.",
+      "sources": [{
+        "sourceName": "Schwab SCHX performance",
+        "sourceType": "official-issuer",
+        "sourceUrl": "https://www.schwabassetmanagement.com/products/schx",
+        "asOfDate": "2026-08-31",
+        "returnConvention": "Market Price total return",
+        "oneYearReturnPct": 19.56,
+        "threeYearAnnualizedReturnPct": 20.92
+      }]
+    },
+    {
+      "ticker": "IEFA",
+      "reviewNote": "The iShares market-price table conflicts with Yahoo and a second market-price provider; all IEFA scores are blocked pending reconciliation.",
+      "sources": [
+        {
+          "sourceName": "iShares IEFA performance",
+          "sourceType": "official-issuer",
+          "sourceUrl": "https://www.ishares.com/us/products/244049/ishares-core-msci-eafe-etf",
+          "asOfDate": "2026-08-31",
+          "returnConvention": "Market Price total return",
+          "oneYearReturnPct": 19.85,
+          "threeYearAnnualizedReturnPct": 16.52
+        },
+        {
+          "sourceName": "Schwab/Morningstar IEFA performance",
+          "sourceType": "independent-provider",
+          "sourceUrl": "https://www.schwab.wallst.com/Prospect/Research/etfs/performance.asp?symbol=iefa",
+          "asOfDate": "2026-08-31",
+          "returnConvention": "Market Price total return; rounded to one decimal place",
+          "oneYearReturnPct": 21.5,
+          "threeYearAnnualizedReturnPct": 18.3
+        }
+      ]
+    },
+    {
+      "ticker": "EFA",
+      "reviewNote": "The iShares market-price table conflicts with Yahoo and a second market-price provider; all EFA scores are blocked pending reconciliation.",
+      "sources": [
+        {
+          "sourceName": "iShares EFA performance",
+          "sourceType": "official-issuer",
+          "sourceUrl": "https://www.ishares.com/us/products/239623/ishares-msci-eafe-etf",
+          "asOfDate": "2026-08-31",
+          "returnConvention": "Market Price total return",
+          "oneYearReturnPct": 20.19,
+          "threeYearAnnualizedReturnPct": 16.34
+        },
+        {
+          "sourceName": "Schwab/Morningstar EFA performance",
+          "sourceType": "independent-provider",
+          "sourceUrl": "https://www.schwab.wallst.com/Prospect/Research/etfs/performance.asp?symbol=efa",
+          "asOfDate": "2026-08-31",
+          "returnConvention": "Market Price total return; rounded to one decimal place",
+          "oneYearReturnPct": 21.5,
+          "threeYearAnnualizedReturnPct": 18.2
+        }
+      ]
+    },
+    {
+      "ticker": "SCHF",
+      "reviewNote": "Schwab Asset Management market-price performance table is dated 2026-08-31.",
+      "sources": [{
+        "sourceName": "Schwab SCHF performance",
+        "sourceType": "official-issuer",
+        "sourceUrl": "https://www.schwabassetmanagement.com/products/schf",
+        "asOfDate": "2026-08-31",
+        "returnConvention": "Market Price total return",
+        "oneYearReturnPct": 28.57,
+        "threeYearAnnualizedReturnPct": 20.61
+      }]
+    },
+    {
+      "ticker": "SPDW",
+      "reviewNote": "State Street reports Market Value total return for the common 2026-08-31 cutoff.",
+      "sources": [{
+        "sourceName": "State Street SPDW Fund Performance",
+        "sourceType": "official-issuer",
+        "sourceUrl": "https://www.ssga.com/us/en/institutional/etfs/state-street-spdr-portfolio-developed-world-ex-us-etf-spdw",
+        "asOfDate": "2026-08-31",
+        "returnConvention": "Market Value total return",
+        "oneYearReturnPct": 27.90,
+        "threeYearAnnualizedReturnPct": 20.61
+      }]
+    },
+    {
+      "ticker": "ACWX",
+      "reviewNote": "The iShares market-price table conflicts with Yahoo and a second market-price provider; all ACWX scores are blocked pending reconciliation.",
+      "sources": [
+        {
+          "sourceName": "iShares ACWX performance",
+          "sourceType": "official-issuer",
+          "sourceUrl": "https://www.ishares.com/us/products/239594/ishares-msci-acwi-ex-us-etf",
+          "asOfDate": "2026-08-31",
+          "returnConvention": "Market Price total return",
+          "oneYearReturnPct": 28.29,
+          "threeYearAnnualizedReturnPct": 18.92
+        },
+        {
+          "sourceName": "Schwab/Morningstar ACWX performance",
+          "sourceType": "independent-provider",
+          "sourceUrl": "https://www.schwab.wallst.com/Prospect/Research/etfs/performance.asp?symbol=acwx",
+          "asOfDate": "2026-08-31",
+          "returnConvention": "Market Price total return; rounded to one decimal place",
+          "oneYearReturnPct": 26.7,
+          "threeYearAnnualizedReturnPct": 20.0
+        }
+      ]
+    },
+    {
+      "ticker": "CWI",
+      "reviewNote": "State Street reports Market Value total return for the common 2026-08-31 cutoff.",
+      "sources": [{
+        "sourceName": "State Street CWI Fund Performance",
+        "sourceType": "official-issuer",
+        "sourceUrl": "https://www.ssga.com/us/en/institutional/etfs/state-street-spdr-msci-acwi-ex-us-etf-cwi",
+        "asOfDate": "2026-08-31",
+        "returnConvention": "Market Value total return",
+        "oneYearReturnPct": 26.39,
+        "threeYearAnnualizedReturnPct": 20.44
+      }]
+    },
+    {
+      "ticker": "VEU",
+      "reviewNote": "The captured Vanguard page did not provide a matched market-price 3Y value in its static source output; use Schwab/Morningstar's dated market-price series for both horizons and retain this limitation.",
+      "sources": [{
+        "sourceName": "Schwab/Morningstar VEU performance",
+        "sourceType": "independent-provider",
+        "sourceUrl": "https://www.schwab.wallst.com/Prospect/Research/etfs/performance.asp?symbol=veu",
+        "asOfDate": "2026-08-31",
+        "returnConvention": "Market Price total return; rounded to one decimal place",
+        "oneYearReturnPct": 26.4,
+        "threeYearAnnualizedReturnPct": 20.0
+      }]
+    },
+    {
+      "ticker": "VSGX",
+      "reviewNote": "Vanguard reports the month-end market-price performance for the common 2026-08-31 cutoff.",
+      "sources": [{
+        "sourceName": "Vanguard VSGX performance",
+        "sourceType": "official-issuer",
+        "sourceUrl": "https://advisors.vanguard.com/investments/products/vsgx/vanguard-esg-international-stock-etf",
+        "asOfDate": "2026-08-31",
+        "returnConvention": "Market Price total return",
+        "oneYearReturnPct": 27.53,
+        "threeYearAnnualizedReturnPct": 20.22
+      }]
+    }
+  ]
+}

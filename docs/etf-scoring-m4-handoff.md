@@ -1,0 +1,38 @@
+# ETF scoring M4 handoff: durable acquisition, storage and refresh
+
+Prepared 2026-10-07 after M3 passed its restricted validation gate. Read the [roadmap](etf-scoring-roadmap.md), [M2 specification](etf-scoring-m2-handoff.md), [M3 handoff](etf-scoring-m3-handoff.md), [M3 report](etf-equity-index-m3-validation-2026-10-07.md), and [ETF page plan](etf-page-plan.md) before implementation. Inspect the existing Firebase/Firestore and scheduled-refresh code before adding another storage or scheduling path.
+
+## Entry status and fixed evidence
+
+M3 passed for restricted validation only. Its 12-fund sample is frozen at SHA-256 `bbe0ad71f1477b214ae80d99df2cf11e875ef80ccbcf88fe77b226ba959b5853`. The [retained artifact](../data/etf-equity-index-m3-validation-2026-10-07.json) contains 120 horizon/cutoff rows; 82 rows score and reproduce independently within `2.842170943040401e-14`. Current 1Y/3Y coverage is four U.S. broad, two developed ex-U.S., and three broad international funds per horizon.
+
+IEFA, EFA and ACWX remain blocked because official iShares return evidence conflicts with the retained Yahoo series and a second provider. Keep these source blockers intact until a dated evidence review resolves the discrepancy. The eight blocked continuity/history rows and all 32 M1 point-in-time historical-fee rows also remain blocked. M3 did not authorize publishing scores in Browse funds.
+
+The app already has Firebase/Firestore access in `lib/firebase.ts` and `lib/firestore.ts`; the ETF page plan also records Firestore snapshots and scheduled refresh work. M4 must inspect and reuse suitable existing code, verify which parts are deployed, and avoid duplicating a scheduler or data model. Existing client Firebase configuration is not proof that a new server refresh workflow is secure or that raw provider data can be retained.
+
+## M4 objective
+
+Turn the one-off M3 capture into an operational, versioned refresh and persistence path for the restricted equity-index scope. Keep scoring input acquisition server-side. Persist immutable run inputs and outputs only after provider-use and retention constraints are reviewed. A page read must use validated stored results and must not call Yahoo or issuer sources live.
+
+Keep this milestone bounded to the M3 validated sample and the unchanged `equity-index-free-core-trial-v1` method. Do not broaden to the full 216-candidate ETF catalogue, change scores or parameters, reconcile the three blocked iShares funds by assumption, or integrate scores into Browse funds. Broader coverage belongs to M5/M6 after the storage path is stable.
+
+## Implementation sequence
+
+1. **Review data access and retention.** Record the intended personal-use deployment and confirm which provider requests, derived values, raw adjusted closes, issuer return tables, and retention periods are allowed. A successful Yahoo request does not grant reuse or storage permission. If raw history cannot be retained, choose a permitted source or an allowed storage representation and revalidate the method contract before storing scores.
+2. **Inspect existing infrastructure.** Map current ETF snapshot and scheduled-refresh code, Firebase Admin/server initialization, Firestore rules, job triggers, deployment configuration, secrets, and existing request budgets. Reuse existing infrastructure when it meets server-only, replay and size requirements; document any missing control before implementation.
+3. **Define immutable run records.** Preserve a stable run ID, ticker, method/version, sample/source identities, scoring parameters, common completed-month cutoff, captured-at time, input freshness, source provenance, all score rows and blockers, raw-text artifact hash, and parent/revision relationship. Keep separate runs for changed provider data, evidence, scoring metadata or calculations. Never overwrite a passing historical capture with a failed refresh.
+4. **Bound storage and document sizing.** Measure the M3 artifact, histories and run count against actual Firestore/document and project limits. If the raw artifact is too large or its retention is disallowed, evaluate chunking or an approved object store; keep a small Firestore manifest that resolves to immutable, hash-verified data. Record cost estimates and the selected retention window.
+5. **Build resumable acquisition.** Use a server-only worker or existing scheduler with account-wide request budgeting, bounded concurrency and retries, durable per-ticker progress, explicit provider errors, and a resumable run ID. It must attempt every registered fund and preserve valid prior data when a new request fails.
+6. **Separate capture validity from current freshness.** Keep the completed-month score cutoff, source financial dates, provider retrieval time, last price session and current freshness distinct. A retained run can remain reproducible while current availability becomes stale or blocked. Never clear a prior source blocker just because refresh succeeded.
+7. **Re-read and replay persisted data.** Read the just-written bytes back through the same raw-text parsing path, verify source and artifact hashes, independently reproduce every eligible row and compare the stored result to its run ID. Avoid compiled JSON imports for precision-sensitive retained artifacts.
+
+## Acceptance gate from M4 to M5
+
+- Provider access, reuse, retention and request limits have a dated disposition for the target deployment. If permission is unknown or unavailable, raw provider data is not retained and the deployment scope is explicitly constrained.
+- One bounded real refresh of the M3 sample can start, resume after interruption, finish, and reproduce exactly from persisted run data without a live market-data request on page reads.
+- Simulated missing/stale source, provider failure, partial batch, duplicate run, adjustment revision and retry exhaustion cases preserve the prior valid run, record explicit status, and never overwrite its immutable inputs.
+- Firestore (and any approved object storage) sizes, per-run cost, run retention and request use are measured. Writes are server-only and readers cannot mutate canonical run artifacts.
+- Stored replay validates the same M3 SHA-256 input contract and the `1e-10` calculation tolerance. Scores for IEFA, EFA and ACWX, continuity-blocked historical windows, and unresolved historical fee rows stay blocked.
+- A dated operations report records coverage, freshness, failures, revisions, retention design and unresolved source blockers. M5 remains a separate product-integration decision; M4 does not itself expose the candidate in Browse funds.
+
+If source rights, durable persistence, or exact replay cannot be demonstrated, stop the route to M5 and document the blocked requirement. Passing M4 supports a limited M5 integration review, not automatic publication or catalogue-wide coverage.
