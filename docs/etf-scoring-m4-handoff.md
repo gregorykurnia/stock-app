@@ -16,6 +16,12 @@ Turn the one-off M3 capture into an operational, versioned refresh and persisten
 
 Keep this milestone bounded to the M3 validated sample and the unchanged `equity-index-free-core-trial-v1` method. Do not broaden to the full 216-candidate ETF catalogue, change scores or parameters, reconcile the three blocked iShares funds by assumption, or integrate scores into Browse funds. Broader coverage belongs to M5/M6 after the storage path is stable.
 
+## Initial implementation status · 2026-10-07
+
+M4 has started with an explicit provider-use and retention gate. The [readiness record](etf-scoring-m4-readiness-2026-10-07.md) maps the current Firebase/Firestore and Vercel code, and [the policy file](../data/etf-scoring-data-use-policy.json) records the unresolved personal-use decisions. The M3 refresh script now requires an approved, dated retention review before it writes retained data and a separate Yahoo request approval before it acquires another capture. No M4 run has been written.
+
+The M3 artifact is 4,046,474 bytes, above Firestore's 1 MiB document limit. The existing ETF Firestore modules use the client SDK, and this repository has no Admin SDK initialization or checked-in rules establishing server-only writes. Select the server persistence adapter only after the data-use review and storage design are settled; the current state does not satisfy the M4 durable-storage gate.
+
 ## Implementation sequence
 
 1. **Review data access and retention.** Record the intended personal-use deployment and confirm which provider requests, derived values, raw adjusted closes, issuer return tables, and retention periods are allowed. A successful Yahoo request does not grant reuse or storage permission. If raw history cannot be retained, choose a permitted source or an allowed storage representation and revalidate the method contract before storing scores.

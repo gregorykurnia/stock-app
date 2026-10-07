@@ -2,7 +2,7 @@
 
 Last updated: 2026-10-07. **Start here for current status and delivery order.**
 
-**Current milestone: M4 — durable acquisition, storage and refresh.** M3 passed its restricted validation gate on 2026-10-07; its dated report, retained artifact and return-source evidence are linked below. Three funds remain blocked because their official iShares return tables do not reconcile with Yahoo and a second provider. M2 passed its specification gate; see the [M2 candidate specification](etf-scoring-m2-handoff.md). The historical point-in-time fee branch remains blocked. Passing M3 does not authorize score publication in Browse funds.
+**Current milestone: M4 — durable acquisition, storage and refresh.** M3 passed its restricted validation gate on 2026-10-07; its dated report, retained artifact and return-source evidence are linked below. Three funds remain blocked because their official iShares return tables do not reconcile with Yahoo and a second provider. M2 passed its specification gate; see the [M2 candidate specification](etf-scoring-m2-handoff.md). The historical point-in-time fee branch remains blocked. M4 has started with an explicit provider-use and retention gate; see the [readiness record](etf-scoring-m4-readiness-2026-10-07.md). Passing M3 does not authorize score publication in Browse funds.
 
 This document governs delivery order and progress tracking. The [independent Grand Score plan](etf-independent-grand-score-plan.md) retains the original Core/Full formulas, family routing and broader coverage objectives. The [quantitative comparison plan](etf-quantitative-comparison-plan.md) and [ETF page plan](etf-page-plan.md) retain applicable metric and product requirements. This roadmap does not replace those scorecards with the Yahoo equity-index experiment.
 
@@ -55,7 +55,7 @@ Gate to M4: **passed for restricted validation only**. The sample met all prereg
 
 ### M4 — Durable acquisition, storage and refresh
 
-Status: planned; M3 passed the restricted-validation dependency. Start from the [M4 handoff](etf-scoring-m4-handoff.md), reuse the existing Firebase/Firestore patterns where they fit, and keep the M3 source blockers in force.
+Status: **in progress; acquisition and retention are gated pending review**. M3 passed the restricted-validation dependency. The [M4 handoff](etf-scoring-m4-handoff.md) and [readiness record](etf-scoring-m4-readiness-2026-10-07.md) document the infrastructure inspection and initial policy gate. No new M4 capture or run has been written. Reuse the existing Firebase/Firestore patterns where they fit, and keep the M3 source blockers in force.
 
 Replace one-off acquisition with shared Yahoo history and dated issuer import/adapters for the validated scope. Integrate bounded history/provenance storage with the existing persistence design. Preserve immutable score inputs, methodology parameters and run IDs; detect provider adjustment revisions; keep credentials server-only. Add resumable progress, account-wide request budgeting, bounded retries and explicit source failures.
 

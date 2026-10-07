@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "targetDeployment": "personal-use",
+  "reviewedAt": null,
+  "reviewRecord": null,
+  "retentionDays": null,
+  "permissions": {
+    "yahooProviderRequests": "unresolved",
+    "rawAdjustedCloseRetention": "unresolved",
+    "derivedScoreRetention": "unresolved",
+    "issuerReturnEvidenceRetention": "unresolved",
+    "issuerProviderRequests": "unresolved"
+  }
+}

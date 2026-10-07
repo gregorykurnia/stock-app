@@ -13,6 +13,7 @@ const YahooFinance = require("yahoo-finance2").default;
 const yf = new YahooFinance({ suppressNotices: ["yahooSurvey"] });
 const samplePath = join(root, "data", "etf-equity-index-m3-sample-v1.json");
 const sampleDigestPath = join(root, "data", "etf-equity-index-m3-sample-v1.sha256");
+const dataUsePolicyPath = join(root, "data", "etf-scoring-data-use-policy.json");
 const auditPath = join(root, "data", "etf-equity-index-audit-2026-10-07.json");
 const returnEvidencePath = join(root, "data", "etf-equity-index-m3-return-evidence-2026-10-07.json");
 const tempDir = mkdtempSync(join(tmpdir(), "etf-equity-index-m3-"));
@@ -54,7 +55,7 @@ try {
   }
 
   execFileSync(join(root, "node_modules", ".bin", "tsc"), [
-    "lib/etfEquityIndexM3Validation.ts", "--outDir", tempDir, "--rootDir", ".",
+    "lib/etfEquityIndexM3Validation.ts", "lib/etfEquityIndexM4Policy.ts", "--outDir", tempDir, "--rootDir", ".",
     "--module", "commonjs", "--target", "es2022", "--esModuleInterop", "--resolveJsonModule", "--skipLibCheck", "--strict",
   ], { cwd: root, stdio: "inherit" });
   const {
@@ -64,13 +65,17 @@ try {
     ETF_EQUITY_INDEX_M3_STRATA,
   } = require(join(tempDir, "lib", "etfEquityIndexM3Validation.js"));
   const { lastCompletedUsMonthEnd } = require(join(tempDir, "lib", "etfCorePipeline.js"));
+  const { assertETFEquityIndexM4RetentionAllowed, assertETFEquityIndexM4YahooAcquisitionAllowed } = require(join(tempDir, "lib", "etfEquityIndexM4Policy.js"));
+  const dataUsePolicy = JSON.parse(readFileSync(dataUsePolicyPath, "utf8"));
+  const replayRetained = process.argv.includes("--replay-retained");
+  assertETFEquityIndexM4RetentionAllowed(dataUsePolicy);
+  if (!replayRetained) assertETFEquityIndexM4YahooAcquisitionAllowed(dataUsePolicy);
   const acquisitionStartedAt = new Date();
   const commonCutoff = lastCompletedUsMonthEnd(acquisitionStartedAt);
   if (!commonCutoff) throw new Error("Unable to determine the latest completed U.S. equity month-end session.");
   const period1 = new Date("2016-01-01T00:00:00Z");
   const period2 = new Date(acquisitionStartedAt.getTime() + 86_400_000);
   const histories = {};
-  const replayRetained = process.argv.includes("--replay-retained");
   let retainedAsOf = null;
 
   function dateOnly(value) {
