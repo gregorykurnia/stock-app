@@ -2,7 +2,7 @@
 
 Last updated: 2026-10-07. **Start here for current status and delivery order.**
 
-**Next milestone: M2 — resolve the audit findings and specify a restricted candidate method.** Use the [M2 handoff](etf-scoring-m2-handoff.md). M1's captured-data integrity and independent-calculation gates pass. The prior hash mismatch was traced to a precision change in Next.js's compiled JSON module and fixed by parsing the retained JSON text on the Node server. The historical point-in-time fee branch remains blocked. M3 and later milestones remain planned work with acceptance gates, not authorization to execute everything in one session.
+**Next milestone: M3 — validate the restricted candidate on a previously unused sample.** M2 passed its specification gate on 2026-10-07; use the [M3 handoff](etf-scoring-m3-handoff.md) and [M2 candidate specification](etf-scoring-m2-handoff.md). M1's captured-data integrity and independent-calculation gates pass. The prior hash mismatch was traced to a precision change in Next.js's compiled JSON module and fixed by parsing the retained JSON text on the Node server. The historical point-in-time fee branch remains blocked. M3 and later milestones remain planned work with acceptance gates, not authorization to execute everything in one session.
 
 This document governs delivery order and progress tracking. The [independent Grand Score plan](etf-independent-grand-score-plan.md) retains the original Core/Full formulas, family routing and broader coverage objectives. The [quantitative comparison plan](etf-quantitative-comparison-plan.md) and [ETF page plan](etf-page-plan.md) retain applicable metric and product requirements. This roadmap does not replace those scorecards with the Yahoo equity-index experiment.
 
@@ -14,6 +14,7 @@ This document governs delivery order and progress tracking. The [independent Gra
 | VOO/VXUS Yahoo Free Core trial | Implemented and pushed in `a854538` | [Trial report](etf-free-core-trial-2026-10-07.md); experimental, separate from Core/Full |
 | Eight-fund Yahoo equity-index batch | Implemented and pushed in `0f16372` | [Batch report](etf-equity-index-validation-batch-2026-10-07.md); captured 16/16 common-cutoff and 64/64 historical sensitivity results |
 | Page integrity and independent calculation audit | M1 gate passed for restricted M2 specification | [Dated audit report](etf-equity-index-audit-2026-10-07.md) and [reproducible audit data](../data/etf-equity-index-audit-2026-10-07.json): VOO history bar 278 changed from `180.93528747558594` to `180.9352874755859` in Next.js 16.2.10/Turbopack's compiled JSON module. The page now parses raw JSON text with Node, then replays and checks the v2 manifest. Independent calculations agree within 1.43e-14 across 80 rows. |
+| Restricted candidate specification | M2 gate passed 2026-10-07 for M3 validation only | [M2 specification](etf-scoring-m2-handoff.md) carries `equity-index-free-core-trial-v1` forward unchanged with exact formulas, source/freshness contracts, window rules, v2 integrity requirements, peer limits and experimental labels. No parameters changed; no historical fees were inferred. [M3 handoff](etf-scoring-m3-handoff.md) fixes sample registration and evaluation gates before collection. This does not approve `/etf` publication. |
 | Historical fees | Blocked for point-in-time historical scoring | M1 found evidence leads but did not establish applicability and net/gross/waiver terms for all cutoff rows. All 32 historical fee rows stay blocked; eight current-fee rows at the common 2026-09-30 cutoff are eligible. |
 | Sensitivity and peer framing | M1 complete; candidate remains experimental | [Audit report](etf-equity-index-audit-2026-10-07.md): 37 scenarios/2,960 rows remain bounded, but 15 of 50 peer comparison rows change order under scenarios and 23 tie at one decimal. Use one decimal at most; no universal rank. |
 
@@ -31,17 +32,17 @@ Gate to M2: **passed for restricted candidate specification only.** The report i
 
 ### M2 — Resolve audit findings and specify the candidate method
 
-Status: **next**; use the [M2 handoff](etf-scoring-m2-handoff.md) and M1 evidence.
+Status: **complete for candidate specification; passed to M3 validation only**. See the [M2 specification](etf-scoring-m2-handoff.md) and [M3 handoff](etf-scoring-m3-handoff.md).
 
-Use the audit to select a documented candidate configuration, eligible mandates, required inputs, source-age rules, 1Y/3Y window rules, version/hash contract and comparison frame. Specify display precision or ties only where supported by the audit. Separate data validity, comparison eligibility and current freshness. Record the evidence behind each change from the baseline.
+The selected candidate is the existing `equity-index-free-core-trial-v1`, with no formula or parameter changes from M1. Its source eligibility, 365-day fee and five-day history age limits, separate capture/current validity, exact 1Y/3Y windows, integrity/hash contract, comparison groups, display precision and experimental-only interpretation are specified. M1 findings support retaining at most one decimal and disallowing rank claims; unresolved historical fees remain blocked.
 
-If findings require revisions, implement them in a new candidate version and rerun the affected M1 checks. If the evidence is insufficient, retain the experimental label and list the remaining work. Do not tune parameters to produce preferred winners.
+No parameter changes were justified, so no new formula version or M1 replay was needed. Do not tune parameters to produce preferred winners. Any future evidence-backed change requires a new method version and affected M1 checks.
 
-Gate to M3: a candidate specification and audit disposition exist, blocking integrity/calculation findings are closed, and unresolved limitations have explicit restrictions. Candidate selection is not a methodology freeze or broad release.
+Gate to M3: **passed for restricted validation only**. The specification and audit disposition exist, M1 integrity/calculation findings are closed, and limitations have explicit restrictions. Candidate selection is not a methodology freeze or broad release.
 
 ### M3 — Expanded validation on previously unused equity-index funds
 
-Status: planned, depends on M2.
+Status: **next; depends on the M2 gate, which passed**. Use the [M3 handoff](etf-scoring-m3-handoff.md). Sample registration, acquisition and scoring have not started.
 
 Add a bounded, sourced sample of previously unused broad equity-index ETFs across issuers and verified U.S., developed-market and broad international exposures. Specify the sample and evaluation criteria before running it. Include a genuinely comparable developed-market peer for VEA where sources permit. Verify index/mandate differences rather than assuming all broad funds are interchangeable. Test short-history, missing-source and continuity rejection cases as well as successful windows.
 
