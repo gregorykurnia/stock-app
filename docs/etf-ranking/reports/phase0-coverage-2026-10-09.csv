@@ -1,0 +1,223 @@
+symbol,name,group,first,last,rows,duplicates,gaps_over_5_days,max_gap_days,max_gap_ends,bad_price_rows,stale,horizon_3y,horizon_5y,horizon_10y
+VOO,Vanguard S&P 500 ETF,US broad market and styles,2010-09-09,2026-10-08,4045,0,0,5,2012-10-31,0,false,true,true,true
+IVV,iShares Core S&P 500 ETF,US broad market and styles,2000-05-19,2026-10-08,6636,0,1,7,2001-09-17,0,false,true,true,true
+VXUS,Vanguard Total International Stock Index Fund ETF,International and global equities,2011-01-28,2026-10-08,3947,0,0,5,2012-10-31,0,false,true,true,true
+QQQ,Nasdaq100 ETF,US broad market and styles,2000-01-03,2026-10-08,6732,0,1,7,2001-09-17,0,false,true,true,true
+BND,Vanguard Total Bond Market Index Fund ETF,Fixed income and preferred securities,2007-04-10,2026-10-08,4907,0,0,5,2012-10-31,0,false,true,true,true
+VUG,Vanguard Growth Index Fund ETF,US broad market and styles,2004-01-30,2026-10-08,5709,0,0,5,2007-01-03,0,false,true,true,true
+VEA,Vanguard Tax Managed Fund FTSE Developed Markets ETF,International and global equities,2007-07-26,2026-10-08,4832,0,0,5,2012-10-31,0,false,true,true,true
+VTV,Vanguard Value Index Fund ETF,US broad market and styles,2004-01-30,2026-10-08,5709,0,0,5,2007-01-03,0,false,true,true,true
+IEFA,iShares Core MSCI EAFE ETF,International and global equities,2012-10-24,2026-10-08,3508,0,0,5,2012-10-31,0,false,true,true,true
+VGT,Vanguard Information Technology Index Fund ETF,Sector and thematic equities,2004-01-30,2026-10-08,5709,0,0,5,2007-01-03,0,false,true,true,true
+IEMG,iShares Core MSCI Emerging Markets ETF,International and global equities,2012-10-24,2026-10-08,3508,0,0,5,2012-10-31,0,false,true,true,true
+GLD,SPDR Gold Trust,Physical precious metals,2004-11-18,2026-10-08,5506,0,0,5,2007-01-03,0,false,true,true,true
+AGG,iShares Core US Aggregate Bond ETF,Fixed income and preferred securities,2003-09-26,2026-10-08,5795,0,0,5,2007-01-03,0,false,true,true,true
+VIG,Vanguard Dividend Appreciation Index Fund ETF,Dividend equities,2006-04-27,2026-10-08,5145,0,0,5,2007-01-03,0,false,true,true,true
+XLK,State Street Technology Select Sector SPDR ETF,Sector and thematic equities,2000-01-03,2026-10-08,6732,0,1,7,2001-09-17,0,false,true,true,true
+BNDX,Vanguard Total International Bond Index Fund ETF,Fixed income and preferred securities,2013-06-04,2026-10-08,3358,0,0,4,2013-09-03,0,false,true,true,true
+SGOV,iShares 0 3 Month Treasury Bond ETF,Fixed income and preferred securities,2020-05-28,2026-10-08,1600,0,0,4,2020-07-06,0,false,true,true,false
+QQQM,Invesco NASDAQ 100 ETF,US broad market and styles,2020-10-13,2026-10-08,1504,0,0,4,2020-12-28,0,false,true,true,false
+SCHD,Schwab US Dividend Equity ETF,Dividend equities,2011-10-20,2026-10-08,3763,0,0,5,2012-10-31,0,false,true,true,true
+VT,Vanguard Total World Stock Index Fund ETF,International and global equities,2008-06-26,2026-10-08,4600,0,0,5,2012-10-31,0,false,true,true,true
+VYM,Vanguard High Dividend Yield ETF,Dividend equities,2006-11-16,2026-10-08,5003,0,0,5,2007-01-03,0,false,true,true,true
+SMH,VanEck Semiconductor ETF,Sector and thematic equities,2000-06-05,2026-10-08,6626,0,1,7,2001-09-17,0,false,true,true,true
+VTIP,Vanguard Sht-Term Inflation-Protected Sec Idx ETF,Fixed income and preferred securities,2012-10-16,2026-10-08,3514,0,0,5,2012-10-31,0,false,true,true,true
+VCIT,Vanguard Intermediate Term Corporate Bond ETF,Fixed income and preferred securities,2009-11-23,2026-10-08,4244,0,0,5,2012-10-31,0,false,true,true,true
+VNQ,Vanguard Real Estate Index Fund ETF,Real estate and infrastructure equities,2004-09-29,2026-10-08,5542,0,0,5,2007-01-03,0,false,true,true,true
+IBIT,iShares Bitcoin Trust,Spot digital asset trusts,2024-01-11,2026-10-08,688,0,0,4,2024-01-16,0,false,false,false,false
+SCHG,Schwab US Large Cap Growth ETF,US broad market and styles,2009-12-11,2026-10-08,4231,0,0,5,2012-10-31,0,false,true,true,true
+IAU,iShares Gold Trust,Physical precious metals,2005-01-28,2026-10-08,5458,0,0,5,2007-01-03,0,false,true,true,true
+VCSH,Vanguard Short Term Corporate Bond ETF,Fixed income and preferred securities,2009-11-23,2026-10-08,4244,0,0,5,2012-10-31,0,false,true,true,true
+BIL,State Street SPDR Bloomberg 1-3 Month T-Bill ETF,Fixed income and preferred securities,2007-05-30,2026-10-08,4872,0,0,5,2012-10-31,0,false,true,true,true
+SOXX,iShares Semiconductor ETF,Sector and thematic equities,2001-07-13,2026-10-08,6347,0,1,7,2001-09-17,0,false,true,true,true
+TLT,iShares 20 Plus Year Treasury Bond ETF,Fixed income and preferred securities,2002-07-26,2026-10-08,6090,0,0,5,2007-01-03,0,false,true,true,true
+JEPI,JPMorgan Equity Premium Income ETF,Options income and distribution strategies,2020-05-21,2026-10-08,1604,0,0,4,2020-05-26,0,false,true,true,false
+JEPQ,JPMorgan Nasdaq Equity Premium Income ETF,Options income and distribution strategies,2022-05-04,2026-10-08,1112,0,0,4,2022-05-31,0,false,true,false,false
+DIA,Dow Jones Industrial Average ETF,US broad market and styles,2000-01-03,2026-10-08,6732,0,1,7,2001-09-17,0,false,true,true,true
+JPST,JPMorgan Ultra Short Income ETF,Fixed income and preferred securities,2017-05-19,2026-10-08,2360,0,0,4,2017-05-30,0,false,true,true,false
+IEF,iShares 7-10 Year Treasury Bond ETF,Fixed income and preferred securities,2002-07-26,2026-10-08,6090,0,0,5,2007-01-03,0,false,true,true,true
+TQQQ,ProShares UltraPro QQQ ETF,Leveraged and inverse ETFs,2010-02-11,2026-10-08,4190,0,0,5,2012-10-31,0,false,true,true,true
+MBB,iShares MBS ETF,Fixed income and preferred securities,2007-03-16,2026-10-08,4923,0,0,5,2012-10-31,0,false,true,true,true
+MGK,Vanguard Mega Cap Growth ETF,US broad market and styles,2007-12-27,2026-10-08,4725,0,0,5,2012-10-31,0,false,true,true,true
+ACWI,iShares MSCI ACWI ETF,International and global equities,2008-03-28,2026-10-08,4663,0,0,5,2012-10-31,0,false,true,true,true
+AVUV,Avantis US Small Cap Value ETF,US broad market and styles,2019-09-26,2026-10-08,1768,0,0,4,2020-01-21,0,false,true,true,false
+SLV,iShares Silver Trust,Physical precious metals,2006-04-28,2026-10-08,5144,0,0,5,2007-01-03,0,false,true,true,true
+EWY,iShares MSCI South Korea ETF,International and global equities,2000-05-12,2026-10-08,6641,0,1,7,2001-09-17,0,false,true,true,true
+VOOG,Vanguard S&P 500 Growth Index Fund ETF,US broad market and styles,2010-09-09,2026-10-08,4045,0,0,5,2012-10-31,0,false,true,true,true
+SHY,iShares 1 3 Year Treasury Bond ETF,Fixed income and preferred securities,2002-07-26,2026-10-08,6090,0,0,5,2007-01-03,0,false,true,true,true
+GDX,VanEck Gold Miners ETF,Sector and thematic equities,2006-05-22,2026-10-08,5128,0,0,5,2007-01-03,0,false,true,true,true
+SOXL,Direxion Daily Semiconductor Bull 3X Shares,Leveraged and inverse ETFs,2010-03-11,2026-10-08,4171,0,0,5,2012-10-31,0,false,true,true,true
+EWJ,iShares MSCI Japan ETF,International and global equities,2000-01-03,2026-10-08,6732,0,1,7,2001-09-17,0,false,true,true,true
+SPMO,Invesco S&P 500 Momentum ETF,US broad market and styles,2015-10-12,2026-10-08,2764,0,0,4,2015-12-28,0,false,true,true,true
+FCNCA,First Citizens BancShares Inc,Exclusions,2000-01-03,2026-10-08,6732,0,1,7,2001-09-17,0,false,true,true,true
+VYMI,Vanguard International High Dividend Yield ETF,Dividend equities,2016-03-02,2026-10-08,2667,0,0,4,2016-03-28,0,false,true,true,true
+XLU,Utilities Select Sector SPDR Fund,Sector and thematic equities,2000-01-03,2026-10-08,6732,0,1,7,2001-09-17,0,false,true,true,true
+AVDV,Avantis International Small Cap Value ETF,International and global equities,2019-09-26,2026-10-08,1768,0,0,4,2020-01-21,0,false,true,true,false
+HYG,iShares iBoxx $ High Yield Corporate Bond ETF,Fixed income and preferred securities,2007-04-11,2026-10-08,4906,0,0,5,2012-10-31,0,false,true,true,true
+CIBR,First Trust NASDAQ Cybersecurity ETF,Sector and thematic equities,2015-07-07,2026-10-08,2832,0,0,4,2015-09-08,0,false,true,true,true
+USIG,iShares Broad USD Investment Grade Corporate Bond,Fixed income and preferred securities,2007-01-11,2026-10-08,4967,0,0,5,2012-10-31,0,false,true,true,true
+IEI,iShares 3 7 Year Treasury Bond ETF,Fixed income and preferred securities,2007-01-11,2026-10-08,4967,0,0,5,2012-10-31,0,false,true,true,true
+QLD,ProShares Ultra QQQ ETF,Leveraged and inverse ETFs,2006-06-21,2026-10-08,5107,0,0,5,2007-01-03,0,false,true,true,true
+HDV,iShares Core High Dividend ETF,Dividend equities,2011-03-31,2026-10-08,3904,0,0,5,2012-10-31,0,false,true,true,true
+TIP,iShares TIPS Bond ETF,Fixed income and preferred securities,2003-12-05,2026-10-08,5746,0,0,5,2007-01-03,0,false,true,true,true
+TEM,Tempus AI,Exclusions,2024-06-14,2026-10-08,581,0,0,4,2024-09-03,0,false,false,false,false
+XLP,Consumer Staples Select Sector SPDR Fund,Sector and thematic equities,2000-01-03,2026-10-08,6732,0,1,7,2001-09-17,0,false,true,true,true
+EWT,iShares MSCI Taiwan ETF,International and global equities,2000-06-23,2026-10-08,6612,0,1,7,2001-09-17,0,false,true,true,true
+EMB,iShares JPMorgan USD Emerging Markets Bond ETF,Fixed income and preferred securities,2007-12-19,2026-10-08,4730,0,0,5,2012-10-31,0,false,true,true,true
+SPYI,NEOS S&P 500 High Income ETF,Options income and distribution strategies,2022-08-30,2026-10-08,1031,0,0,4,2022-09-06,0,false,true,false,false
+GRID,First Trust NASDAQ Smart Grid ETF,Sector and thematic equities,2009-11-17,2026-10-08,4248,0,0,5,2012-10-31,0,false,true,true,true
+ITA,iShares US Aerospace & Defense ETF,Sector and thematic equities,2006-05-05,2026-10-08,5139,0,0,5,2007-01-03,0,false,true,true,true
+FLOT,VanEck Australian Floating Rate ETF,Fixed income and preferred securities,2011-06-17,2026-10-08,3850,0,0,5,2012-10-31,0,false,true,true,true
+TLH,iShares 10 20 Year Treasury Bond ETF,Fixed income and preferred securities,2007-01-11,2026-10-08,4967,0,0,5,2012-10-31,0,false,true,true,true
+AIQ,Global X Artificial Intelligence & Technology ETF,Sector and thematic equities,2018-05-16,2026-10-08,2111,0,0,4,2018-05-29,0,false,true,true,false
+VUSB,Vanguard Ultra Short Bond ETF,Fixed income and preferred securities,2021-04-07,2026-10-08,1384,0,0,4,2021-06-01,0,false,true,true,false
+XBI,State Street SPDR S&P Biotech ETF,Sector and thematic equities,2006-02-06,2026-10-08,5201,0,0,5,2007-01-03,0,false,true,true,true
+IXN,iShares Global Tech ETF,Sector and thematic equities,2001-11-26,2026-10-08,6257,0,0,5,2007-01-03,0,false,true,true,true
+EWZ,Ishares Msci Brazil ETF,International and global equities,2000-07-14,2026-10-08,6598,0,1,7,2001-09-17,0,false,true,true,true
+QYLD,Global X NASDAQ 100 Covered Call ETF,Options income and distribution strategies,2013-12-12,2026-10-08,3224,0,0,4,2014-01-21,0,false,true,true,true
+GDXJ,VanEck Junior Gold Miners,Sector and thematic equities,2009-11-11,2026-10-08,4252,0,0,5,2012-10-31,0,false,true,true,true
+PDBC,Invesco Optimum Yld Dvsfd Cmd Str No K 1 ETF,Commodity futures,2014-11-07,2026-10-08,2996,0,0,4,2015-01-20,0,false,true,true,true
+XLB,Materials Select Sector SPDR Fund,Sector and thematic equities,2000-01-03,2026-10-08,6732,0,1,7,2001-09-17,0,false,true,true,true
+XLRE,State Street Real Estate Select Sector SPDR ETF,Real estate and infrastructure equities,2015-10-08,2026-10-08,2766,0,0,4,2015-12-28,0,false,true,true,true
+COPX,Global X Copper Miners ETF,Sector and thematic equities,2010-04-20,2026-10-08,4144,0,0,5,2012-10-31,0,false,true,true,true
+SGOL,ABRDN Physical Gold Shares ETF,Physical precious metals,2009-09-09,2026-10-08,4297,0,0,5,2012-10-31,0,false,true,true,true
+EWC,iShares MSCI Canada (TSX),International and global equities,2000-01-03,2026-10-08,6732,0,1,7,2001-09-17,0,false,true,true,true
+SPXL,Direxion Daily S&P 500 Bull 3X Shares,Leveraged and inverse ETFs,2008-11-05,2026-10-08,4508,0,0,5,2012-10-31,0,false,true,true,true
+SPLV,Invesco S&P 500 Low Volatility ETF,US broad market and styles,2011-05-05,2026-10-08,3880,0,0,5,2012-10-31,0,false,true,true,true
+SHLD,Global X Defense Tech ETF,Sector and thematic equities,2023-09-13,2026-10-08,771,0,0,4,2023-12-26,0,false,true,false,false
+JNK,State Street SPDR Bloomberg High Yield Bond ETF,Fixed income and preferred securities,2007-12-04,2026-10-08,4741,0,0,5,2012-10-31,0,false,true,true,true
+MCHI,iShares MSCI China ETF,International and global equities,2011-03-31,2026-10-08,3904,0,0,5,2012-10-31,0,false,true,true,true
+INDA,iShares MSCI India ETF,International and global equities,2012-02-03,2026-10-08,3691,0,0,5,2012-10-31,0,false,true,true,true
+MAGS,Roundhill Magnificent Seven ETF,Sector and thematic equities,2023-04-11,2026-10-08,878,0,0,4,2023-05-30,0,false,true,false,false
+ARKK,ARK Innovation ETF,Sector and thematic equities,2014-10-31,2026-10-08,3001,0,0,4,2015-01-20,0,false,true,true,true
+URA,Global X Uranium ETF,Sector and thematic equities,2010-11-05,2026-10-08,4004,0,0,5,2012-10-31,0,false,true,true,true
+UPRO,ProShares UltraPro S&P500,Leveraged and inverse ETFs,2009-06-25,2026-10-08,4349,0,0,5,2012-10-31,0,false,true,true,true
+EMLC,VanEck JP Morgan EM Local Currency Bond ETF,Fixed income and preferred securities,2010-07-23,2026-10-08,4078,0,0,5,2012-10-31,0,false,true,true,true
+SJNK,State Street SPDR Bloomberg Shrt Trm Hg Yld Bd ETF,Fixed income and preferred securities,2012-03-15,2026-10-08,3663,0,0,5,2012-10-31,0,false,true,true,true
+KWEB,KraneShares CSI China Internet ETF,Sector and thematic equities,2013-08-01,2026-10-08,3317,0,0,4,2013-09-03,0,false,true,true,true
+QTEC,First Trust NASDAQ 100 Technology Index Fund,Sector and thematic equities,2006-05-02,2026-10-08,5142,0,0,5,2007-01-03,0,false,true,true,true
+AOR,iShares Core Growth Allocation ETF,Multi-asset allocation,2008-11-11,2026-10-08,4503,0,0,5,2012-10-31,0,false,true,true,true
+FXI,iShares China Large-Cap ETF,International and global equities,2004-10-08,2026-10-08,5535,0,0,5,2007-01-03,0,false,true,true,true
+NVDL,GraniteShares 2x Long NVDA Daily ETF,Leveraged and inverse ETFs,2022-12-13,2026-10-08,958,0,0,4,2022-12-27,0,false,true,false,false
+VNQI,Vanguard Global ex-US Real Estate Index Fd ETF,Real estate and infrastructure equities,2010-11-01,2026-10-08,4008,0,0,5,2012-10-31,0,false,true,true,true
+TSLL,Direxion Daily TSLA Bull 2X Shares,Leveraged and inverse ETFs,2022-08-09,2026-10-08,1046,0,0,4,2022-09-06,0,false,true,false,false
+EWU,iShares MSCI United Kingdom (FTSE),International and global equities,2000-01-03,2026-10-08,6732,0,1,7,2001-09-17,0,false,true,true,true
+PGX,Invesco Preferred ETF,Fixed income and preferred securities,2008-01-31,2026-10-08,4702,0,0,5,2012-10-31,0,false,true,true,true
+NLR,VanEck Uranium & Nuclear ETF,Sector and thematic equities,2007-08-15,2026-10-08,4818,0,0,5,2012-10-31,0,false,true,true,true
+SKYY,First Trust Cloud Computing ETF,Sector and thematic equities,2011-07-06,2026-10-08,3838,0,0,5,2012-10-31,0,false,true,true,true
+HACK,Amplify Cybersecurity ETF,Sector and thematic equities,2014-11-12,2026-10-08,2993,0,0,4,2015-01-20,0,false,true,true,true
+BOTZ,Global X Robotics and Artificial Intelligence ETF,Sector and thematic equities,2016-09-13,2026-10-08,2532,0,0,4,2016-12-27,0,false,true,true,true
+SPUS,SP Funds S&P 500 Sharia Industry Exclusions ETF,US broad market and styles,2019-12-18,2026-10-08,1710,0,0,4,2020-01-21,0,false,true,true,false
+SPHD,Invesco S&P 500 High Div Low Volatility ETF,Dividend equities,2012-10-26,2026-10-08,3506,0,0,5,2012-10-31,0,false,true,true,true
+USD,ProShares Ultra Semiconductors,Leveraged and inverse ETFs,2007-02-01,2026-10-08,4953,0,0,5,2012-10-31,0,false,true,true,true
+FLRN,State Street SPDR Bloomberg Invstmt Gr Fltg Rt ETF,Fixed income and preferred securities,2011-12-01,2026-10-08,3734,0,0,5,2012-10-31,0,false,true,true,true
+FNGU,MicroSectors FANG and Innovation 3X Leveraged ETN,ETNs — separate from ETFs,2025-02-20,2026-10-08,411,0,0,4,2025-04-21,0,false,false,false,false
+AAAU,Goldman Sachs Physical Gold ETF,Physical precious metals,2018-08-15,2026-10-08,2048,0,0,4,2018-09-04,0,false,true,true,false
+EWP,Ishares Msci Spain ETF,International and global equities,2000-01-03,2026-10-08,6732,0,1,7,2001-09-17,0,false,true,true,true
+ICLN,iShares Global Clean Energy ETF,Sector and thematic equities,2008-06-25,2026-10-08,4601,0,0,5,2012-10-31,0,false,true,true,true
+BUG,Global X Cybersecurity,Sector and thematic equities,2019-10-31,2026-10-08,1743,0,0,4,2020-01-21,0,false,true,true,false
+PPLT,Abrdn Physical Platinum Shares ETF,Physical precious metals,2010-01-08,2026-10-08,4213,0,0,5,2012-10-31,0,false,true,true,true
+TMF,Direxion Daily 20 Year Treasury Bull 3X Shares,Leveraged and inverse ETFs,2009-04-16,2026-10-08,4398,0,0,5,2012-10-31,0,false,true,true,true
+ROBO,Global X Robo Global Robotics & Automation ETF,Sector and thematic equities,2013-10-22,2026-10-08,3260,0,0,4,2014-01-21,0,false,true,true,true
+DTCR,Global X Data Center & Digital Infra ETF,Real estate and infrastructure equities,2020-10-29,2026-10-08,1492,0,0,4,2020-12-28,0,false,true,true,false
+SQQQ,ProShares UltraPro Short QQQ ETF,Leveraged and inverse ETFs,2010-02-11,2026-10-08,4190,0,0,5,2012-10-31,0,false,true,true,true
+DBC,Invesco DB Commodity Index Tracking Fund,Commodity futures,2006-02-03,2026-10-08,5202,0,0,5,2007-01-03,0,false,true,true,true
+FLKR,Franklin FTSE South Korea ETF,International and global equities,2017-11-06,2026-10-08,2242,0,0,4,2017-12-26,0,false,true,true,false
+ARKQ,ARK Autonomous Technology & Robotics ETF,Sector and thematic equities,2014-09-30,2026-10-08,3024,0,0,4,2015-01-20,0,false,true,true,true
+URNM,Sprott Uranium Miners ETF,Sector and thematic equities,2019-12-04,2026-10-08,1720,0,0,4,2020-01-21,0,false,true,true,false
+REMX,VanEck Rare Earth/Strategic Metals,Sector and thematic equities,2010-10-28,2026-10-08,4010,0,0,5,2012-10-31,0,false,true,true,true
+SOXS,Direxion Daily Semiconductor Bear 3X Shares,Leveraged and inverse ETFs,2010-03-11,2026-10-08,4171,0,0,5,2012-10-31,0,false,true,true,true
+BITO,ProShares Bitcoin ETF,Digital asset futures,2021-10-19,2026-10-08,1248,0,0,4,2021-12-27,0,false,true,false,false
+USO,United States Oil ETF,Commodity futures,2006-04-10,2026-10-08,5157,0,0,5,2007-01-03,0,false,true,true,true
+ARKW,ARK Next Generation Internet ETF,Sector and thematic equities,2014-09-30,2026-10-08,3024,0,0,4,2015-01-20,0,false,true,true,true
+ARKG,ARK Genomic Revolution ETF,Sector and thematic equities,2014-10-31,2026-10-08,3001,0,0,4,2015-01-20,0,false,true,true,true
+EWS,iShares MSCI Singapore ETF,International and global equities,2000-01-03,2026-10-08,6732,0,1,7,2001-09-17,0,false,true,true,true
+EWG,iShares MSCI Germany (DAX),International and global equities,2000-01-03,2026-10-08,6732,0,1,7,2001-09-17,0,false,true,true,true
+QQQE,Direxion NASDAQ 100 Equal Weighted Index Shares,US broad market and styles,2012-03-21,2026-10-08,3659,0,0,5,2012-10-31,0,false,true,true,true
+LIT,Global X Lithium & Battery Tech ETF,Sector and thematic equities,2010-07-23,2026-10-08,4078,0,0,5,2012-10-31,0,false,true,true,true
+XHB,State Street SPDR S&P Homebuilders ETF,Sector and thematic equities,2006-02-06,2026-10-08,5201,0,0,5,2007-01-03,0,false,true,true,true
+NVDY,YieldMax NVDA Option Income Strategy ETF,Options income and distribution strategies,2023-05-11,2026-10-08,856,0,0,4,2023-05-30,0,false,true,false,false
+DBA,Invesco DB Agriculture Fund,Commodity futures,2007-01-05,2026-10-08,4971,0,0,5,2012-10-31,0,false,true,true,true
+IGOV,iShares International Treasury Bond ETF,Fixed income and preferred securities,2009-01-29,2026-10-08,4451,0,0,5,2012-10-31,0,false,true,true,true
+AGQ,ProShares Ultra Silver ETF,Leveraged and inverse ETFs,2008-12-04,2026-10-08,4488,0,0,5,2012-10-31,0,false,true,true,true
+EWA,iShares MSCI Australia ETF,International and global equities,2000-01-03,2026-10-08,6732,0,1,7,2001-09-17,0,false,true,true,true
+EWI,Ishares Msci Italy ETF,International and global equities,2000-01-03,2026-10-08,6732,0,1,7,2001-09-17,0,false,true,true,true
+SDIV,Global X SuperDividend ETF,Dividend equities,2011-06-09,2026-10-08,3856,0,0,5,2012-10-31,0,false,true,true,true
+EWH,iShares MSCI Hong Kong ETF,International and global equities,2000-01-03,2026-10-08,6732,0,1,7,2001-09-17,0,false,true,true,true
+MSTY,YieldMax MSTR Option Income Strategy ETF,Options income and distribution strategies,2024-02-22,2026-10-08,660,0,0,4,2024-04-01,0,false,false,false,false
+BLOK,Amplify Transformational Data Sharing ETF,Sector and thematic equities,2018-01-17,2026-10-08,2194,0,0,4,2018-02-20,0,false,true,true,false
+GSG,iShares S&P GSCI Commodity-Indexed Trust ETF,Commodity futures,2006-07-21,2026-10-08,5086,0,0,5,2007-01-03,0,false,true,true,true
+QDTE,Roundhill Innov-100 0DTE Covered Call Strat ETF,Options income and distribution strategies,2024-03-07,2026-10-08,650,0,0,4,2024-04-01,0,false,false,false,false
+HLAL,Wahed FTSE USA Shariah ETF,US broad market and styles,2019-07-16,2026-10-08,1819,0,0,4,2019-09-03,0,false,true,true,false
+AIPO,Defiance AI & Power Infrastructure ETF,Sector and thematic equities,2025-07-25,2026-10-08,304,0,0,4,2025-09-02,0,false,false,false,false
+TAN,Invesco Solar ETF,Sector and thematic equities,2008-04-15,2026-10-08,4651,0,0,5,2012-10-31,0,false,true,true,true
+MSTU,T-Rex 2X Long MSTR Daily Target ETF,Leveraged and inverse ETFs,2024-09-18,2026-10-08,516,0,0,4,2025-01-21,0,false,false,false,false
+JETS,US Global Jets ETF,Sector and thematic equities,2015-04-30,2026-10-08,2878,0,0,4,2015-05-26,0,false,true,true,true
+ARKX,ARK Space & Defense Innovation ETF,Sector and thematic equities,2021-03-30,2026-10-08,1389,0,0,4,2021-04-05,0,false,true,true,false
+UGL,ProShares Ultra Gold ETF,Leveraged and inverse ETFs,2008-12-03,2026-10-08,4489,0,0,5,2012-10-31,0,false,true,true,true
+FEPI,Rex Fang & Innovation Equity Premium Income ETF,Options income and distribution strategies,2023-10-11,2026-10-08,751,0,0,4,2023-12-26,0,false,false,false,false
+CPER,United States Copper Index Fund,Commodity futures,2011-11-15,2026-10-08,3745,0,0,5,2012-10-31,0,false,true,true,true
+ARKF,ARK Fintech Innovation ETF,Sector and thematic equities,2019-02-04,2026-10-08,1931,0,0,4,2019-02-19,0,false,true,true,false
+TSLY,YieldMax TSLA Option Income Strategy ETF,Options income and distribution strategies,2022-11-23,2026-10-08,971,0,0,4,2022-12-27,0,false,true,false,false
+ARGT,Global X MSCI Argentina ETF,International and global equities,2011-03-03,2026-10-08,3924,0,0,5,2012-10-31,0,false,true,true,true
+NUKZ,Range Nuclear Renaissance ETF,Sector and thematic equities,2024-01-24,2026-10-08,680,0,0,4,2024-02-20,0,false,false,false,false
+BNO,United States Brent Oil Fund LP,Commodity futures,2010-06-02,2026-10-08,4114,0,0,5,2012-10-31,0,false,true,true,true
+PALL,abrdn Physical Palladium Shares ETF,Physical precious metals,2010-01-14,2026-10-08,4209,0,0,5,2012-10-31,0,false,true,true,true
+BITU,ProShares Ultra Bitcoin ETF,Leveraged and inverse ETFs,2024-04-02,2026-10-08,633,0,0,4,2024-05-28,0,false,false,false,false
+YINN,Direxion Daily FTSE China Bull 3x Shares,Leveraged and inverse ETFs,2009-12-03,2026-10-08,4237,0,0,5,2012-10-31,0,false,true,true,true
+CONL,GraniteShares 2x Long COIN Daily ETF,Leveraged and inverse ETFs,2022-08-09,2026-10-08,1046,0,0,4,2022-09-06,0,false,true,false,false
+QCLN,First Trust NASDAQ Clean Edge Green Energy Idx Fd,Sector and thematic equities,2007-02-14,2026-10-08,4944,0,0,5,2012-10-31,0,false,true,true,true
+AIPI,REX AI Equity Premium Income ETF,Options income and distribution strategies,2024-06-04,2026-10-08,589,0,0,4,2024-09-03,0,false,false,false,false
+AMDY,YieldMax AMD Option Income Strategy ETF,Options income and distribution strategies,2023-09-19,2026-10-08,767,0,0,4,2023-12-26,0,false,true,false,false
+VNM,VanEck Vietnam ETF,International and global equities,2009-08-14,2026-10-08,4314,0,0,5,2012-10-31,0,false,true,true,true
+UNG,United States Natural Gas Fund,Commodity futures,2007-04-18,2026-10-08,4901,0,0,5,2012-10-31,0,false,true,true,true
+EZA,iShares MSCI South Africa ETF,International and global equities,2003-02-07,2026-10-08,5955,0,0,5,2007-01-03,0,false,true,true,true
+BITQ,Bitwise Crypto Industry Innovators ETF,Sector and thematic equities,2021-05-12,2026-10-08,1359,0,0,4,2021-06-01,0,false,true,true,false
+POWR,iShares US Power Infrastructure ETF,Sector and thematic equities,2012-02-02,2026-10-08,3692,0,0,5,2012-10-31,0,false,true,true,true
+BTCO,Invesco Galaxy Bitcoin ETF,Spot digital asset trusts,2024-01-11,2026-10-08,688,0,0,4,2024-01-16,0,false,false,false,false
+THD,Ishares Msci Thailand Etf,International and global equities,2008-04-01,2026-10-08,4661,0,0,5,2012-10-31,0,false,true,true,true
+EIDO,iShares MSCI Indonesia ETF,International and global equities,2010-05-07,2026-10-08,4131,0,0,5,2012-10-31,0,false,true,true,true
+SLVO,Ubs Ag Etracs Silver Shares Covered Call ETN Exp 21 Apr 2033,ETNs — separate from ETFs,2013-04-17,2026-10-08,3391,0,0,4,2013-05-28,0,false,true,true,true
+XRT,State Street PDR S&P Retail ETF,Sector and thematic equities,2006-06-22,2026-10-08,5106,0,0,5,2007-01-03,0,false,true,true,true
+CLOU,Global X Cloud Computing ETF,Sector and thematic equities,2019-04-16,2026-10-08,1881,0,0,4,2019-04-22,0,false,true,true,false
+CONY,YieldMax COIN Option Income Strategy ETF,Options income and distribution strategies,2023-08-15,2026-10-08,791,0,0,4,2023-09-05,0,false,true,false,false
+JPIN,JPMorgan Diversified Return International Eqty ETF,International and global equities,2014-11-07,2026-10-08,2996,0,0,4,2015-01-20,0,false,true,true,true
+YMAX,YieldMax Universe Fund of Option Income ETFs,Options income and distribution strategies,2024-01-17,2026-10-08,685,0,0,4,2024-02-20,0,false,false,false,false
+DRIV,Global X Autonomous & Electric Vehicles,Sector and thematic equities,2018-04-17,2026-10-08,2132,0,0,4,2018-05-29,0,false,true,true,false
+BOIL,ProShares Ultra Bloomberg Natural Gas ETF,Leveraged and inverse ETFs,2011-10-06,2026-10-08,3773,0,0,5,2012-10-31,0,false,true,true,true
+PBW,Invesco WilderHill Clean Energy ETF,Sector and thematic equities,2005-03-03,2026-10-08,5435,0,0,5,2007-01-03,0,false,true,true,true
+EWQ,iShares MSCI France ETF,International and global equities,2000-01-03,2026-10-08,6732,0,1,7,2001-09-17,0,false,true,true,true
+XDTE,Roundhill S&P 500 0DTE Covered Call Strategy ETF,Options income and distribution strategies,2024-03-07,2026-10-08,650,0,0,4,2024-04-01,0,false,false,false,false
+USOI,Ubs Ag Etracs Crude Oil Shares Covered Call ETN Exp 24th Apr 2037,ETNs — separate from ETFs,2024-06-03,2026-10-08,590,0,0,4,2024-09-03,0,false,false,false,false
+SRVR,Pacer Data & Infra Real Estate ETF,Real estate and infrastructure equities,2018-05-16,2026-10-08,2111,0,0,4,2018-05-29,0,false,true,true,false
+YMAG,YieldMax Magnificent 7 Fund of Option Income ETFs,Options income and distribution strategies,2024-01-30,2026-10-08,676,0,0,4,2024-02-20,0,false,false,false,false
+EWM,iShares MSCI Malaysia ETF,International and global equities,2000-01-03,2026-10-08,6732,0,1,7,2001-09-17,0,false,true,true,true
+WEAT,Teucrium Wheat Fund,Commodity futures,2011-09-19,2026-10-08,3786,0,0,5,2012-10-31,0,false,true,true,true
+DBO,Invesco DB Oil Fund,Commodity futures,2007-01-05,2026-10-08,4971,0,0,5,2012-10-31,0,false,true,true,true
+IDRV,iShares Self-Driving EV and Tech,Sector and thematic equities,2019-04-18,2026-10-08,1879,0,0,4,2019-04-22,0,false,true,true,false
+ESPO,VanEck Video Gaming and eSports ETF,Sector and thematic equities,2018-10-17,2026-10-08,2004,0,0,4,2019-01-22,0,false,true,true,false
+AMZY,YieldMax AMZN Option Income Strategy ETF,Options income and distribution strategies,2023-07-25,2026-10-08,806,0,0,4,2023-09-05,0,false,true,false,false
+RDTE,Roundhill Russell 2000 0DTE Covered Call Strat ETF,Options income and distribution strategies,2024-09-10,2026-10-08,522,0,0,4,2025-01-21,0,false,false,false,false
+ROKT,SPDR Kensho Final Frontiers ETF,Sector and thematic equities,2018-10-23,2026-10-08,2000,0,0,4,2019-01-22,0,false,true,true,false
+CWEB,Direxion Daily CSI China Internet Bull 2X Shares,Leveraged and inverse ETFs,2016-11-02,2026-10-08,2496,0,0,4,2016-12-27,0,false,true,true,false
+GPTY,YieldMax AI & Tech Portfolio Option Income ETF,Options income and distribution strategies,2025-01-23,2026-10-08,430,0,0,4,2025-02-18,0,false,false,false,false
+CORN,Teucrium Corn Fund,Commodity futures,2010-06-09,2026-10-08,4109,0,0,5,2012-10-31,0,false,true,true,true
+NVDW,Roundhill NVDA WeeklyPay ETF,Options income and distribution strategies,2025-06-02,2026-10-08,341,0,0,4,2025-07-07,0,false,false,false,false
+KOLD,ProShares UltraShort Bloomberg Natural Gas ETF,Leveraged and inverse ETFs,2011-10-06,2026-10-08,3773,0,0,5,2012-10-31,0,false,true,true,true
+ASEA,Global X FTSE Southeast Asia ETF,International and global equities,2011-02-17,2026-10-08,3933,0,0,5,2012-10-31,0,false,true,true,true
+MSTZ,T-Rex 2X Inverse MSTR Daily Target ETF,Leveraged and inverse ETFs,2024-09-18,2026-10-08,516,0,0,4,2025-01-21,0,false,false,false,false
+KARS,KraneShares Electric Vehicles and Future Mobility,Sector and thematic equities,2018-01-19,2026-10-08,2192,0,0,4,2018-02-20,0,false,true,true,false
+KTEC,KraneShares Hang Seng TECH Index ETF,International and global equities,2021-06-09,2026-10-08,1340,0,0,4,2021-07-06,0,false,true,true,false
+SOYB,Teucrium Soybean Fund,Commodity futures,2011-09-19,2026-10-08,3786,0,0,5,2012-10-31,0,false,true,true,true
+QDTY,YieldMax Nasdaq 100 0DTE Covered Call Strategy ETF,Options income and distribution strategies,2025-02-13,2026-10-08,415,0,0,4,2025-02-18,0,false,false,false,false
+CTEC,Global X CleanTech,Sector and thematic equities,2020-10-29,2026-10-08,1492,0,0,4,2020-12-28,0,false,true,true,false
+VTI,Vanguard Total Stock Market Index Fund ETF,US broad market and styles,2001-05-31,2026-10-08,6377,0,1,7,2001-09-17,0,false,true,true,true
+SPY,S&P500 ETF,US broad market and styles,2000-01-03,2026-10-08,6732,0,1,7,2001-09-17,0,false,true,true,true
+VWO,Vanguard Emerging Markets Stock Index Fund ETF,International and global equities,2005-03-10,2026-10-08,5430,0,0,5,2007-01-03,0,false,true,true,true
+IWM,iShares Russell 2000 ETF,US broad market and styles,2000-05-26,2026-10-08,6631,0,1,7,2001-09-17,0,false,true,true,true
+XLF,Financial Select Sector SPDR Fund,Sector and thematic equities,2000-01-03,2026-10-08,6732,0,1,7,2001-09-17,0,false,true,true,true
+XLV,Health Care Select Sector SPDR Fund,Sector and thematic equities,2000-01-03,2026-10-08,6732,0,1,7,2001-09-17,0,false,true,true,true
+XLE,Energy Select Sector SPDR Fund,Sector and thematic equities,2000-01-03,2026-10-08,6732,0,1,7,2001-09-17,0,false,true,true,true
+LQD,iShares iBoxx $ Inv Grade Corporate Bond ETF,Fixed income and preferred securities,2002-07-26,2026-10-08,6090,0,0,5,2007-01-03,0,false,true,true,true
+XLY,Consumer Discretionary Select Sector SPDR Fund,Sector and thematic equities,2000-01-03,2026-10-08,6732,0,1,7,2001-09-17,0,false,true,true,true
+ACP,abrdn Income Credit Strategies Fund,Exclusions,2011-01-27,2026-10-08,3948,0,0,5,2012-10-31,0,false,true,true,true

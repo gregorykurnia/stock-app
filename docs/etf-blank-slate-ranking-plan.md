@@ -193,8 +193,8 @@ Every catalogue entry gets exactly one state, with a reason. Counts come from Ph
 
 | Input | Source | Refresh | Status |
 |---|---|---|---|
-| Daily adjusted close and volume, 222 entries plus BIL | Tiingo Starter EOD, through the existing adapter `lib/etfTiingo.ts` | Monthly, plus incremental daily | Starter limits recorded 2026-10-06 as 500 symbols per month, 50 requests per hour and 1,000 per day. **Verify before backfill.** |
-| BIL (cash proxy) | Tiingo, same adapter | Monthly | Believed to have history from 2007. **Verify.** |
+| Daily adjusted close and volume, all 222 catalogue entries (BIL is one of them) | Tiingo Starter EOD, through the existing adapter `lib/etfTiingo.ts` | Monthly, plus incremental daily | Starter limits recorded 2026-10-06 as 500 symbols per month, 50 requests per hour and 1,000 per day. **Verify before backfill.** |
+| BIL (cash proxy) | Tiingo, same adapter (already in the 222) | Monthly | Confirmed in Phase 0: first date 2007-05-30. |
 | Net expense ratio, AUM, inception date, legal form | Issuer fund pages, entered into `data/etf-ranking-inputs.csv` with source URL and as-of date | Quarterly, and when a fee changes | Manual, one-time for the catalogue, then maintained. |
 | Catalogue identity and research group | `docs/research/pluang-etf-2026-10-06/research-universe.json` | Static snapshot | Reused. |
 
@@ -204,7 +204,7 @@ Every catalogue entry gets exactly one state, with a reason. Counts come from Ph
 
 ### Storage
 
-- **Daily history:** the existing year-partitioned chunks written by `saveETFCoreHistory` in `lib/etfMetricStore.ts`. The size is roughly 223 funds × about 2,500 bars for 10 years. Measure this in Phase 0.
+- **Daily history:** the existing year-partitioned chunks written by `saveETFCoreHistory` in `lib/etfMetricStore.ts`. The size is roughly 222 funds × about 2,500 bars for 10 years. Measure this in Phase 0.
 - **Ranking run:** one Firestore document per monthly cutoff, for example `etf_rankings/{cutoff}`. It holds per-fund Grand, Outcome, Vehicle, Trend, components, tier, state, reason and an input hash. Measure its size against the 1 MiB limit in Phase 3.
 - **Input hash:** a SHA-256 over the canonical inputs used for the run. Re-running with the same inputs must reproduce the stored scores exactly.
 - **Page reads** use stored runs only. No live provider calls.
@@ -217,7 +217,7 @@ Each phase ends with a commit and push, per `AGENTS.md`. Do not start a phase un
 
 | Phase | Work | Exit check |
 |---|---|---|
-| **0. Access and coverage** | Confirm the Tiingo token works. Pull history for all 222 entries plus BIL. Record each symbol's first date, gaps and duplicates. Confirm the account's Starter limits. | Coverage report in `docs/etf-ranking/reports/`. Every symbol has a first date and a gap status. Limits confirmed. |
+| **0. Access and coverage** | Confirm the Tiingo token works. Pull history for all 222 entries (BIL is one of them). Record each symbol's first date, gaps and duplicates. Confirm the account's Starter limits. | Coverage report in `docs/etf-ranking/reports/`. Every symbol has a first date and a gap status. Limits confirmed. |
 | **1. Inputs and eligibility** | Build `data/etf-ranking-inputs.csv` with fee, AUM, inception, legal form and source for each entry. Assign each entry one eligibility state. | Every entry has exactly one state and reason. Counts for each state are reported. |
 | **2. Scoring module** | Write `lib/etfRanking.ts` as pure functions: percentiles, horizon blend, Sortino, pain, Vehicle, Trend, Grand, tiers, eligibility. Reuse CAGR, drawdown, underwater and recovery from `lib/etfMetricCalculations.ts`. Add unit tests. | Tests pass for: percentile ties, monotonicity, order independence, Sortino with no downside, horizon blend, eligibility gates, tiers. Five funds hand-checked in a spreadsheet to 1e-6. |
 | **3. Monthly run and storage** | Fetch, compute and store `etf_rankings/{cutoff}` with an input hash. Add a read-only API that returns stored runs. | One run reproduces exactly from stored inputs (hash matches). Page reads make no provider calls. Document size measured. |
@@ -296,7 +296,7 @@ Status key:
 ## 10. Open items to verify before the plan is trusted
 
 1. **Tiingo Starter limits and personal-use terms.** The figures above were recorded on 2026-10-06. Confirm them against the live account in Phase 0.
-2. **BIL history start and coverage.** Believed to begin in 2007. Confirm in Phase 0.
+2. **BIL history start.** Confirmed in Phase 0: first date 2007-05-30.
 3. **Horizon blend weights.** The 40/60 and 20/30/50 blends follow the pattern of Morningstar's published star-rating weights. Check the published methodology in Phase 2, or state the blend as a deliberate choice of this plan.
 4. **Net expense ratios and AUM** for all eligible funds, from issuer sources, with dates. Phase 1.
 5. **Legal form** of the 15 commodity-pool and trust entries. Phase 1.
