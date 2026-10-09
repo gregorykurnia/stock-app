@@ -8,7 +8,7 @@ Validation snapshot evaluated at 2026-10-07T06:00:24.801Z using method equity-in
 - Sample: 12 funds from 4 issuers; U.S. broad equity 4; Developed ex-U.S. 4; Broad international ex-U.S. 4.
 - Excluded all M1 funds: VOO, VTI, IVV, ITOT, SCHB, VXUS, VEA, IXUS.
 - Price input: Yahoo Finance adjusted closes in USD; dividends and splits are already reflected in adjclose. Retrieval and latest-session limits are five calendar days.
-- Official identity, mandate, index, issuer domain, fee, dated net/gross designation, and peer grouping were recorded before history acquisition in the [frozen manifest](../data/etf-equity-index-m3-sample-v1.json).
+- Official identity, mandate, index, issuer domain, fee, dated net/gross designation, and peer grouping were recorded before history acquisition in the [frozen manifest](../../data/etf-equity-index-m3-sample-v1.json).
 
 ## Current-cutoff coverage
 
@@ -221,4 +221,4 @@ Matched-window comparison: 2025-08-29–2026-08-31 for 1Y and 2023-08-31–2026-
 - **VEU** (FTSE All-World ex US Index): [issuer source](https://advisors.vanguard.com/investments/products/veu/vanguard-ftse-all-world-ex-us-etf) · [fee evidence](https://advisors.vanguard.com/investments/products/veu/vanguard-ftse-all-world-ex-us-etf)
 - **VSGX** (FTSE Global All Cap ex US Choice Index): [issuer source](https://advisors.vanguard.com/investments/products/vsgx/vanguard-esg-international-stock-etf) · [fee evidence](https://advisors.vanguard.com/investments/products/vsgx/vanguard-esg-international-stock-etf)
 
-Full retained data: [M3 validation artifact](../data/etf-equity-index-m3-validation-2026-10-07.json). Return evidence inputs: [dated comparison sources](../data/etf-equity-index-m3-return-evidence-2026-10-07.json). Frozen sample: [manifest](../data/etf-equity-index-m3-sample-v1.json) · [SHA-256](../data/etf-equity-index-m3-sample-v1.sha256).
+Full retained data: [M3 validation artifact](../../data/etf-equity-index-m3-validation-2026-10-07.json). Return evidence inputs: [dated comparison sources](../../data/etf-equity-index-m3-return-evidence-2026-10-07.json). Frozen sample: [manifest](../../data/etf-equity-index-m3-sample-v1.json) · [SHA-256](../../data/etf-equity-index-m3-sample-v1.sha256).

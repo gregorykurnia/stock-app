@@ -230,4 +230,4 @@ Blocked or unresolved: historical point-in-time fee applicability/waiver evidenc
 
 Recommendation: keep the equity-index method experimental. The independent arithmetic and display-time integrity gates pass on the retained baseline. Historical fee evidence blocks point-in-time scoring for the historical cutoffs; M2 may specify a current-fee candidate with those restrictions explicit, but do not expand or publish rankings based on the blocked branch.
 
-Reproducible artifacts: [audit inputs and scenario results](../data/etf-equity-index-audit-2026-10-07.json), [page integrity manifest](../data/etf-equity-index-validation-integrity.json), and [audit script](../scripts/audit-etf-equity-index-validation-batch.mjs).
+Reproducible artifacts: [audit inputs and scenario results](../../data/etf-equity-index-audit-2026-10-07.json), [page integrity manifest](../../data/etf-equity-index-validation-integrity.json), and [audit script](../../scripts/audit-etf-equity-index-validation-batch.mjs).

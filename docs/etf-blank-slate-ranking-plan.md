@@ -2,7 +2,7 @@
 
 Date: 2026-10-09. Status: **plan only; no code written yet.** Start the build at Phase 0 once you say go.
 
-This is the only ETF scoring plan to follow. It replaces the scoring direction in the [master roadmap](etf-scoring-roadmap.md), the Core/Full scoring sections of the [independent Grand Score plan](etf-independent-grand-score-plan.md), and the [first ranking draft](etf-ranking-plan.md). Nothing was deleted. Every earlier file is kept, and Section 9 says what happens to each one.
+This is the only ETF scoring plan to follow. It replaces the scoring direction in the [master roadmap](etf-archive/etf-scoring-roadmap.md), the Core/Full scoring sections of the [independent Grand Score plan](etf-archive/etf-independent-grand-score-plan.md), and the [first ranking draft](etf-archive/etf-ranking-plan.md). Nothing was deleted. Every earlier file is kept, and Section 9 says what happens to each one.
 
 ---
 
@@ -250,13 +250,13 @@ Status key:
 
 | File | Status | Note |
 |---|---|---|
-| `docs/etf-scoring-roadmap.md` | Superseded | Banner added. Record of M1–M4. |
-| `docs/etf-independent-grand-score-plan.md` | Superseded for scoring | Banner added. Its access and coverage findings remain evidence. |
-| `docs/etf-ranking-plan.md` | Superseded | First draft. Banner added. |
-| `docs/etf-scoring-m2-handoff.md`, `etf-scoring-m3-handoff.md`, `etf-scoring-m4-handoff.md`, `etf-scoring-m4-readiness-2026-10-07.md` | Superseded | Equity-index gates. Record only. |
-| `docs/etf-equity-index-audit-2026-10-07.md`, `etf-equity-index-audit-handoff.md`, `etf-equity-index-m3-validation-2026-10-07.md`, `etf-equity-index-validation-batch-2026-10-07.md`, `etf-free-core-trial-2026-10-07.md` | Record | Yahoo-based experiment. Evidence only. |
-| `docs/etf-core-coverage-2026-10-06.md` | Record | Tiingo coverage for VOO, VTI and VXUS. |
-| `docs/etf-quantitative-coverage-2026-10-06.md`, `docs/etf-quantitative-readiness.json` | Record | Source-readiness table as of 2026-10-06. |
+| `docs/etf-archive/etf-scoring-roadmap.md` | Superseded | Banner added. Record of M1–M4. |
+| `docs/etf-archive/etf-independent-grand-score-plan.md` | Superseded for scoring | Banner added. Its access and coverage findings remain evidence. |
+| `docs/etf-archive/etf-ranking-plan.md` | Superseded | First draft. Banner added. |
+| `docs/etf-archive/etf-scoring-m2-handoff.md`, `etf-archive/etf-scoring-m3-handoff.md`, `etf-archive/etf-scoring-m4-handoff.md`, `etf-archive/etf-scoring-m4-readiness-2026-10-07.md` | Superseded | Equity-index gates. Record only. |
+| `docs/etf-archive/etf-equity-index-audit-2026-10-07.md`, `etf-archive/etf-equity-index-audit-handoff.md`, `etf-archive/etf-equity-index-m3-validation-2026-10-07.md`, `etf-archive/etf-equity-index-validation-batch-2026-10-07.md`, `etf-archive/etf-free-core-trial-2026-10-07.md` | Record | Yahoo-based experiment. Evidence only. |
+| `docs/etf-archive/etf-core-coverage-2026-10-06.md` | Record | Tiingo coverage for VOO, VTI and VXUS. |
+| `docs/etf-archive/etf-quantitative-coverage-2026-10-06.md`, `docs/etf-archive/etf-quantitative-readiness.json` | Record | Source-readiness table as of 2026-10-06. |
 | `docs/etf-quantitative-comparison-plan.md` | Partly superseded | Its metric definitions still apply. Its scoring text is superseded. **Greg has an uncommitted edit to this file. It was not modified here.** |
 | `docs/etf-page-plan.md` | Partly superseded | Keep the page structure, category model and metric definitions. Any score language is superseded. |
 | `docs/pluang-etf-research.md`, `docs/research/pluang-etf-2026-10-06/*` | Reused | The catalogue. |
@@ -306,4 +306,5 @@ Status key:
 
 ## 11. Change log
 
+- 2026-10-09: The 15 dated-record and superseded files were moved into `docs/etf-archive/`, with links updated. Index: `docs/etf-index.md`. Nothing was deleted.
 - 2026-10-09: Blank-slate plan written. Supersedes the ranking draft and the scoring direction of the M1–M9 roadmap. Decisions 1 and 2 confirmed by Greg; decisions 3–5 taken from the draft's recommendations.

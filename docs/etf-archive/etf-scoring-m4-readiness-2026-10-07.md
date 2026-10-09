@@ -1,6 +1,6 @@
 # ETF scoring M4 readiness · 2026-10-07
 
-Status: M4 implementation has started with conservative personal-use defaults recorded in [the policy file](../data/etf-scoring-data-use-policy.json). Automated Yahoo and issuer requests are blocked; raw-history, derived-score, and issuer-evidence retention remain unresolved pending applicable source terms or express permission. A 365-day retention target is selected but does not authorize writes. This is an implementation checkpoint, not the M4 acceptance report.
+Status: M4 implementation has started with conservative personal-use defaults recorded in [the policy file](../../data/etf-scoring-data-use-policy.json). Automated Yahoo and issuer requests are blocked; raw-history, derived-score, and issuer-evidence retention remain unresolved pending applicable source terms or express permission. A 365-day retention target is selected but does not authorize writes. This is an implementation checkpoint, not the M4 acceptance report.
 
 ## Infrastructure inspection
 

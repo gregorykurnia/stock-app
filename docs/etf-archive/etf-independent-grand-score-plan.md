@@ -1,6 +1,6 @@
 # Independent ETF Grand Score implementation plan
 
-> **Scoring superseded 2026-10-09.** The Core, Full, cost-only and execution formulas in this document are replaced by the [blank-slate ranking plan](etf-blank-slate-ranking-plan.md). The access, coverage and data-use findings below remain valid evidence.
+> **Scoring superseded 2026-10-09.** The Core, Full, cost-only and execution formulas in this document are replaced by the [blank-slate ranking plan](../etf-blank-slate-ranking-plan.md). The access, coverage and data-use findings below remain valid evidence.
 
 Requested: 2026-10-06. Expanded: 2026-10-06 to cover the catalogue with strategy-specific scorecards. Updated: 2026-10-06 with the personal-use, free-data implementation handoff and Core pipeline. Status: the Tiingo Core acquisition path is live-validated and retained for VOO, VTI, and VXUS; catalogue-wide history, issuer-data breadth, return reconciliation beyond VTI, and methodology approval remain unfinished. See the [Core coverage report](etf-core-coverage-2026-10-06.md).
 
@@ -22,7 +22,7 @@ Grand Score = 0.60 × Fund Quality + 0.40 × Historical Performance
 
 The user accepted this blend. Scores must come from fetched financial inputs and server calculations. The previously simulated quality score of 95 and rolling-return assumptions are examples, not fund ratings or production inputs. Do not tune thresholds to give VOO, VTI, or VXUS a desired result.
 
-This document supersedes the score-related peer percentiles, minimum-ten-peer requirement, score weights, and scoring release instructions in [the quantitative comparison plan](etf-quantitative-comparison-plan.md). Its other metric, provenance, comparison, and source requirements continue to apply. [The dated coverage report](etf-quantitative-coverage-2026-10-06.md) remains a record of the earlier implementation state; writing this plan does not resolve its source gaps.
+This document supersedes the score-related peer percentiles, minimum-ten-peer requirement, score weights, and scoring release instructions in [the quantitative comparison plan](../etf-quantitative-comparison-plan.md). Its other metric, provenance, comparison, and source requirements continue to apply. [The dated coverage report](etf-quantitative-coverage-2026-10-06.md) remains a record of the earlier implementation state; writing this plan does not resolve its source gaps.
 
 ## Implementation handoff: personal use with free data
 
