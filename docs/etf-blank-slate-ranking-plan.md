@@ -300,6 +300,7 @@ Status key:
 3. **Horizon blend weights.** The 40/60 and 20/30/50 blends follow the pattern of Morningstar's published star-rating weights. Check the published methodology in Phase 2, or state the blend as a deliberate choice of this plan.
 4. **Net expense ratios and AUM** for all eligible funds, from issuer sources, with dates. Phase 1.
 5. **Legal form** of the 15 commodity-pool and trust entries. Phase 1.
+7. **Tiingo license scope (Starter is "Internal Use Only").** The license allows personal use only, and forbids displaying or sharing the data with another person or organization. Confirm the app stays private to you (behind login, or not published). Otherwise the ranking display needs a different data source or a paid tier. Decide before any page is shared.
 6. **Tiingo volume.** Confirm whether Tiingo's volume is consolidated across venues. If it isn't, the liquidity measure will understate volume for every fund. The comparison stays consistent across funds, but the bands need checking.
 
 ---

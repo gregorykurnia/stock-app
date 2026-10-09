@@ -44,15 +44,25 @@ All 31 funds with a gap longer than 5 calendar days show the same gap: **2001-09
 
 **Note for Phase 3:** the production fetch must check the saved file after the body has been read and must use a longer timeout for the body. It must not log success before the body is confirmed.
 
+## Limits check (public pricing page, 2026-10-09)
+
+Checked against [Tiingo's pricing page](https://www.tiingo.com/about/pricing):
+
+- Starter (free): 500 unique symbols per month, 50 requests per hour, 1,000 per day, 1 GB bandwidth per month. These match the figures recorded on 2026-10-06.
+- The pull used about 250 requests, under the daily limit and paced at 40 per hour. No throttling or rate-limit errors occurred. Raw data totals 176 MB, within the 1 GB monthly bandwidth.
+- The page does not clearly list EOD data as included on Starter. The EOD endpoint did return data for all 222 symbols on this account, so it is available in practice.
+- **License:** Starter is marked "Internal Use Only." Tiingo defines this as data for your own personal use, and says you may not display or share the data with another person or organization.
+
+**Check on the account page:** the public page confirms the limits, but your account's own limits are not shown in the API responses. A quick look at the Tiingo dashboard would confirm them.
+
 ## Not verified
 
-- **Account limits.** The API returned no rate-limit headers, so the Starter limits recorded on 2026-10-06 (500 symbols per month, 50 requests per hour, 1,000 per day) are **not confirmed** against the account. Check the limits on the Tiingo account page before the Phase 3 backfill.
-- Request volume in this pull was about 250 requests in total, under the daily limit, and never above 40 per hour.
 - **Volume consolidation.** Tiingo's volume is present, but whether it covers all venues is not confirmed. This affects the liquidity measure (plan Section 10, item 6).
 
 ## Phase 0 exit
 
 - Coverage report written, with every symbol's first date and gap status: **done**.
-- Account limits confirmed: **open**. Phase 0 is not fully passed until this is checked.
+- Limits checked against the public page and observed in practice: **done**. Confirming them on the account page is still recommended.
+- Open decision: whether the app's output (scores, rankings) can be shown to anyone besides you. Under the Starter license, sharing is not permitted. See the plan, Section 10.
 
-Phase 1 (fee, AUM and legal-form inputs) can start once the limits are confirmed.
+Phase 1 can start.
