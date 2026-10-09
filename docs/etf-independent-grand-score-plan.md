@@ -1,5 +1,7 @@
 # Independent ETF Grand Score implementation plan
 
+> **Scoring superseded 2026-10-09.** The Core, Full, cost-only and execution formulas in this document are replaced by the [blank-slate ranking plan](etf-blank-slate-ranking-plan.md). The access, coverage and data-use findings below remain valid evidence.
+
 Requested: 2026-10-06. Expanded: 2026-10-06 to cover the catalogue with strategy-specific scorecards. Updated: 2026-10-06 with the personal-use, free-data implementation handoff and Core pipeline. Status: the Tiingo Core acquisition path is live-validated and retained for VOO, VTI, and VXUS; catalogue-wide history, issuer-data breadth, return reconciliation beyond VTI, and methodology approval remain unfinished. See the [Core coverage report](etf-core-coverage-2026-10-06.md).
 
 ## Start here: current delivery roadmap

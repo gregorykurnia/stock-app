@@ -1,5 +1,7 @@
 # ETF ranking plan: one score, best to worst, across categories
 
+> **Superseded 2026-10-09 by the [blank-slate plan](etf-blank-slate-ranking-plan.md).** This first draft is kept as the starting point it came from. Its open decisions were answered and carried into the blank-slate plan.
+
 Drafted 2026-10-09. Status: **proposal awaiting the user's decisions** (see the last section). If adopted, this replaces the scoring direction in the [ETF scoring roadmap](etf-scoring-roadmap.md) (M4–M9) and the Core/Full/execution formulas in the [independent Grand Score plan](etf-independent-grand-score-plan.md). The metric definitions in the [ETF page plan](etf-page-plan.md) still apply.
 
 ## Goal

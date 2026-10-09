@@ -1,5 +1,7 @@
 # ETF scoring master roadmap
 
+> **Superseded 2026-10-09.** The current ETF ranking direction is the [blank-slate plan](etf-blank-slate-ranking-plan.md). This roadmap is kept unchanged as the record of the M1–M4 equity-index work. Its milestone gates no longer govern new ETF work.
+
 Last updated: 2026-10-07. **Start here for current status and delivery order.**
 
 **Current milestone: M4 — durable acquisition, storage and refresh.** M3 passed its restricted validation gate on 2026-10-07; its dated report, retained artifact and return-source evidence are linked below. Three funds remain blocked because their official iShares return tables do not reconcile with Yahoo and a second provider. M2 passed its specification gate; see the [M2 candidate specification](etf-scoring-m2-handoff.md). The historical point-in-time fee branch remains blocked. M4 has a conservative data-use policy: automated provider requests are blocked and retention remains unresolved pending applicable source permissions; see the [readiness record](etf-scoring-m4-readiness-2026-10-07.md). Passing M3 does not authorize score publication in Browse funds.
