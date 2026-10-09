@@ -1,12 +1,14 @@
 # ETF quantitative comparison implementation plan
 
-Requested: 2026-10-06. Status: phased implementation in progress as of 2026-10-06. See [the dated coverage and phase report](etf-quantitative-coverage-2026-10-06.md) and [source/readiness manifest](etf-quantitative-readiness.json). Provider-gated benchmarks, risk-free returns, full holdings, scoring, raw-history storage, and matched-date charts are not treated as ready.
+Requested: 2026-10-06. Status: phased implementation in progress as of 2026-10-06. See [the dated coverage and phase report](etf-archive/etf-quantitative-coverage-2026-10-06.md) and [source/readiness manifest](etf-archive/etf-quantitative-readiness.json). Provider-gated benchmarks, risk-free returns, full holdings, scoring, raw-history storage, and matched-date charts are not treated as ready.
 
 ## Outcome
 
 Extend `/etf` so users can distinguish ETFs quantitatively beyond CAGR. Include **Sharpe, Sortino, Calmar, rolling returns, benchmark-relative performance, and index tracking quality**, with selectable sortable columns and a comparison view. Fetch financial inputs from providers and calculate statistics on the server. Never hardcode fund returns, ratios, yields, expenses, or rankings.
 
 This extends [the existing ETF page plan](etf-page-plan.md). Keep Explore, Compare, and Shortlist. Preserve all catalogue entries and explicit unresolved identities. Historical statistics describe past outcomes; the UI must not present them as forecasts or universal buy recommendations.
+
+Scoring update, 2026-10-06: [the independent Grand Score plan](etf-archive/etf-independent-grand-score-plan.md) supersedes this document's score-related peer percentiles, minimum-peer requirement, weights, and scoring release instructions. The new direction is 60% Fund Quality plus 40% Historical Performance using fixed rules for each eligible fund. The remaining quantitative metric and source requirements still apply; scoring is not yet implemented.
 
 ## Current implementation and gaps
 
