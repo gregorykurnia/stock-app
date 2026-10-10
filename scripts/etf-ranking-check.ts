@@ -1,36 +1,18 @@
-// Phase 2 check: runs lib/etfRanking.ts over the 222 Phase 1 entries and the local Tiingo pull.
+// Phase 2/3 check: runs lib/etfRanking.ts over the 222 Phase 1 entries and the local Tiingo pull.
 // Raw price files stay outside the repo. Set ETF_RANKING_RAW_DIR to the folder holding <TICKER>.json files,
 // and ETF_RANKING_OUT_DIR to a folder for the JSON output. Neither output is committed.
+// Phase 3 additions: builds the stored-run document in memory, measures its size, and reproduces it from its
+// stored inputs. Nothing is written to Firestore.
 import fs from "node:fs";
 import path from "node:path";
-import { assessEligibility, monthEndLevels, rankFunds, type ProductClass, type RankingBar, type RankingFundInput } from "../lib/etfRanking";
+import { assessEligibility, monthEndLevels, rankFunds, type RankingBar, type RankingFundInput } from "../lib/etfRanking";
+import { CASH_TICKER, fundInputMetaFromCsv, parseCsv } from "../lib/etfRankingInputs";
+import { buildStoredRun, reproduceStoredRun, type RankingSnapshot } from "../lib/etfRankingRun";
 
 const CUTOFF = "2026-09-30";
 const REPO = process.cwd();
 const RAW_DIR = process.env.ETF_RANKING_RAW_DIR ?? path.join(process.env.HOME ?? "", ".stock-app-local/etf-ranking/tiingo-raw");
 const OUT_DIR = process.env.ETF_RANKING_OUT_DIR ?? path.join(RAW_DIR, "..", "out");
-
-// RFC 4180 subset: quoted fields may contain commas and doubled quotes.
-function parseCsv(text: string): Array<Record<string, string>> {
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let field = "";
-  let quoted = false;
-  for (let index = 0; index < text.length; index += 1) {
-    const char = text[index];
-    if (quoted) {
-      if (char === '"' && text[index + 1] === '"') { field += '"'; index += 1; }
-      else if (char === '"') quoted = false;
-      else field += char;
-    } else if (char === '"') quoted = true;
-    else if (char === ",") { row.push(field); field = ""; }
-    else if (char === "\n") { row.push(field); rows.push(row); row = []; field = ""; }
-    else if (char !== "\r") field += char;
-  }
-  if (field || row.length) { row.push(field); rows.push(row); }
-  const [header, ...body] = rows;
-  return body.map((values) => Object.fromEntries(header.map((name, index) => [name, values[index] ?? ""])));
-}
 
 interface TiingoBar { date: string; close: number; adjClose: number; volume: number }
 
@@ -41,27 +23,21 @@ function loadBars(ticker: string): RankingBar[] {
     .sort((left, right) => left.date.localeCompare(right.date));
 }
 
-// Phase 1 records leveraged and ETN status only in its reason text, so the script reads it back from there.
-function productClassOf(row: Record<string, string>): ProductClass {
-  if (row.structure === "operating-company-stock" || row.structure === "closed-end-fund") return "excluded";
-  if (row.structure === "ETN") return "etn";
-  if (row.eligibility_reason.startsWith("leveraged/inverse")) return "leveraged_inverse";
-  return "standard";
-}
-
 const csvPath = path.join(REPO, "data/etf-ranking-inputs.csv");
 const rows = parseCsv(fs.readFileSync(csvPath, "utf8"));
-const cashBars = loadBars("BIL");
+const metas = fundInputMetaFromCsv(rows);
+const barsByTicker: Record<string, RankingBar[]> = Object.fromEntries(metas.map((meta) => [meta.ticker, loadBars(meta.ticker)]));
+const cashBars = barsByTicker[CASH_TICKER];
 
-const inputs: RankingFundInput[] = rows.map((row) => ({
-  ticker: row.ticker,
-  structure: row.structure,
-  productClass: productClassOf(row),
-  legalFormVerified: row.legal_form_verified === "yes",
-  netExpenseRatioPct: row.net_expense_ratio_pct === "" ? null : Number(row.net_expense_ratio_pct),
-  aumUsd: row.aum_usd === "" ? null : Number(row.aum_usd),
-  aumAsOf: row.aum_as_of === "" ? null : row.aum_as_of,
-  bars: loadBars(row.ticker),
+const inputs: RankingFundInput[] = metas.map((meta) => ({
+  ticker: meta.ticker,
+  structure: meta.structure,
+  productClass: meta.productClass,
+  legalFormVerified: meta.legalFormVerified,
+  netExpenseRatioPct: meta.netExpenseRatioPct,
+  aumUsd: meta.aumUsd,
+  aumAsOf: meta.aumAsOf,
+  bars: barsByTicker[meta.ticker],
 }));
 
 // Re-derive each state from the inputs and compare with Phase 1.
@@ -76,10 +52,24 @@ for (const input of inputs) {
 
 const run = rankFunds(inputs, { cutoff: CUTOFF, cashBars });
 
+// Phase 3: the stored-run document, its size, and a reproduction from the stored form.
+const snapshot: RankingSnapshot = { cutoff: CUTOFF, metas, barsByTicker };
+const stored = buildStoredRun(snapshot, "2026-10-10T00:00:00.000Z");
+const storedJson = JSON.stringify(stored);
+const storedBytes = Buffer.byteLength(storedJson, "utf8");
+const scoresOnly = (funds: unknown) => JSON.stringify(funds, (key, value) => (key === "flags" ? undefined : value));
+const storedScoresMatchRun = scoresOnly(stored.funds) === scoresOnly(JSON.parse(JSON.stringify(run.funds)));
+const reproduction = reproduceStoredRun(JSON.parse(storedJson), barsByTicker);
+// Tamper check: one changed volume must change the input hash.
+const tamperedBars = { ...barsByTicker, VOO: barsByTicker.VOO.map((bar, index) => (index === 0 ? { ...bar, volume: bar.volume + 1 } : bar)) };
+const tamperedHashMatches = reproduceStoredRun(JSON.parse(storedJson), tamperedBars).hashMatches;
+
 const stateCounts: Record<string, number> = {};
 for (const fund of run.funds) stateCounts[fund.state] = (stateCounts[fund.state] ?? 0) + 1;
 const ranked = run.funds.filter((fund) => fund.state === "Ranked");
 const scored = ranked.filter((fund) => fund.grand != null);
+const flagCounts: Record<string, number> = {};
+for (const fund of stored.funds) for (const flag of fund.flags) flagCounts[flag] = (flagCounts[flag] ?? 0) + 1;
 const summary = {
   methodVersion: run.methodVersion,
   cutoff: CUTOFF,
@@ -95,6 +85,15 @@ const summary = {
     counts[key] = (counts[key] ?? 0) + 1;
     return counts;
   }, {}),
+  storedRun: {
+    bytes: storedBytes,
+    shareOfFirestoreLimit: Number((storedBytes / 1_048_576).toFixed(3)),
+    inputHash: stored.inputHash,
+    storedScoresMatchRun,
+    reproducesFromStoredInputs: reproduction.hashMatches && reproduction.scoresMatch,
+    tamperedVolumeChangesHash: !tamperedHashMatches,
+    flagCounts,
+  },
 };
 
 fs.mkdirSync(OUT_DIR, { recursive: true });
