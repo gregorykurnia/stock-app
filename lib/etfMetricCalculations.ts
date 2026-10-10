@@ -145,7 +145,7 @@ function returnsFromLevels(levels: MonthlyLevel[]): number[] {
   return levels.slice(1).map((level, index) => level.adjustedClose / levels[index].adjustedClose - 1);
 }
 
-function dailyDrawdownForWindow(bars: ETFPriceBar[], startDate: string, endDate: string) {
+export function dailyDrawdownForWindow(bars: ETFPriceBar[], startDate: string, endDate: string) {
   const window = bars.filter((bar) => bar.date >= startDate && bar.date <= endDate && Number.isFinite(bar.adjustedClose) && bar.adjustedClose > 0);
   if (window.length < 2) return { value: null, recovery: null, recoveryState: "Insufficient daily observations", peakDate: null, troughDate: null, recoveryDate: null, underwaterDays: null, elapsedUnderwaterTradingDays: null };
 

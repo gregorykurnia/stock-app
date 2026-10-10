@@ -308,4 +308,5 @@ Status key:
 ## 11. Change log
 
 - 2026-10-09: The 15 dated-record and superseded files were moved into `docs/etf-archive/`, with links updated. Index: `docs/etf-index.md`. Nothing was deleted.
+- 2026-10-10: Phase 2 scoring module (`lib/etfRanking.ts`, method `rank-v1`) built and tested. Exit check and open items in `docs/etf-ranking/reports/phase2-scoring-2026-10-10.md`. Horizon blend weights checked against Morningstar's published methodology and confirmed. Tiingo volume consolidation is still open.
 - 2026-10-09: Blank-slate plan written. Supersedes the ranking draft and the scoring direction of the M1–M9 roadmap. Decisions 1 and 2 confirmed by Greg; decisions 3–5 taken from the draft's recommendations.
