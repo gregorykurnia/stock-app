@@ -20,7 +20,7 @@ function sessionBars(startDate: string, endDate: string): TiingoDailyBar[] {
     const date = cursor.toISOString().slice(0, 10);
     if (isUsEquityTradingSession(date)) {
       const adjustedClose = 100 + result.length / 10;
-      result.push({ date, close: adjustedClose, adjustedClose, dividendCash: 0, splitFactor: 1 });
+      result.push({ date, close: adjustedClose, adjustedClose, volume: 1_000_000, dividendCash: 0, splitFactor: 1 });
     }
     cursor.setUTCDate(cursor.getUTCDate() + 1);
   }

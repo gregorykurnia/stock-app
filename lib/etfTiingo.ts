@@ -1,33 +1,13 @@
 import "server-only";
+import { parseTiingoDailyBars, type TiingoDailyBar } from "./etfTiingoParse";
 
-export interface TiingoDailyBar {
-  date: string;
-  close: number;
-  adjustedClose: number;
-  dividendCash: number;
-  splitFactor: number;
-}
+export type { TiingoDailyBar } from "./etfTiingoParse";
 
 export class TiingoRequestError extends Error {
   constructor(message: string, readonly status: number | null = null) {
     super(message);
     this.name = "TiingoRequestError";
   }
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function parseDate(value: unknown): string | null {
-  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}/.test(value)) return null;
-  const date = value.slice(0, 10);
-  const parsed = new Date(`${date}T00:00:00Z`);
-  return Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== date ? null : date;
-}
-
-function finiteNumber(value: unknown): number | null {
-  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 /** Reads Tiingo EOD data from the server with the token sent only in an authorization header. */
@@ -63,23 +43,7 @@ export async function fetchTiingoDailyHistory(
   } catch {
     throw new TiingoRequestError("Tiingo EOD response was not valid JSON.");
   }
-  if (!Array.isArray(payload)) throw new TiingoRequestError("Tiingo EOD response did not contain a daily-bar array.");
-
-  const bars = payload.map((item): TiingoDailyBar | null => {
-    if (!isRecord(item)) return null;
-    const date = parseDate(item.date);
-    const close = finiteNumber(item.close);
-    const adjustedClose = finiteNumber(item.adjClose);
-    const dividendCash = finiteNumber(item.divCash);
-    const splitFactor = finiteNumber(item.splitFactor);
-    if (!date || close == null || close <= 0 || adjustedClose == null || adjustedClose <= 0
-      || dividendCash == null || dividendCash < 0 || splitFactor == null || splitFactor <= 0) return null;
-    return { date, close, adjustedClose, dividendCash, splitFactor };
-  });
-  if (bars.some((bar) => bar === null)) throw new TiingoRequestError("Tiingo EOD response contains a malformed daily bar.");
-  const result = (bars as TiingoDailyBar[]).sort((left, right) => left.date.localeCompare(right.date));
-  if (result.some((bar, index) => index > 0 && result[index - 1].date === bar.date)) {
-    throw new TiingoRequestError("Tiingo EOD response contains duplicate session dates.");
-  }
-  return result;
+  const parsed = parseTiingoDailyBars(payload);
+  if ("error" in parsed) throw new TiingoRequestError(parsed.error);
+  return parsed.bars;
 }
