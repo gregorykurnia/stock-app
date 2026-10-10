@@ -1,6 +1,6 @@
 import { doc, getDoc, runTransaction } from "firebase/firestore";
-import { db } from "@/lib/firebase";
-import type { StoredRankingRun } from "@/lib/etfRankingRun";
+import { db } from "./firebase";
+import type { StoredRankingRun } from "./etfRankingRun";
 
 // Stored runs live at etf_rankings/{cutoff} (plan Section 6). Only this module and the read route touch the collection.
 const COLLECTION = "etf_rankings";
